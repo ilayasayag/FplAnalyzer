@@ -10244,12 +10244,39 @@
             const squads = importedLeagueData.squads || {};
             const fixtures = importedBootstrap.fixtures || {};
             const gwFixtures = fixtures[String(gameweek)] || [];
+            const teams = importedBootstrap.teams || [];
+            
+            // Build team strength map for FDR calculation
+            const teamStrength = {};
+            teams.forEach(t => {
+                const avgStrength = ((t.strength_overall_home || 1000) + (t.strength_overall_away || 1000)) / 2;
+                teamStrength[t.id] = avgStrength;
+            });
+            
+            // Calculate FDR based on opponent strength (1=easiest, 5=hardest)
+            function calculateFDR(opponentId) {
+                const strength = teamStrength[opponentId] || 1000;
+                // Scale strength (typically 900-1400) to FDR (1-5)
+                if (strength >= 1300) return 5;
+                if (strength >= 1200) return 4;
+                if (strength >= 1100) return 3;
+                if (strength >= 1000) return 2;
+                return 1;
+            }
             
             // Build team fixture map
             const teamFixtureMap = {};
             gwFixtures.forEach(fix => {
-                teamFixtureMap[fix.team_h] = { opponent: fix.team_a, isHome: true, fdr: fix.team_h_difficulty || 3 };
-                teamFixtureMap[fix.team_a] = { opponent: fix.team_h, isHome: false, fdr: fix.team_a_difficulty || 3 };
+                teamFixtureMap[fix.team_h] = { 
+                    opponent: fix.team_a, 
+                    isHome: true, 
+                    fdr: fix.team_h_difficulty || calculateFDR(fix.team_a)
+                };
+                teamFixtureMap[fix.team_a] = { 
+                    opponent: fix.team_h, 
+                    isHome: false, 
+                    fdr: fix.team_a_difficulty || calculateFDR(fix.team_h)
+                };
             });
             
             const predictions = [];
@@ -10292,36 +10319,41 @@
         
         // Calculate prediction for a single player
         function calculatePlayerPrediction(playerId, teamFixtureMap, gameweek) {
-            const player = fplElementMap[playerId];
-            if (!player) {
+            // Get player from processed map AND raw bootstrap for complete data
+            const playerMap = fplElementMap[playerId];
+            const playerRaw = importedBootstrap?.elements?.find(e => e.id === playerId);
+            
+            if (!playerMap && !playerRaw) {
                 return { playerId, name: 'Unknown', pos: '?', team: '?', predicted: 0, breakdown: {} };
             }
             
-            const pos = fplPositionMap[player.element_type] || '?';
-            const teamId = player.team;
-            const teamName = fplTeamIdMap[teamId] || '?';
+            // Use mapped data (correctly formatted) or fallback to raw
+            const pos = playerMap?.position || fplPositionMap[playerRaw?.element_type] || '?';
+            const teamId = playerMap?.teamId || playerRaw?.team;
+            const teamName = playerMap?.team || fplTeamIdMap[teamId] || '?';
+            const playerName = playerMap?.name || playerRaw?.web_name || 'Unknown';
             const fixture = teamFixtureMap[teamId];
             
             if (!fixture) {
                 return { 
                     playerId, 
-                    name: player.web_name, 
+                    name: playerName, 
                     pos, 
                     team: teamName, 
                     predicted: 0, 
                     opponent: 'BYE',
                     isHome: false,
                     fdr: 3,
-                    breakdown: {} 
+                    breakdown: { goals: 0, assists: 0, cs: 0, saves: 0, bonus: 0, minutes: 0 } 
                 };
             }
             
             const opponentName = fplTeamIdMap[fixture.opponent] || '?';
             
-            // Get player stats
-            const form = parseFloat(player.form) || 0;
-            const ppg = parseFloat(player.points_per_game) || 0;
-            const totalPoints = player.total_points || 0;
+            // Get player stats - use mapped data or raw
+            const form = playerMap?.form || parseFloat(playerRaw?.form) || 0;
+            const ppg = playerMap?.ppg || parseFloat(playerRaw?.points_per_game) || 0;
+            const totalPoints = playerMap?.totalPoints || playerRaw?.total_points || 0;
             
             // Get detailed history
             const details = importedPlayerDetails?.[String(playerId)];
@@ -10352,8 +10384,8 @@
             
             // Availability check
             let availMult = 1.0;
-            const status = player.status;
-            const chance = player.chance_of_playing_next_round;
+            const status = playerRaw?.status || playerMap?.status || 'a';
+            const chance = playerRaw?.chance_of_playing_next_round ?? playerMap?.chanceOfPlaying ?? null;
             
             if (status === 'u' || status === 'i') {
                 availMult = 0;
@@ -10371,14 +10403,14 @@
             
             return {
                 playerId,
-                name: player.web_name,
+                name: playerName,
                 pos,
                 team: teamName,
                 teamId,
                 opponent: opponentName,
                 opponentId: fixture.opponent,
                 isHome: fixture.isHome,
-                fdr: fixture.fdr,
+                fdr: fixture.fdr || 3,
                 predicted: Math.round(predicted * 10) / 10,
                 breakdown,
                 form,
