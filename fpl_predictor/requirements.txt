@@ -1,0 +1,24 @@
+# FPL Score Predictor Dependencies
+
+# Core
+requests>=2.31.0
+python-dateutil>=2.8.2
+
+# Data processing
+numpy>=1.24.0
+pandas>=2.0.0
+
+# CLI interface
+rich>=13.0.0
+click>=8.1.0
+
+# Web API
+flask>=3.0.0
+flask-cors>=4.0.0
+
+# Configuration
+python-dotenv>=1.0.0
+
+# Type hints
+typing-extensions>=4.8.0
+

@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FPL Fixture Rotation Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         
@@ -804,16 +805,6 @@
         @keyframes pulse-border {
             0%, 100% { box-shadow: 0 0 5px var(--accent-emerald); }
             50% { box-shadow: 0 0 20px var(--accent-emerald); }
-        }
-        
-        @keyframes slideIn {
-            from { transform: translateX(100%); opacity: 0; }
-            to { transform: translateX(0); opacity: 1; }
-        }
-        
-        @keyframes slideOut {
-            from { transform: translateX(0); opacity: 1; }
-            to { transform: translateX(100%); opacity: 0; }
         }
         
         .draft-round-info {
@@ -2347,6 +2338,42 @@
 
                 <!-- League Analysis Results -->
                 <div id="leagueAnalysisResults" style="display: none;">
+                    <!-- Export Stats Header -->
+                    <div class="stat-card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.1)); border: 2px solid var(--accent-cyan);">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                            <div>
+                                <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;">📊 League Data Loaded</h3>
+                                <div id="exportDataInfo" style="color: var(--text-secondary); font-size: 0.85rem;"></div>
+                            </div>
+                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+                                <div class="export-dropdown" style="position: relative;">
+                                    <button onclick="toggleExportDropdown()" class="btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
+                                        📥 Export Stats
+                                        <span style="font-size: 0.7rem;">▼</span>
+                                    </button>
+                                    <div id="exportDropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 0.5rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; min-width: 220px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                                        <button onclick="exportAllAsZip()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+                                            📦 Export All (ZIP)
+                                        </button>
+                                        <button onclick="exportRawData()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+                                            🔧 Raw Data (Python)
+                                        </button>
+                                        <button onclick="exportPredictions()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+                                            🎯 GW Predictions
+                                        </button>
+                                        <button onclick="exportPlayerRankings()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+                                            📈 Player Rankings
+                                        </button>
+                                        <button onclick="exportLeagueStats()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
+                                            🏆 League Stats
+                                        </button>
+                                    </div>
+                                </div>
+                                <button onclick="checkClipboardForData()" class="btn-secondary">🔄 Refresh Data</button>
+                            </div>
+                        </div>
+                    </div>
+                    
                     <!-- League Overview -->
                     <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
                         <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">🏆 League Overview</h3>
@@ -6909,11 +6936,6 @@
                     buildElementMap();
                 }
                 
-                // Apply transactions to update squads with trades/waivers
-                if (importedLeagueData?.squads && importedLeagueData?.transactions) {
-                    applyTransactionsToSquads();
-                }
-                
                 // Show saved data status
                 const savedAt = savedData.savedAt ? new Date(savedData.savedAt) : null;
                 const statusDiv = document.getElementById('savedDataStatus');
@@ -6927,9 +6949,6 @@
                             </span>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
-                            <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem;">
-                                📋 Import from Clipboard
-                            </button>
                             <button onclick="renderLeagueAnalysis()" style="padding: 0.5rem 1rem; background: var(--accent-emerald); font-size: 0.85rem;">
                                 📊 Show Analysis
                             </button>
@@ -6945,83 +6964,6 @@
                     renderLeagueAnalysis();
                 }
             }
-            
-            // Listen for tab focus to try auto-import from clipboard
-            document.addEventListener('visibilitychange', function() {
-                if (document.visibilityState === 'visible') {
-                    tryAutoImportFromClipboard(true); // silent mode
-                }
-            });
-        }
-        
-        // Try to import FPL data from clipboard
-        async function tryAutoImportFromClipboard(silent = false) {
-            try {
-                const clipText = await navigator.clipboard.readText();
-                if (clipText && clipText.includes('"league"') && clipText.includes('"bootstrap"') && clipText.includes('"playerDetails"')) {
-                    const parsed = JSON.parse(clipText);
-                    if (parsed.league && parsed.bootstrap && parsed.playerDetails) {
-                        // Check if this is newer data than what we have
-                        const newFetchedAt = parsed.fetchedAt ? new Date(parsed.fetchedAt) : new Date();
-                        const currentFetchedAt = importedLeagueData?.fetchedAt ? new Date(importedLeagueData.fetchedAt) : null;
-                        
-                        if (!currentFetchedAt || newFetchedAt > currentFetchedAt) {
-                            // Import the new data
-                            document.getElementById('leagueDataInput').value = clipText;
-                            processLeagueData();
-                            
-                            if (!silent) {
-                                // Show success notification
-                                showNotification('✅ New data imported from clipboard!', 'success');
-                            } else {
-                                // Show subtle notification for auto-import
-                                showNotification('🔄 Data auto-updated from clipboard!', 'info');
-                            }
-                        } else if (!silent) {
-                            showNotification('ℹ️ Clipboard data is same or older than current data', 'info');
-                        }
-                    }
-                } else if (!silent) {
-                    showNotification('❌ No valid FPL data found in clipboard', 'error');
-                }
-            } catch (e) {
-                if (!silent) {
-                    showNotification('⚠️ Cannot read clipboard. Please paste manually or drag the JSON file.', 'warning');
-                }
-            }
-        }
-        
-        // Show notification toast
-        function showNotification(message, type = 'info') {
-            const colors = {
-                success: 'var(--accent-emerald)',
-                error: 'var(--accent-rose)',
-                warning: 'var(--accent-amber)',
-                info: 'var(--accent-cyan)'
-            };
-            
-            const toast = document.createElement('div');
-            toast.style.cssText = `
-                position: fixed;
-                top: 20px;
-                right: 20px;
-                padding: 1rem 1.5rem;
-                background: var(--bg-secondary);
-                border: 2px solid ${colors[type]};
-                border-radius: 12px;
-                color: var(--text-primary);
-                font-weight: 500;
-                z-index: 10000;
-                animation: slideIn 0.3s ease;
-                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
-            `;
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            
-            setTimeout(() => {
-                toast.style.animation = 'slideOut 0.3s ease';
-                setTimeout(() => toast.remove(), 300);
-            }, 3000);
         }
         
         function generateBookmarklet() {
@@ -7126,7 +7068,7 @@
                 }
             }
             
-            // Find top 100 free agents by total points
+            // Find top 50 free agents by total points
             status.textContent = 'Finding top free agents...';
             const freeAgentIds = [];
             if (results.elements && results.elements.element_status && results.bootstrap && results.bootstrap.elements) {
@@ -7142,28 +7084,15 @@
                         return { id, points: player ? player.total_points : 0 };
                     })
                     .sort((a, b) => b.points - a.points)
-                    .slice(0, 100); // Increased from 50 to 100
+                    .slice(0, 50);
                 
                 freeAgentsWithPoints.forEach(fa => freeAgentIds.push(fa.id));
             }
             
-            // Also collect player IDs from transactions (traded/waivered players)
-            const transactionPlayerIds = new Set();
-            if (results.transactions && results.transactions.transactions) {
-                results.transactions.transactions.forEach(function(trans) {
-                    if (trans.element_in) transactionPlayerIds.add(trans.element_in);
-                    if (trans.element_out) transactionPlayerIds.add(trans.element_out);
-                });
-            }
+            // Combine owned + top free agents
+            const allPlayerIds = [...Array.from(ownedPlayerIds), ...freeAgentIds];
             
-            // Combine: owned + top 50 free agents + transaction players (remove duplicates)
-            const allPlayerIds = [...new Set([
-                ...Array.from(ownedPlayerIds), 
-                ...freeAgentIds,
-                ...Array.from(transactionPlayerIds)
-            ])];
-            
-            // Fetch detailed stats for all players
+            // Fetch detailed stats for all players (owned + top 50 free agents)
             status.textContent = 'Fetching player details (0/' + allPlayerIds.length + ')...';
             results.playerDetails = {};
             const playerIds = allPlayerIds;
@@ -7187,24 +7116,11 @@
             // Add timestamp
             results.fetchedAt = new Date().toISOString();
             
-            // Debug: count how many player details have history
-            let playersWithHistory = 0;
-            let playersWithoutHistory = 0;
-            Object.keys(results.playerDetails).forEach(function(pid) {
-                const pd = results.playerDetails[pid];
-                if (pd && pd.history && pd.history.length > 0) {
-                    playersWithHistory++;
-                } else {
-                    playersWithoutHistory++;
-                }
-            });
-            
             // Prepare JSON
             status.textContent = 'Preparing data...';
             const jsonStr = JSON.stringify(results, null, 2);
             const ownedCount = ownedPlayerIds.size;
             const freeAgentCount = freeAgentIds.length;
-            const transactionCount = transactionPlayerIds.size;
             
             // Try to copy to clipboard
             let copied = false;
@@ -7226,19 +7142,16 @@
             overlay.innerHTML = '<div style="font-size:28px;color:#10b981;margin-bottom:20px;">✅ Success!</div>' +
                 '<div style="font-size:18px;margin-bottom:15px;font-weight:bold;">Data Ready!</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">League: ' + (results.league.league?.name || 'Unknown') + '</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong></div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong> (current)</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + entries.length + ' teams (' + ownedCount + ' owned players)</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' free agents + ' + transactionCount + ' from transactions</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players fetched (' + playersWithHistory + ' with history, ' + playersWithoutHistory + ' without)</div>' +
-                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
-                '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
-                    '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
-                    '<div style="font-size:13px;color:#94a3b8;">Data copied to clipboard. Just <strong style="color:#10b981;">switch back to the Analyzer tab</strong> and it will auto-update!</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' top free agents with detailed stats</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players with GW history</div>' +
+                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:20px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
+                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;">' +
+                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:16px 32px;background:#10b981;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;text-decoration:none;color:#000;display:inline-block;">💾 Download JSON File</a>' +
+                    '<button id="fplCopyBtn" style="padding:16px 32px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;">📋 Copy to Clipboard</button>' +
                 '</div>' +
-                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:15px;">' +
-                    '<button id="fplCopyBtn" style="padding:14px 28px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">📋 Copy Again</button>' +
-                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:14px 28px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;text-decoration:none;color:#fff;display:inline-block;">💾 Download Backup</a>' +
-                '</div>' +
+                '<div style="font-size:12px;color:#64748b;margin-bottom:15px;">Download the file, then drag it into the FPL Analyzer<br>Or copy and paste the data manually</div>' +
                 '<button onclick="this.parentElement.remove()" style="padding:10px 20px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Close</button>';
             
             // Store for copy button
@@ -7324,17 +7237,8 @@
                         if (parsed.currentEvent) {
                             importedLeagueData.currentEvent = parsed.currentEvent;
                         }
-                        // Store when the data was fetched
-                        if (parsed.fetchedAt) {
-                            importedLeagueData.fetchedAt = parsed.fetchedAt;
-                        }
-                        // CRITICAL: Import player details (GW history) from bookmarklet data
-                        if (parsed.playerDetails) {
-                            importedPlayerDetails = parsed.playerDetails;
-                        }
                         const gwInfo = parsed.currentEvent ? ` (Squads for GW${parsed.currentEvent})` : '';
-                        const playerDetailsCount = parsed.playerDetails ? Object.keys(parsed.playerDetails).length : 0;
-                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + ' (' + playerDetailsCount + ' players with GW history)</div>';
+                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + '</div>';
                         hasData = true;
                     } else if (parsed.league) {
                         importedLeagueData = parsed;
@@ -7396,11 +7300,6 @@
                         importedPlayerDetails = parsed.playerDetails;
                     }
                 } catch(e) {}
-            }
-            
-            // Apply transactions to update squads with trades/waivers
-            if (importedLeagueData?.squads && importedLeagueData?.transactions) {
-                applyTransactionsToSquads();
             }
             
             // Check what data we have
@@ -7481,69 +7380,603 @@
             return { name: 'Unknown (' + elementId + ')', team: 'Unknown', position: 'Unknown' };
         }
         
+        // =====================================================================
+        // EXPORT STATS FUNCTIONS
+        // =====================================================================
+        
+        function toggleExportDropdown() {
+            const dropdown = document.getElementById('exportDropdown');
+            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
+        }
+        
+        // Close dropdown when clicking outside
+        document.addEventListener('click', function(e) {
+            const dropdown = document.getElementById('exportDropdown');
+            const button = e.target.closest('.export-dropdown');
+            if (!button && dropdown) {
+                dropdown.style.display = 'none';
+            }
+        });
+        
+        function downloadJSON(data, filename) {
+            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+        
+        function showExportToast(message) {
+            const toast = document.createElement('div');
+            toast.style.cssText = 'position: fixed; bottom: 2rem; right: 2rem; background: var(--accent-emerald); color: #000; padding: 1rem 1.5rem; border-radius: 8px; font-weight: 600; z-index: 10000; animation: fadeIn 0.3s ease;';
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+        
+        function updateExportDataInfo() {
+            const infoDiv = document.getElementById('exportDataInfo');
+            if (!infoDiv) return;
+            
+            const currentGW = getCurrentGameweek();
+            const fetchedAt = importedLeagueData?.fetchedAt ? new Date(importedLeagueData.fetchedAt).toLocaleString() : 'Unknown';
+            const totalPlayers = Object.keys(fplElementMap).length;
+            const leagueName = importedLeagueData?.league?.name || 'Unknown League';
+            
+            infoDiv.innerHTML = `
+                <span>📅 Fetched: ${fetchedAt}</span> • 
+                <span>🎯 GW${currentGW}</span> • 
+                <span>👥 ${totalPlayers} players</span> • 
+                <span>🏆 ${leagueName}</span>
+            `;
+        }
+        
+        // Export 1: Raw Data for Python Predictor
+        function exportRawData() {
+            toggleExportDropdown();
+            
+            const rawData = {
+                type: 'fpl_raw_data',
+                exportedAt: new Date().toISOString(),
+                currentGameweek: getCurrentGameweek(),
+                league: importedLeagueData,
+                elements: importedElementStatus,
+                bootstrap: importedBootstrap,
+                playerDetails: importedPlayerDetails
+            };
+            
+            downloadJSON(rawData, `fpl_raw_data_gw${getCurrentGameweek()}.json`);
+            showExportToast('✅ Raw data exported for Python predictor');
+        }
+        
+        // Export 2: GW Predictions
+        function exportPredictions() {
+            toggleExportDropdown();
+            
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            const matches = importedLeagueData?.matches || [];
+            
+            // Get GW matches
+            const gwMatches = matches.filter(m => m.event === currentGW);
+            
+            const predictions = {
+                type: 'fpl_predictions',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                leagueName: importedLeagueData?.league?.name || 'Unknown',
+                teams: [],
+                headToHead: []
+            };
+            
+            // Process each team
+            entries.forEach(entry => {
+                const entryId = entry.entry_id;
+                const squadData = squads[entryId];
+                if (!squadData || !squadData.picks) return;
+                
+                const players = squadData.picks.map(pick => {
+                    const playerId = pick.element;
+                    const playerInfo = getPlayerDetailedInfo(playerId);
+                    const predicted = calculatePredictedPoints(playerInfo, 5);
+                    const gwPredicted = calculatePlayerGWPoints(playerInfo, currentGW);
+                    
+                    return {
+                        id: playerId,
+                        name: playerInfo?.name || 'Unknown',
+                        position: playerInfo?.position || 'UNK',
+                        team: playerInfo?.team || 'Unknown',
+                        isCaptain: pick.is_captain,
+                        isViceCaptain: pick.is_vice_captain,
+                        multiplier: pick.multiplier,
+                        predictedGW: gwPredicted,
+                        predicted5GW: predicted.total,
+                        form: playerInfo?.form || 0,
+                        ppg: playerInfo?.ppg || 0,
+                        totalPoints: playerInfo?.totalPoints || 0,
+                        fixtureDifficulty: getFixtureDifficulty(playerInfo?.team, currentGW),
+                        predictions: predicted.perGW
+                    };
+                });
+                
+                // Select optimal 11
+                const optimal11 = selectOptimal11(players, currentGW);
+                const totalPredicted = optimal11.players.reduce((sum, p) => sum + (p.predictedGW || 0), 0);
+                
+                predictions.teams.push({
+                    entryId: entryId,
+                    teamName: entry.entry_name,
+                    managerName: `${entry.player_first_name} ${entry.player_last_name}`,
+                    totalPredictedPoints: Math.round(totalPredicted * 10) / 10,
+                    formation: optimal11.formation,
+                    optimal11: optimal11.players.map(p => ({
+                        name: p.name,
+                        position: p.position,
+                        predicted: p.predictedGW,
+                        fixture: getFixtureDifficulty(p.team, currentGW)
+                    })),
+                    fullSquad: players
+                });
+            });
+            
+            // Sort by predicted points
+            predictions.teams.sort((a, b) => b.totalPredictedPoints - a.totalPredictedPoints);
+            
+            // Add H2H predictions
+            gwMatches.forEach(match => {
+                const team1 = predictions.teams.find(t => {
+                    const entry = entries.find(e => e.id === match.league_entry_1);
+                    return entry && t.entryId === entry.entry_id;
+                });
+                const team2 = predictions.teams.find(t => {
+                    const entry = entries.find(e => e.id === match.league_entry_2);
+                    return entry && t.entryId === entry.entry_id;
+                });
+                
+                if (team1 && team2) {
+                    predictions.headToHead.push({
+                        team1: team1.teamName,
+                        team1Predicted: team1.totalPredictedPoints,
+                        team2: team2.teamName,
+                        team2Predicted: team2.totalPredictedPoints,
+                        predictedWinner: team1.totalPredictedPoints > team2.totalPredictedPoints ? team1.teamName : team2.teamName,
+                        margin: Math.abs(team1.totalPredictedPoints - team2.totalPredictedPoints)
+                    });
+                }
+            });
+            
+            downloadJSON(predictions, `fpl_predictions_gw${currentGW}.json`);
+            showExportToast(`✅ GW${currentGW} predictions exported`);
+        }
+        
+        // Export 3: Player Rankings
+        function exportPlayerRankings() {
+            toggleExportDropdown();
+            
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            
+            // Collect all owned players
+            const ownedPlayers = new Map();
+            
+            entries.forEach(entry => {
+                const squadData = squads[entry.entry_id];
+                if (!squadData || !squadData.picks) return;
+                
+                squadData.picks.forEach(pick => {
+                    const playerId = pick.element;
+                    if (!ownedPlayers.has(playerId)) {
+                        const playerInfo = getPlayerDetailedInfo(playerId);
+                        const predicted = calculatePredictedPoints(playerInfo, 5);
+                        
+                        // Calculate easy games in next 5 GWs
+                        let easyGames = 0;
+                        let hardGames = 0;
+                        for (let i = 0; i < 5; i++) {
+                            const diff = getFixtureDifficulty(playerInfo?.team, currentGW + i);
+                            if (diff === 'easy') easyGames++;
+                            else if (diff === 'hard') hardGames++;
+                        }
+                        
+                        ownedPlayers.set(playerId, {
+                            id: playerId,
+                            name: playerInfo?.name || 'Unknown',
+                            position: playerInfo?.position || 'UNK',
+                            team: playerInfo?.team || 'Unknown',
+                            owner: entry.entry_name,
+                            form: playerInfo?.form || 0,
+                            ppg: playerInfo?.ppg || 0,
+                            totalPoints: playerInfo?.totalPoints || 0,
+                            predicted5GW: predicted.total,
+                            easyGames: easyGames,
+                            hardGames: hardGames,
+                            goalsScored: playerInfo?.goalsScored || 0,
+                            assists: playerInfo?.assists || 0,
+                            cleanSheets: playerInfo?.cleanSheets || 0,
+                            bonus: playerInfo?.bonus || 0,
+                            minutesPlayed: playerInfo?.minutes || 0,
+                            last5Avg: playerInfo?.last5Avg || 0
+                        });
+                    }
+                });
+            });
+            
+            const playersArray = Array.from(ownedPlayers.values());
+            
+            // Create rankings object
+            const rankings = {
+                type: 'fpl_player_rankings',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                totalPlayers: playersArray.length,
+                
+                // By PPG
+                byPPG: [...playersArray].sort((a, b) => b.ppg - a.ppg).map((p, i) => ({ rank: i + 1, ...p })),
+                
+                // By Form
+                byForm: [...playersArray].sort((a, b) => b.form - a.form).map((p, i) => ({ rank: i + 1, ...p })),
+                
+                // By 5GW Predicted
+                byPredicted: [...playersArray].sort((a, b) => b.predicted5GW - a.predicted5GW).map((p, i) => ({ rank: i + 1, ...p })),
+                
+                // By Easy Fixtures
+                byEasyFixtures: [...playersArray].sort((a, b) => b.easyGames - a.easyGames || b.ppg - a.ppg).map((p, i) => ({ rank: i + 1, ...p })),
+                
+                // By Position
+                byPosition: {
+                    GK: playersArray.filter(p => p.position === 'GK').sort((a, b) => b.ppg - a.ppg),
+                    DEF: playersArray.filter(p => p.position === 'DEF').sort((a, b) => b.ppg - a.ppg),
+                    MID: playersArray.filter(p => p.position === 'MID').sort((a, b) => b.ppg - a.ppg),
+                    FWD: playersArray.filter(p => p.position === 'FWD').sort((a, b) => b.ppg - a.ppg)
+                }
+            };
+            
+            downloadJSON(rankings, `fpl_player_rankings_gw${currentGW}.json`);
+            showExportToast('✅ Player rankings exported');
+        }
+        
+        // Export 4: League Stats
+        function exportLeagueStats() {
+            toggleExportDropdown();
+            
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            const standings = importedLeagueData?.standings || [];
+            const matches = importedLeagueData?.matches || [];
+            
+            const leagueStats = {
+                type: 'fpl_league_stats',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                leagueName: importedLeagueData?.league?.name || 'Unknown',
+                leagueId: importedLeagueData?.league?.id,
+                
+                standings: standings.map(s => {
+                    const entry = entries.find(e => e.id === s.league_entry);
+                    return {
+                        rank: s.rank,
+                        teamName: entry?.entry_name || 'Unknown',
+                        manager: entry ? `${entry.player_first_name} ${entry.player_last_name}` : 'Unknown',
+                        wins: s.matches_won,
+                        draws: s.matches_drawn,
+                        losses: s.matches_lost,
+                        pointsFor: s.points_for,
+                        pointsAgainst: s.points_against,
+                        totalPoints: s.total
+                    };
+                }),
+                
+                teams: [],
+                
+                upcomingFixtures: matches.filter(m => m.event >= currentGW && m.event <= currentGW + 5).map(m => {
+                    const entry1 = entries.find(e => e.id === m.league_entry_1);
+                    const entry2 = entries.find(e => e.id === m.league_entry_2);
+                    return {
+                        gameweek: m.event,
+                        team1: entry1?.entry_name || 'Unknown',
+                        team2: entry2?.entry_name || 'Unknown',
+                        finished: m.finished,
+                        score: m.finished ? `${m.league_entry_1_points} - ${m.league_entry_2_points}` : 'TBD'
+                    };
+                })
+            };
+            
+            // Add detailed team stats
+            entries.forEach(entry => {
+                const squadData = squads[entry.entry_id];
+                if (!squadData || !squadData.picks) return;
+                
+                const players = squadData.picks.map(pick => {
+                    const playerInfo = getPlayerDetailedInfo(pick.element);
+                    return {
+                        name: playerInfo?.name || 'Unknown',
+                        position: playerInfo?.position || 'UNK',
+                        team: playerInfo?.team || 'Unknown',
+                        form: playerInfo?.form || 0,
+                        ppg: playerInfo?.ppg || 0,
+                        totalPoints: playerInfo?.totalPoints || 0
+                    };
+                });
+                
+                // Calculate NKD score
+                const nkdResult = analyzeSquadNKD(squadData);
+                
+                // Get standing
+                const standing = standings.find(s => {
+                    const e = entries.find(en => en.id === s.league_entry);
+                    return e && e.entry_id === entry.entry_id;
+                });
+                
+                leagueStats.teams.push({
+                    entryId: entry.entry_id,
+                    teamName: entry.entry_name,
+                    manager: `${entry.player_first_name} ${entry.player_last_name}`,
+                    rank: standing?.rank || 0,
+                    totalLeaguePoints: standing?.total || 0,
+                    squad: players,
+                    nkdScore: nkdResult?.weightedScore || 0,
+                    easyGWsCovered: nkdResult?.coveredGameweeks || 0,
+                    teamDistribution: getTeamDistribution(squadData)
+                });
+            });
+            
+            // Sort by rank
+            leagueStats.teams.sort((a, b) => a.rank - b.rank);
+            
+            downloadJSON(leagueStats, `fpl_league_stats_gw${currentGW}.json`);
+            showExportToast('✅ League stats exported');
+        }
+        
+        function getTeamDistribution(squadData) {
+            const distribution = {};
+            const picks = squadData?.picks || [];
+            
+            picks.forEach(pick => {
+                const playerInfo = getPlayerDetailedInfo(pick.element);
+                const team = playerInfo?.team || 'Unknown';
+                distribution[team] = (distribution[team] || 0) + 1;
+            });
+            
+            return distribution;
+        }
+        
+        // Export All as ZIP
+        async function exportAllAsZip() {
+            toggleExportDropdown();
+            
+            if (typeof JSZip === 'undefined') {
+                alert('JSZip library not loaded. Please refresh the page.');
+                return;
+            }
+            
+            const currentGW = getCurrentGameweek();
+            const zip = new JSZip();
+            
+            showExportToast('📦 Creating ZIP file...');
+            
+            // Generate all exports
+            const rawData = {
+                type: 'fpl_raw_data',
+                exportedAt: new Date().toISOString(),
+                currentGameweek: currentGW,
+                league: importedLeagueData,
+                elements: importedElementStatus,
+                bootstrap: importedBootstrap,
+                playerDetails: importedPlayerDetails
+            };
+            
+            // Get predictions data (reuse logic)
+            const predictions = generatePredictionsData();
+            const rankings = generateRankingsData();
+            const leagueStats = generateLeagueStatsData();
+            
+            // Add files to ZIP
+            zip.file(`fpl_raw_data_gw${currentGW}.json`, JSON.stringify(rawData, null, 2));
+            zip.file(`fpl_predictions_gw${currentGW}.json`, JSON.stringify(predictions, null, 2));
+            zip.file(`fpl_player_rankings_gw${currentGW}.json`, JSON.stringify(rankings, null, 2));
+            zip.file(`fpl_league_stats_gw${currentGW}.json`, JSON.stringify(leagueStats, null, 2));
+            
+            // Generate ZIP and download
+            const content = await zip.generateAsync({ type: 'blob' });
+            const url = URL.createObjectURL(content);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `fpl_export_gw${currentGW}_${new Date().toISOString().slice(0,10)}.zip`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showExportToast('✅ All data exported as ZIP');
+        }
+        
+        // Helper: Generate predictions data object
+        function generatePredictionsData() {
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            const matches = importedLeagueData?.matches || [];
+            const gwMatches = matches.filter(m => m.event === currentGW);
+            
+            const predictions = {
+                type: 'fpl_predictions',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                leagueName: importedLeagueData?.league?.name || 'Unknown',
+                teams: [],
+                headToHead: []
+            };
+            
+            entries.forEach(entry => {
+                const entryId = entry.entry_id;
+                const squadData = squads[entryId];
+                if (!squadData || !squadData.picks) return;
+                
+                const players = squadData.picks.map(pick => {
+                    const playerId = pick.element;
+                    const playerInfo = getPlayerDetailedInfo(playerId);
+                    const predicted = calculatePredictedPoints(playerInfo, 5);
+                    const gwPredicted = calculatePlayerGWPoints(playerInfo, currentGW);
+                    
+                    return {
+                        id: playerId,
+                        name: playerInfo?.name || 'Unknown',
+                        position: playerInfo?.position || 'UNK',
+                        team: playerInfo?.team || 'Unknown',
+                        predictedGW: gwPredicted,
+                        predicted5GW: predicted.total,
+                        form: playerInfo?.form || 0,
+                        ppg: playerInfo?.ppg || 0
+                    };
+                });
+                
+                const optimal11 = selectOptimal11(players, currentGW);
+                const totalPredicted = optimal11.players.reduce((sum, p) => sum + (p.predictedGW || 0), 0);
+                
+                predictions.teams.push({
+                    entryId,
+                    teamName: entry.entry_name,
+                    totalPredictedPoints: Math.round(totalPredicted * 10) / 10,
+                    formation: optimal11.formation,
+                    optimal11: optimal11.players,
+                    fullSquad: players
+                });
+            });
+            
+            predictions.teams.sort((a, b) => b.totalPredictedPoints - a.totalPredictedPoints);
+            
+            gwMatches.forEach(match => {
+                const team1 = predictions.teams.find(t => {
+                    const entry = entries.find(e => e.id === match.league_entry_1);
+                    return entry && t.entryId === entry.entry_id;
+                });
+                const team2 = predictions.teams.find(t => {
+                    const entry = entries.find(e => e.id === match.league_entry_2);
+                    return entry && t.entryId === entry.entry_id;
+                });
+                
+                if (team1 && team2) {
+                    predictions.headToHead.push({
+                        team1: team1.teamName,
+                        team1Predicted: team1.totalPredictedPoints,
+                        team2: team2.teamName,
+                        team2Predicted: team2.totalPredictedPoints,
+                        predictedWinner: team1.totalPredictedPoints > team2.totalPredictedPoints ? team1.teamName : team2.teamName
+                    });
+                }
+            });
+            
+            return predictions;
+        }
+        
+        // Helper: Generate rankings data object
+        function generateRankingsData() {
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            const ownedPlayers = new Map();
+            
+            entries.forEach(entry => {
+                const squadData = squads[entry.entry_id];
+                if (!squadData || !squadData.picks) return;
+                
+                squadData.picks.forEach(pick => {
+                    const playerId = pick.element;
+                    if (!ownedPlayers.has(playerId)) {
+                        const playerInfo = getPlayerDetailedInfo(playerId);
+                        const predicted = calculatePredictedPoints(playerInfo, 5);
+                        
+                        let easyGames = 0;
+                        for (let i = 0; i < 5; i++) {
+                            if (getFixtureDifficulty(playerInfo?.team, currentGW + i) === 'easy') easyGames++;
+                        }
+                        
+                        ownedPlayers.set(playerId, {
+                            id: playerId,
+                            name: playerInfo?.name || 'Unknown',
+                            position: playerInfo?.position || 'UNK',
+                            team: playerInfo?.team || 'Unknown',
+                            owner: entry.entry_name,
+                            form: playerInfo?.form || 0,
+                            ppg: playerInfo?.ppg || 0,
+                            totalPoints: playerInfo?.totalPoints || 0,
+                            predicted5GW: predicted.total,
+                            easyGames: easyGames
+                        });
+                    }
+                });
+            });
+            
+            const playersArray = Array.from(ownedPlayers.values());
+            
+            return {
+                type: 'fpl_player_rankings',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                byPPG: [...playersArray].sort((a, b) => b.ppg - a.ppg),
+                byForm: [...playersArray].sort((a, b) => b.form - a.form),
+                byPredicted: [...playersArray].sort((a, b) => b.predicted5GW - a.predicted5GW)
+            };
+        }
+        
+        // Helper: Generate league stats data object
+        function generateLeagueStatsData() {
+            const currentGW = getCurrentGameweek();
+            const entries = importedLeagueData?.league_entries || [];
+            const squads = importedLeagueData?.squads || {};
+            const standings = importedLeagueData?.standings || [];
+            
+            const leagueStats = {
+                type: 'fpl_league_stats',
+                exportedAt: new Date().toISOString(),
+                gameweek: currentGW,
+                leagueName: importedLeagueData?.league?.name || 'Unknown',
+                standings: standings.map(s => {
+                    const entry = entries.find(e => e.id === s.league_entry);
+                    return {
+                        rank: s.rank,
+                        teamName: entry?.entry_name || 'Unknown',
+                        wins: s.matches_won,
+                        losses: s.matches_lost,
+                        pointsFor: s.points_for,
+                        pointsAgainst: s.points_against,
+                        total: s.total
+                    };
+                }),
+                teams: []
+            };
+            
+            entries.forEach(entry => {
+                const squadData = squads[entry.entry_id];
+                if (!squadData || !squadData.picks) return;
+                
+                const nkdResult = analyzeSquadNKD(squadData);
+                leagueStats.teams.push({
+                    teamName: entry.entry_name,
+                    nkdScore: nkdResult?.weightedScore || 0,
+                    playersCount: squadData.picks.length
+                });
+            });
+            
+            return leagueStats;
+        }
+        
         function renderLeagueAnalysis() {
             const resultsDiv = document.getElementById('leagueAnalysisResults');
             resultsDiv.style.display = 'block';
             
-            // Add fetch date header
-            renderFetchDateHeader();
+            // Update export data info header
+            updateExportDataInfo();
             
             // Render league overview
             renderLeagueOverview();
-        }
-        
-        // Render the data fetch date header
-        function renderFetchDateHeader() {
-            let headerEl = document.getElementById('dataFetchHeader');
-            if (!headerEl) {
-                headerEl = document.createElement('div');
-                headerEl.id = 'dataFetchHeader';
-                const resultsDiv = document.getElementById('leagueAnalysisResults');
-                resultsDiv.insertBefore(headerEl, resultsDiv.firstChild);
-            }
-            
-            const fetchedAt = importedLeagueData?.fetchedAt;
-            const currentGW = getCurrentGameweek();
-            const playerDetailsCount = importedPlayerDetails ? Object.keys(importedPlayerDetails).length : 0;
-            
-            let fetchDateStr = 'Unknown';
-            if (fetchedAt) {
-                const date = new Date(fetchedAt);
-                fetchDateStr = date.toLocaleDateString('en-GB', { 
-                    weekday: 'short', 
-                    day: 'numeric', 
-                    month: 'short', 
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                });
-            }
-            
-            headerEl.innerHTML = `
-                <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.15)); 
-                            padding: 1rem 1.5rem; 
-                            border-radius: 12px; 
-                            margin-bottom: 1.5rem;
-                            border: 1px solid var(--accent-cyan);
-                            display: flex;
-                            justify-content: space-between;
-                            align-items: center;
-                            flex-wrap: wrap;
-                            gap: 1rem;">
-                    <div style="display: flex; align-items: center; gap: 1rem;">
-                        <div style="font-size: 1.5rem;">📡</div>
-                        <div>
-                            <div style="font-weight: 600; color: var(--accent-cyan);">Data Fetched: ${fetchDateStr}</div>
-                            <div style="font-size: 0.85rem; color: var(--text-muted);">
-                                GW${currentGW} • ${playerDetailsCount} players with detailed stats
-                            </div>
-                        </div>
-                    </div>
-                    <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem; white-space: nowrap;">
-                        🔄 Refresh from Clipboard
-                    </button>
-                </div>
-            `;
             
             // Render recent transactions (trades, waivers)
             renderRecentTransactions();
@@ -8095,11 +8528,11 @@
         
         // Get the current gameweek (first unfinished GW, or latest finished + 1)
         function getCurrentGameweek() {
-            // FIRST priority: check bootstrap events (most reliable source)
+            // Try to get from bootstrap events
             if (importedBootstrap && importedBootstrap.events && Array.isArray(importedBootstrap.events)) {
                 const events = importedBootstrap.events;
                 
-                // Find the current event (is_current = true)
+                // Find the current event (is_current = true) or first unfinished
                 const currentEvent = events.find(e => e.is_current);
                 if (currentEvent) return currentEvent.id;
                 
@@ -8112,95 +8545,12 @@
                 if (lastFinished) return Math.min(lastFinished.id + 1, 38);
             }
             
-            // Second priority: check league matches to find first unstarted match
-            if (importedLeagueData?.matches && Array.isArray(importedLeagueData.matches)) {
-                const matches = importedLeagueData.matches;
-                // Find first match that hasn't started
-                const unstartedMatch = matches.find(m => !m.started);
-                if (unstartedMatch) return unstartedMatch.event;
-                
-                // Find last finished match
-                const finishedMatches = matches.filter(m => m.finished);
-                if (finishedMatches.length > 0) {
-                    const lastFinished = finishedMatches.reduce((max, m) => m.event > max.event ? m : max);
-                    return Math.min(lastFinished.event + 1, 38);
-                }
-            }
+            // Fallback: check league start event or default to 21 (current)
+            const leagueStart = importedLeagueData?.league?.start_event;
+            if (leagueStart) return leagueStart;
             
-            // Third priority: use currentEvent from data fetch (but NOT for analysis starting point)
-            // This is only a fallback when bootstrap events are unavailable
-            if (importedLeagueData?.currentEvent && importedLeagueData.currentEvent > 20) {
-                return importedLeagueData.currentEvent;
-            }
-            
-            // Ultimate fallback - assume we're at GW22 (Jan 2026)
-            return 22;
-        }
-        
-        // Apply accepted transactions to squad data
-        // This ensures squads reflect trades, waivers, and free agent pickups
-        function applyTransactionsToSquads() {
-            const transactions = importedLeagueData?.transactions?.transactions || [];
-            const squads = importedLeagueData?.squads || {};
-            const fetchedGW = importedLeagueData?.currentEvent;
-            
-            if (transactions.length === 0 || Object.keys(squads).length === 0) {
-                return; // Nothing to apply
-            }
-            
-            // Get accepted transactions sorted by event (oldest first)
-            const acceptedTrans = transactions
-                .filter(t => t.result === 'a') // Only accepted transactions
-                .sort((a, b) => a.event - b.event || (a.index || 0) - (b.index || 0));
-            
-            console.log(`Applying ${acceptedTrans.length} accepted transactions to squads...`);
-            
-            // Helper to find entry_id from league_entry id
-            const getEntryId = (leagueEntryId) => {
-                const entries = importedLeagueData?.league_entries || [];
-                const entry = entries.find(e => e.id === leagueEntryId);
-                return entry?.entry_id || leagueEntryId;
-            };
-            
-            // Apply each transaction
-            acceptedTrans.forEach(trans => {
-                const entryId = getEntryId(trans.entry);
-                const squadData = squads[entryId];
-                
-                if (!squadData || !squadData.picks) {
-                    console.log(`No squad data for entry ${entryId}, skipping transaction`);
-                    return;
-                }
-                
-                const picks = squadData.picks;
-                const elementIn = trans.element_in;
-                const elementOut = trans.element_out;
-                
-                // Check if element_out is in the squad
-                const outIndex = picks.findIndex(p => p.element === elementOut);
-                
-                if (outIndex !== -1) {
-                    // Replace element_out with element_in
-                    const oldPick = picks[outIndex];
-                    picks[outIndex] = {
-                        ...oldPick,
-                        element: elementIn
-                    };
-                    console.log(`Applied: ${trans.kind} for entry ${entryId} - OUT: ${elementOut}, IN: ${elementIn}`);
-                } else if (elementIn && !elementOut) {
-                    // Adding a player without dropping (shouldn't happen in FPL Draft, but handle it)
-                    console.log(`Skipping add-only transaction for entry ${entryId}`);
-                } else {
-                    // element_out not found - transaction may have already been applied or squad is outdated
-                    // Check if element_in is already in the squad
-                    const inExists = picks.some(p => p.element === elementIn);
-                    if (!inExists && elementOut) {
-                        console.log(`Warning: element_out ${elementOut} not found in squad for entry ${entryId}`);
-                    }
-                }
-            });
-            
-            console.log('Transactions applied to squads');
+            // Ultimate fallback - assume we're at GW21
+            return 21;
         }
         
         // Team name mapping: short names (FPL API) -> full names (fixture data)
@@ -8487,40 +8837,12 @@
             const form = parseFloat(bootstrap?.form) || 0;
             const totalPoints = bootstrap?.total_points || 0;
             const minutes = bootstrap?.minutes || 0;
-            
-            // Calculate games played - either from history or estimate from minutes
-            // Assume ~60 mins average per game if history unavailable
-            const gamesPlayed = history.length > 0 
-                ? history.filter(g => g.minutes > 0).length 
-                : Math.max(1, Math.round(minutes / 60));
-            
-            // Calculate ppg (points per game) - use bootstrap form as fallback
-            let ppg = 0;
-            if (gamesPlayed > 0 && totalPoints > 0) {
-                ppg = (totalPoints / gamesPlayed).toFixed(1);
-            } else if (form > 0) {
-                // Form is a rolling average of recent points, use it as ppg estimate
-                ppg = form;
-            }
+            const ppg = minutes > 0 ? (totalPoints / Math.max(1, history.length)).toFixed(1) : 0;
             
             // Calculate average points from last 5 games
-            // If no history available, use form or position-based estimate
-            let last5Avg = 0;
-            if (recentGames.length > 0) {
-                last5Avg = (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1);
-            } else if (form > 0) {
-                // Use form as best estimate for recent performance
-                last5Avg = form;
-            } else if (ppg > 0) {
-                last5Avg = ppg;
-            } else {
-                // Position-based default (GK/DEF ~3-4, MID ~4, FWD ~4-5)
-                const posDefaults = { 1: 3.5, 2: 3.5, 3: 4, 4: 4.5 };
-                last5Avg = posDefaults[bootstrap?.element_type] || 3.5;
-            }
-            
-            // Flag if this player has limited data (for UI warning)
-            const hasDetailedData = history.length > 0;
+            const last5Avg = recentGames.length > 0 
+                ? (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1)
+                : 0;
             
             return {
                 id: playerId,
@@ -8533,8 +8855,7 @@
                 totalPoints,
                 ppg: parseFloat(ppg),
                 last5Avg: parseFloat(last5Avg),
-                minutes,
-                hasDetailedData // New flag to indicate if detailed GW history is available
+                minutes
             };
         }
         
