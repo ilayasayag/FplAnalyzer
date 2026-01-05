@@ -1,0 +1,300 @@
+{
+  "position": "FWD",
+  "lastUpdated": "2026-01-01",
+  "totalPlayers": 24,
+  "players": [
+    {
+      "rank": 1,
+      "name": "Haaland",
+      "team": "Man City",
+      "code": "MCIFWD",
+      "score": 153,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 3,
+      "name": "Ekitiké",
+      "team": "Liverpool",
+      "code": "LIVFWD",
+      "score": 82,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 5,
+      "name": "João Pedro",
+      "team": "Chelsea",
+      "code": "CHEFWD",
+      "score": 81,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 11,
+      "name": "Watkins",
+      "team": "Aston Villa",
+      "code": "AVLFWD",
+      "score": 72,
+      "playingChance": 100,
+      "fixtures": { "GW20": "NFO(H)", "GW21": "CRY(A)", "GW22": "EVE(H)" }
+    },
+    {
+      "rank": 18,
+      "name": "Woltemade",
+      "team": "Newcastle",
+      "code": "NEWFWD",
+      "score": 72,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 20,
+      "name": "Mateta",
+      "team": "Crystal Palace",
+      "code": "CRYFWD",
+      "score": 67,
+      "playingChance": 100,
+      "fixtures": { "GW20": "NEW(A)", "GW21": "AVL(H)", "GW22": "SUN(A)" }
+    },
+    {
+      "rank": 23,
+      "name": "Thiago",
+      "team": "Brentford",
+      "code": "BREFWD",
+      "score": 89,
+      "playingChance": 100,
+      "fixtures": { "GW20": "EVE(A)", "GW21": "SUN(H)", "GW22": "CHE(A)" }
+    },
+    {
+      "rank": 33,
+      "name": "Gyökeres",
+      "team": "Arsenal",
+      "code": "ARSFWD",
+      "score": 50,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BOU(A)", "GW21": "LIV(H)", "GW22": "NFO(A)" }
+    },
+    {
+      "rank": 43,
+      "name": "Bowen",
+      "team": "West Ham",
+      "code": "WHUFWD",
+      "score": 84,
+      "playingChance": 100,
+      "fixtures": { "GW20": "WOL(A)", "GW21": "NFO(H)", "GW22": "TOT(A)" }
+    },
+    {
+      "rank": 47,
+      "name": "Calvert-Lewin",
+      "team": "Leeds",
+      "code": "LEEFWD",
+      "score": 78,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MUN(H)", "GW21": "NEW(A)", "GW22": "FUL(H)" }
+    },
+    {
+      "rank": 50,
+      "name": "Wissa",
+      "team": "Newcastle",
+      "code": "NEWFWD",
+      "score": 9,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 63,
+      "name": "Evanilson",
+      "team": "Bournemouth",
+      "code": "BOUFWD",
+      "score": 49,
+      "playingChance": 100,
+      "fixtures": { "GW20": "ARS(H)", "GW21": "TOT(H)", "GW22": "BHA(A)" }
+    },
+    {
+      "rank": 69,
+      "name": "Richarlison",
+      "team": "Spurs",
+      "code": "TOTFWD",
+      "score": 70,
+      "playingChance": 100,
+      "fixtures": { "GW20": "SUN(H)", "GW21": "BOU(A)", "GW22": "WHU(H)" }
+    },
+    {
+      "rank": 71,
+      "name": "Šeško",
+      "team": "Man Utd",
+      "code": "MUNFWD",
+      "score": 40,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 107,
+      "name": "Welbeck",
+      "team": "Brighton",
+      "code": "BHAFWD",
+      "score": 63,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BUR(H)", "GW21": "MCI(A)", "GW22": "BOU(H)" }
+    },
+    {
+      "rank": 118,
+      "name": "Raúl",
+      "team": "Fulham",
+      "code": "FULFWD",
+      "score": 55,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LIV(H)", "GW21": "CHE(H)", "GW22": "LEE(A)" }
+    },
+    {
+      "rank": 119,
+      "name": "Igor Jesus",
+      "team": "Nott'm Forest",
+      "code": "NFOFWD",
+      "score": 40,
+      "playingChance": 100,
+      "fixtures": { "GW20": "AVL(A)", "GW21": "WHU(A)", "GW22": "ARS(H)" }
+    },
+    {
+      "rank": 120,
+      "name": "Brobbey",
+      "team": "Sunderland",
+      "code": "SUNFWD",
+      "score": 28,
+      "playingChance": 100,
+      "fixtures": { "GW20": "TOT(A)", "GW21": "BRE(A)", "GW22": "CRY(H)" }
+    },
+    {
+      "rank": 121,
+      "name": "Delap",
+      "team": "Chelsea",
+      "code": "CHEFWD",
+      "score": 14,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 122,
+      "name": "Kolo Muani",
+      "team": "Spurs",
+      "code": "TOTFWD",
+      "score": 18,
+      "playingChance": 100,
+      "fixtures": { "GW20": "SUN(H)", "GW21": "BOU(A)", "GW22": "WHU(H)" }
+    },
+    {
+      "rank": 123,
+      "name": "Barry",
+      "team": "Everton",
+      "code": "EVEFWD",
+      "score": 34,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 124,
+      "name": "Kroupi.Jr",
+      "team": "Bournemouth",
+      "code": "BOUFWD",
+      "score": 42,
+      "playingChance": 100,
+      "fixtures": { "GW20": "ARS(H)", "GW21": "TOT(H)", "GW22": "BHA(A)" }
+    },
+    {
+      "rank": 125,
+      "name": "Strand Larsen",
+      "team": "Wolves",
+      "code": "WOLFWD",
+      "score": 31,
+      "playingChance": 100,
+      "fixtures": { "GW20": "WHU(H)", "GW21": "EVE(A)", "GW22": "NEW(H)" }
+    },
+    {
+      "rank": 126,
+      "name": "Beto",
+      "team": "Everton",
+      "code": "EVEFWD",
+      "score": 30,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    }
+  ],
+  "byTeam": {
+    "Man City": ["Haaland"],
+    "Liverpool": ["Ekitiké"],
+    "Chelsea": ["João Pedro", "Delap"],
+    "Aston Villa": ["Watkins"],
+    "Newcastle": ["Woltemade", "Wissa"],
+    "Crystal Palace": ["Mateta"],
+    "Brentford": ["Thiago"],
+    "Arsenal": ["Gyökeres"],
+    "West Ham": ["Bowen"],
+    "Leeds": ["Calvert-Lewin"],
+    "Bournemouth": ["Evanilson", "Kroupi.Jr"],
+    "Spurs": ["Richarlison", "Kolo Muani"],
+    "Man Utd": ["Šeško"],
+    "Brighton": ["Welbeck"],
+    "Fulham": ["Raúl"],
+    "Nott'm Forest": ["Igor Jesus"],
+    "Sunderland": ["Brobbey"],
+    "Everton": ["Barry", "Beto"],
+    "Wolves": ["Strand Larsen"]
+  },
+  "topByScore": [
+    { "name": "Haaland", "team": "Man City", "score": 153 },
+    { "name": "Thiago", "team": "Brentford", "score": 89 },
+    { "name": "Bowen", "team": "West Ham", "score": 84 },
+    { "name": "Ekitiké", "team": "Liverpool", "score": 82 },
+    { "name": "João Pedro", "team": "Chelsea", "score": 81 },
+    { "name": "Calvert-Lewin", "team": "Leeds", "score": 78 },
+    { "name": "Watkins", "team": "Aston Villa", "score": 72 },
+    { "name": "Woltemade", "team": "Newcastle", "score": 72 },
+    { "name": "Richarlison", "team": "Spurs", "score": 70 },
+    { "name": "Mateta", "team": "Crystal Palace", "score": 67 }
+  ],
+  "topByRank": [
+    { "rank": 1, "name": "Haaland", "team": "Man City" },
+    { "rank": 3, "name": "Ekitiké", "team": "Liverpool" },
+    { "rank": 5, "name": "João Pedro", "team": "Chelsea" },
+    { "rank": 11, "name": "Watkins", "team": "Aston Villa" },
+    { "rank": 18, "name": "Woltemade", "team": "Newcastle" },
+    { "rank": 20, "name": "Mateta", "team": "Crystal Palace" },
+    { "rank": 23, "name": "Thiago", "team": "Brentford" },
+    { "rank": 33, "name": "Gyökeres", "team": "Arsenal" },
+    { "rank": 43, "name": "Bowen", "team": "West Ham" },
+    { "rank": 47, "name": "Calvert-Lewin", "team": "Leeds" }
+  ],
+  "premiumPicks": [
+    {
+      "name": "Haaland",
+      "team": "Man City",
+      "score": 153,
+      "rank": 1,
+      "note": "Must-have, elite tier"
+    }
+  ],
+  "valuePicks": [
+    { "name": "Thiago", "team": "Brentford", "score": 89, "rank": 23 },
+    { "name": "Bowen", "team": "West Ham", "score": 84, "rank": 43 },
+    { "name": "Calvert-Lewin", "team": "Leeds", "score": 78, "rank": 47 }
+  ],
+  "budgetPicks": [
+    { "name": "Barry", "team": "Everton", "score": 34, "rank": 123 },
+    { "name": "Beto", "team": "Everton", "score": 30, "rank": 126 },
+    { "name": "Brobbey", "team": "Sunderland", "score": 28, "rank": 120 }
+  ],
+  "teamCoverage": {
+    "easyFixtures": {
+      "Arsenal": ["Gyökeres"],
+      "Aston Villa": ["Watkins"],
+      "Newcastle": ["Woltemade", "Wissa"],
+      "Everton": ["Barry", "Beto"],
+      "Crystal Palace": ["Mateta"],
+      "Man City": ["Haaland"],
+      "Brentford": ["Thiago"]
+    }
+  }
+}
+
+

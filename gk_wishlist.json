@@ -1,0 +1,235 @@
+{
+  "position": "GK",
+  "lastUpdated": "2026-01-01",
+  "totalPlayers": 18,
+  "players": [
+    {
+      "rank": 16,
+      "name": "Raya",
+      "team": "Arsenal",
+      "code": "ARSGKP",
+      "score": 79,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BOU(A)", "GW21": "LIV(H)", "GW22": "NFO(A)" }
+    },
+    {
+      "rank": 56,
+      "name": "Pickford",
+      "team": "Everton",
+      "code": "EVEGKP",
+      "score": 86,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 57,
+      "name": "Roefs",
+      "team": "Sunderland",
+      "code": "SUNGKP",
+      "score": 83,
+      "playingChance": 100,
+      "fixtures": { "GW20": "TOT(A)", "GW21": "BRE(A)", "GW22": "CRY(H)" }
+    },
+    {
+      "rank": 58,
+      "name": "Donnarumma",
+      "team": "Man City",
+      "code": "MCIGKP",
+      "score": 59,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 59,
+      "name": "Sánchez",
+      "team": "Chelsea",
+      "code": "CHEGKP",
+      "score": 72,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 60,
+      "name": "Henderson",
+      "team": "Crystal Palace",
+      "code": "CRYGKP",
+      "score": 67,
+      "playingChance": 100,
+      "fixtures": { "GW20": "NEW(A)", "GW21": "AVL(H)", "GW22": "SUN(A)" }
+    },
+    {
+      "rank": 75,
+      "name": "Martinez",
+      "team": "Aston Villa",
+      "code": "AVLGKP",
+      "score": 60,
+      "playingChance": 100,
+      "fixtures": { "GW20": "NFO(H)", "GW21": "CRY(A)", "GW22": "EVE(H)" }
+    },
+    {
+      "rank": 78,
+      "name": "Pope",
+      "team": "Newcastle",
+      "code": "NEWGKP",
+      "score": 57,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 81,
+      "name": "Lammens",
+      "team": "Man Utd",
+      "code": "MUNGKP",
+      "score": 38,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 92,
+      "name": "Vicario",
+      "team": "Spurs",
+      "code": "TOTGKP",
+      "score": 67,
+      "playingChance": 100,
+      "fixtures": { "GW20": "SUN(H)", "GW21": "BOU(A)", "GW22": "WHU(H)" }
+    },
+    {
+      "rank": 96,
+      "name": "Kelleher",
+      "team": "Brentford",
+      "code": "BREGKP",
+      "score": 60,
+      "playingChance": 100,
+      "fixtures": { "GW20": "EVE(A)", "GW21": "SUN(H)", "GW22": "CHE(A)" }
+    },
+    {
+      "rank": 100,
+      "name": "Petrović",
+      "team": "Bournemouth",
+      "code": "BOUGKP",
+      "score": 55,
+      "playingChance": 100,
+      "fixtures": { "GW20": "ARS(H)", "GW21": "TOT(H)", "GW22": "BHA(A)" }
+    },
+    {
+      "rank": 106,
+      "name": "A.Becker",
+      "team": "Liverpool",
+      "code": "LIVGKP",
+      "score": 45,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 110,
+      "name": "Verbruggen",
+      "team": "Brighton",
+      "code": "BHAGKP",
+      "score": 58,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BUR(H)", "GW21": "MCI(A)", "GW22": "BOU(H)" }
+    },
+    {
+      "rank": 112,
+      "name": "Areola",
+      "team": "West Ham",
+      "code": "WHUGKP",
+      "score": 40,
+      "playingChance": 100,
+      "fixtures": { "GW20": "WOL(A)", "GW21": "NFO(H)", "GW22": "TOT(A)" }
+    },
+    {
+      "rank": 114,
+      "name": "Leno",
+      "team": "Fulham",
+      "code": "FULGKP",
+      "score": 58,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LIV(H)", "GW21": "CHE(H)", "GW22": "LEE(A)" }
+    },
+    {
+      "rank": 127,
+      "name": "Sels",
+      "team": "Nott'm Forest",
+      "code": "NFOGKP",
+      "score": 40,
+      "playingChance": 100,
+      "fixtures": { "GW20": "AVL(A)", "GW21": "WHU(A)", "GW22": "ARS(H)" }
+    },
+    {
+      "rank": 128,
+      "name": "Dúbravka",
+      "team": "Burnley",
+      "code": "BURGKP",
+      "score": 59,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BHA(A)", "GW21": "MUN(H)", "GW22": "LIV(A)" }
+    }
+  ],
+  "byTeam": {
+    "Arsenal": ["Raya"],
+    "Everton": ["Pickford"],
+    "Sunderland": ["Roefs"],
+    "Man City": ["Donnarumma"],
+    "Chelsea": ["Sánchez"],
+    "Crystal Palace": ["Henderson"],
+    "Aston Villa": ["Martinez"],
+    "Newcastle": ["Pope"],
+    "Man Utd": ["Lammens"],
+    "Spurs": ["Vicario"],
+    "Brentford": ["Kelleher"],
+    "Bournemouth": ["Petrović"],
+    "Liverpool": ["A.Becker"],
+    "Brighton": ["Verbruggen"],
+    "West Ham": ["Areola"],
+    "Fulham": ["Leno"],
+    "Nott'm Forest": ["Sels"],
+    "Burnley": ["Dúbravka"]
+  },
+  "topByScore": [
+    { "name": "Pickford", "team": "Everton", "score": 86 },
+    { "name": "Roefs", "team": "Sunderland", "score": 83 },
+    { "name": "Raya", "team": "Arsenal", "score": 79 },
+    { "name": "Sánchez", "team": "Chelsea", "score": 72 },
+    { "name": "Henderson", "team": "Crystal Palace", "score": 67 },
+    { "name": "Vicario", "team": "Spurs", "score": 67 },
+    { "name": "Martinez", "team": "Aston Villa", "score": 60 },
+    { "name": "Kelleher", "team": "Brentford", "score": 60 },
+    { "name": "Donnarumma", "team": "Man City", "score": 59 },
+    { "name": "Dúbravka", "team": "Burnley", "score": 59 }
+  ],
+  "topByRank": [
+    { "rank": 16, "name": "Raya", "team": "Arsenal" },
+    { "rank": 56, "name": "Pickford", "team": "Everton" },
+    { "rank": 57, "name": "Roefs", "team": "Sunderland" },
+    { "rank": 58, "name": "Donnarumma", "team": "Man City" },
+    { "rank": 59, "name": "Sánchez", "team": "Chelsea" },
+    { "rank": 60, "name": "Henderson", "team": "Crystal Palace" },
+    { "rank": 75, "name": "Martinez", "team": "Aston Villa" },
+    { "rank": 78, "name": "Pope", "team": "Newcastle" },
+    { "rank": 81, "name": "Lammens", "team": "Man Utd" },
+    { "rank": 92, "name": "Vicario", "team": "Spurs" }
+  ],
+  "rotationPairs": [
+    {
+      "pair": ["Pickford", "Raya"],
+      "teams": ["Everton", "Arsenal"],
+      "combinedScore": 165,
+      "note": "Top 2 by combined rank+score"
+    },
+    {
+      "pair": ["Pickford", "Roefs"],
+      "teams": ["Everton", "Sunderland"],
+      "combinedScore": 169,
+      "note": "Top 2 by score"
+    },
+    {
+      "pair": ["Raya", "Henderson"],
+      "teams": ["Arsenal", "Crystal Palace"],
+      "combinedScore": 146,
+      "note": "Good fixture rotation"
+    }
+  ]
+}
+
+

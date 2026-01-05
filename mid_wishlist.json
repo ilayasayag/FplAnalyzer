@@ -1,0 +1,424 @@
+{
+  "position": "MID",
+  "lastUpdated": "2026-01-01",
+  "totalPlayers": 39,
+  "players": [
+    {
+      "rank": 4,
+      "name": "Foden",
+      "team": "Man City",
+      "code": "MCIMID",
+      "score": 93,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 6,
+      "name": "Saka",
+      "team": "Arsenal",
+      "code": "ARSMID",
+      "score": 91,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BOU(A)", "GW21": "LIV(H)", "GW22": "NFO(A)" }
+    },
+    {
+      "rank": 7,
+      "name": "B.Fernandes",
+      "team": "Man Utd",
+      "code": "MUNMID",
+      "score": 99,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 8,
+      "name": "Rogers",
+      "team": "Aston Villa",
+      "code": "AVLMID",
+      "score": 93,
+      "playingChance": 100,
+      "fixtures": { "GW20": "NFO(H)", "GW21": "CRY(A)", "GW22": "EVE(H)" }
+    },
+    {
+      "rank": 10,
+      "name": "Bruno G.",
+      "team": "Newcastle",
+      "code": "NEWMID",
+      "score": 96,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 13,
+      "name": "Kudus",
+      "team": "Spurs",
+      "code": "TOTMID",
+      "score": 71,
+      "playingChance": 100,
+      "fixtures": { "GW20": "SUN(H)", "GW21": "BOU(A)", "GW22": "WHU(H)" }
+    },
+    {
+      "rank": 14,
+      "name": "Semenyo",
+      "team": "Bournemouth",
+      "code": "BOUMID",
+      "score": 113,
+      "playingChance": 100,
+      "fixtures": { "GW20": "ARS(H)", "GW21": "TOT(H)", "GW22": "BHA(A)" }
+    },
+    {
+      "rank": 17,
+      "name": "Rice",
+      "team": "Arsenal",
+      "code": "ARSMID",
+      "score": 102,
+      "playingChance": 50,
+      "fixtures": { "GW20": "BOU(A)", "GW21": "LIV(H)", "GW22": "NFO(A)" }
+    },
+    {
+      "rank": 22,
+      "name": "Gakpo",
+      "team": "Liverpool",
+      "code": "LIVMID",
+      "score": 66,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 24,
+      "name": "Wilson",
+      "team": "Fulham",
+      "code": "FULMID",
+      "score": 85,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LIV(H)", "GW21": "CHE(H)", "GW22": "LEE(A)" }
+    },
+    {
+      "rank": 28,
+      "name": "Neto",
+      "team": "Chelsea",
+      "code": "CHEMID",
+      "score": 81,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 31,
+      "name": "Cunha",
+      "team": "Man Utd",
+      "code": "MUNMID",
+      "score": 55,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 32,
+      "name": "Mbeumo",
+      "team": "Man Utd",
+      "code": "MUNMID",
+      "score": 74,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 34,
+      "name": "Palmer",
+      "team": "Chelsea",
+      "code": "CHEMID",
+      "score": 33,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 38,
+      "name": "Minteh",
+      "team": "Brighton",
+      "code": "BHAMID",
+      "score": 79,
+      "playingChance": 75,
+      "fixtures": { "GW20": "BUR(H)", "GW21": "MCI(A)", "GW22": "BOU(H)" }
+    },
+    {
+      "rank": 39,
+      "name": "Cherki",
+      "team": "Man City",
+      "code": "MCIMID",
+      "score": 66,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 44,
+      "name": "Enzo",
+      "team": "Chelsea",
+      "code": "CHEMID",
+      "score": 80,
+      "playingChance": 100,
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 45,
+      "name": "Grealish",
+      "team": "Everton",
+      "code": "EVEMID",
+      "score": 67,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 46,
+      "name": "Szoboszlai",
+      "team": "Liverpool",
+      "code": "LIVMID",
+      "score": 63,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 48,
+      "name": "Gravenberch",
+      "team": "Liverpool",
+      "code": "LIVMID",
+      "score": 84,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 49,
+      "name": "Reijnders",
+      "team": "Man City",
+      "code": "MCIMID",
+      "score": 65,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 52,
+      "name": "Wirtz",
+      "team": "Liverpool",
+      "code": "LIVMID",
+      "score": 55,
+      "playingChance": 100,
+      "fixtures": { "GW20": "FUL(A)", "GW21": "ARS(A)", "GW22": "BUR(H)" }
+    },
+    {
+      "rank": 53,
+      "name": "Gordon",
+      "team": "Newcastle",
+      "code": "NEWMID",
+      "score": 47,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 65,
+      "name": "Caicedo",
+      "team": "Chelsea",
+      "code": "CHEMID",
+      "score": 67,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "MCI(A)", "GW21": "FUL(A)", "GW22": "BRE(H)" }
+    },
+    {
+      "rank": 68,
+      "name": "Ndiaye",
+      "team": "Everton",
+      "code": "EVEMID",
+      "score": 73,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 70,
+      "name": "Schade",
+      "team": "Brentford",
+      "code": "BREMID",
+      "score": 70,
+      "playingChance": 100,
+      "fixtures": { "GW20": "EVE(A)", "GW21": "SUN(H)", "GW22": "CHE(A)" }
+    },
+    {
+      "rank": 73,
+      "name": "Trossard",
+      "team": "Arsenal",
+      "code": "ARSMID",
+      "score": 77,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BOU(A)", "GW21": "LIV(H)", "GW22": "NFO(A)" }
+    },
+    {
+      "rank": 77,
+      "name": "Dewsbury-Hall",
+      "team": "Everton",
+      "code": "EVEMID",
+      "score": 75,
+      "playingChance": 25,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 82,
+      "name": "Doku",
+      "team": "Man City",
+      "code": "MCIMID",
+      "score": 59,
+      "playingChance": 25,
+      "fixtures": { "GW20": "CHE(H)", "GW21": "BHA(H)", "GW22": "MUN(A)" }
+    },
+    {
+      "rank": 83,
+      "name": "Tonali",
+      "team": "Newcastle",
+      "code": "NEWMID",
+      "score": 46,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 86,
+      "name": "Garner",
+      "team": "Everton",
+      "code": "EVEMID",
+      "score": 85,
+      "playingChance": 100,
+      "fixtures": { "GW20": "BRE(H)", "GW21": "WOL(H)", "GW22": "AVL(A)" }
+    },
+    {
+      "rank": 87,
+      "name": "Casemiro",
+      "team": "Man Utd",
+      "code": "MUNMID",
+      "score": 76,
+      "playingChance": 100,
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 93,
+      "name": "Amad",
+      "team": "Man Utd",
+      "code": "MUNMID",
+      "score": 56,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "LEE(A)", "GW21": "BUR(A)", "GW22": "MCI(H)" }
+    },
+    {
+      "rank": 95,
+      "name": "Joelinton",
+      "team": "Newcastle",
+      "code": "NEWMID",
+      "score": 40,
+      "playingChance": 100,
+      "fixtures": { "GW20": "CRY(H)", "GW21": "LEE(H)", "GW22": "WOL(A)" }
+    },
+    {
+      "rank": 99,
+      "name": "L.Paquetá",
+      "team": "West Ham",
+      "code": "WHUMID",
+      "score": 67,
+      "playingChance": 100,
+      "fixtures": { "GW20": "WOL(A)", "GW21": "NFO(H)", "GW22": "TOT(A)" }
+    },
+    {
+      "rank": 103,
+      "name": "Sarr",
+      "team": "Crystal Palace",
+      "code": "CRYMID",
+      "score": 52,
+      "playingChance": 0,
+      "playingNote": "Unlikely to play",
+      "fixtures": { "GW20": "NEW(A)", "GW21": "AVL(H)", "GW22": "SUN(A)" }
+    },
+    {
+      "rank": 104,
+      "name": "Xhaka",
+      "team": "Sunderland",
+      "code": "SUNMID",
+      "score": 77,
+      "playingChance": 100,
+      "fixtures": { "GW20": "TOT(A)", "GW21": "BRE(A)", "GW22": "CRY(H)" }
+    },
+    {
+      "rank": 105,
+      "name": "Anderson",
+      "team": "Nott'm Forest",
+      "code": "NFOMID",
+      "score": 76,
+      "playingChance": 100,
+      "fixtures": { "GW20": "AVL(A)", "GW21": "WHU(A)", "GW22": "ARS(H)" }
+    },
+    {
+      "rank": 111,
+      "name": "Gibbs-White",
+      "team": "Nott'm Forest",
+      "code": "NFOMID",
+      "score": 64,
+      "playingChance": 100,
+      "fixtures": { "GW20": "AVL(A)", "GW21": "WHU(A)", "GW22": "ARS(H)" }
+    }
+  ],
+  "byTeam": {
+    "Man City": ["Foden", "Cherki", "Reijnders", "Doku"],
+    "Arsenal": ["Saka", "Rice", "Trossard"],
+    "Man Utd": ["B.Fernandes", "Cunha", "Mbeumo", "Casemiro", "Amad"],
+    "Aston Villa": ["Rogers"],
+    "Newcastle": ["Bruno G.", "Gordon", "Tonali", "Joelinton"],
+    "Spurs": ["Kudus"],
+    "Bournemouth": ["Semenyo"],
+    "Liverpool": ["Gakpo", "Szoboszlai", "Gravenberch", "Wirtz"],
+    "Fulham": ["Wilson"],
+    "Chelsea": ["Neto", "Palmer", "Enzo", "Caicedo"],
+    "Brighton": ["Minteh"],
+    "Everton": ["Grealish", "Ndiaye", "Dewsbury-Hall", "Garner"],
+    "Brentford": ["Schade"],
+    "West Ham": ["L.Paquetá"],
+    "Crystal Palace": ["Sarr"],
+    "Sunderland": ["Xhaka"],
+    "Nott'm Forest": ["Anderson", "Gibbs-White"]
+  },
+  "topByScore": [
+    { "name": "Semenyo", "team": "Bournemouth", "score": 113 },
+    { "name": "Rice", "team": "Arsenal", "score": 102, "note": "50% chance" },
+    { "name": "B.Fernandes", "team": "Man Utd", "score": 99, "note": "Unlikely" },
+    { "name": "Bruno G.", "team": "Newcastle", "score": 96 },
+    { "name": "Foden", "team": "Man City", "score": 93 },
+    { "name": "Rogers", "team": "Aston Villa", "score": 93 },
+    { "name": "Saka", "team": "Arsenal", "score": 91 },
+    { "name": "Wilson", "team": "Fulham", "score": 85 },
+    { "name": "Garner", "team": "Everton", "score": 85 },
+    { "name": "Gravenberch", "team": "Liverpool", "score": 84 }
+  ],
+  "topByRank": [
+    { "rank": 4, "name": "Foden", "team": "Man City" },
+    { "rank": 6, "name": "Saka", "team": "Arsenal" },
+    { "rank": 7, "name": "B.Fernandes", "team": "Man Utd", "note": "Unlikely" },
+    { "rank": 8, "name": "Rogers", "team": "Aston Villa" },
+    { "rank": 10, "name": "Bruno G.", "team": "Newcastle" },
+    { "rank": 13, "name": "Kudus", "team": "Spurs" },
+    { "rank": 14, "name": "Semenyo", "team": "Bournemouth" },
+    { "rank": 17, "name": "Rice", "team": "Arsenal", "note": "50% chance" },
+    { "rank": 22, "name": "Gakpo", "team": "Liverpool" },
+    { "rank": 24, "name": "Wilson", "team": "Fulham" }
+  ],
+  "availableTopPicks": [
+    { "rank": 4, "name": "Foden", "team": "Man City", "score": 93 },
+    { "rank": 6, "name": "Saka", "team": "Arsenal", "score": 91 },
+    { "rank": 8, "name": "Rogers", "team": "Aston Villa", "score": 93 },
+    { "rank": 10, "name": "Bruno G.", "team": "Newcastle", "score": 96 },
+    { "rank": 14, "name": "Semenyo", "team": "Bournemouth", "score": 113 }
+  ],
+  "unlikelyToPlay": [
+    { "name": "B.Fernandes", "team": "Man Utd", "score": 99 },
+    { "name": "Mbeumo", "team": "Man Utd", "score": 74 },
+    { "name": "Caicedo", "team": "Chelsea", "score": 67 },
+    { "name": "Ndiaye", "team": "Everton", "score": 73 },
+    { "name": "Amad", "team": "Man Utd", "score": 56 },
+    { "name": "Sarr", "team": "Crystal Palace", "score": 52 }
+  ]
+}
+
+

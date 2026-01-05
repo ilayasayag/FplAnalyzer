@@ -1,0 +1,455 @@
+{
+  "title": "FPL Unified Wishlist",
+  "lastUpdated": "2026-01-01",
+  "totalPlayers": 128,
+  "summary": {
+    "byPosition": {
+      "GK": 18,
+      "DEF": 47,
+      "MID": 39,
+      "FWD": 24
+    },
+    "squadRequirements": {
+      "GK": 2,
+      "DEF": 5,
+      "MID": 5,
+      "FWD": 3,
+      "total": 15
+    }
+  },
+  "players": [
+    { "rank": 1, "name": "Haaland", "team": "Man City", "position": "FWD", "score": 153, "playingChance": 100 },
+    { "rank": 2, "name": "Gabriel", "team": "Arsenal", "position": "DEF", "score": 97, "playingChance": 100 },
+    { "rank": 3, "name": "Ekitiké", "team": "Liverpool", "position": "FWD", "score": 82, "playingChance": 100 },
+    { "rank": 4, "name": "Foden", "team": "Man City", "position": "MID", "score": 93, "playingChance": 100 },
+    { "rank": 5, "name": "João Pedro", "team": "Chelsea", "position": "FWD", "score": 81, "playingChance": 100 },
+    { "rank": 6, "name": "Saka", "team": "Arsenal", "position": "MID", "score": 91, "playingChance": 100 },
+    { "rank": 7, "name": "B.Fernandes", "team": "Man Utd", "position": "MID", "score": 99, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 8, "name": "Rogers", "team": "Aston Villa", "position": "MID", "score": 93, "playingChance": 100 },
+    { "rank": 9, "name": "Guéhi", "team": "Crystal Palace", "position": "DEF", "score": 95, "playingChance": 100 },
+    { "rank": 10, "name": "Bruno G.", "team": "Newcastle", "position": "MID", "score": 96, "playingChance": 100 },
+    { "rank": 11, "name": "Watkins", "team": "Aston Villa", "position": "FWD", "score": 72, "playingChance": 100 },
+    { "rank": 12, "name": "Chalobah", "team": "Chelsea", "position": "DEF", "score": 95, "playingChance": 100 },
+    { "rank": 13, "name": "Kudus", "team": "Spurs", "position": "MID", "score": 71, "playingChance": 100 },
+    { "rank": 14, "name": "Semenyo", "team": "Bournemouth", "position": "MID", "score": 113, "playingChance": 100 },
+    { "rank": 15, "name": "Saliba", "team": "Arsenal", "position": "DEF", "score": 53, "playingChance": 100 },
+    { "rank": 16, "name": "Raya", "team": "Arsenal", "position": "GK", "score": 79, "playingChance": 100 },
+    { "rank": 17, "name": "Rice", "team": "Arsenal", "position": "MID", "score": 102, "playingChance": 50, "status": "Doubtful" },
+    { "rank": 18, "name": "Woltemade", "team": "Newcastle", "position": "FWD", "score": 72, "playingChance": 100 },
+    { "rank": 19, "name": "Keane", "team": "Everton", "position": "DEF", "score": 91, "playingChance": 75, "status": "75%" },
+    { "rank": 20, "name": "Mateta", "team": "Crystal Palace", "position": "FWD", "score": 67, "playingChance": 100 },
+    { "rank": 21, "name": "Tarkowski", "team": "Everton", "position": "DEF", "score": 93, "playingChance": 100 },
+    { "rank": 22, "name": "Gakpo", "team": "Liverpool", "position": "MID", "score": 66, "playingChance": 100 },
+    { "rank": 23, "name": "Thiago", "team": "Brentford", "position": "FWD", "score": 89, "playingChance": 100 },
+    { "rank": 24, "name": "Wilson", "team": "Fulham", "position": "MID", "score": 85, "playingChance": 100 },
+    { "rank": 25, "name": "Lacroix", "team": "Crystal Palace", "position": "DEF", "score": 85, "playingChance": 100 },
+    { "rank": 26, "name": "Calafiori", "team": "Arsenal", "position": "DEF", "score": 77, "playingChance": 75, "status": "75%" },
+    { "rank": 27, "name": "J.Timber", "team": "Arsenal", "position": "DEF", "score": 95, "playingChance": 100 },
+    { "rank": 28, "name": "Neto", "team": "Chelsea", "position": "MID", "score": 81, "playingChance": 100 },
+    { "rank": 29, "name": "Virgil", "team": "Liverpool", "position": "DEF", "score": 66, "playingChance": 100 },
+    { "rank": 30, "name": "Senesi", "team": "Bournemouth", "position": "DEF", "score": 81, "playingChance": 100 },
+    { "rank": 31, "name": "Cunha", "team": "Man Utd", "position": "MID", "score": 55, "playingChance": 100 },
+    { "rank": 32, "name": "Mbeumo", "team": "Man Utd", "position": "MID", "score": 74, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 33, "name": "Gyökeres", "team": "Arsenal", "position": "FWD", "score": 50, "playingChance": 100 },
+    { "rank": 34, "name": "Palmer", "team": "Chelsea", "position": "MID", "score": 33, "playingChance": 100 },
+    { "rank": 35, "name": "Dalot", "team": "Man Utd", "position": "DEF", "score": 62, "playingChance": 100 },
+    { "rank": 36, "name": "Cucurella", "team": "Chelsea", "position": "DEF", "score": 72, "playingChance": 75, "status": "75%" },
+    { "rank": 37, "name": "Mitchell", "team": "Crystal Palace", "position": "DEF", "score": 73, "playingChance": 100 },
+    { "rank": 38, "name": "Minteh", "team": "Brighton", "position": "MID", "score": 79, "playingChance": 75, "status": "75%" },
+    { "rank": 39, "name": "Cherki", "team": "Man City", "position": "MID", "score": 66, "playingChance": 100 },
+    { "rank": 40, "name": "James", "team": "Chelsea", "position": "DEF", "score": 81, "playingChance": 100 },
+    { "rank": 41, "name": "Konaté", "team": "Liverpool", "position": "DEF", "score": 64, "playingChance": 100 },
+    { "rank": 42, "name": "Fofana", "team": "Chelsea", "position": "DEF", "score": 41, "playingChance": 100 },
+    { "rank": 43, "name": "Bowen", "team": "West Ham", "position": "FWD", "score": 84, "playingChance": 100 },
+    { "rank": 44, "name": "Enzo", "team": "Chelsea", "position": "MID", "score": 80, "playingChance": 100 },
+    { "rank": 45, "name": "Grealish", "team": "Everton", "position": "MID", "score": 67, "playingChance": 100 },
+    { "rank": 46, "name": "Szoboszlai", "team": "Liverpool", "position": "MID", "score": 63, "playingChance": 100 },
+    { "rank": 47, "name": "Calvert-Lewin", "team": "Leeds", "position": "FWD", "score": 78, "playingChance": 100 },
+    { "rank": 48, "name": "Gravenberch", "team": "Liverpool", "position": "MID", "score": 84, "playingChance": 100 },
+    { "rank": 49, "name": "Reijnders", "team": "Man City", "position": "MID", "score": 65, "playingChance": 100 },
+    { "rank": 50, "name": "Wissa", "team": "Newcastle", "position": "FWD", "score": 9, "playingChance": 100 },
+    { "rank": 51, "name": "Kerkez", "team": "Liverpool", "position": "DEF", "score": 41, "playingChance": 100 },
+    { "rank": 52, "name": "Wirtz", "team": "Liverpool", "position": "MID", "score": 55, "playingChance": 100 },
+    { "rank": 53, "name": "Gordon", "team": "Newcastle", "position": "MID", "score": 47, "playingChance": 100 },
+    { "rank": 54, "name": "Muñoz", "team": "Crystal Palace", "position": "DEF", "score": 89, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 55, "name": "Rúben", "team": "Man City", "position": "DEF", "score": 84, "playingChance": 100 },
+    { "rank": 56, "name": "Pickford", "team": "Everton", "position": "GK", "score": 86, "playingChance": 100 },
+    { "rank": 57, "name": "Roefs", "team": "Sunderland", "position": "GK", "score": 83, "playingChance": 100 },
+    { "rank": 58, "name": "Donnarumma", "team": "Man City", "position": "GK", "score": 59, "playingChance": 100 },
+    { "rank": 59, "name": "Sánchez", "team": "Chelsea", "position": "GK", "score": 72, "playingChance": 100 },
+    { "rank": 60, "name": "Henderson", "team": "Crystal Palace", "position": "GK", "score": 67, "playingChance": 100 },
+    { "rank": 61, "name": "Matheus N.", "team": "Man City", "position": "DEF", "score": 80, "playingChance": 100 },
+    { "rank": 62, "name": "O'Reilly", "team": "Man City", "position": "DEF", "score": 75, "playingChance": 100 },
+    { "rank": 63, "name": "Evanilson", "team": "Bournemouth", "position": "FWD", "score": 49, "playingChance": 100 },
+    { "rank": 64, "name": "Gvardiol", "team": "Man City", "position": "DEF", "score": 75, "playingChance": 100 },
+    { "rank": 65, "name": "Caicedo", "team": "Chelsea", "position": "MID", "score": 67, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 66, "name": "Schär", "team": "Newcastle", "position": "DEF", "score": 40, "playingChance": 100 },
+    { "rank": 67, "name": "Cash", "team": "Aston Villa", "position": "DEF", "score": 76, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 68, "name": "Ndiaye", "team": "Everton", "position": "MID", "score": 73, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 69, "name": "Richarlison", "team": "Spurs", "position": "FWD", "score": 70, "playingChance": 100 },
+    { "rank": 70, "name": "Schade", "team": "Brentford", "position": "MID", "score": 70, "playingChance": 100 },
+    { "rank": 71, "name": "Šeško", "team": "Man Utd", "position": "FWD", "score": 40, "playingChance": 100 },
+    { "rank": 72, "name": "Van de Ven", "team": "Spurs", "position": "DEF", "score": 76, "playingChance": 100 },
+    { "rank": 73, "name": "Trossard", "team": "Arsenal", "position": "MID", "score": 77, "playingChance": 100 },
+    { "rank": 74, "name": "Digne", "team": "Aston Villa", "position": "DEF", "score": 54, "playingChance": 100 },
+    { "rank": 75, "name": "Martinez", "team": "Aston Villa", "position": "GK", "score": 60, "playingChance": 100 },
+    { "rank": 76, "name": "Collins", "team": "Brentford", "position": "DEF", "score": 57, "playingChance": 100 },
+    { "rank": 77, "name": "Dewsbury-Hall", "team": "Everton", "position": "MID", "score": 75, "playingChance": 25, "status": "25%" },
+    { "rank": 78, "name": "Pope", "team": "Newcastle", "position": "GK", "score": 57, "playingChance": 100 },
+    { "rank": 79, "name": "Bradley", "team": "Liverpool", "position": "DEF", "score": 22, "playingChance": 100 },
+    { "rank": 80, "name": "Konsa", "team": "Aston Villa", "position": "DEF", "score": 53, "playingChance": 100 },
+    { "rank": 81, "name": "Lammens", "team": "Man Utd", "position": "GK", "score": 38, "playingChance": 100 },
+    { "rank": 82, "name": "Doku", "team": "Man City", "position": "MID", "score": 59, "playingChance": 25, "status": "25%" },
+    { "rank": 83, "name": "Tonali", "team": "Newcastle", "position": "MID", "score": 46, "playingChance": 100 },
+    { "rank": 84, "name": "Frimpong", "team": "Liverpool", "position": "DEF", "score": 16, "playingChance": 100 },
+    { "rank": 85, "name": "O'Brien", "team": "Everton", "position": "DEF", "score": 65, "playingChance": 100 },
+    { "rank": 86, "name": "Garner", "team": "Everton", "position": "MID", "score": 85, "playingChance": 100 },
+    { "rank": 87, "name": "Casemiro", "team": "Man Utd", "position": "MID", "score": 76, "playingChance": 100 },
+    { "rank": 88, "name": "Mykolenko", "team": "Everton", "position": "DEF", "score": 54, "playingChance": 100 },
+    { "rank": 89, "name": "Dorgu", "team": "Man Utd", "position": "DEF", "score": 45, "playingChance": 100 },
+    { "rank": 90, "name": "Shaw", "team": "Man Utd", "position": "DEF", "score": 44, "playingChance": 100 },
+    { "rank": 91, "name": "Thiaw", "team": "Newcastle", "position": "DEF", "score": 59, "playingChance": 100 },
+    { "rank": 92, "name": "Vicario", "team": "Spurs", "position": "GK", "score": 67, "playingChance": 100 },
+    { "rank": 93, "name": "Amad", "team": "Man Utd", "position": "MID", "score": 56, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 94, "name": "Livramento", "team": "Newcastle", "position": "DEF", "score": 47, "playingChance": 25, "status": "25%" },
+    { "rank": 95, "name": "Joelinton", "team": "Newcastle", "position": "MID", "score": 40, "playingChance": 100 },
+    { "rank": 96, "name": "Kelleher", "team": "Brentford", "position": "GK", "score": 60, "playingChance": 100 },
+    { "rank": 97, "name": "Hall", "team": "Newcastle", "position": "DEF", "score": 32, "playingChance": 100 },
+    { "rank": 98, "name": "Gusto", "team": "Chelsea", "position": "DEF", "score": 69, "playingChance": 100 },
+    { "rank": 99, "name": "L.Paquetá", "team": "West Ham", "position": "MID", "score": 67, "playingChance": 100 },
+    { "rank": 100, "name": "Petrović", "team": "Bournemouth", "position": "GK", "score": 55, "playingChance": 100 },
+    { "rank": 101, "name": "Richards", "team": "Crystal Palace", "position": "DEF", "score": 75, "playingChance": 50, "status": "50%" },
+    { "rank": 102, "name": "Pedro Porro", "team": "Spurs", "position": "DEF", "score": 60, "playingChance": 100 },
+    { "rank": 103, "name": "Sarr", "team": "Crystal Palace", "position": "MID", "score": 52, "playingChance": 0, "status": "Unlikely" },
+    { "rank": 104, "name": "Xhaka", "team": "Sunderland", "position": "MID", "score": 77, "playingChance": 100 },
+    { "rank": 105, "name": "Anderson", "team": "Nott'm Forest", "position": "MID", "score": 76, "playingChance": 100 },
+    { "rank": 106, "name": "A.Becker", "team": "Liverpool", "position": "GK", "score": 45, "playingChance": 100 },
+    { "rank": 107, "name": "Welbeck", "team": "Brighton", "position": "FWD", "score": 63, "playingChance": 100 },
+    { "rank": 108, "name": "Romero", "team": "Spurs", "position": "DEF", "score": 59, "playingChance": 100 },
+    { "rank": 109, "name": "Andersen", "team": "Fulham", "position": "DEF", "score": 68, "playingChance": 100 },
+    { "rank": 110, "name": "Verbruggen", "team": "Brighton", "position": "GK", "score": 58, "playingChance": 100 },
+    { "rank": 111, "name": "Gibbs-White", "team": "Nott'm Forest", "position": "MID", "score": 64, "playingChance": 100 },
+    { "rank": 112, "name": "Areola", "team": "West Ham", "position": "GK", "score": 40, "playingChance": 100 },
+    { "rank": 113, "name": "Van Hecke", "team": "Brighton", "position": "DEF", "score": 69, "playingChance": 100 },
+    { "rank": 114, "name": "Leno", "team": "Fulham", "position": "GK", "score": 58, "playingChance": 100 },
+    { "rank": 115, "name": "Lewis-Potter", "team": "Brentford", "position": "DEF", "score": 53, "playingChance": 100 },
+    { "rank": 116, "name": "Mukiele", "team": "Sunderland", "position": "DEF", "score": 74, "playingChance": 100 },
+    { "rank": 117, "name": "Alderete", "team": "Sunderland", "position": "DEF", "score": 67, "playingChance": 100 },
+    { "rank": 118, "name": "Raúl", "team": "Fulham", "position": "FWD", "score": 55, "playingChance": 100 },
+    { "rank": 119, "name": "Igor Jesus", "team": "Nott'm Forest", "position": "FWD", "score": 40, "playingChance": 100 },
+    { "rank": 120, "name": "Brobbey", "team": "Sunderland", "position": "FWD", "score": 28, "playingChance": 100 },
+    { "rank": 121, "name": "Delap", "team": "Chelsea", "position": "FWD", "score": 14, "playingChance": 100 },
+    { "rank": 122, "name": "Kolo Muani", "team": "Spurs", "position": "FWD", "score": 18, "playingChance": 100 },
+    { "rank": 123, "name": "Barry", "team": "Everton", "position": "FWD", "score": 34, "playingChance": 100 },
+    { "rank": 124, "name": "Kroupi.Jr", "team": "Bournemouth", "position": "FWD", "score": 42, "playingChance": 100 },
+    { "rank": 125, "name": "Strand Larsen", "team": "Wolves", "position": "FWD", "score": 31, "playingChance": 100 },
+    { "rank": 126, "name": "Beto", "team": "Everton", "position": "FWD", "score": 30, "playingChance": 100 },
+    { "rank": 127, "name": "Sels", "team": "Nott'm Forest", "position": "GK", "score": 40, "playingChance": 100 },
+    { "rank": 128, "name": "Dúbravka", "team": "Burnley", "position": "GK", "score": 59, "playingChance": 100 }
+  ],
+  "topPicksByPosition": {
+    "GK": [
+      { "rank": 16, "name": "Raya", "team": "Arsenal", "score": 79 },
+      { "rank": 56, "name": "Pickford", "team": "Everton", "score": 86 },
+      { "rank": 57, "name": "Roefs", "team": "Sunderland", "score": 83 }
+    ],
+    "DEF": [
+      { "rank": 2, "name": "Gabriel", "team": "Arsenal", "score": 97 },
+      { "rank": 9, "name": "Guéhi", "team": "Crystal Palace", "score": 95 },
+      { "rank": 12, "name": "Chalobah", "team": "Chelsea", "score": 95 },
+      { "rank": 15, "name": "Saliba", "team": "Arsenal", "score": 53 },
+      { "rank": 19, "name": "Keane", "team": "Everton", "score": 91 }
+    ],
+    "MID": [
+      { "rank": 4, "name": "Foden", "team": "Man City", "score": 93 },
+      { "rank": 6, "name": "Saka", "team": "Arsenal", "score": 91 },
+      { "rank": 8, "name": "Rogers", "team": "Aston Villa", "score": 93 },
+      { "rank": 10, "name": "Bruno G.", "team": "Newcastle", "score": 96 },
+      { "rank": 13, "name": "Kudus", "team": "Spurs", "score": 71 }
+    ],
+    "FWD": [
+      { "rank": 1, "name": "Haaland", "team": "Man City", "score": 153 },
+      { "rank": 3, "name": "Ekitiké", "team": "Liverpool", "score": 82 },
+      { "rank": 5, "name": "João Pedro", "team": "Chelsea", "score": 81 }
+    ]
+  },
+  "recommendedSquad": {
+    "description": "Best 15 players by rank that meet squad constraints",
+    "GK": [
+      { "rank": 16, "name": "Raya", "team": "Arsenal" },
+      { "rank": 56, "name": "Pickford", "team": "Everton" }
+    ],
+    "DEF": [
+      { "rank": 2, "name": "Gabriel", "team": "Arsenal" },
+      { "rank": 9, "name": "Guéhi", "team": "Crystal Palace" },
+      { "rank": 12, "name": "Chalobah", "team": "Chelsea" },
+      { "rank": 21, "name": "Tarkowski", "team": "Everton" },
+      { "rank": 27, "name": "J.Timber", "team": "Arsenal" }
+    ],
+    "MID": [
+      { "rank": 4, "name": "Foden", "team": "Man City" },
+      { "rank": 6, "name": "Saka", "team": "Arsenal" },
+      { "rank": 8, "name": "Rogers", "team": "Aston Villa" },
+      { "rank": 10, "name": "Bruno G.", "team": "Newcastle" },
+      { "rank": 13, "name": "Kudus", "team": "Spurs" }
+    ],
+    "FWD": [
+      { "rank": 1, "name": "Haaland", "team": "Man City" },
+      { "rank": 3, "name": "Ekitiké", "team": "Liverpool" },
+      { "rank": 5, "name": "João Pedro", "team": "Chelsea" }
+    ]
+  },
+  "byTeam": {
+    "Arsenal": {
+      "count": 7,
+      "players": [
+        { "rank": 2, "name": "Gabriel", "position": "DEF", "score": 97 },
+        { "rank": 6, "name": "Saka", "position": "MID", "score": 91 },
+        { "rank": 15, "name": "Saliba", "position": "DEF", "score": 53 },
+        { "rank": 16, "name": "Raya", "position": "GK", "score": 79 },
+        { "rank": 17, "name": "Rice", "position": "MID", "score": 102 },
+        { "rank": 26, "name": "Calafiori", "position": "DEF", "score": 77 },
+        { "rank": 27, "name": "J.Timber", "position": "DEF", "score": 95 },
+        { "rank": 33, "name": "Gyökeres", "position": "FWD", "score": 50 },
+        { "rank": 73, "name": "Trossard", "position": "MID", "score": 77 }
+      ]
+    },
+    "Man City": {
+      "count": 8,
+      "players": [
+        { "rank": 1, "name": "Haaland", "position": "FWD", "score": 153 },
+        { "rank": 4, "name": "Foden", "position": "MID", "score": 93 },
+        { "rank": 39, "name": "Cherki", "position": "MID", "score": 66 },
+        { "rank": 49, "name": "Reijnders", "position": "MID", "score": 65 },
+        { "rank": 55, "name": "Rúben", "position": "DEF", "score": 84 },
+        { "rank": 58, "name": "Donnarumma", "position": "GK", "score": 59 },
+        { "rank": 61, "name": "Matheus N.", "position": "DEF", "score": 80 },
+        { "rank": 62, "name": "O'Reilly", "position": "DEF", "score": 75 },
+        { "rank": 64, "name": "Gvardiol", "position": "DEF", "score": 75 },
+        { "rank": 82, "name": "Doku", "position": "MID", "score": 59 }
+      ]
+    },
+    "Liverpool": {
+      "count": 8,
+      "players": [
+        { "rank": 3, "name": "Ekitiké", "position": "FWD", "score": 82 },
+        { "rank": 22, "name": "Gakpo", "position": "MID", "score": 66 },
+        { "rank": 29, "name": "Virgil", "position": "DEF", "score": 66 },
+        { "rank": 41, "name": "Konaté", "position": "DEF", "score": 64 },
+        { "rank": 46, "name": "Szoboszlai", "position": "MID", "score": 63 },
+        { "rank": 48, "name": "Gravenberch", "position": "MID", "score": 84 },
+        { "rank": 51, "name": "Kerkez", "position": "DEF", "score": 41 },
+        { "rank": 52, "name": "Wirtz", "position": "MID", "score": 55 },
+        { "rank": 79, "name": "Bradley", "position": "DEF", "score": 22 },
+        { "rank": 84, "name": "Frimpong", "position": "DEF", "score": 16 },
+        { "rank": 106, "name": "A.Becker", "position": "GK", "score": 45 }
+      ]
+    },
+    "Chelsea": {
+      "count": 9,
+      "players": [
+        { "rank": 5, "name": "João Pedro", "position": "FWD", "score": 81 },
+        { "rank": 12, "name": "Chalobah", "position": "DEF", "score": 95 },
+        { "rank": 28, "name": "Neto", "position": "MID", "score": 81 },
+        { "rank": 34, "name": "Palmer", "position": "MID", "score": 33 },
+        { "rank": 36, "name": "Cucurella", "position": "DEF", "score": 72 },
+        { "rank": 40, "name": "James", "position": "DEF", "score": 81 },
+        { "rank": 42, "name": "Fofana", "position": "DEF", "score": 41 },
+        { "rank": 44, "name": "Enzo", "position": "MID", "score": 80 },
+        { "rank": 59, "name": "Sánchez", "position": "GK", "score": 72 },
+        { "rank": 65, "name": "Caicedo", "position": "MID", "score": 67 },
+        { "rank": 98, "name": "Gusto", "position": "DEF", "score": 69 },
+        { "rank": 121, "name": "Delap", "position": "FWD", "score": 14 }
+      ]
+    },
+    "Crystal Palace": {
+      "count": 6,
+      "players": [
+        { "rank": 9, "name": "Guéhi", "position": "DEF", "score": 95 },
+        { "rank": 20, "name": "Mateta", "position": "FWD", "score": 67 },
+        { "rank": 25, "name": "Lacroix", "position": "DEF", "score": 85 },
+        { "rank": 37, "name": "Mitchell", "position": "DEF", "score": 73 },
+        { "rank": 54, "name": "Muñoz", "position": "DEF", "score": 89 },
+        { "rank": 60, "name": "Henderson", "position": "GK", "score": 67 },
+        { "rank": 101, "name": "Richards", "position": "DEF", "score": 75 },
+        { "rank": 103, "name": "Sarr", "position": "MID", "score": 52 }
+      ]
+    },
+    "Everton": {
+      "count": 9,
+      "players": [
+        { "rank": 19, "name": "Keane", "position": "DEF", "score": 91 },
+        { "rank": 21, "name": "Tarkowski", "position": "DEF", "score": 93 },
+        { "rank": 45, "name": "Grealish", "position": "MID", "score": 67 },
+        { "rank": 56, "name": "Pickford", "position": "GK", "score": 86 },
+        { "rank": 68, "name": "Ndiaye", "position": "MID", "score": 73 },
+        { "rank": 77, "name": "Dewsbury-Hall", "position": "MID", "score": 75 },
+        { "rank": 85, "name": "O'Brien", "position": "DEF", "score": 65 },
+        { "rank": 86, "name": "Garner", "position": "MID", "score": 85 },
+        { "rank": 88, "name": "Mykolenko", "position": "DEF", "score": 54 },
+        { "rank": 123, "name": "Barry", "position": "FWD", "score": 34 },
+        { "rank": 126, "name": "Beto", "position": "FWD", "score": 30 }
+      ]
+    },
+    "Newcastle": {
+      "count": 9,
+      "players": [
+        { "rank": 10, "name": "Bruno G.", "position": "MID", "score": 96 },
+        { "rank": 18, "name": "Woltemade", "position": "FWD", "score": 72 },
+        { "rank": 50, "name": "Wissa", "position": "FWD", "score": 9 },
+        { "rank": 53, "name": "Gordon", "position": "MID", "score": 47 },
+        { "rank": 66, "name": "Schär", "position": "DEF", "score": 40 },
+        { "rank": 78, "name": "Pope", "position": "GK", "score": 57 },
+        { "rank": 83, "name": "Tonali", "position": "MID", "score": 46 },
+        { "rank": 91, "name": "Thiaw", "position": "DEF", "score": 59 },
+        { "rank": 94, "name": "Livramento", "position": "DEF", "score": 47 },
+        { "rank": 95, "name": "Joelinton", "position": "MID", "score": 40 },
+        { "rank": 97, "name": "Hall", "position": "DEF", "score": 32 }
+      ]
+    },
+    "Aston Villa": {
+      "count": 5,
+      "players": [
+        { "rank": 8, "name": "Rogers", "position": "MID", "score": 93 },
+        { "rank": 11, "name": "Watkins", "position": "FWD", "score": 72 },
+        { "rank": 67, "name": "Cash", "position": "DEF", "score": 76 },
+        { "rank": 74, "name": "Digne", "position": "DEF", "score": 54 },
+        { "rank": 75, "name": "Martinez", "position": "GK", "score": 60 },
+        { "rank": 80, "name": "Konsa", "position": "DEF", "score": 53 }
+      ]
+    },
+    "Spurs": {
+      "count": 6,
+      "players": [
+        { "rank": 13, "name": "Kudus", "position": "MID", "score": 71 },
+        { "rank": 69, "name": "Richarlison", "position": "FWD", "score": 70 },
+        { "rank": 72, "name": "Van de Ven", "position": "DEF", "score": 76 },
+        { "rank": 92, "name": "Vicario", "position": "GK", "score": 67 },
+        { "rank": 102, "name": "Pedro Porro", "position": "DEF", "score": 60 },
+        { "rank": 108, "name": "Romero", "position": "DEF", "score": 59 },
+        { "rank": 122, "name": "Kolo Muani", "position": "FWD", "score": 18 }
+      ]
+    },
+    "Man Utd": {
+      "count": 8,
+      "players": [
+        { "rank": 7, "name": "B.Fernandes", "position": "MID", "score": 99 },
+        { "rank": 31, "name": "Cunha", "position": "MID", "score": 55 },
+        { "rank": 32, "name": "Mbeumo", "position": "MID", "score": 74 },
+        { "rank": 35, "name": "Dalot", "position": "DEF", "score": 62 },
+        { "rank": 71, "name": "Šeško", "position": "FWD", "score": 40 },
+        { "rank": 81, "name": "Lammens", "position": "GK", "score": 38 },
+        { "rank": 87, "name": "Casemiro", "position": "MID", "score": 76 },
+        { "rank": 89, "name": "Dorgu", "position": "DEF", "score": 45 },
+        { "rank": 90, "name": "Shaw", "position": "DEF", "score": 44 },
+        { "rank": 93, "name": "Amad", "position": "MID", "score": 56 }
+      ]
+    },
+    "Bournemouth": {
+      "count": 4,
+      "players": [
+        { "rank": 14, "name": "Semenyo", "position": "MID", "score": 113 },
+        { "rank": 30, "name": "Senesi", "position": "DEF", "score": 81 },
+        { "rank": 63, "name": "Evanilson", "position": "FWD", "score": 49 },
+        { "rank": 100, "name": "Petrović", "position": "GK", "score": 55 },
+        { "rank": 124, "name": "Kroupi.Jr", "position": "FWD", "score": 42 }
+      ]
+    },
+    "Brentford": {
+      "count": 4,
+      "players": [
+        { "rank": 23, "name": "Thiago", "position": "FWD", "score": 89 },
+        { "rank": 70, "name": "Schade", "position": "MID", "score": 70 },
+        { "rank": 76, "name": "Collins", "position": "DEF", "score": 57 },
+        { "rank": 96, "name": "Kelleher", "position": "GK", "score": 60 },
+        { "rank": 115, "name": "Lewis-Potter", "position": "DEF", "score": 53 }
+      ]
+    },
+    "Fulham": {
+      "count": 3,
+      "players": [
+        { "rank": 24, "name": "Wilson", "position": "MID", "score": 85 },
+        { "rank": 109, "name": "Andersen", "position": "DEF", "score": 68 },
+        { "rank": 114, "name": "Leno", "position": "GK", "score": 58 },
+        { "rank": 118, "name": "Raúl", "position": "FWD", "score": 55 }
+      ]
+    },
+    "Brighton": {
+      "count": 3,
+      "players": [
+        { "rank": 38, "name": "Minteh", "position": "MID", "score": 79 },
+        { "rank": 107, "name": "Welbeck", "position": "FWD", "score": 63 },
+        { "rank": 110, "name": "Verbruggen", "position": "GK", "score": 58 },
+        { "rank": 113, "name": "Van Hecke", "position": "DEF", "score": 69 }
+      ]
+    },
+    "Sunderland": {
+      "count": 4,
+      "players": [
+        { "rank": 57, "name": "Roefs", "position": "GK", "score": 83 },
+        { "rank": 104, "name": "Xhaka", "position": "MID", "score": 77 },
+        { "rank": 116, "name": "Mukiele", "position": "DEF", "score": 74 },
+        { "rank": 117, "name": "Alderete", "position": "DEF", "score": 67 },
+        { "rank": 120, "name": "Brobbey", "position": "FWD", "score": 28 }
+      ]
+    },
+    "West Ham": {
+      "count": 3,
+      "players": [
+        { "rank": 43, "name": "Bowen", "position": "FWD", "score": 84 },
+        { "rank": 99, "name": "L.Paquetá", "position": "MID", "score": 67 },
+        { "rank": 112, "name": "Areola", "position": "GK", "score": 40 }
+      ]
+    },
+    "Nott'm Forest": {
+      "count": 3,
+      "players": [
+        { "rank": 105, "name": "Anderson", "position": "MID", "score": 76 },
+        { "rank": 111, "name": "Gibbs-White", "position": "MID", "score": 64 },
+        { "rank": 119, "name": "Igor Jesus", "position": "FWD", "score": 40 },
+        { "rank": 127, "name": "Sels", "position": "GK", "score": 40 }
+      ]
+    },
+    "Leeds": {
+      "count": 1,
+      "players": [
+        { "rank": 47, "name": "Calvert-Lewin", "position": "FWD", "score": 78 }
+      ]
+    },
+    "Burnley": {
+      "count": 1,
+      "players": [
+        { "rank": 128, "name": "Dúbravka", "position": "GK", "score": 59 }
+      ]
+    },
+    "Wolves": {
+      "count": 1,
+      "players": [
+        { "rank": 125, "name": "Strand Larsen", "position": "FWD", "score": 31 }
+      ]
+    }
+  },
+  "unavailablePlayers": [
+    { "rank": 7, "name": "B.Fernandes", "team": "Man Utd", "position": "MID", "status": "Unlikely" },
+    { "rank": 32, "name": "Mbeumo", "team": "Man Utd", "position": "MID", "status": "Unlikely" },
+    { "rank": 54, "name": "Muñoz", "team": "Crystal Palace", "position": "DEF", "status": "Unlikely" },
+    { "rank": 65, "name": "Caicedo", "team": "Chelsea", "position": "MID", "status": "Unlikely" },
+    { "rank": 67, "name": "Cash", "team": "Aston Villa", "position": "DEF", "status": "Unlikely" },
+    { "rank": 68, "name": "Ndiaye", "team": "Everton", "position": "MID", "status": "Unlikely" },
+    { "rank": 93, "name": "Amad", "team": "Man Utd", "position": "MID", "status": "Unlikely" },
+    { "rank": 103, "name": "Sarr", "team": "Crystal Palace", "position": "MID", "status": "Unlikely" }
+  ],
+  "doubtfulPlayers": [
+    { "rank": 17, "name": "Rice", "team": "Arsenal", "position": "MID", "playingChance": 50 },
+    { "rank": 19, "name": "Keane", "team": "Everton", "position": "DEF", "playingChance": 75 },
+    { "rank": 26, "name": "Calafiori", "team": "Arsenal", "position": "DEF", "playingChance": 75 },
+    { "rank": 36, "name": "Cucurella", "team": "Chelsea", "position": "DEF", "playingChance": 75 },
+    { "rank": 38, "name": "Minteh", "team": "Brighton", "position": "MID", "playingChance": 75 },
+    { "rank": 77, "name": "Dewsbury-Hall", "team": "Everton", "position": "MID", "playingChance": 25 },
+    { "rank": 82, "name": "Doku", "team": "Man City", "position": "MID", "playingChance": 25 },
+    { "rank": 94, "name": "Livramento", "team": "Newcastle", "position": "DEF", "playingChance": 25 },
+    { "rank": 101, "name": "Richards", "team": "Crystal Palace", "position": "DEF", "playingChance": 50 }
+  ]
+}
+
+
