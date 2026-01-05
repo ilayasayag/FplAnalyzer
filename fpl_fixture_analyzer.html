@@ -5,7 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>FPL Fixture Rotation Analyzer</title>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
         
@@ -209,6 +208,317 @@
         button:active {
             transform: translateY(0);
         }
+        
+        /* Tab Navigation */
+        .tab-nav {
+            display: flex;
+            gap: 0.5rem;
+            margin-bottom: 2rem;
+            padding: 0.5rem;
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            flex-wrap: wrap;
+        }
+        
+        .tab-btn {
+            padding: 0.75rem 1.5rem;
+            border: none;
+            background: transparent;
+            color: var(--text-secondary);
+            font-family: 'Outfit', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 500;
+            border-radius: 12px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .tab-btn:hover {
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            transform: none;
+            box-shadow: none;
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+            color: white;
+            font-weight: 600;
+        }
+        
+        .tab-content {
+            display: none;
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        /* Predictions Tab Styles */
+        .predictions-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        
+        .prediction-card {
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 1.5rem;
+            border: 1px solid var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .prediction-card:hover {
+            border-color: var(--accent-cyan);
+            transform: translateY(-2px);
+        }
+        
+        .prediction-card.winner {
+            border-color: var(--accent-emerald);
+            box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+        }
+        
+        .team-rank-bar {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 0.75rem;
+        }
+        
+        .rank-badge {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        
+        .rank-badge.gold { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; }
+        .rank-badge.silver { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #000; }
+        .rank-badge.bronze { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; }
+        .rank-badge.default { background: var(--bg-secondary); color: var(--text-secondary); }
+        
+        .points-bar {
+            flex: 1;
+            height: 24px;
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .points-bar-fill {
+            height: 100%;
+            border-radius: 12px;
+            background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet));
+            transition: width 0.5s ease;
+            display: flex;
+            align-items: center;
+            justify-content: flex-end;
+            padding-right: 0.5rem;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+        }
+        
+        .player-breakdown-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.85rem;
+        }
+        
+        .player-breakdown-table th {
+            background: var(--bg-secondary);
+            padding: 0.75rem 0.5rem;
+            text-align: left;
+            font-weight: 500;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .player-breakdown-table td {
+            padding: 0.5rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .player-breakdown-table tr:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .stat-cell {
+            text-align: center;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.8rem;
+        }
+        
+        .stat-cell.highlight { color: var(--accent-emerald); font-weight: 600; }
+        .stat-cell.negative { color: var(--accent-rose); }
+        
+        .h2h-matchup-card {
+            background: var(--bg-tertiary);
+            border-radius: 16px;
+            padding: 1.5rem;
+            margin-bottom: 1rem;
+            border: 1px solid var(--border-color);
+        }
+        
+        .h2h-teams {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .h2h-team-name {
+            font-weight: 600;
+            font-size: 1.1rem;
+        }
+        
+        .h2h-vs {
+            color: var(--text-muted);
+            font-size: 0.9rem;
+        }
+        
+        .win-probability-bar {
+            height: 32px;
+            border-radius: 16px;
+            overflow: hidden;
+            display: flex;
+            margin-bottom: 0.75rem;
+        }
+        
+        .win-prob-segment {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 0.8rem;
+            font-weight: 600;
+            transition: width 0.5s ease;
+        }
+        
+        .win-prob-segment.team1 { background: var(--accent-cyan); color: #000; }
+        .win-prob-segment.draw { background: var(--text-muted); color: #fff; }
+        .win-prob-segment.team2 { background: var(--accent-violet); color: #fff; }
+        
+        .fixture-heatmap {
+            overflow-x: auto;
+        }
+        
+        .fixture-heatmap-table {
+            border-collapse: separate;
+            border-spacing: 2px;
+            font-size: 0.75rem;
+        }
+        
+        .fixture-heatmap-table th {
+            padding: 0.5rem 0.25rem;
+            background: var(--bg-secondary);
+            font-weight: 500;
+            min-width: 40px;
+        }
+        
+        .fixture-heatmap-table td {
+            text-align: center;
+            padding: 0.4rem 0.25rem;
+            border-radius: 4px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+        
+        .fixture-heatmap-table td:hover {
+            transform: scale(1.2);
+            z-index: 10;
+            position: relative;
+        }
+        
+        .fdr-1 { background: #059669; color: white; }
+        .fdr-2 { background: #10b981; color: white; }
+        .fdr-3 { background: #f59e0b; color: #000; }
+        .fdr-4 { background: #ef4444; color: white; }
+        .fdr-5 { background: #7f1d1d; color: white; }
+        
+        .pl-team-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1rem;
+            border: 1px solid var(--border-color);
+        }
+        
+        .pl-team-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 0.75rem;
+        }
+        
+        .pl-team-name {
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .pl-team-rank {
+            background: var(--bg-secondary);
+            padding: 0.25rem 0.75rem;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 600;
+        }
+        
+        .pl-stats-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 0.5rem;
+            text-align: center;
+        }
+        
+        .pl-stat {
+            padding: 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 8px;
+        }
+        
+        .pl-stat-value {
+            font-size: 1.1rem;
+            font-weight: 700;
+            font-family: 'JetBrains Mono', monospace;
+        }
+        
+        .pl-stat-label {
+            font-size: 0.65rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+        }
+        
+        .form-indicator {
+            display: flex;
+            gap: 3px;
+            justify-content: center;
+            margin-top: 0.5rem;
+        }
+        
+        .form-dot {
+            width: 18px;
+            height: 18px;
+            border-radius: 4px;
+            font-size: 0.65rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: 600;
+        }
+        
+        .form-dot.W { background: var(--accent-emerald); color: #000; }
+        .form-dot.D { background: var(--accent-amber); color: #000; }
+        .form-dot.L { background: var(--accent-rose); color: white; }
         
         /* Overlap Results */
         .overlap-grid {
@@ -805,6 +1115,16 @@
         @keyframes pulse-border {
             0%, 100% { box-shadow: 0 0 5px var(--accent-emerald); }
             50% { box-shadow: 0 0 20px var(--accent-emerald); }
+        }
+        
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
         }
         
         .draft-round-info {
@@ -2338,42 +2658,21 @@
 
                 <!-- League Analysis Results -->
                 <div id="leagueAnalysisResults" style="display: none;">
-                    <!-- Export Stats Header -->
-                    <div class="stat-card" style="margin-bottom: 2rem; background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.1)); border: 2px solid var(--accent-cyan);">
-                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
-                            <div>
-                                <h3 style="color: var(--accent-cyan); margin-bottom: 0.5rem;">📊 League Data Loaded</h3>
-                                <div id="exportDataInfo" style="color: var(--text-secondary); font-size: 0.85rem;"></div>
-                            </div>
-                            <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
-                                <div class="export-dropdown" style="position: relative;">
-                                    <button onclick="toggleExportDropdown()" class="btn-primary" style="display: flex; align-items: center; gap: 0.5rem;">
-                                        📥 Export Stats
-                                        <span style="font-size: 0.7rem;">▼</span>
-                                    </button>
-                                    <div id="exportDropdown" style="display: none; position: absolute; top: 100%; right: 0; margin-top: 0.5rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); border-radius: 8px; min-width: 220px; z-index: 1000; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
-                                        <button onclick="exportAllAsZip()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
-                                            📦 Export All (ZIP)
-                                        </button>
-                                        <button onclick="exportRawData()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
-                                            🔧 Raw Data (Python)
-                                        </button>
-                                        <button onclick="exportPredictions()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
-                                            🎯 GW Predictions
-                                        </button>
-                                        <button onclick="exportPlayerRankings()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem; border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
-                                            📈 Player Rankings
-                                        </button>
-                                        <button onclick="exportLeagueStats()" style="width: 100%; padding: 0.75rem 1rem; background: none; border: none; color: var(--text-primary); text-align: left; cursor: pointer; display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.background='var(--bg-secondary)'" onmouseout="this.style.background='none'">
-                                            🏆 League Stats
-                                        </button>
-                                    </div>
-                                </div>
-                                <button onclick="checkClipboardForData()" class="btn-secondary">🔄 Refresh Data</button>
-                            </div>
-                        </div>
+                    <!-- Tab Navigation -->
+                    <div class="tab-nav">
+                        <button class="tab-btn active" onclick="switchAnalysisTab('overview')">
+                            📊 Overview
+                        </button>
+                        <button class="tab-btn" onclick="switchAnalysisTab('predictions')">
+                            🎯 Predictions
+                        </button>
+                        <button class="tab-btn" onclick="switchAnalysisTab('plstats')">
+                            ⚽ PL Stats
+                        </button>
                     </div>
                     
+                    <!-- Overview Tab -->
+                    <div id="overviewTab" class="tab-content active">
                     <!-- League Overview -->
                     <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
                         <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">🏆 League Overview</h3>
@@ -2455,6 +2754,106 @@
                         </div>
                         <div id="h2hResults"></div>
                     </div>
+                    </div><!-- End Overview Tab -->
+                    
+                    <!-- Predictions Tab -->
+                    <div id="predictionsTab" class="tab-content">
+                        <!-- GW Selector -->
+                        <div class="stat-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(34, 211, 238, 0.1), rgba(139, 92, 246, 0.1)); border: 2px solid var(--accent-cyan);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                                <div>
+                                    <h3 style="color: var(--accent-cyan); margin-bottom: 0.25rem;">🎯 GW Predictions</h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.85rem;">Predicted points based on form, fixtures, and player stats</p>
+                                </div>
+                                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                    <label style="color: var(--text-secondary);">Gameweek:</label>
+                                    <select id="predictionGW" onchange="renderPredictionsTab()" style="padding: 0.5rem 1rem; min-width: 100px;"></select>
+                                    <button onclick="renderPredictionsTab()" class="btn-primary" style="padding: 0.5rem 1rem;">
+                                        🔄 Refresh
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Team Rankings -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-emerald);">
+                            <h3 style="color: var(--accent-emerald); margin-bottom: 1rem;">🏆 Predicted Team Rankings</h3>
+                            <div id="predictionRankings"></div>
+                        </div>
+                        
+                        <!-- H2H Matchup Predictions -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-amber);">
+                            <h3 style="color: var(--accent-amber); margin-bottom: 1rem;">⚔️ H2H Matchup Predictions</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Win probability based on squad strength and predicted points
+                            </p>
+                            <div id="h2hMatchupPredictions"></div>
+                        </div>
+                        
+                        <!-- Player Breakdown by Team -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
+                            <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">📋 Player Points Breakdown</h3>
+                            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                                <select id="breakdownTeamSelect" onchange="renderPlayerBreakdown()" style="padding: 0.5rem 1rem; min-width: 200px;"></select>
+                                <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">
+                                    <input type="checkbox" id="showOptimal11Only" onchange="renderPlayerBreakdown()">
+                                    Show Optimal 11 Only
+                                </label>
+                            </div>
+                            <div id="playerBreakdownTable" style="overflow-x: auto;"></div>
+                        </div>
+                        
+                        <!-- Fixture Difficulty Heatmap -->
+                        <div class="stat-card" style="border: 2px solid var(--accent-cyan);">
+                            <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">📅 Fixture Difficulty Heatmap</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Green = Easy fixture | Red = Hard fixture (based on FPL's FDR)
+                            </p>
+                            <div id="fixtureHeatmap" class="fixture-heatmap"></div>
+                        </div>
+                    </div><!-- End Predictions Tab -->
+                    
+                    <!-- PL Stats Tab -->
+                    <div id="plstatsTab" class="tab-content">
+                        <!-- PL Standings -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-emerald);">
+                            <h3 style="color: var(--accent-emerald); margin-bottom: 1rem;">📊 Premier League Standings</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Current season statistics from FPL bootstrap data
+                            </p>
+                            <div id="plStandingsTable" style="overflow-x: auto;"></div>
+                        </div>
+                        
+                        <!-- Team Stats Cards -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
+                            <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">⚽ Team Performance Cards</h3>
+                            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap;">
+                                <select id="plTeamFilter" onchange="renderPLTeamCards()" style="padding: 0.5rem 1rem;">
+                                    <option value="all">All Teams</option>
+                                    <option value="top6">Top 6</option>
+                                    <option value="mid">Mid Table (7-14)</option>
+                                    <option value="bottom">Bottom 6</option>
+                                </select>
+                                <select id="plStatSort" onchange="renderPLTeamCards()" style="padding: 0.5rem 1rem;">
+                                    <option value="rank">Sort by Rank</option>
+                                    <option value="attack">Sort by Attack (Goals Scored)</option>
+                                    <option value="defense">Sort by Defense (Goals Conceded)</option>
+                                    <option value="form">Sort by Form</option>
+                                </select>
+                            </div>
+                            <div id="plTeamCards" class="predictions-grid"></div>
+                        </div>
+                        
+                        <!-- Attack vs Defense Comparison -->
+                        <div class="stat-card" style="border: 2px solid var(--accent-amber);">
+                            <h3 style="color: var(--accent-amber); margin-bottom: 1rem;">⚔️ Attack vs Defense Analysis</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Compare team attacking and defensive strengths
+                            </p>
+                            <div id="attackDefenseChart"></div>
+                        </div>
+                    </div><!-- End PL Stats Tab -->
+                    
                 </div>
             </div>
         </div>
@@ -6936,6 +7335,11 @@
                     buildElementMap();
                 }
                 
+                // Apply transactions to update squads with trades/waivers
+                if (importedLeagueData?.squads && importedLeagueData?.transactions) {
+                    applyTransactionsToSquads();
+                }
+                
                 // Show saved data status
                 const savedAt = savedData.savedAt ? new Date(savedData.savedAt) : null;
                 const statusDiv = document.getElementById('savedDataStatus');
@@ -6949,6 +7353,9 @@
                             </span>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem;">
+                                📋 Import from Clipboard
+                            </button>
                             <button onclick="renderLeagueAnalysis()" style="padding: 0.5rem 1rem; background: var(--accent-emerald); font-size: 0.85rem;">
                                 📊 Show Analysis
                             </button>
@@ -6964,6 +7371,83 @@
                     renderLeagueAnalysis();
                 }
             }
+            
+            // Listen for tab focus to try auto-import from clipboard
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    tryAutoImportFromClipboard(true); // silent mode
+                }
+            });
+        }
+        
+        // Try to import FPL data from clipboard
+        async function tryAutoImportFromClipboard(silent = false) {
+            try {
+                const clipText = await navigator.clipboard.readText();
+                if (clipText && clipText.includes('"league"') && clipText.includes('"bootstrap"') && clipText.includes('"playerDetails"')) {
+                    const parsed = JSON.parse(clipText);
+                    if (parsed.league && parsed.bootstrap && parsed.playerDetails) {
+                        // Check if this is newer data than what we have
+                        const newFetchedAt = parsed.fetchedAt ? new Date(parsed.fetchedAt) : new Date();
+                        const currentFetchedAt = importedLeagueData?.fetchedAt ? new Date(importedLeagueData.fetchedAt) : null;
+                        
+                        if (!currentFetchedAt || newFetchedAt > currentFetchedAt) {
+                            // Import the new data
+                            document.getElementById('leagueDataInput').value = clipText;
+                            processLeagueData();
+                            
+                            if (!silent) {
+                                // Show success notification
+                                showNotification('✅ New data imported from clipboard!', 'success');
+                            } else {
+                                // Show subtle notification for auto-import
+                                showNotification('🔄 Data auto-updated from clipboard!', 'info');
+                            }
+                        } else if (!silent) {
+                            showNotification('ℹ️ Clipboard data is same or older than current data', 'info');
+                        }
+                    }
+                } else if (!silent) {
+                    showNotification('❌ No valid FPL data found in clipboard', 'error');
+                }
+            } catch (e) {
+                if (!silent) {
+                    showNotification('⚠️ Cannot read clipboard. Please paste manually or drag the JSON file.', 'warning');
+                }
+            }
+        }
+        
+        // Show notification toast
+        function showNotification(message, type = 'info') {
+            const colors = {
+                success: 'var(--accent-emerald)',
+                error: 'var(--accent-rose)',
+                warning: 'var(--accent-amber)',
+                info: 'var(--accent-cyan)'
+            };
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                background: var(--bg-secondary);
+                border: 2px solid ${colors[type]};
+                border-radius: 12px;
+                color: var(--text-primary);
+                font-weight: 500;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
         
         function generateBookmarklet() {
@@ -7068,7 +7552,7 @@
                 }
             }
             
-            // Find top 50 free agents by total points
+            // Find top 100 free agents by total points
             status.textContent = 'Finding top free agents...';
             const freeAgentIds = [];
             if (results.elements && results.elements.element_status && results.bootstrap && results.bootstrap.elements) {
@@ -7084,15 +7568,28 @@
                         return { id, points: player ? player.total_points : 0 };
                     })
                     .sort((a, b) => b.points - a.points)
-                    .slice(0, 50);
+                    .slice(0, 100); // Increased from 50 to 100
                 
                 freeAgentsWithPoints.forEach(fa => freeAgentIds.push(fa.id));
             }
             
-            // Combine owned + top free agents
-            const allPlayerIds = [...Array.from(ownedPlayerIds), ...freeAgentIds];
+            // Also collect player IDs from transactions (traded/waivered players)
+            const transactionPlayerIds = new Set();
+            if (results.transactions && results.transactions.transactions) {
+                results.transactions.transactions.forEach(function(trans) {
+                    if (trans.element_in) transactionPlayerIds.add(trans.element_in);
+                    if (trans.element_out) transactionPlayerIds.add(trans.element_out);
+                });
+            }
             
-            // Fetch detailed stats for all players (owned + top 50 free agents)
+            // Combine: owned + top 50 free agents + transaction players (remove duplicates)
+            const allPlayerIds = [...new Set([
+                ...Array.from(ownedPlayerIds), 
+                ...freeAgentIds,
+                ...Array.from(transactionPlayerIds)
+            ])];
+            
+            // Fetch detailed stats for all players
             status.textContent = 'Fetching player details (0/' + allPlayerIds.length + ')...';
             results.playerDetails = {};
             const playerIds = allPlayerIds;
@@ -7116,11 +7613,24 @@
             // Add timestamp
             results.fetchedAt = new Date().toISOString();
             
+            // Debug: count how many player details have history
+            let playersWithHistory = 0;
+            let playersWithoutHistory = 0;
+            Object.keys(results.playerDetails).forEach(function(pid) {
+                const pd = results.playerDetails[pid];
+                if (pd && pd.history && pd.history.length > 0) {
+                    playersWithHistory++;
+                } else {
+                    playersWithoutHistory++;
+                }
+            });
+            
             // Prepare JSON
             status.textContent = 'Preparing data...';
             const jsonStr = JSON.stringify(results, null, 2);
             const ownedCount = ownedPlayerIds.size;
             const freeAgentCount = freeAgentIds.length;
+            const transactionCount = transactionPlayerIds.size;
             
             // Try to copy to clipboard
             let copied = false;
@@ -7142,16 +7652,19 @@
             overlay.innerHTML = '<div style="font-size:28px;color:#10b981;margin-bottom:20px;">✅ Success!</div>' +
                 '<div style="font-size:18px;margin-bottom:15px;font-weight:bold;">Data Ready!</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">League: ' + (results.league.league?.name || 'Unknown') + '</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong> (current)</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong></div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + entries.length + ' teams (' + ownedCount + ' owned players)</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' top free agents with detailed stats</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players with GW history</div>' +
-                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:20px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
-                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;">' +
-                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:16px 32px;background:#10b981;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;text-decoration:none;color:#000;display:inline-block;">💾 Download JSON File</a>' +
-                    '<button id="fplCopyBtn" style="padding:16px 32px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;">📋 Copy to Clipboard</button>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' free agents + ' + transactionCount + ' from transactions</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players fetched (' + playersWithHistory + ' with history, ' + playersWithoutHistory + ' without)</div>' +
+                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
+                '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
+                    '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
+                    '<div style="font-size:13px;color:#94a3b8;">Data copied to clipboard. Just <strong style="color:#10b981;">switch back to the Analyzer tab</strong> and it will auto-update!</div>' +
                 '</div>' +
-                '<div style="font-size:12px;color:#64748b;margin-bottom:15px;">Download the file, then drag it into the FPL Analyzer<br>Or copy and paste the data manually</div>' +
+                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:15px;">' +
+                    '<button id="fplCopyBtn" style="padding:14px 28px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">📋 Copy Again</button>' +
+                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:14px 28px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;text-decoration:none;color:#fff;display:inline-block;">💾 Download Backup</a>' +
+                '</div>' +
                 '<button onclick="this.parentElement.remove()" style="padding:10px 20px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Close</button>';
             
             // Store for copy button
@@ -7237,8 +7750,17 @@
                         if (parsed.currentEvent) {
                             importedLeagueData.currentEvent = parsed.currentEvent;
                         }
+                        // Store when the data was fetched
+                        if (parsed.fetchedAt) {
+                            importedLeagueData.fetchedAt = parsed.fetchedAt;
+                        }
+                        // CRITICAL: Import player details (GW history) from bookmarklet data
+                        if (parsed.playerDetails) {
+                            importedPlayerDetails = parsed.playerDetails;
+                        }
                         const gwInfo = parsed.currentEvent ? ` (Squads for GW${parsed.currentEvent})` : '';
-                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + '</div>';
+                        const playerDetailsCount = parsed.playerDetails ? Object.keys(parsed.playerDetails).length : 0;
+                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + ' (' + playerDetailsCount + ' players with GW history)</div>';
                         hasData = true;
                     } else if (parsed.league) {
                         importedLeagueData = parsed;
@@ -7300,6 +7822,11 @@
                         importedPlayerDetails = parsed.playerDetails;
                     }
                 } catch(e) {}
+            }
+            
+            // Apply transactions to update squads with trades/waivers
+            if (importedLeagueData?.squads && importedLeagueData?.transactions) {
+                applyTransactionsToSquads();
             }
             
             // Check what data we have
@@ -7380,603 +7907,69 @@
             return { name: 'Unknown (' + elementId + ')', team: 'Unknown', position: 'Unknown' };
         }
         
-        // =====================================================================
-        // EXPORT STATS FUNCTIONS
-        // =====================================================================
-        
-        function toggleExportDropdown() {
-            const dropdown = document.getElementById('exportDropdown');
-            dropdown.style.display = dropdown.style.display === 'none' ? 'block' : 'none';
-        }
-        
-        // Close dropdown when clicking outside
-        document.addEventListener('click', function(e) {
-            const dropdown = document.getElementById('exportDropdown');
-            const button = e.target.closest('.export-dropdown');
-            if (!button && dropdown) {
-                dropdown.style.display = 'none';
-            }
-        });
-        
-        function downloadJSON(data, filename) {
-            const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-            const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = filename;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-        }
-        
-        function showExportToast(message) {
-            const toast = document.createElement('div');
-            toast.style.cssText = 'position: fixed; bottom: 2rem; right: 2rem; background: var(--accent-emerald); color: #000; padding: 1rem 1.5rem; border-radius: 8px; font-weight: 600; z-index: 10000; animation: fadeIn 0.3s ease;';
-            toast.textContent = message;
-            document.body.appendChild(toast);
-            setTimeout(() => toast.remove(), 3000);
-        }
-        
-        function updateExportDataInfo() {
-            const infoDiv = document.getElementById('exportDataInfo');
-            if (!infoDiv) return;
-            
-            const currentGW = getCurrentGameweek();
-            const fetchedAt = importedLeagueData?.fetchedAt ? new Date(importedLeagueData.fetchedAt).toLocaleString() : 'Unknown';
-            const totalPlayers = Object.keys(fplElementMap).length;
-            const leagueName = importedLeagueData?.league?.name || 'Unknown League';
-            
-            infoDiv.innerHTML = `
-                <span>📅 Fetched: ${fetchedAt}</span> • 
-                <span>🎯 GW${currentGW}</span> • 
-                <span>👥 ${totalPlayers} players</span> • 
-                <span>🏆 ${leagueName}</span>
-            `;
-        }
-        
-        // Export 1: Raw Data for Python Predictor
-        function exportRawData() {
-            toggleExportDropdown();
-            
-            const rawData = {
-                type: 'fpl_raw_data',
-                exportedAt: new Date().toISOString(),
-                currentGameweek: getCurrentGameweek(),
-                league: importedLeagueData,
-                elements: importedElementStatus,
-                bootstrap: importedBootstrap,
-                playerDetails: importedPlayerDetails
-            };
-            
-            downloadJSON(rawData, `fpl_raw_data_gw${getCurrentGameweek()}.json`);
-            showExportToast('✅ Raw data exported for Python predictor');
-        }
-        
-        // Export 2: GW Predictions
-        function exportPredictions() {
-            toggleExportDropdown();
-            
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            const matches = importedLeagueData?.matches || [];
-            
-            // Get GW matches
-            const gwMatches = matches.filter(m => m.event === currentGW);
-            
-            const predictions = {
-                type: 'fpl_predictions',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                leagueName: importedLeagueData?.league?.name || 'Unknown',
-                teams: [],
-                headToHead: []
-            };
-            
-            // Process each team
-            entries.forEach(entry => {
-                const entryId = entry.entry_id;
-                const squadData = squads[entryId];
-                if (!squadData || !squadData.picks) return;
-                
-                const players = squadData.picks.map(pick => {
-                    const playerId = pick.element;
-                    const playerInfo = getPlayerDetailedInfo(playerId);
-                    const predicted = calculatePredictedPoints(playerInfo, 5);
-                    const gwPredicted = calculatePlayerGWPoints(playerInfo, currentGW);
-                    
-                    return {
-                        id: playerId,
-                        name: playerInfo?.name || 'Unknown',
-                        position: playerInfo?.position || 'UNK',
-                        team: playerInfo?.team || 'Unknown',
-                        isCaptain: pick.is_captain,
-                        isViceCaptain: pick.is_vice_captain,
-                        multiplier: pick.multiplier,
-                        predictedGW: gwPredicted,
-                        predicted5GW: predicted.total,
-                        form: playerInfo?.form || 0,
-                        ppg: playerInfo?.ppg || 0,
-                        totalPoints: playerInfo?.totalPoints || 0,
-                        fixtureDifficulty: getFixtureDifficulty(playerInfo?.team, currentGW),
-                        predictions: predicted.perGW
-                    };
-                });
-                
-                // Select optimal 11
-                const optimal11 = selectOptimal11(players, currentGW);
-                const totalPredicted = optimal11.players.reduce((sum, p) => sum + (p.predictedGW || 0), 0);
-                
-                predictions.teams.push({
-                    entryId: entryId,
-                    teamName: entry.entry_name,
-                    managerName: `${entry.player_first_name} ${entry.player_last_name}`,
-                    totalPredictedPoints: Math.round(totalPredicted * 10) / 10,
-                    formation: optimal11.formation,
-                    optimal11: optimal11.players.map(p => ({
-                        name: p.name,
-                        position: p.position,
-                        predicted: p.predictedGW,
-                        fixture: getFixtureDifficulty(p.team, currentGW)
-                    })),
-                    fullSquad: players
-                });
-            });
-            
-            // Sort by predicted points
-            predictions.teams.sort((a, b) => b.totalPredictedPoints - a.totalPredictedPoints);
-            
-            // Add H2H predictions
-            gwMatches.forEach(match => {
-                const team1 = predictions.teams.find(t => {
-                    const entry = entries.find(e => e.id === match.league_entry_1);
-                    return entry && t.entryId === entry.entry_id;
-                });
-                const team2 = predictions.teams.find(t => {
-                    const entry = entries.find(e => e.id === match.league_entry_2);
-                    return entry && t.entryId === entry.entry_id;
-                });
-                
-                if (team1 && team2) {
-                    predictions.headToHead.push({
-                        team1: team1.teamName,
-                        team1Predicted: team1.totalPredictedPoints,
-                        team2: team2.teamName,
-                        team2Predicted: team2.totalPredictedPoints,
-                        predictedWinner: team1.totalPredictedPoints > team2.totalPredictedPoints ? team1.teamName : team2.teamName,
-                        margin: Math.abs(team1.totalPredictedPoints - team2.totalPredictedPoints)
-                    });
-                }
-            });
-            
-            downloadJSON(predictions, `fpl_predictions_gw${currentGW}.json`);
-            showExportToast(`✅ GW${currentGW} predictions exported`);
-        }
-        
-        // Export 3: Player Rankings
-        function exportPlayerRankings() {
-            toggleExportDropdown();
-            
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            
-            // Collect all owned players
-            const ownedPlayers = new Map();
-            
-            entries.forEach(entry => {
-                const squadData = squads[entry.entry_id];
-                if (!squadData || !squadData.picks) return;
-                
-                squadData.picks.forEach(pick => {
-                    const playerId = pick.element;
-                    if (!ownedPlayers.has(playerId)) {
-                        const playerInfo = getPlayerDetailedInfo(playerId);
-                        const predicted = calculatePredictedPoints(playerInfo, 5);
-                        
-                        // Calculate easy games in next 5 GWs
-                        let easyGames = 0;
-                        let hardGames = 0;
-                        for (let i = 0; i < 5; i++) {
-                            const diff = getFixtureDifficulty(playerInfo?.team, currentGW + i);
-                            if (diff === 'easy') easyGames++;
-                            else if (diff === 'hard') hardGames++;
-                        }
-                        
-                        ownedPlayers.set(playerId, {
-                            id: playerId,
-                            name: playerInfo?.name || 'Unknown',
-                            position: playerInfo?.position || 'UNK',
-                            team: playerInfo?.team || 'Unknown',
-                            owner: entry.entry_name,
-                            form: playerInfo?.form || 0,
-                            ppg: playerInfo?.ppg || 0,
-                            totalPoints: playerInfo?.totalPoints || 0,
-                            predicted5GW: predicted.total,
-                            easyGames: easyGames,
-                            hardGames: hardGames,
-                            goalsScored: playerInfo?.goalsScored || 0,
-                            assists: playerInfo?.assists || 0,
-                            cleanSheets: playerInfo?.cleanSheets || 0,
-                            bonus: playerInfo?.bonus || 0,
-                            minutesPlayed: playerInfo?.minutes || 0,
-                            last5Avg: playerInfo?.last5Avg || 0
-                        });
-                    }
-                });
-            });
-            
-            const playersArray = Array.from(ownedPlayers.values());
-            
-            // Create rankings object
-            const rankings = {
-                type: 'fpl_player_rankings',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                totalPlayers: playersArray.length,
-                
-                // By PPG
-                byPPG: [...playersArray].sort((a, b) => b.ppg - a.ppg).map((p, i) => ({ rank: i + 1, ...p })),
-                
-                // By Form
-                byForm: [...playersArray].sort((a, b) => b.form - a.form).map((p, i) => ({ rank: i + 1, ...p })),
-                
-                // By 5GW Predicted
-                byPredicted: [...playersArray].sort((a, b) => b.predicted5GW - a.predicted5GW).map((p, i) => ({ rank: i + 1, ...p })),
-                
-                // By Easy Fixtures
-                byEasyFixtures: [...playersArray].sort((a, b) => b.easyGames - a.easyGames || b.ppg - a.ppg).map((p, i) => ({ rank: i + 1, ...p })),
-                
-                // By Position
-                byPosition: {
-                    GK: playersArray.filter(p => p.position === 'GK').sort((a, b) => b.ppg - a.ppg),
-                    DEF: playersArray.filter(p => p.position === 'DEF').sort((a, b) => b.ppg - a.ppg),
-                    MID: playersArray.filter(p => p.position === 'MID').sort((a, b) => b.ppg - a.ppg),
-                    FWD: playersArray.filter(p => p.position === 'FWD').sort((a, b) => b.ppg - a.ppg)
-                }
-            };
-            
-            downloadJSON(rankings, `fpl_player_rankings_gw${currentGW}.json`);
-            showExportToast('✅ Player rankings exported');
-        }
-        
-        // Export 4: League Stats
-        function exportLeagueStats() {
-            toggleExportDropdown();
-            
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            const standings = importedLeagueData?.standings || [];
-            const matches = importedLeagueData?.matches || [];
-            
-            const leagueStats = {
-                type: 'fpl_league_stats',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                leagueName: importedLeagueData?.league?.name || 'Unknown',
-                leagueId: importedLeagueData?.league?.id,
-                
-                standings: standings.map(s => {
-                    const entry = entries.find(e => e.id === s.league_entry);
-                    return {
-                        rank: s.rank,
-                        teamName: entry?.entry_name || 'Unknown',
-                        manager: entry ? `${entry.player_first_name} ${entry.player_last_name}` : 'Unknown',
-                        wins: s.matches_won,
-                        draws: s.matches_drawn,
-                        losses: s.matches_lost,
-                        pointsFor: s.points_for,
-                        pointsAgainst: s.points_against,
-                        totalPoints: s.total
-                    };
-                }),
-                
-                teams: [],
-                
-                upcomingFixtures: matches.filter(m => m.event >= currentGW && m.event <= currentGW + 5).map(m => {
-                    const entry1 = entries.find(e => e.id === m.league_entry_1);
-                    const entry2 = entries.find(e => e.id === m.league_entry_2);
-                    return {
-                        gameweek: m.event,
-                        team1: entry1?.entry_name || 'Unknown',
-                        team2: entry2?.entry_name || 'Unknown',
-                        finished: m.finished,
-                        score: m.finished ? `${m.league_entry_1_points} - ${m.league_entry_2_points}` : 'TBD'
-                    };
-                })
-            };
-            
-            // Add detailed team stats
-            entries.forEach(entry => {
-                const squadData = squads[entry.entry_id];
-                if (!squadData || !squadData.picks) return;
-                
-                const players = squadData.picks.map(pick => {
-                    const playerInfo = getPlayerDetailedInfo(pick.element);
-                    return {
-                        name: playerInfo?.name || 'Unknown',
-                        position: playerInfo?.position || 'UNK',
-                        team: playerInfo?.team || 'Unknown',
-                        form: playerInfo?.form || 0,
-                        ppg: playerInfo?.ppg || 0,
-                        totalPoints: playerInfo?.totalPoints || 0
-                    };
-                });
-                
-                // Calculate NKD score
-                const nkdResult = analyzeSquadNKD(squadData);
-                
-                // Get standing
-                const standing = standings.find(s => {
-                    const e = entries.find(en => en.id === s.league_entry);
-                    return e && e.entry_id === entry.entry_id;
-                });
-                
-                leagueStats.teams.push({
-                    entryId: entry.entry_id,
-                    teamName: entry.entry_name,
-                    manager: `${entry.player_first_name} ${entry.player_last_name}`,
-                    rank: standing?.rank || 0,
-                    totalLeaguePoints: standing?.total || 0,
-                    squad: players,
-                    nkdScore: nkdResult?.weightedScore || 0,
-                    easyGWsCovered: nkdResult?.coveredGameweeks || 0,
-                    teamDistribution: getTeamDistribution(squadData)
-                });
-            });
-            
-            // Sort by rank
-            leagueStats.teams.sort((a, b) => a.rank - b.rank);
-            
-            downloadJSON(leagueStats, `fpl_league_stats_gw${currentGW}.json`);
-            showExportToast('✅ League stats exported');
-        }
-        
-        function getTeamDistribution(squadData) {
-            const distribution = {};
-            const picks = squadData?.picks || [];
-            
-            picks.forEach(pick => {
-                const playerInfo = getPlayerDetailedInfo(pick.element);
-                const team = playerInfo?.team || 'Unknown';
-                distribution[team] = (distribution[team] || 0) + 1;
-            });
-            
-            return distribution;
-        }
-        
-        // Export All as ZIP
-        async function exportAllAsZip() {
-            toggleExportDropdown();
-            
-            if (typeof JSZip === 'undefined') {
-                alert('JSZip library not loaded. Please refresh the page.');
-                return;
-            }
-            
-            const currentGW = getCurrentGameweek();
-            const zip = new JSZip();
-            
-            showExportToast('📦 Creating ZIP file...');
-            
-            // Generate all exports
-            const rawData = {
-                type: 'fpl_raw_data',
-                exportedAt: new Date().toISOString(),
-                currentGameweek: currentGW,
-                league: importedLeagueData,
-                elements: importedElementStatus,
-                bootstrap: importedBootstrap,
-                playerDetails: importedPlayerDetails
-            };
-            
-            // Get predictions data (reuse logic)
-            const predictions = generatePredictionsData();
-            const rankings = generateRankingsData();
-            const leagueStats = generateLeagueStatsData();
-            
-            // Add files to ZIP
-            zip.file(`fpl_raw_data_gw${currentGW}.json`, JSON.stringify(rawData, null, 2));
-            zip.file(`fpl_predictions_gw${currentGW}.json`, JSON.stringify(predictions, null, 2));
-            zip.file(`fpl_player_rankings_gw${currentGW}.json`, JSON.stringify(rankings, null, 2));
-            zip.file(`fpl_league_stats_gw${currentGW}.json`, JSON.stringify(leagueStats, null, 2));
-            
-            // Generate ZIP and download
-            const content = await zip.generateAsync({ type: 'blob' });
-            const url = URL.createObjectURL(content);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `fpl_export_gw${currentGW}_${new Date().toISOString().slice(0,10)}.zip`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
-            
-            showExportToast('✅ All data exported as ZIP');
-        }
-        
-        // Helper: Generate predictions data object
-        function generatePredictionsData() {
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            const matches = importedLeagueData?.matches || [];
-            const gwMatches = matches.filter(m => m.event === currentGW);
-            
-            const predictions = {
-                type: 'fpl_predictions',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                leagueName: importedLeagueData?.league?.name || 'Unknown',
-                teams: [],
-                headToHead: []
-            };
-            
-            entries.forEach(entry => {
-                const entryId = entry.entry_id;
-                const squadData = squads[entryId];
-                if (!squadData || !squadData.picks) return;
-                
-                const players = squadData.picks.map(pick => {
-                    const playerId = pick.element;
-                    const playerInfo = getPlayerDetailedInfo(playerId);
-                    const predicted = calculatePredictedPoints(playerInfo, 5);
-                    const gwPredicted = calculatePlayerGWPoints(playerInfo, currentGW);
-                    
-                    return {
-                        id: playerId,
-                        name: playerInfo?.name || 'Unknown',
-                        position: playerInfo?.position || 'UNK',
-                        team: playerInfo?.team || 'Unknown',
-                        predictedGW: gwPredicted,
-                        predicted5GW: predicted.total,
-                        form: playerInfo?.form || 0,
-                        ppg: playerInfo?.ppg || 0
-                    };
-                });
-                
-                const optimal11 = selectOptimal11(players, currentGW);
-                const totalPredicted = optimal11.players.reduce((sum, p) => sum + (p.predictedGW || 0), 0);
-                
-                predictions.teams.push({
-                    entryId,
-                    teamName: entry.entry_name,
-                    totalPredictedPoints: Math.round(totalPredicted * 10) / 10,
-                    formation: optimal11.formation,
-                    optimal11: optimal11.players,
-                    fullSquad: players
-                });
-            });
-            
-            predictions.teams.sort((a, b) => b.totalPredictedPoints - a.totalPredictedPoints);
-            
-            gwMatches.forEach(match => {
-                const team1 = predictions.teams.find(t => {
-                    const entry = entries.find(e => e.id === match.league_entry_1);
-                    return entry && t.entryId === entry.entry_id;
-                });
-                const team2 = predictions.teams.find(t => {
-                    const entry = entries.find(e => e.id === match.league_entry_2);
-                    return entry && t.entryId === entry.entry_id;
-                });
-                
-                if (team1 && team2) {
-                    predictions.headToHead.push({
-                        team1: team1.teamName,
-                        team1Predicted: team1.totalPredictedPoints,
-                        team2: team2.teamName,
-                        team2Predicted: team2.totalPredictedPoints,
-                        predictedWinner: team1.totalPredictedPoints > team2.totalPredictedPoints ? team1.teamName : team2.teamName
-                    });
-                }
-            });
-            
-            return predictions;
-        }
-        
-        // Helper: Generate rankings data object
-        function generateRankingsData() {
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            const ownedPlayers = new Map();
-            
-            entries.forEach(entry => {
-                const squadData = squads[entry.entry_id];
-                if (!squadData || !squadData.picks) return;
-                
-                squadData.picks.forEach(pick => {
-                    const playerId = pick.element;
-                    if (!ownedPlayers.has(playerId)) {
-                        const playerInfo = getPlayerDetailedInfo(playerId);
-                        const predicted = calculatePredictedPoints(playerInfo, 5);
-                        
-                        let easyGames = 0;
-                        for (let i = 0; i < 5; i++) {
-                            if (getFixtureDifficulty(playerInfo?.team, currentGW + i) === 'easy') easyGames++;
-                        }
-                        
-                        ownedPlayers.set(playerId, {
-                            id: playerId,
-                            name: playerInfo?.name || 'Unknown',
-                            position: playerInfo?.position || 'UNK',
-                            team: playerInfo?.team || 'Unknown',
-                            owner: entry.entry_name,
-                            form: playerInfo?.form || 0,
-                            ppg: playerInfo?.ppg || 0,
-                            totalPoints: playerInfo?.totalPoints || 0,
-                            predicted5GW: predicted.total,
-                            easyGames: easyGames
-                        });
-                    }
-                });
-            });
-            
-            const playersArray = Array.from(ownedPlayers.values());
-            
-            return {
-                type: 'fpl_player_rankings',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                byPPG: [...playersArray].sort((a, b) => b.ppg - a.ppg),
-                byForm: [...playersArray].sort((a, b) => b.form - a.form),
-                byPredicted: [...playersArray].sort((a, b) => b.predicted5GW - a.predicted5GW)
-            };
-        }
-        
-        // Helper: Generate league stats data object
-        function generateLeagueStatsData() {
-            const currentGW = getCurrentGameweek();
-            const entries = importedLeagueData?.league_entries || [];
-            const squads = importedLeagueData?.squads || {};
-            const standings = importedLeagueData?.standings || [];
-            
-            const leagueStats = {
-                type: 'fpl_league_stats',
-                exportedAt: new Date().toISOString(),
-                gameweek: currentGW,
-                leagueName: importedLeagueData?.league?.name || 'Unknown',
-                standings: standings.map(s => {
-                    const entry = entries.find(e => e.id === s.league_entry);
-                    return {
-                        rank: s.rank,
-                        teamName: entry?.entry_name || 'Unknown',
-                        wins: s.matches_won,
-                        losses: s.matches_lost,
-                        pointsFor: s.points_for,
-                        pointsAgainst: s.points_against,
-                        total: s.total
-                    };
-                }),
-                teams: []
-            };
-            
-            entries.forEach(entry => {
-                const squadData = squads[entry.entry_id];
-                if (!squadData || !squadData.picks) return;
-                
-                const nkdResult = analyzeSquadNKD(squadData);
-                leagueStats.teams.push({
-                    teamName: entry.entry_name,
-                    nkdScore: nkdResult?.weightedScore || 0,
-                    playersCount: squadData.picks.length
-                });
-            });
-            
-            return leagueStats;
-        }
-        
         function renderLeagueAnalysis() {
             const resultsDiv = document.getElementById('leagueAnalysisResults');
             resultsDiv.style.display = 'block';
             
-            // Update export data info header
-            updateExportDataInfo();
+            // Add fetch date header
+            renderFetchDateHeader();
             
             // Render league overview
             renderLeagueOverview();
+        }
+        
+        // Render the data fetch date header
+        function renderFetchDateHeader() {
+            let headerEl = document.getElementById('dataFetchHeader');
+            if (!headerEl) {
+                headerEl = document.createElement('div');
+                headerEl.id = 'dataFetchHeader';
+                const resultsDiv = document.getElementById('leagueAnalysisResults');
+                resultsDiv.insertBefore(headerEl, resultsDiv.firstChild);
+            }
+            
+            const fetchedAt = importedLeagueData?.fetchedAt;
+            const currentGW = getCurrentGameweek();
+            const playerDetailsCount = importedPlayerDetails ? Object.keys(importedPlayerDetails).length : 0;
+            
+            let fetchDateStr = 'Unknown';
+            if (fetchedAt) {
+                const date = new Date(fetchedAt);
+                fetchDateStr = date.toLocaleDateString('en-GB', { 
+                    weekday: 'short', 
+                    day: 'numeric', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            
+            headerEl.innerHTML = `
+                <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.15)); 
+                            padding: 1rem 1.5rem; 
+                            border-radius: 12px; 
+                            margin-bottom: 1.5rem;
+                            border: 1px solid var(--accent-cyan);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            flex-wrap: wrap;
+                            gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="font-size: 1.5rem;">📡</div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--accent-cyan);">Data Fetched: ${fetchDateStr}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                GW${currentGW} • ${playerDetailsCount} players with detailed stats
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem; white-space: nowrap;">
+                        🔄 Refresh from Clipboard
+                    </button>
+                </div>
+            `;
             
             // Render recent transactions (trades, waivers)
             renderRecentTransactions();
@@ -8528,11 +8521,11 @@
         
         // Get the current gameweek (first unfinished GW, or latest finished + 1)
         function getCurrentGameweek() {
-            // Try to get from bootstrap events
+            // FIRST priority: check bootstrap events (most reliable source)
             if (importedBootstrap && importedBootstrap.events && Array.isArray(importedBootstrap.events)) {
                 const events = importedBootstrap.events;
                 
-                // Find the current event (is_current = true) or first unfinished
+                // Find the current event (is_current = true)
                 const currentEvent = events.find(e => e.is_current);
                 if (currentEvent) return currentEvent.id;
                 
@@ -8545,12 +8538,95 @@
                 if (lastFinished) return Math.min(lastFinished.id + 1, 38);
             }
             
-            // Fallback: check league start event or default to 21 (current)
-            const leagueStart = importedLeagueData?.league?.start_event;
-            if (leagueStart) return leagueStart;
+            // Second priority: check league matches to find first unstarted match
+            if (importedLeagueData?.matches && Array.isArray(importedLeagueData.matches)) {
+                const matches = importedLeagueData.matches;
+                // Find first match that hasn't started
+                const unstartedMatch = matches.find(m => !m.started);
+                if (unstartedMatch) return unstartedMatch.event;
+                
+                // Find last finished match
+                const finishedMatches = matches.filter(m => m.finished);
+                if (finishedMatches.length > 0) {
+                    const lastFinished = finishedMatches.reduce((max, m) => m.event > max.event ? m : max);
+                    return Math.min(lastFinished.event + 1, 38);
+                }
+            }
             
-            // Ultimate fallback - assume we're at GW21
-            return 21;
+            // Third priority: use currentEvent from data fetch (but NOT for analysis starting point)
+            // This is only a fallback when bootstrap events are unavailable
+            if (importedLeagueData?.currentEvent && importedLeagueData.currentEvent > 20) {
+                return importedLeagueData.currentEvent;
+            }
+            
+            // Ultimate fallback - assume we're at GW22 (Jan 2026)
+            return 22;
+        }
+        
+        // Apply accepted transactions to squad data
+        // This ensures squads reflect trades, waivers, and free agent pickups
+        function applyTransactionsToSquads() {
+            const transactions = importedLeagueData?.transactions?.transactions || [];
+            const squads = importedLeagueData?.squads || {};
+            const fetchedGW = importedLeagueData?.currentEvent;
+            
+            if (transactions.length === 0 || Object.keys(squads).length === 0) {
+                return; // Nothing to apply
+            }
+            
+            // Get accepted transactions sorted by event (oldest first)
+            const acceptedTrans = transactions
+                .filter(t => t.result === 'a') // Only accepted transactions
+                .sort((a, b) => a.event - b.event || (a.index || 0) - (b.index || 0));
+            
+            console.log(`Applying ${acceptedTrans.length} accepted transactions to squads...`);
+            
+            // Helper to find entry_id from league_entry id
+            const getEntryId = (leagueEntryId) => {
+                const entries = importedLeagueData?.league_entries || [];
+                const entry = entries.find(e => e.id === leagueEntryId);
+                return entry?.entry_id || leagueEntryId;
+            };
+            
+            // Apply each transaction
+            acceptedTrans.forEach(trans => {
+                const entryId = getEntryId(trans.entry);
+                const squadData = squads[entryId];
+                
+                if (!squadData || !squadData.picks) {
+                    console.log(`No squad data for entry ${entryId}, skipping transaction`);
+                    return;
+                }
+                
+                const picks = squadData.picks;
+                const elementIn = trans.element_in;
+                const elementOut = trans.element_out;
+                
+                // Check if element_out is in the squad
+                const outIndex = picks.findIndex(p => p.element === elementOut);
+                
+                if (outIndex !== -1) {
+                    // Replace element_out with element_in
+                    const oldPick = picks[outIndex];
+                    picks[outIndex] = {
+                        ...oldPick,
+                        element: elementIn
+                    };
+                    console.log(`Applied: ${trans.kind} for entry ${entryId} - OUT: ${elementOut}, IN: ${elementIn}`);
+                } else if (elementIn && !elementOut) {
+                    // Adding a player without dropping (shouldn't happen in FPL Draft, but handle it)
+                    console.log(`Skipping add-only transaction for entry ${entryId}`);
+                } else {
+                    // element_out not found - transaction may have already been applied or squad is outdated
+                    // Check if element_in is already in the squad
+                    const inExists = picks.some(p => p.element === elementIn);
+                    if (!inExists && elementOut) {
+                        console.log(`Warning: element_out ${elementOut} not found in squad for entry ${entryId}`);
+                    }
+                }
+            });
+            
+            console.log('Transactions applied to squads');
         }
         
         // Team name mapping: short names (FPL API) -> full names (fixture data)
@@ -8837,12 +8913,40 @@
             const form = parseFloat(bootstrap?.form) || 0;
             const totalPoints = bootstrap?.total_points || 0;
             const minutes = bootstrap?.minutes || 0;
-            const ppg = minutes > 0 ? (totalPoints / Math.max(1, history.length)).toFixed(1) : 0;
+            
+            // Calculate games played - either from history or estimate from minutes
+            // Assume ~60 mins average per game if history unavailable
+            const gamesPlayed = history.length > 0 
+                ? history.filter(g => g.minutes > 0).length 
+                : Math.max(1, Math.round(minutes / 60));
+            
+            // Calculate ppg (points per game) - use bootstrap form as fallback
+            let ppg = 0;
+            if (gamesPlayed > 0 && totalPoints > 0) {
+                ppg = (totalPoints / gamesPlayed).toFixed(1);
+            } else if (form > 0) {
+                // Form is a rolling average of recent points, use it as ppg estimate
+                ppg = form;
+            }
             
             // Calculate average points from last 5 games
-            const last5Avg = recentGames.length > 0 
-                ? (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1)
-                : 0;
+            // If no history available, use form or position-based estimate
+            let last5Avg = 0;
+            if (recentGames.length > 0) {
+                last5Avg = (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1);
+            } else if (form > 0) {
+                // Use form as best estimate for recent performance
+                last5Avg = form;
+            } else if (ppg > 0) {
+                last5Avg = ppg;
+            } else {
+                // Position-based default (GK/DEF ~3-4, MID ~4, FWD ~4-5)
+                const posDefaults = { 1: 3.5, 2: 3.5, 3: 4, 4: 4.5 };
+                last5Avg = posDefaults[bootstrap?.element_type] || 3.5;
+            }
+            
+            // Flag if this player has limited data (for UI warning)
+            const hasDetailedData = history.length > 0;
             
             return {
                 id: playerId,
@@ -8855,7 +8959,8 @@
                 totalPoints,
                 ppg: parseFloat(ppg),
                 last5Avg: parseFloat(last5Avg),
-                minutes
+                minutes,
+                hasDetailedData // New flag to indicate if detailed GW history is available
             };
         }
         
@@ -10028,6 +10133,781 @@
             return suggestions
                 .sort((a, b) => a.diff - b.diff)
                 .slice(0, 4);
+        }
+        
+        // ============================================
+        // PREDICTIONS TAB FUNCTIONS
+        // ============================================
+        
+        // Tab switching function
+        function switchAnalysisTab(tabName) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.remove('active');
+            });
+            
+            // Remove active from all buttons
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Show selected tab
+            const tabElement = document.getElementById(tabName + 'Tab');
+            if (tabElement) {
+                tabElement.classList.add('active');
+            }
+            
+            // Activate button
+            event.target.classList.add('active');
+            
+            // Render content if needed
+            if (tabName === 'predictions') {
+                initPredictionsTab();
+            } else if (tabName === 'plstats') {
+                initPLStatsTab();
+            }
+        }
+        
+        // Initialize predictions tab
+        function initPredictionsTab() {
+            // Populate GW selector
+            const gwSelect = document.getElementById('predictionGW');
+            if (gwSelect && gwSelect.options.length === 0) {
+                const currentGW = getCurrentGameweek();
+                for (let gw = currentGW; gw <= 38; gw++) {
+                    const option = document.createElement('option');
+                    option.value = gw;
+                    option.textContent = `GW${gw}`;
+                    if (gw === currentGW) option.selected = true;
+                    gwSelect.appendChild(option);
+                }
+            }
+            
+            // Populate team selector for breakdown
+            const teamSelect = document.getElementById('breakdownTeamSelect');
+            if (teamSelect && teamSelect.options.length === 0 && importedLeagueData?.league_entries) {
+                importedLeagueData.league_entries.forEach(entry => {
+                    const option = document.createElement('option');
+                    option.value = entry.entry_id;
+                    option.textContent = entry.entry_name;
+                    teamSelect.appendChild(option);
+                });
+            }
+            
+            renderPredictionsTab();
+        }
+        
+        // Main prediction calculator for a gameweek
+        function calculateGWPredictions(gameweek) {
+            if (!importedLeagueData || !importedBootstrap) return [];
+            
+            const squads = importedLeagueData.squads || {};
+            const fixtures = importedBootstrap.fixtures || {};
+            const gwFixtures = fixtures[String(gameweek)] || [];
+            
+            // Build team fixture map
+            const teamFixtureMap = {};
+            gwFixtures.forEach(fix => {
+                teamFixtureMap[fix.team_h] = { opponent: fix.team_a, isHome: true, fdr: fix.team_h_difficulty || 3 };
+                teamFixtureMap[fix.team_a] = { opponent: fix.team_h, isHome: false, fdr: fix.team_a_difficulty || 3 };
+            });
+            
+            const predictions = [];
+            
+            (importedLeagueData.league_entries || []).forEach(entry => {
+                const entryId = String(entry.entry_id);
+                const squadData = squads[entryId];
+                if (!squadData || !squadData.picks) return;
+                
+                const playerPredictions = squadData.picks.map(pick => {
+                    return calculatePlayerPrediction(pick.element, teamFixtureMap, gameweek);
+                });
+                
+                // Sort by predicted points
+                playerPredictions.sort((a, b) => b.predicted - a.predicted);
+                
+                // Select optimal 11
+                const optimal11 = selectOptimalLineup(playerPredictions);
+                const optimalPoints = optimal11.lineup.reduce((sum, p) => sum + p.predicted, 0);
+                const totalPoints = playerPredictions.reduce((sum, p) => sum + p.predicted, 0);
+                const benchPoints = totalPoints - optimalPoints;
+                
+                predictions.push({
+                    entryId: entry.entry_id,
+                    entryName: entry.entry_name,
+                    players: playerPredictions,
+                    optimal11: optimal11.lineup,
+                    formation: optimal11.formation,
+                    optimalPoints,
+                    benchPoints,
+                    totalPoints
+                });
+            });
+            
+            // Sort by optimal points
+            predictions.sort((a, b) => b.optimalPoints - a.optimalPoints);
+            
+            return predictions;
+        }
+        
+        // Calculate prediction for a single player
+        function calculatePlayerPrediction(playerId, teamFixtureMap, gameweek) {
+            const player = fplElementMap[playerId];
+            if (!player) {
+                return { playerId, name: 'Unknown', pos: '?', team: '?', predicted: 0, breakdown: {} };
+            }
+            
+            const pos = fplPositionMap[player.element_type] || '?';
+            const teamId = player.team;
+            const teamName = fplTeamIdMap[teamId] || '?';
+            const fixture = teamFixtureMap[teamId];
+            
+            if (!fixture) {
+                return { 
+                    playerId, 
+                    name: player.web_name, 
+                    pos, 
+                    team: teamName, 
+                    predicted: 0, 
+                    opponent: 'BYE',
+                    isHome: false,
+                    fdr: 3,
+                    breakdown: {} 
+                };
+            }
+            
+            const opponentName = fplTeamIdMap[fixture.opponent] || '?';
+            
+            // Get player stats
+            const form = parseFloat(player.form) || 0;
+            const ppg = parseFloat(player.points_per_game) || 0;
+            const totalPoints = player.total_points || 0;
+            
+            // Get detailed history
+            const details = importedPlayerDetails?.[String(playerId)];
+            const history = details?.history || [];
+            
+            // Calculate last 5 games average
+            let last5Avg = 0;
+            if (history.length > 0) {
+                const recent = history.slice(-5);
+                last5Avg = recent.reduce((sum, g) => sum + (g.total_points || 0), 0) / recent.length;
+            }
+            
+            // If no history, use form/ppg as fallback
+            if (last5Avg === 0 && form > 0) last5Avg = form;
+            if (last5Avg === 0 && ppg > 0) last5Avg = ppg;
+            
+            // Calculate breakdown
+            const breakdown = calculatePointsBreakdown(playerId, history, fixture, pos);
+            
+            // Base prediction
+            let basePred = (last5Avg * 0.4) + (form * 0.3) + (ppg * 0.2) + 2 * 0.1;
+            
+            // FDR adjustment
+            const fdrMult = 1 + (3 - fixture.fdr) * 0.08;
+            
+            // Home/away adjustment
+            const homeMult = fixture.isHome ? 1.05 : 0.97;
+            
+            // Availability check
+            let availMult = 1.0;
+            const status = player.status;
+            const chance = player.chance_of_playing_next_round;
+            
+            if (status === 'u' || status === 'i') {
+                availMult = 0;
+            } else if (status === 'd') {
+                availMult = 0.5;
+            } else if (chance !== null && chance < 100) {
+                availMult = chance / 100;
+            }
+            
+            let predicted = basePred * fdrMult * homeMult * availMult;
+            
+            // Minimum points if playing
+            if (availMult > 0.5 && predicted < 2) predicted = 2;
+            if (availMult === 0) predicted = 0;
+            
+            return {
+                playerId,
+                name: player.web_name,
+                pos,
+                team: teamName,
+                teamId,
+                opponent: opponentName,
+                opponentId: fixture.opponent,
+                isHome: fixture.isHome,
+                fdr: fixture.fdr,
+                predicted: Math.round(predicted * 10) / 10,
+                breakdown,
+                form,
+                ppg,
+                last5Avg: Math.round(last5Avg * 10) / 10,
+                status,
+                chance
+            };
+        }
+        
+        // Calculate detailed points breakdown
+        function calculatePointsBreakdown(playerId, history, fixture, pos) {
+            if (!history || history.length === 0) {
+                return { goals: 0, assists: 0, cs: 0, saves: 0, bonus: 0, minutes: 0 };
+            }
+            
+            const recent = history.slice(-5);
+            const gamesPlayed = recent.filter(g => g.minutes > 0).length || 1;
+            
+            // Calculate per-game averages
+            const avgGoals = recent.reduce((sum, g) => sum + (g.goals_scored || 0), 0) / gamesPlayed;
+            const avgAssists = recent.reduce((sum, g) => sum + (g.assists || 0), 0) / gamesPlayed;
+            const avgCS = recent.reduce((sum, g) => sum + (g.clean_sheets || 0), 0) / gamesPlayed;
+            const avgSaves = recent.reduce((sum, g) => sum + (g.saves || 0), 0) / gamesPlayed;
+            const avgBonus = recent.reduce((sum, g) => sum + (g.bonus || 0), 0) / gamesPlayed;
+            const avgMinutes = recent.reduce((sum, g) => sum + (g.minutes || 0), 0) / gamesPlayed;
+            
+            // FDR adjustment factor
+            const fdrFactor = 1 + (3 - (fixture?.fdr || 3)) * 0.1;
+            
+            // Convert to expected points
+            let goalPoints = 0;
+            if (pos === 'GK' || pos === 'DEF') goalPoints = avgGoals * 6 * fdrFactor;
+            else if (pos === 'MID') goalPoints = avgGoals * 5 * fdrFactor;
+            else goalPoints = avgGoals * 4 * fdrFactor;
+            
+            const assistPoints = avgAssists * 3 * fdrFactor;
+            
+            let csPoints = 0;
+            if (pos === 'GK' || pos === 'DEF') csPoints = avgCS * 4 * fdrFactor;
+            else if (pos === 'MID') csPoints = avgCS * 1 * fdrFactor;
+            
+            const savePoints = pos === 'GK' ? (avgSaves / 3) * fdrFactor : 0;
+            
+            return {
+                goals: Math.round(goalPoints * 10) / 10,
+                assists: Math.round(assistPoints * 10) / 10,
+                cs: Math.round(csPoints * 10) / 10,
+                saves: Math.round(savePoints * 10) / 10,
+                bonus: Math.round(avgBonus * 10) / 10,
+                minutes: Math.round(avgMinutes)
+            };
+        }
+        
+        // Select optimal 11 from squad
+        function selectOptimalLineup(playerPredictions) {
+            const byPos = { GK: [], DEF: [], MID: [], FWD: [] };
+            
+            playerPredictions.forEach(p => {
+                if (byPos[p.pos]) byPos[p.pos].push(p);
+            });
+            
+            // Sort each position by predicted points
+            Object.keys(byPos).forEach(pos => {
+                byPos[pos].sort((a, b) => b.predicted - a.predicted);
+            });
+            
+            const selected = [];
+            
+            // 1 GK
+            if (byPos.GK.length > 0) selected.push(byPos.GK.shift());
+            
+            // Min 3 DEF
+            for (let i = 0; i < Math.min(3, byPos.DEF.length); i++) {
+                selected.push(byPos.DEF.shift());
+            }
+            
+            // Min 2 MID
+            for (let i = 0; i < Math.min(2, byPos.MID.length); i++) {
+                selected.push(byPos.MID.shift());
+            }
+            
+            // Min 1 FWD
+            if (byPos.FWD.length > 0) selected.push(byPos.FWD.shift());
+            
+            // Fill remaining from best available
+            const remaining = [...byPos.DEF, ...byPos.MID, ...byPos.FWD];
+            remaining.sort((a, b) => b.predicted - a.predicted);
+            
+            while (selected.length < 11 && remaining.length > 0) {
+                const next = remaining.shift();
+                const posCount = selected.filter(s => s.pos === next.pos).length;
+                const maxPos = { DEF: 5, MID: 5, FWD: 3 }[next.pos] || 99;
+                if (posCount < maxPos) {
+                    selected.push(next);
+                }
+            }
+            
+            // Calculate formation
+            const numDef = selected.filter(s => s.pos === 'DEF').length;
+            const numMid = selected.filter(s => s.pos === 'MID').length;
+            const numFwd = selected.filter(s => s.pos === 'FWD').length;
+            
+            return {
+                lineup: selected,
+                formation: `${numDef}-${numMid}-${numFwd}`
+            };
+        }
+        
+        // Calculate H2H win probability
+        function calculateH2HWinProbability(team1Pts, team2Pts) {
+            const diff = team1Pts - team2Pts;
+            const total = team1Pts + team2Pts;
+            
+            if (total === 0) return { team1Win: 33, draw: 34, team2Win: 33 };
+            
+            // Simple probability based on point difference
+            // Larger difference = higher confidence
+            const confidence = Math.min(Math.abs(diff) / 10, 0.4);
+            
+            if (diff > 2) {
+                return {
+                    team1Win: Math.round(50 + confidence * 100),
+                    draw: Math.round(20 - confidence * 30),
+                    team2Win: Math.round(30 - confidence * 70)
+                };
+            } else if (diff < -2) {
+                return {
+                    team1Win: Math.round(30 - confidence * 70),
+                    draw: Math.round(20 - confidence * 30),
+                    team2Win: Math.round(50 + confidence * 100)
+                };
+            } else {
+                return { team1Win: 35, draw: 30, team2Win: 35 };
+            }
+        }
+        
+        // Render predictions tab
+        function renderPredictionsTab() {
+            const selectedGW = parseInt(document.getElementById('predictionGW')?.value) || getCurrentGameweek();
+            const predictions = calculateGWPredictions(selectedGW);
+            
+            if (predictions.length === 0) {
+                document.getElementById('predictionRankings').innerHTML = '<p style="color: var(--text-muted);">No prediction data available. Make sure league data is imported.</p>';
+                return;
+            }
+            
+            renderTeamRankings(predictions, selectedGW);
+            renderH2HMatchupPredictions(predictions, selectedGW);
+            renderFixtureHeatmap(selectedGW);
+            renderPlayerBreakdown();
+        }
+        
+        // Render team rankings with bar chart
+        function renderTeamRankings(predictions, gameweek) {
+            const maxPts = Math.max(...predictions.map(p => p.optimalPoints));
+            
+            let html = `<div style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.85rem;">
+                Showing predictions for GW${gameweek} • Based on form, fixtures, and player stats
+            </div>`;
+            
+            predictions.forEach((pred, idx) => {
+                const rank = idx + 1;
+                const pctWidth = (pred.optimalPoints / maxPts) * 100;
+                const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : 'default';
+                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                
+                html += `
+                <div class="team-rank-bar">
+                    <div class="rank-badge ${rankClass}">${medal || rank}</div>
+                    <div style="min-width: 150px; font-weight: 600;">${pred.entryName}</div>
+                    <div class="points-bar">
+                        <div class="points-bar-fill" style="width: ${pctWidth}%;">
+                            ${pred.optimalPoints.toFixed(1)}
+                        </div>
+                    </div>
+                    <div style="min-width: 80px; text-align: right; color: var(--text-secondary); font-size: 0.85rem;">
+                        ${pred.formation}
+                    </div>
+                    <div style="min-width: 60px; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
+                        +${pred.benchPoints.toFixed(1)}
+                    </div>
+                </div>`;
+            });
+            
+            document.getElementById('predictionRankings').innerHTML = html;
+        }
+        
+        // Render H2H matchup predictions
+        function renderH2HMatchupPredictions(predictions, gameweek) {
+            const matches = importedLeagueData?.matches?.filter(m => m.event === gameweek) || [];
+            
+            if (matches.length === 0) {
+                document.getElementById('h2hMatchupPredictions').innerHTML = '<p style="color: var(--text-muted);">No H2H matches found for this gameweek.</p>';
+                return;
+            }
+            
+            const entryIdToName = {};
+            (importedLeagueData?.league_entries || []).forEach(e => {
+                entryIdToName[e.id] = e.entry_name;
+            });
+            
+            const predByName = {};
+            predictions.forEach(p => predByName[p.entryName] = p);
+            
+            let html = '<div class="predictions-grid">';
+            
+            matches.forEach(match => {
+                const team1Name = entryIdToName[match.league_entry_1] || 'Team 1';
+                const team2Name = entryIdToName[match.league_entry_2] || 'Team 2';
+                const team1Pred = predByName[team1Name];
+                const team2Pred = predByName[team2Name];
+                
+                const team1Pts = team1Pred?.optimalPoints || 0;
+                const team2Pts = team2Pred?.optimalPoints || 0;
+                
+                const probs = calculateH2HWinProbability(team1Pts, team2Pts);
+                const winner = team1Pts > team2Pts ? 'team1' : team2Pts > team1Pts ? 'team2' : 'draw';
+                
+                html += `
+                <div class="h2h-matchup-card">
+                    <div class="h2h-teams">
+                        <div class="h2h-team-name" style="color: ${winner === 'team1' ? 'var(--accent-emerald)' : 'var(--text-primary)'};">
+                            ${team1Name}
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${team1Pts.toFixed(1)} pts</div>
+                        </div>
+                        <div class="h2h-vs">VS</div>
+                        <div class="h2h-team-name" style="text-align: right; color: ${winner === 'team2' ? 'var(--accent-emerald)' : 'var(--text-primary)'};">
+                            ${team2Name}
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${team2Pts.toFixed(1)} pts</div>
+                        </div>
+                    </div>
+                    <div class="win-probability-bar">
+                        <div class="win-prob-segment team1" style="width: ${probs.team1Win}%;">${probs.team1Win}%</div>
+                        <div class="win-prob-segment draw" style="width: ${probs.draw}%;">${probs.draw > 15 ? probs.draw + '%' : ''}</div>
+                        <div class="win-prob-segment team2" style="width: ${probs.team2Win}%;">${probs.team2Win}%</div>
+                    </div>
+                    <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
+                        <span>${team1Pred?.formation || '-'}</span>
+                        <span>${team2Pred?.formation || '-'}</span>
+                    </div>
+                </div>`;
+            });
+            
+            html += '</div>';
+            document.getElementById('h2hMatchupPredictions').innerHTML = html;
+        }
+        
+        // Render player breakdown table
+        function renderPlayerBreakdown() {
+            const teamSelect = document.getElementById('breakdownTeamSelect');
+            const showOptimalOnly = document.getElementById('showOptimal11Only')?.checked;
+            
+            if (!teamSelect || !teamSelect.value) {
+                document.getElementById('playerBreakdownTable').innerHTML = '<p style="color: var(--text-muted);">Select a team to view breakdown.</p>';
+                return;
+            }
+            
+            const selectedGW = parseInt(document.getElementById('predictionGW')?.value) || getCurrentGameweek();
+            const predictions = calculateGWPredictions(selectedGW);
+            const teamPred = predictions.find(p => String(p.entryId) === teamSelect.value);
+            
+            if (!teamPred) {
+                document.getElementById('playerBreakdownTable').innerHTML = '<p style="color: var(--text-muted);">No data for selected team.</p>';
+                return;
+            }
+            
+            const players = showOptimalOnly ? teamPred.optimal11 : teamPred.players;
+            
+            let html = `
+            <table class="player-breakdown-table">
+                <thead>
+                    <tr>
+                        <th>Player</th>
+                        <th>Pos</th>
+                        <th>Team</th>
+                        <th>vs</th>
+                        <th>FDR</th>
+                        <th class="stat-cell">Goals</th>
+                        <th class="stat-cell">Assists</th>
+                        <th class="stat-cell">CS</th>
+                        <th class="stat-cell">Saves</th>
+                        <th class="stat-cell">Bonus</th>
+                        <th class="stat-cell">Predicted</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            players.forEach((p, idx) => {
+                const inOptimal = teamPred.optimal11.some(o => o.playerId === p.playerId);
+                const rowStyle = !showOptimalOnly && !inOptimal ? 'opacity: 0.5;' : '';
+                const fdrClass = `fdr-${p.fdr}`;
+                
+                html += `
+                <tr style="${rowStyle}">
+                    <td style="font-weight: 500;">${p.name} ${inOptimal ? '⭐' : ''}</td>
+                    <td>${p.pos}</td>
+                    <td>${p.team}</td>
+                    <td>${p.isHome ? '🏠' : '✈️'} ${p.opponent}</td>
+                    <td><span class="${fdrClass}" style="padding: 2px 6px; border-radius: 4px;">${p.fdr}</span></td>
+                    <td class="stat-cell ${p.breakdown.goals > 0 ? 'highlight' : ''}">${p.breakdown.goals.toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown.assists > 0 ? 'highlight' : ''}">${p.breakdown.assists.toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown.cs > 0 ? 'highlight' : ''}">${p.breakdown.cs.toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown.saves > 0 ? 'highlight' : ''}">${p.breakdown.saves.toFixed(1)}</td>
+                    <td class="stat-cell">${p.breakdown.bonus.toFixed(1)}</td>
+                    <td class="stat-cell" style="font-weight: 700; color: var(--accent-cyan);">${p.predicted.toFixed(1)}</td>
+                </tr>`;
+            });
+            
+            html += `</tbody></table>
+            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; display: flex; justify-content: space-between;">
+                <span>Formation: <strong>${teamPred.formation}</strong></span>
+                <span>Optimal 11: <strong style="color: var(--accent-emerald);">${teamPred.optimalPoints.toFixed(1)} pts</strong></span>
+                <span>Bench: <strong style="color: var(--text-muted);">+${teamPred.benchPoints.toFixed(1)} pts</strong></span>
+            </div>`;
+            
+            document.getElementById('playerBreakdownTable').innerHTML = html;
+        }
+        
+        // Render fixture difficulty heatmap
+        function renderFixtureHeatmap(currentGW) {
+            if (!importedBootstrap?.fixtures || !importedBootstrap?.teams) {
+                document.getElementById('fixtureHeatmap').innerHTML = '<p style="color: var(--text-muted);">No fixture data available.</p>';
+                return;
+            }
+            
+            const teams = importedBootstrap.teams;
+            const fixtures = importedBootstrap.fixtures;
+            
+            // Build fixture map: team_id -> { gw -> {opponent, fdr, isHome} }
+            const fixtureMap = {};
+            teams.forEach(t => fixtureMap[t.id] = {});
+            
+            for (let gw = currentGW; gw <= 38; gw++) {
+                const gwFixtures = fixtures[String(gw)] || [];
+                gwFixtures.forEach(fix => {
+                    const homeTeam = teams.find(t => t.id === fix.team_h);
+                    const awayTeam = teams.find(t => t.id === fix.team_a);
+                    
+                    if (fixtureMap[fix.team_h]) {
+                        fixtureMap[fix.team_h][gw] = {
+                            opponent: awayTeam?.short_name || '?',
+                            fdr: fix.team_h_difficulty || 3,
+                            isHome: true
+                        };
+                    }
+                    if (fixtureMap[fix.team_a]) {
+                        fixtureMap[fix.team_a][gw] = {
+                            opponent: homeTeam?.short_name || '?',
+                            fdr: fix.team_a_difficulty || 3,
+                            isHome: false
+                        };
+                    }
+                });
+            }
+            
+            // Build table HTML
+            let html = '<table class="fixture-heatmap-table"><thead><tr><th>Team</th>';
+            
+            // GW headers (show next 10 GWs)
+            const maxGW = Math.min(currentGW + 9, 38);
+            for (let gw = currentGW; gw <= maxGW; gw++) {
+                const isCurrentGW = gw === currentGW;
+                html += `<th style="${isCurrentGW ? 'background: var(--accent-cyan); color: #000;' : ''}">GW${gw}</th>`;
+            }
+            html += '</tr></thead><tbody>';
+            
+            // Sort teams by some criteria (e.g., alphabetically or by strength)
+            const sortedTeams = [...teams].sort((a, b) => a.name.localeCompare(b.name));
+            
+            sortedTeams.forEach(team => {
+                html += `<tr><td class="team-name" style="font-weight: 500;">${team.short_name}</td>`;
+                
+                for (let gw = currentGW; gw <= maxGW; gw++) {
+                    const fix = fixtureMap[team.id]?.[gw];
+                    if (fix) {
+                        const homeIcon = fix.isHome ? '' : '(A)';
+                        html += `<td class="fdr-${fix.fdr}" title="GW${gw}: ${fix.opponent} ${homeIcon}">${fix.opponent}</td>`;
+                    } else {
+                        html += `<td style="background: var(--bg-tertiary);">-</td>`;
+                    }
+                }
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('fixtureHeatmap').innerHTML = html;
+        }
+        
+        // ============================================
+        // PL STATS TAB FUNCTIONS
+        // ============================================
+        
+        function initPLStatsTab() {
+            renderPLStandings();
+            renderPLTeamCards();
+            renderAttackDefenseChart();
+        }
+        
+        // Render PL standings table
+        function renderPLStandings() {
+            if (!importedBootstrap?.teams) {
+                document.getElementById('plStandingsTable').innerHTML = '<p style="color: var(--text-muted);">No team data available.</p>';
+                return;
+            }
+            
+            const teams = [...importedBootstrap.teams];
+            
+            // Sort by strength (as proxy for standings since we don't have full standings)
+            teams.sort((a, b) => (b.strength_overall_home + b.strength_overall_away) - (a.strength_overall_home + a.strength_overall_away));
+            
+            let html = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                <thead>
+                    <tr style="background: var(--bg-tertiary);">
+                        <th style="padding: 0.75rem; text-align: left;">#</th>
+                        <th style="padding: 0.75rem; text-align: left;">Team</th>
+                        <th style="padding: 0.75rem; text-align: center;">Str (H)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Str (A)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Atk (H)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Atk (A)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Def (H)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Def (A)</th>
+                    </tr>
+                </thead>
+                <tbody>`;
+            
+            teams.forEach((team, idx) => {
+                const rank = idx + 1;
+                const rankStyle = rank <= 4 ? 'color: var(--accent-emerald);' : rank >= 18 ? 'color: var(--accent-rose);' : '';
+                
+                html += `
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 0.75rem; font-weight: 600; ${rankStyle}">${rank}</td>
+                    <td style="padding: 0.75rem; font-weight: 500;">${team.name}</td>
+                    <td style="padding: 0.75rem; text-align: center;">${team.strength_overall_home || '-'}</td>
+                    <td style="padding: 0.75rem; text-align: center;">${team.strength_overall_away || '-'}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-emerald);">${team.strength_attack_home || '-'}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-emerald);">${team.strength_attack_away || '-'}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-cyan);">${team.strength_defence_home || '-'}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-cyan);">${team.strength_defence_away || '-'}</td>
+                </tr>`;
+            });
+            
+            html += '</tbody></table>';
+            document.getElementById('plStandingsTable').innerHTML = html;
+        }
+        
+        // Render PL team cards
+        function renderPLTeamCards() {
+            if (!importedBootstrap?.teams) {
+                document.getElementById('plTeamCards').innerHTML = '<p style="color: var(--text-muted);">No team data available.</p>';
+                return;
+            }
+            
+            let teams = [...importedBootstrap.teams];
+            const filter = document.getElementById('plTeamFilter')?.value || 'all';
+            const sort = document.getElementById('plStatSort')?.value || 'rank';
+            
+            // Sort by overall strength first
+            teams.sort((a, b) => (b.strength_overall_home + b.strength_overall_away) - (a.strength_overall_home + a.strength_overall_away));
+            
+            // Apply filter
+            if (filter === 'top6') {
+                teams = teams.slice(0, 6);
+            } else if (filter === 'mid') {
+                teams = teams.slice(6, 14);
+            } else if (filter === 'bottom') {
+                teams = teams.slice(14);
+            }
+            
+            // Apply sorting
+            if (sort === 'attack') {
+                teams.sort((a, b) => (b.strength_attack_home + b.strength_attack_away) - (a.strength_attack_home + a.strength_attack_away));
+            } else if (sort === 'defense') {
+                teams.sort((a, b) => (b.strength_defence_home + b.strength_defence_away) - (a.strength_defence_home + a.strength_defence_away));
+            }
+            
+            let html = '';
+            
+            teams.forEach((team, idx) => {
+                const overallStrength = team.strength_overall_home + team.strength_overall_away;
+                const attackStrength = team.strength_attack_home + team.strength_attack_away;
+                const defenseStrength = team.strength_defence_home + team.strength_defence_away;
+                
+                html += `
+                <div class="pl-team-card">
+                    <div class="pl-team-header">
+                        <div class="pl-team-name">${team.name}</div>
+                        <div class="pl-team-rank">${team.short_name}</div>
+                    </div>
+                    <div class="pl-stats-grid">
+                        <div class="pl-stat">
+                            <div class="pl-stat-value" style="color: var(--accent-violet);">${overallStrength}</div>
+                            <div class="pl-stat-label">Overall</div>
+                        </div>
+                        <div class="pl-stat">
+                            <div class="pl-stat-value" style="color: var(--accent-emerald);">${attackStrength}</div>
+                            <div class="pl-stat-label">Attack</div>
+                        </div>
+                        <div class="pl-stat">
+                            <div class="pl-stat-value" style="color: var(--accent-cyan);">${defenseStrength}</div>
+                            <div class="pl-stat-label">Defense</div>
+                        </div>
+                        <div class="pl-stat">
+                            <div class="pl-stat-value" style="color: var(--accent-amber);">${Math.round((attackStrength/defenseStrength)*100)/100}</div>
+                            <div class="pl-stat-label">A/D Ratio</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.75rem;">
+                        <div style="text-align: center; padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;">
+                            <div style="color: var(--text-muted);">Home</div>
+                            <div>Atk: ${team.strength_attack_home} | Def: ${team.strength_defence_home}</div>
+                        </div>
+                        <div style="text-align: center; padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;">
+                            <div style="color: var(--text-muted);">Away</div>
+                            <div>Atk: ${team.strength_attack_away} | Def: ${team.strength_defence_away}</div>
+                        </div>
+                    </div>
+                </div>`;
+            });
+            
+            document.getElementById('plTeamCards').innerHTML = html;
+        }
+        
+        // Render attack vs defense comparison chart
+        function renderAttackDefenseChart() {
+            if (!importedBootstrap?.teams) {
+                document.getElementById('attackDefenseChart').innerHTML = '<p style="color: var(--text-muted);">No team data available.</p>';
+                return;
+            }
+            
+            const teams = importedBootstrap.teams;
+            
+            // Find max values for scaling
+            const maxAttack = Math.max(...teams.map(t => t.strength_attack_home + t.strength_attack_away));
+            const maxDefense = Math.max(...teams.map(t => t.strength_defence_home + t.strength_defence_away));
+            
+            let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+            
+            // Sort by attack strength
+            const sortedTeams = [...teams].sort((a, b) => 
+                (b.strength_attack_home + b.strength_attack_away) - (a.strength_attack_home + a.strength_attack_away)
+            );
+            
+            sortedTeams.forEach(team => {
+                const attackVal = team.strength_attack_home + team.strength_attack_away;
+                const defenseVal = team.strength_defence_home + team.strength_defence_away;
+                const attackPct = (attackVal / maxAttack) * 100;
+                const defensePct = (defenseVal / maxDefense) * 100;
+                
+                html += `
+                <div style="display: flex; align-items: center; gap: 0.5rem;">
+                    <div style="width: 50px; font-size: 0.75rem; font-weight: 500;">${team.short_name}</div>
+                    <div style="flex: 1; display: flex; gap: 2px;">
+                        <div style="width: ${attackPct}%; height: 16px; background: var(--accent-emerald); border-radius: 4px 0 0 4px;" title="Attack: ${attackVal}"></div>
+                        <div style="width: ${defensePct}%; height: 16px; background: var(--accent-cyan); border-radius: 0 4px 4px 0;" title="Defense: ${defenseVal}"></div>
+                    </div>
+                    <div style="width: 80px; font-size: 0.7rem; color: var(--text-muted);">${attackVal}/${defenseVal}</div>
+                </div>`;
+            });
+            
+            html += '</div>';
+            html += `<div style="margin-top: 1rem; display: flex; gap: 1.5rem; font-size: 0.75rem; color: var(--text-muted);">
+                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-emerald); border-radius: 2px; margin-right: 4px;"></span>Attack Strength</span>
+                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-cyan); border-radius: 2px; margin-right: 4px;"></span>Defense Strength</span>
+            </div>`;
+            
+            document.getElementById('attackDefenseChart').innerHTML = html;
         }
     </script>
 </body>
