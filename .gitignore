@@ -21,3 +21,12 @@ build/
 # Local data (user-specific)
 # Note: wishlist JSON files are included as sample data
 
+
+# Python cache
+__pycache__/
+*.pyc
+*.pyo
+
+# Data exports (can be large)
+*.json
+!*_wishlist.json
