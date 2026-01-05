@@ -2660,14 +2660,17 @@
                 <div id="leagueAnalysisResults" style="display: none;">
                     <!-- Tab Navigation -->
                     <div class="tab-nav">
-                        <button class="tab-btn active" onclick="switchAnalysisTab('overview')">
+                        <button class="tab-btn active" onclick="switchAnalysisTab('overview', this)">
                             📊 Overview
                         </button>
-                        <button class="tab-btn" onclick="switchAnalysisTab('predictions')">
+                        <button class="tab-btn" onclick="switchAnalysisTab('predictions', this)">
                             🎯 Predictions
                         </button>
-                        <button class="tab-btn" onclick="switchAnalysisTab('plstats')">
+                        <button class="tab-btn" onclick="switchAnalysisTab('plstats', this)">
                             ⚽ PL Stats
+                        </button>
+                        <button class="tab-btn" onclick="switchAnalysisTab('simulation', this)">
+                            📈 GW Simulation
                         </button>
                     </div>
                     
@@ -2853,6 +2856,39 @@
                             <div id="attackDefenseChart"></div>
                         </div>
                     </div><!-- End PL Stats Tab -->
+                    
+                    <!-- Simulation Tab - Pre-calculated Results -->
+                    <div id="simulationTab" class="tab-content">
+                        <!-- Simulation Header -->
+                        <div class="stat-card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(34, 211, 238, 0.1)); border: 2px solid var(--accent-emerald);">
+                            <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                                <div>
+                                    <h3 style="color: var(--accent-emerald); margin-bottom: 0.25rem;">📈 GW Simulation Results</h3>
+                                    <p style="color: var(--text-secondary); font-size: 0.85rem;">Pre-calculated predictions from Python analysis</p>
+                                </div>
+                                <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                    <input type="file" id="simulationFileInput" accept=".json" onchange="loadSimulationFile(event)" style="display: none;">
+                                    <button onclick="document.getElementById('simulationFileInput').click()" class="btn-secondary" style="padding: 0.5rem 1rem;">
+                                        📁 Load JSON File
+                                    </button>
+                                    <button onclick="useCurrentData()" class="btn-primary" style="padding: 0.5rem 1rem;">
+                                        🔄 Use Current Data
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Simulation Results Container -->
+                        <div id="simulationResults">
+                            <div style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                                <div style="font-size: 3rem; margin-bottom: 1rem;">📊</div>
+                                <p>No simulation data loaded yet.</p>
+                                <p style="font-size: 0.85rem; margin-top: 0.5rem;">
+                                    Load a JSON file or click "Use Current Data" to generate predictions.
+                                </p>
+                            </div>
+                        </div>
+                    </div><!-- End Simulation Tab -->
                     
                 </div>
             </div>
@@ -10140,14 +10176,14 @@
         // ============================================
         
         // Tab switching function
-        function switchAnalysisTab(tabName) {
+        function switchAnalysisTab(tabName, buttonEl) {
             // Hide all tabs
-            document.querySelectorAll('.tab-content').forEach(tab => {
+            document.querySelectorAll('#leagueAnalysisResults .tab-content').forEach(tab => {
                 tab.classList.remove('active');
             });
             
-            // Remove active from all buttons
-            document.querySelectorAll('.tab-btn').forEach(btn => {
+            // Remove active from all tab buttons
+            document.querySelectorAll('#leagueAnalysisResults .tab-btn').forEach(btn => {
                 btn.classList.remove('active');
             });
             
@@ -10157,14 +10193,18 @@
                 tabElement.classList.add('active');
             }
             
-            // Activate button
-            event.target.classList.add('active');
+            // Activate clicked button
+            if (buttonEl) {
+                buttonEl.classList.add('active');
+            }
             
             // Render content if needed
             if (tabName === 'predictions') {
                 initPredictionsTab();
             } else if (tabName === 'plstats') {
                 initPLStatsTab();
+            } else if (tabName === 'simulation') {
+                renderSimulationTab();
             }
         }
         
@@ -10908,6 +10948,223 @@
             </div>`;
             
             document.getElementById('attackDefenseChart').innerHTML = html;
+        }
+        
+        // ============================================
+        // SIMULATION TAB FUNCTIONS
+        // ============================================
+        
+        let simulationData = null;
+        
+        // Render simulation tab
+        function renderSimulationTab() {
+            if (!simulationData) {
+                // Try to auto-generate from current data
+                if (importedLeagueData && importedBootstrap) {
+                    useCurrentData();
+                }
+            }
+        }
+        
+        // Load simulation from JSON file
+        function loadSimulationFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    simulationData = JSON.parse(e.target.result);
+                    renderSimulationResults();
+                } catch (err) {
+                    alert('Error parsing JSON file: ' + err.message);
+                }
+            };
+            reader.readAsText(file);
+        }
+        
+        // Use current imported data to generate simulation
+        function useCurrentData() {
+            if (!importedLeagueData || !importedBootstrap) {
+                document.getElementById('simulationResults').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--accent-rose);">
+                        <p>⚠️ No league data imported. Please import data first using the bookmarklet.</p>
+                    </div>`;
+                return;
+            }
+            
+            const currentGW = getCurrentGameweek();
+            const predictions = calculateGWPredictions(currentGW);
+            
+            simulationData = {
+                gameweek: currentGW,
+                generatedAt: new Date().toISOString(),
+                predictions: predictions,
+                fixtures: getGWFixtures(currentGW),
+                h2hMatches: getH2HMatches(currentGW)
+            };
+            
+            renderSimulationResults();
+        }
+        
+        // Get fixtures for a gameweek
+        function getGWFixtures(gw) {
+            const fixtures = importedBootstrap?.fixtures?.[String(gw)] || [];
+            return fixtures.map(fix => ({
+                home: fplTeamIdMap[fix.team_h] || '?',
+                away: fplTeamIdMap[fix.team_a] || '?',
+                homeFDR: fix.team_h_difficulty || 3,
+                awayFDR: fix.team_a_difficulty || 3
+            }));
+        }
+        
+        // Get H2H matches for a gameweek
+        function getH2HMatches(gw) {
+            const matches = importedLeagueData?.matches?.filter(m => m.event === gw) || [];
+            const entryIdToName = {};
+            (importedLeagueData?.league_entries || []).forEach(e => {
+                entryIdToName[e.id] = e.entry_name;
+            });
+            
+            return matches.map(m => ({
+                team1: entryIdToName[m.league_entry_1] || 'Team 1',
+                team2: entryIdToName[m.league_entry_2] || 'Team 2',
+                team1Id: m.league_entry_1,
+                team2Id: m.league_entry_2
+            }));
+        }
+        
+        // Render simulation results
+        function renderSimulationResults() {
+            if (!simulationData || !simulationData.predictions) {
+                document.getElementById('simulationResults').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        <p>No simulation data available.</p>
+                    </div>`;
+                return;
+            }
+            
+            const { predictions, gameweek, generatedAt, fixtures, h2hMatches } = simulationData;
+            const maxPts = Math.max(...predictions.map(p => p.optimalPoints));
+            
+            let html = `
+            <!-- Meta Info -->
+            <div style="margin-bottom: 1.5rem; padding: 1rem; background: var(--bg-tertiary); border-radius: 12px; display: flex; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                <div>
+                    <span style="color: var(--accent-cyan); font-weight: 600;">GW${gameweek}</span> Simulation
+                </div>
+                <div style="color: var(--text-muted); font-size: 0.85rem;">
+                    Generated: ${new Date(generatedAt).toLocaleString()}
+                </div>
+            </div>
+            
+            <!-- PL Fixtures -->
+            <div class="stat-card" style="margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
+                <h4 style="color: var(--accent-cyan); margin-bottom: 1rem;">⚽ GW${gameweek} Premier League Fixtures</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 0.75rem;">
+                    ${(fixtures || []).map(f => `
+                        <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                            <span class="fdr-${f.homeFDR}" style="padding: 2px 6px; border-radius: 4px; font-weight: 500;">${f.home}</span>
+                            <span style="color: var(--text-muted);">vs</span>
+                            <span class="fdr-${f.awayFDR}" style="padding: 2px 6px; border-radius: 4px; font-weight: 500;">${f.away}</span>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>
+            
+            <!-- Team Rankings -->
+            <div class="stat-card" style="margin-bottom: 1.5rem; border: 2px solid var(--accent-emerald);">
+                <h4 style="color: var(--accent-emerald); margin-bottom: 1rem;">🏆 Predicted Team Rankings</h4>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                        <thead>
+                            <tr style="background: var(--bg-tertiary);">
+                                <th style="padding: 0.75rem; text-align: left;">Rank</th>
+                                <th style="padding: 0.75rem; text-align: left;">Team</th>
+                                <th style="padding: 0.75rem; text-align: center;">Formation</th>
+                                <th style="padding: 0.75rem; text-align: center;">Optimal 11</th>
+                                <th style="padding: 0.75rem; text-align: center;">Bench</th>
+                                <th style="padding: 0.75rem; text-align: left;">Points Bar</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${predictions.map((p, idx) => {
+                                const rank = idx + 1;
+                                const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+                                const pctWidth = (p.optimalPoints / maxPts) * 100;
+                                return `
+                                <tr style="border-bottom: 1px solid var(--border-color);">
+                                    <td style="padding: 0.75rem; font-weight: 700;">${medal}</td>
+                                    <td style="padding: 0.75rem; font-weight: 600;">${p.entryName}</td>
+                                    <td style="padding: 0.75rem; text-align: center; font-family: 'JetBrains Mono', monospace;">${p.formation}</td>
+                                    <td style="padding: 0.75rem; text-align: center; font-weight: 700; color: var(--accent-emerald);">${p.optimalPoints.toFixed(1)}</td>
+                                    <td style="padding: 0.75rem; text-align: center; color: var(--text-muted);">+${p.benchPoints.toFixed(1)}</td>
+                                    <td style="padding: 0.75rem;">
+                                        <div style="background: var(--bg-secondary); height: 20px; border-radius: 10px; overflow: hidden;">
+                                            <div style="width: ${pctWidth}%; height: 100%; background: linear-gradient(90deg, var(--accent-emerald), var(--accent-cyan)); border-radius: 10px;"></div>
+                                        </div>
+                                    </td>
+                                </tr>`;
+                            }).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            
+            <!-- H2H Matchups -->
+            <div class="stat-card" style="margin-bottom: 1.5rem; border: 2px solid var(--accent-amber);">
+                <h4 style="color: var(--accent-amber); margin-bottom: 1rem;">⚔️ H2H Matchup Predictions</h4>
+                <div class="predictions-grid">
+                    ${(h2hMatches || []).map(match => {
+                        const team1Pred = predictions.find(p => p.entryName === match.team1);
+                        const team2Pred = predictions.find(p => p.entryName === match.team2);
+                        const team1Pts = team1Pred?.optimalPoints || 0;
+                        const team2Pts = team2Pred?.optimalPoints || 0;
+                        const probs = calculateH2HWinProbability(team1Pts, team2Pts);
+                        const winner = team1Pts > team2Pts ? 'team1' : team2Pts > team1Pts ? 'team2' : 'draw';
+                        
+                        return `
+                        <div class="h2h-matchup-card" style="${winner === 'team1' ? 'border-left: 4px solid var(--accent-cyan);' : winner === 'team2' ? 'border-right: 4px solid var(--accent-violet);' : ''}">
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                <div style="font-weight: 600; ${winner === 'team1' ? 'color: var(--accent-emerald);' : ''}">${match.team1}</div>
+                                <div style="font-size: 0.8rem; color: var(--text-muted);">VS</div>
+                                <div style="font-weight: 600; text-align: right; ${winner === 'team2' ? 'color: var(--accent-emerald);' : ''}">${match.team2}</div>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; font-size: 0.9rem;">
+                                <div style="color: var(--accent-cyan); font-weight: 700;">${team1Pts.toFixed(1)} pts</div>
+                                <div style="color: var(--accent-violet); font-weight: 700;">${team2Pts.toFixed(1)} pts</div>
+                            </div>
+                            <div class="win-probability-bar">
+                                <div class="win-prob-segment team1" style="width: ${probs.team1Win}%;">${probs.team1Win > 15 ? probs.team1Win + '%' : ''}</div>
+                                <div class="win-prob-segment draw" style="width: ${probs.draw}%;"></div>
+                                <div class="win-prob-segment team2" style="width: ${probs.team2Win}%;">${probs.team2Win > 15 ? probs.team2Win + '%' : ''}</div>
+                            </div>
+                        </div>`;
+                    }).join('')}
+                </div>
+            </div>
+            
+            <!-- Top Players by Team -->
+            <div class="stat-card" style="border: 2px solid var(--accent-violet);">
+                <h4 style="color: var(--accent-violet); margin-bottom: 1rem;">⭐ Top Predicted Players by Team</h4>
+                <div class="predictions-grid">
+                    ${predictions.map(team => `
+                        <div class="prediction-card">
+                            <div style="font-weight: 600; margin-bottom: 0.75rem; color: var(--accent-cyan);">${team.entryName}</div>
+                            <div style="font-size: 0.85rem;">
+                                ${team.optimal11.slice(0, 5).map((p, i) => `
+                                    <div style="display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px solid var(--border-color);">
+                                        <span>${i + 1}. ${p.name} <span style="color: var(--text-muted);">(${p.pos})</span></span>
+                                        <span style="font-weight: 600; color: var(--accent-emerald);">${p.predicted.toFixed(1)}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+            
+            document.getElementById('simulationResults').innerHTML = html;
         }
     </script>
 </body>
