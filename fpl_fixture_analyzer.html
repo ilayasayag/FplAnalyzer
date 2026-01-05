@@ -806,6 +806,16 @@
             50% { box-shadow: 0 0 20px var(--accent-emerald); }
         }
         
+        @keyframes slideIn {
+            from { transform: translateX(100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        @keyframes slideOut {
+            from { transform: translateX(0); opacity: 1; }
+            to { transform: translateX(100%); opacity: 0; }
+        }
+        
         .draft-round-info {
             display: flex;
             gap: 1.5rem;
@@ -6917,6 +6927,9 @@
                             </span>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem;">
+                                📋 Import from Clipboard
+                            </button>
                             <button onclick="renderLeagueAnalysis()" style="padding: 0.5rem 1rem; background: var(--accent-emerald); font-size: 0.85rem;">
                                 📊 Show Analysis
                             </button>
@@ -6932,6 +6945,83 @@
                     renderLeagueAnalysis();
                 }
             }
+            
+            // Listen for tab focus to try auto-import from clipboard
+            document.addEventListener('visibilitychange', function() {
+                if (document.visibilityState === 'visible') {
+                    tryAutoImportFromClipboard(true); // silent mode
+                }
+            });
+        }
+        
+        // Try to import FPL data from clipboard
+        async function tryAutoImportFromClipboard(silent = false) {
+            try {
+                const clipText = await navigator.clipboard.readText();
+                if (clipText && clipText.includes('"league"') && clipText.includes('"bootstrap"') && clipText.includes('"playerDetails"')) {
+                    const parsed = JSON.parse(clipText);
+                    if (parsed.league && parsed.bootstrap && parsed.playerDetails) {
+                        // Check if this is newer data than what we have
+                        const newFetchedAt = parsed.fetchedAt ? new Date(parsed.fetchedAt) : new Date();
+                        const currentFetchedAt = importedLeagueData?.fetchedAt ? new Date(importedLeagueData.fetchedAt) : null;
+                        
+                        if (!currentFetchedAt || newFetchedAt > currentFetchedAt) {
+                            // Import the new data
+                            document.getElementById('leagueDataInput').value = clipText;
+                            processLeagueData();
+                            
+                            if (!silent) {
+                                // Show success notification
+                                showNotification('✅ New data imported from clipboard!', 'success');
+                            } else {
+                                // Show subtle notification for auto-import
+                                showNotification('🔄 Data auto-updated from clipboard!', 'info');
+                            }
+                        } else if (!silent) {
+                            showNotification('ℹ️ Clipboard data is same or older than current data', 'info');
+                        }
+                    }
+                } else if (!silent) {
+                    showNotification('❌ No valid FPL data found in clipboard', 'error');
+                }
+            } catch (e) {
+                if (!silent) {
+                    showNotification('⚠️ Cannot read clipboard. Please paste manually or drag the JSON file.', 'warning');
+                }
+            }
+        }
+        
+        // Show notification toast
+        function showNotification(message, type = 'info') {
+            const colors = {
+                success: 'var(--accent-emerald)',
+                error: 'var(--accent-rose)',
+                warning: 'var(--accent-amber)',
+                info: 'var(--accent-cyan)'
+            };
+            
+            const toast = document.createElement('div');
+            toast.style.cssText = `
+                position: fixed;
+                top: 20px;
+                right: 20px;
+                padding: 1rem 1.5rem;
+                background: var(--bg-secondary);
+                border: 2px solid ${colors[type]};
+                border-radius: 12px;
+                color: var(--text-primary);
+                font-weight: 500;
+                z-index: 10000;
+                animation: slideIn 0.3s ease;
+                box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            `;
+            toast.textContent = message;
+            document.body.appendChild(toast);
+            
+            setTimeout(() => {
+                toast.style.animation = 'slideOut 0.3s ease';
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
         }
         
         function generateBookmarklet() {
@@ -7036,7 +7126,7 @@
                 }
             }
             
-            // Find top 50 free agents by total points
+            // Find top 100 free agents by total points
             status.textContent = 'Finding top free agents...';
             const freeAgentIds = [];
             if (results.elements && results.elements.element_status && results.bootstrap && results.bootstrap.elements) {
@@ -7052,15 +7142,28 @@
                         return { id, points: player ? player.total_points : 0 };
                     })
                     .sort((a, b) => b.points - a.points)
-                    .slice(0, 50);
+                    .slice(0, 100); // Increased from 50 to 100
                 
                 freeAgentsWithPoints.forEach(fa => freeAgentIds.push(fa.id));
             }
             
-            // Combine owned + top free agents
-            const allPlayerIds = [...Array.from(ownedPlayerIds), ...freeAgentIds];
+            // Also collect player IDs from transactions (traded/waivered players)
+            const transactionPlayerIds = new Set();
+            if (results.transactions && results.transactions.transactions) {
+                results.transactions.transactions.forEach(function(trans) {
+                    if (trans.element_in) transactionPlayerIds.add(trans.element_in);
+                    if (trans.element_out) transactionPlayerIds.add(trans.element_out);
+                });
+            }
             
-            // Fetch detailed stats for all players (owned + top 50 free agents)
+            // Combine: owned + top 50 free agents + transaction players (remove duplicates)
+            const allPlayerIds = [...new Set([
+                ...Array.from(ownedPlayerIds), 
+                ...freeAgentIds,
+                ...Array.from(transactionPlayerIds)
+            ])];
+            
+            // Fetch detailed stats for all players
             status.textContent = 'Fetching player details (0/' + allPlayerIds.length + ')...';
             results.playerDetails = {};
             const playerIds = allPlayerIds;
@@ -7084,11 +7187,24 @@
             // Add timestamp
             results.fetchedAt = new Date().toISOString();
             
+            // Debug: count how many player details have history
+            let playersWithHistory = 0;
+            let playersWithoutHistory = 0;
+            Object.keys(results.playerDetails).forEach(function(pid) {
+                const pd = results.playerDetails[pid];
+                if (pd && pd.history && pd.history.length > 0) {
+                    playersWithHistory++;
+                } else {
+                    playersWithoutHistory++;
+                }
+            });
+            
             // Prepare JSON
             status.textContent = 'Preparing data...';
             const jsonStr = JSON.stringify(results, null, 2);
             const ownedCount = ownedPlayerIds.size;
             const freeAgentCount = freeAgentIds.length;
+            const transactionCount = transactionPlayerIds.size;
             
             // Try to copy to clipboard
             let copied = false;
@@ -7110,16 +7226,19 @@
             overlay.innerHTML = '<div style="font-size:28px;color:#10b981;margin-bottom:20px;">✅ Success!</div>' +
                 '<div style="font-size:18px;margin-bottom:15px;font-weight:bold;">Data Ready!</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">League: ' + (results.league.league?.name || 'Unknown') + '</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong> (current)</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">Squads for: <strong style="color:#22d3ee;">GW' + currentEvent + '</strong></div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + entries.length + ' teams (' + ownedCount + ' owned players)</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' top free agents with detailed stats</div>' +
-                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players with GW history</div>' +
-                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:20px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
-                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:20px;">' +
-                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:16px 32px;background:#10b981;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;text-decoration:none;color:#000;display:inline-block;">💾 Download JSON File</a>' +
-                    '<button id="fplCopyBtn" style="padding:16px 32px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:16px;font-weight:bold;">📋 Copy to Clipboard</button>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' free agents + ' + transactionCount + ' from transactions</div>' +
+                '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players fetched (' + playersWithHistory + ' with history, ' + playersWithoutHistory + ' without)</div>' +
+                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
+                '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
+                    '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
+                    '<div style="font-size:13px;color:#94a3b8;">Data copied to clipboard. Just <strong style="color:#10b981;">switch back to the Analyzer tab</strong> and it will auto-update!</div>' +
                 '</div>' +
-                '<div style="font-size:12px;color:#64748b;margin-bottom:15px;">Download the file, then drag it into the FPL Analyzer<br>Or copy and paste the data manually</div>' +
+                '<div style="display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-bottom:15px;">' +
+                    '<button id="fplCopyBtn" style="padding:14px 28px;background:#8b5cf6;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;">📋 Copy Again</button>' +
+                    '<a id="fplDownloadBtn" href="' + downloadUrl + '" download="' + fileName + '" style="padding:14px 28px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:15px;font-weight:bold;text-decoration:none;color:#fff;display:inline-block;">💾 Download Backup</a>' +
+                '</div>' +
                 '<button onclick="this.parentElement.remove()" style="padding:10px 20px;background:#334155;border:none;border-radius:8px;cursor:pointer;font-size:14px;">Close</button>';
             
             // Store for copy button
@@ -7205,8 +7324,17 @@
                         if (parsed.currentEvent) {
                             importedLeagueData.currentEvent = parsed.currentEvent;
                         }
+                        // Store when the data was fetched
+                        if (parsed.fetchedAt) {
+                            importedLeagueData.fetchedAt = parsed.fetchedAt;
+                        }
+                        // CRITICAL: Import player details (GW history) from bookmarklet data
+                        if (parsed.playerDetails) {
+                            importedPlayerDetails = parsed.playerDetails;
+                        }
                         const gwInfo = parsed.currentEvent ? ` (Squads for GW${parsed.currentEvent})` : '';
-                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + '</div>';
+                        const playerDetailsCount = parsed.playerDetails ? Object.keys(parsed.playerDetails).length : 0;
+                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + ' (' + playerDetailsCount + ' players with GW history)</div>';
                         hasData = true;
                     } else if (parsed.league) {
                         importedLeagueData = parsed;
@@ -7357,8 +7485,65 @@
             const resultsDiv = document.getElementById('leagueAnalysisResults');
             resultsDiv.style.display = 'block';
             
+            // Add fetch date header
+            renderFetchDateHeader();
+            
             // Render league overview
             renderLeagueOverview();
+        }
+        
+        // Render the data fetch date header
+        function renderFetchDateHeader() {
+            let headerEl = document.getElementById('dataFetchHeader');
+            if (!headerEl) {
+                headerEl = document.createElement('div');
+                headerEl.id = 'dataFetchHeader';
+                const resultsDiv = document.getElementById('leagueAnalysisResults');
+                resultsDiv.insertBefore(headerEl, resultsDiv.firstChild);
+            }
+            
+            const fetchedAt = importedLeagueData?.fetchedAt;
+            const currentGW = getCurrentGameweek();
+            const playerDetailsCount = importedPlayerDetails ? Object.keys(importedPlayerDetails).length : 0;
+            
+            let fetchDateStr = 'Unknown';
+            if (fetchedAt) {
+                const date = new Date(fetchedAt);
+                fetchDateStr = date.toLocaleDateString('en-GB', { 
+                    weekday: 'short', 
+                    day: 'numeric', 
+                    month: 'short', 
+                    year: 'numeric',
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+            }
+            
+            headerEl.innerHTML = `
+                <div style="background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(139, 92, 246, 0.15)); 
+                            padding: 1rem 1.5rem; 
+                            border-radius: 12px; 
+                            margin-bottom: 1.5rem;
+                            border: 1px solid var(--accent-cyan);
+                            display: flex;
+                            justify-content: space-between;
+                            align-items: center;
+                            flex-wrap: wrap;
+                            gap: 1rem;">
+                    <div style="display: flex; align-items: center; gap: 1rem;">
+                        <div style="font-size: 1.5rem;">📡</div>
+                        <div>
+                            <div style="font-weight: 600; color: var(--accent-cyan);">Data Fetched: ${fetchDateStr}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">
+                                GW${currentGW} • ${playerDetailsCount} players with detailed stats
+                            </div>
+                        </div>
+                    </div>
+                    <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem; white-space: nowrap;">
+                        🔄 Refresh from Clipboard
+                    </button>
+                </div>
+            `;
             
             // Render recent transactions (trades, waivers)
             renderRecentTransactions();
@@ -7910,12 +8095,7 @@
         
         // Get the current gameweek (first unfinished GW, or latest finished + 1)
         function getCurrentGameweek() {
-            // First priority: check currentEvent stored from bookmarklet fetch
-            if (importedLeagueData?.currentEvent) {
-                return importedLeagueData.currentEvent;
-            }
-            
-            // Second priority: check bootstrap events
+            // FIRST priority: check bootstrap events (most reliable source)
             if (importedBootstrap && importedBootstrap.events && Array.isArray(importedBootstrap.events)) {
                 const events = importedBootstrap.events;
                 
@@ -7932,7 +8112,7 @@
                 if (lastFinished) return Math.min(lastFinished.id + 1, 38);
             }
             
-            // Third priority: check league matches to find first unstarted match
+            // Second priority: check league matches to find first unstarted match
             if (importedLeagueData?.matches && Array.isArray(importedLeagueData.matches)) {
                 const matches = importedLeagueData.matches;
                 // Find first match that hasn't started
@@ -7945,6 +8125,12 @@
                     const lastFinished = finishedMatches.reduce((max, m) => m.event > max.event ? m : max);
                     return Math.min(lastFinished.event + 1, 38);
                 }
+            }
+            
+            // Third priority: use currentEvent from data fetch (but NOT for analysis starting point)
+            // This is only a fallback when bootstrap events are unavailable
+            if (importedLeagueData?.currentEvent && importedLeagueData.currentEvent > 20) {
+                return importedLeagueData.currentEvent;
             }
             
             // Ultimate fallback - assume we're at GW22 (Jan 2026)
@@ -8301,12 +8487,40 @@
             const form = parseFloat(bootstrap?.form) || 0;
             const totalPoints = bootstrap?.total_points || 0;
             const minutes = bootstrap?.minutes || 0;
-            const ppg = minutes > 0 ? (totalPoints / Math.max(1, history.length)).toFixed(1) : 0;
+            
+            // Calculate games played - either from history or estimate from minutes
+            // Assume ~60 mins average per game if history unavailable
+            const gamesPlayed = history.length > 0 
+                ? history.filter(g => g.minutes > 0).length 
+                : Math.max(1, Math.round(minutes / 60));
+            
+            // Calculate ppg (points per game) - use bootstrap form as fallback
+            let ppg = 0;
+            if (gamesPlayed > 0 && totalPoints > 0) {
+                ppg = (totalPoints / gamesPlayed).toFixed(1);
+            } else if (form > 0) {
+                // Form is a rolling average of recent points, use it as ppg estimate
+                ppg = form;
+            }
             
             // Calculate average points from last 5 games
-            const last5Avg = recentGames.length > 0 
-                ? (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1)
-                : 0;
+            // If no history available, use form or position-based estimate
+            let last5Avg = 0;
+            if (recentGames.length > 0) {
+                last5Avg = (recentGames.reduce((sum, g) => sum + (g.total_points || 0), 0) / recentGames.length).toFixed(1);
+            } else if (form > 0) {
+                // Use form as best estimate for recent performance
+                last5Avg = form;
+            } else if (ppg > 0) {
+                last5Avg = ppg;
+            } else {
+                // Position-based default (GK/DEF ~3-4, MID ~4, FWD ~4-5)
+                const posDefaults = { 1: 3.5, 2: 3.5, 3: 4, 4: 4.5 };
+                last5Avg = posDefaults[bootstrap?.element_type] || 3.5;
+            }
+            
+            // Flag if this player has limited data (for UI warning)
+            const hasDetailedData = history.length > 0;
             
             return {
                 id: playerId,
@@ -8319,7 +8533,8 @@
                 totalPoints,
                 ppg: parseFloat(ppg),
                 last5Avg: parseFloat(last5Avg),
-                minutes
+                minutes,
+                hasDetailedData // New flag to indicate if detailed GW history is available
             };
         }
         
