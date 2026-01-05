@@ -6899,6 +6899,11 @@
                     buildElementMap();
                 }
                 
+                // Apply transactions to update squads with trades/waivers
+                if (importedLeagueData?.squads && importedLeagueData?.transactions) {
+                    applyTransactionsToSquads();
+                }
+                
                 // Show saved data status
                 const savedAt = savedData.savedAt ? new Date(savedData.savedAt) : null;
                 const statusDiv = document.getElementById('savedDataStatus');
@@ -7263,6 +7268,11 @@
                         importedPlayerDetails = parsed.playerDetails;
                     }
                 } catch(e) {}
+            }
+            
+            // Apply transactions to update squads with trades/waivers
+            if (importedLeagueData?.squads && importedLeagueData?.transactions) {
+                applyTransactionsToSquads();
             }
             
             // Check what data we have
@@ -7900,11 +7910,16 @@
         
         // Get the current gameweek (first unfinished GW, or latest finished + 1)
         function getCurrentGameweek() {
-            // Try to get from bootstrap events
+            // First priority: check currentEvent stored from bookmarklet fetch
+            if (importedLeagueData?.currentEvent) {
+                return importedLeagueData.currentEvent;
+            }
+            
+            // Second priority: check bootstrap events
             if (importedBootstrap && importedBootstrap.events && Array.isArray(importedBootstrap.events)) {
                 const events = importedBootstrap.events;
                 
-                // Find the current event (is_current = true) or first unfinished
+                // Find the current event (is_current = true)
                 const currentEvent = events.find(e => e.is_current);
                 if (currentEvent) return currentEvent.id;
                 
@@ -7917,12 +7932,89 @@
                 if (lastFinished) return Math.min(lastFinished.id + 1, 38);
             }
             
-            // Fallback: check league start event or default to 21 (current)
-            const leagueStart = importedLeagueData?.league?.start_event;
-            if (leagueStart) return leagueStart;
+            // Third priority: check league matches to find first unstarted match
+            if (importedLeagueData?.matches && Array.isArray(importedLeagueData.matches)) {
+                const matches = importedLeagueData.matches;
+                // Find first match that hasn't started
+                const unstartedMatch = matches.find(m => !m.started);
+                if (unstartedMatch) return unstartedMatch.event;
+                
+                // Find last finished match
+                const finishedMatches = matches.filter(m => m.finished);
+                if (finishedMatches.length > 0) {
+                    const lastFinished = finishedMatches.reduce((max, m) => m.event > max.event ? m : max);
+                    return Math.min(lastFinished.event + 1, 38);
+                }
+            }
             
-            // Ultimate fallback - assume we're at GW21
-            return 21;
+            // Ultimate fallback - assume we're at GW22 (Jan 2026)
+            return 22;
+        }
+        
+        // Apply accepted transactions to squad data
+        // This ensures squads reflect trades, waivers, and free agent pickups
+        function applyTransactionsToSquads() {
+            const transactions = importedLeagueData?.transactions?.transactions || [];
+            const squads = importedLeagueData?.squads || {};
+            const fetchedGW = importedLeagueData?.currentEvent;
+            
+            if (transactions.length === 0 || Object.keys(squads).length === 0) {
+                return; // Nothing to apply
+            }
+            
+            // Get accepted transactions sorted by event (oldest first)
+            const acceptedTrans = transactions
+                .filter(t => t.result === 'a') // Only accepted transactions
+                .sort((a, b) => a.event - b.event || (a.index || 0) - (b.index || 0));
+            
+            console.log(`Applying ${acceptedTrans.length} accepted transactions to squads...`);
+            
+            // Helper to find entry_id from league_entry id
+            const getEntryId = (leagueEntryId) => {
+                const entries = importedLeagueData?.league_entries || [];
+                const entry = entries.find(e => e.id === leagueEntryId);
+                return entry?.entry_id || leagueEntryId;
+            };
+            
+            // Apply each transaction
+            acceptedTrans.forEach(trans => {
+                const entryId = getEntryId(trans.entry);
+                const squadData = squads[entryId];
+                
+                if (!squadData || !squadData.picks) {
+                    console.log(`No squad data for entry ${entryId}, skipping transaction`);
+                    return;
+                }
+                
+                const picks = squadData.picks;
+                const elementIn = trans.element_in;
+                const elementOut = trans.element_out;
+                
+                // Check if element_out is in the squad
+                const outIndex = picks.findIndex(p => p.element === elementOut);
+                
+                if (outIndex !== -1) {
+                    // Replace element_out with element_in
+                    const oldPick = picks[outIndex];
+                    picks[outIndex] = {
+                        ...oldPick,
+                        element: elementIn
+                    };
+                    console.log(`Applied: ${trans.kind} for entry ${entryId} - OUT: ${elementOut}, IN: ${elementIn}`);
+                } else if (elementIn && !elementOut) {
+                    // Adding a player without dropping (shouldn't happen in FPL Draft, but handle it)
+                    console.log(`Skipping add-only transaction for entry ${entryId}`);
+                } else {
+                    // element_out not found - transaction may have already been applied or squad is outdated
+                    // Check if element_in is already in the squad
+                    const inExists = picks.some(p => p.element === elementIn);
+                    if (!inExists && elementOut) {
+                        console.log(`Warning: element_out ${elementOut} not found in squad for entry ${entryId}`);
+                    }
+                }
+            });
+            
+            console.log('Transactions applied to squads');
         }
         
         // Team name mapping: short names (FPL API) -> full names (fixture data)
