@@ -11780,32 +11780,102 @@
             };
         }
         
-        // Calculate H2H win probability
-        function calculateH2HWinProbability(team1Pts, team2Pts) {
-            const diff = team1Pts - team2Pts;
-            const total = team1Pts + team2Pts;
-            
-            if (total === 0) return { team1Win: 33, draw: 34, team2Win: 33 };
-            
-            // Simple probability based on point difference
-            // Larger difference = higher confidence
-            const confidence = Math.min(Math.abs(diff) / 10, 0.4);
-            
-            if (diff > 2) {
-                return {
-                    team1Win: Math.round(50 + confidence * 100),
-                    draw: Math.round(20 - confidence * 30),
-                    team2Win: Math.round(30 - confidence * 70)
-                };
-            } else if (diff < -2) {
-                return {
-                    team1Win: Math.round(30 - confidence * 70),
-                    draw: Math.round(20 - confidence * 30),
-                    team2Win: Math.round(50 + confidence * 100)
-                };
-            } else {
-                return { team1Win: 35, draw: 30, team2Win: 35 };
+        // Calculate team uncertainty (standard deviation) based on prediction confidence
+        function calculateTeamUncertainty(teamPred) {
+            if (!teamPred || !teamPred.optimal11) {
+                return 15; // Default high uncertainty
             }
+            
+            const players = teamPred.optimal11;
+            
+            // Count confidence levels in the optimal 11
+            let lowConf = 0, medConf = 0, highConf = 0;
+            players.forEach(p => {
+                if (p.confidence === 'low') lowConf++;
+                else if (p.confidence === 'medium') medConf++;
+                else highConf++;
+            });
+            
+            // Base uncertainty from FPL scoring variance (empirically ~12 pts std dev)
+            const baseUncertainty = 12;
+            
+            // Add uncertainty for low confidence predictions
+            // Low confidence players add more variance
+            const confUncertainty = (lowConf * 2.0) + (medConf * 1.0) + (highConf * 0.5);
+            
+            // Scale by predicted points (higher predicted = more variance)
+            const ptsScale = 1 + (teamPred.optimalPoints - 35) / 100;
+            
+            return Math.max(8, Math.min(20, baseUncertainty + confUncertainty) * ptsScale);
+        }
+        
+        // Standard normal CDF approximation (for probability calculation)
+        function normalCDF(x) {
+            const a1 =  0.254829592;
+            const a2 = -0.284496736;
+            const a3 =  1.421413741;
+            const a4 = -1.453152027;
+            const a5 =  1.061405429;
+            const p  =  0.3275911;
+            
+            const sign = x < 0 ? -1 : 1;
+            x = Math.abs(x) / Math.sqrt(2);
+            
+            const t = 1.0 / (1.0 + p * x);
+            const y = 1.0 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+            
+            return 0.5 * (1.0 + sign * y);
+        }
+        
+        // Calculate H2H win probability using statistical approach
+        // team1Pred and team2Pred are full prediction objects (or null)
+        // team1Pts and team2Pts are the expected points
+        function calculateH2HWinProbability(team1Pts, team2Pts, team1Pred = null, team2Pred = null) {
+            if (team1Pts === 0 && team2Pts === 0) {
+                return { team1Win: 33, draw: 34, team2Win: 33 };
+            }
+            
+            // Calculate uncertainty for each team
+            const sigma1 = calculateTeamUncertainty(team1Pred);
+            const sigma2 = calculateTeamUncertainty(team2Pred);
+            
+            // Combined standard deviation for the difference
+            // If X ~ N(μ1, σ1²) and Y ~ N(μ2, σ2²), then X-Y ~ N(μ1-μ2, σ1²+σ2²)
+            const sigmaDiff = Math.sqrt(sigma1 * sigma1 + sigma2 * sigma2);
+            
+            // Expected difference
+            const muDiff = team1Pts - team2Pts;
+            
+            // P(Team1 wins) = P(Team1 - Team2 > 0) = P(Z > -muDiff/sigmaDiff)
+            // P(Team1 wins) = normalCDF(muDiff / sigmaDiff)
+            const zScore = muDiff / sigmaDiff;
+            
+            // Calculate probabilities
+            // For "draw" we consider a small margin (±2 points difference)
+            const drawMargin = 2;
+            const pTeam1WinsClear = normalCDF((muDiff - drawMargin) / sigmaDiff);
+            const pTeam2WinsClear = 1 - normalCDF((muDiff + drawMargin) / sigmaDiff);
+            const pDraw = 1 - pTeam1WinsClear - pTeam2WinsClear;
+            
+            // In FPL H2H, draws are rare (exact same score needed)
+            // So we redistribute most of the "close game" probability
+            const drawReduction = 0.7; // Keep 30% as draw possibility
+            const actualDraw = pDraw * drawReduction;
+            const redistributed = pDraw * (1 - drawReduction) / 2;
+            
+            let team1Win = pTeam1WinsClear + redistributed;
+            let team2Win = pTeam2WinsClear + redistributed;
+            
+            // Normalize to ensure they sum to 100
+            const total = team1Win + team2Win + actualDraw;
+            
+            return {
+                team1Win: Math.round((team1Win / total) * 100),
+                draw: Math.round((actualDraw / total) * 100),
+                team2Win: Math.round((team2Win / total) * 100),
+                sigma1: Math.round(sigma1 * 10) / 10,
+                sigma2: Math.round(sigma2 * 10) / 10
+            };
         }
         
         // Render predictions tab
@@ -11909,8 +11979,12 @@
                 const team1Pts = team1Pred?.optimalPoints || 0;
                 const team2Pts = team2Pred?.optimalPoints || 0;
                 
-                const probs = calculateH2HWinProbability(team1Pts, team2Pts);
+                const probs = calculateH2HWinProbability(team1Pts, team2Pts, team1Pred, team2Pred);
                 const winner = team1Pts > team2Pts ? 'team1' : team2Pts > team1Pts ? 'team2' : 'draw';
+                
+                // Calculate point range (±1 standard deviation)
+                const team1Range = `${(team1Pts - (probs.sigma1 || 12)).toFixed(0)}-${(team1Pts + (probs.sigma1 || 12)).toFixed(0)}`;
+                const team2Range = `${(team2Pts - (probs.sigma2 || 12)).toFixed(0)}-${(team2Pts + (probs.sigma2 || 12)).toFixed(0)}`;
                 
                 html += `
                 <div class="h2h-matchup-card">
@@ -11918,16 +11992,18 @@
                         <div class="h2h-team-name" style="color: ${winner === 'team1' ? 'var(--accent-emerald)' : 'var(--text-primary)'};">
                             ${team1Name}
                             <div style="font-size: 0.85rem; color: var(--text-muted);">${team1Pts.toFixed(1)} pts</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);" title="Predicted range (±σ)">Range: ${team1Range}</div>
                         </div>
                         <div class="h2h-vs">VS</div>
                         <div class="h2h-team-name" style="text-align: right; color: ${winner === 'team2' ? 'var(--accent-emerald)' : 'var(--text-primary)'};">
                             ${team2Name}
                             <div style="font-size: 0.85rem; color: var(--text-muted);">${team2Pts.toFixed(1)} pts</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);" title="Predicted range (±σ)">Range: ${team2Range}</div>
                         </div>
                     </div>
                     <div class="win-probability-bar">
                         <div class="win-prob-segment team1" style="width: ${probs.team1Win}%;">${probs.team1Win}%</div>
-                        <div class="win-prob-segment draw" style="width: ${probs.draw}%;">${probs.draw > 15 ? probs.draw + '%' : ''}</div>
+                        <div class="win-prob-segment draw" style="width: ${probs.draw}%;">${probs.draw > 10 ? probs.draw + '%' : ''}</div>
                         <div class="win-prob-segment team2" style="width: ${probs.team2Win}%;">${probs.team2Win}%</div>
                     </div>
                     <div style="display: flex; justify-content: space-between; font-size: 0.75rem; color: var(--text-muted);">
@@ -12814,7 +12890,7 @@
                         const team2Pred = predictions.find(p => p.entryName === match.team2);
                         const team1Pts = team1Pred?.optimalPoints || 0;
                         const team2Pts = team2Pred?.optimalPoints || 0;
-                        const probs = calculateH2HWinProbability(team1Pts, team2Pts);
+                        const probs = calculateH2HWinProbability(team1Pts, team2Pts, team1Pred, team2Pred);
                         const winner = team1Pts > team2Pts ? 'team1' : team2Pts > team1Pts ? 'team2' : 'draw';
                         
                         return `
