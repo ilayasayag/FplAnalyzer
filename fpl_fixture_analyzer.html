@@ -2869,6 +2869,36 @@
                             <div id="plTeamCards" class="predictions-grid"></div>
                         </div>
                         
+                        <!-- Team Matchup Predictor -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-cyan);">
+                            <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">🎯 Match Score Predictor</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Select two teams to predict the match score using batch-based analysis
+                            </p>
+                            
+                            <div style="display: flex; gap: 2rem; align-items: center; flex-wrap: wrap; margin-bottom: 1.5rem;">
+                                <!-- Home Team -->
+                                <div class="control-group" style="flex: 1; min-width: 200px;">
+                                    <label style="color: var(--accent-emerald);">🏠 Home Team</label>
+                                    <select id="matchupHomeTeam" onchange="calculateMatchupPrediction()" style="padding: 0.75rem 1rem; width: 100%;">
+                                        <option value="">Select home team...</option>
+                                    </select>
+                                </div>
+                                
+                                <div style="font-size: 1.5rem; color: var(--text-muted);">vs</div>
+                                
+                                <!-- Away Team -->
+                                <div class="control-group" style="flex: 1; min-width: 200px;">
+                                    <label style="color: var(--accent-rose);">✈️ Away Team</label>
+                                    <select id="matchupAwayTeam" onchange="calculateMatchupPrediction()" style="padding: 0.75rem 1rem; width: 100%;">
+                                        <option value="">Select away team...</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div id="matchupResult" style="display: none;"></div>
+                        </div>
+                        
                         <!-- Attack vs Defense Comparison -->
                         <div class="stat-card" style="border: 2px solid var(--accent-amber);">
                             <h3 style="color: var(--accent-amber); margin-bottom: 1rem;">⚔️ Attack vs Defense Analysis</h3>
@@ -12025,6 +12055,7 @@
             }
             renderPLStandings();
             renderPLTeamCards();
+            populateMatchupSelectors();
             renderAttackDefenseChart();
         }
         
@@ -12209,6 +12240,312 @@
             });
             
             document.getElementById('plTeamCards').innerHTML = html;
+        }
+        
+        // ========== MATCHUP PREDICTOR ==========
+        
+        function populateMatchupSelectors() {
+            const standings = batchAnalysisCache.plStandings;
+            if (!standings || standings.length === 0) return;
+            
+            const homeSelect = document.getElementById('matchupHomeTeam');
+            const awaySelect = document.getElementById('matchupAwayTeam');
+            
+            if (!homeSelect || !awaySelect) return;
+            
+            // Sort by position
+            const sortedTeams = [...standings].sort((a, b) => a.position - b.position);
+            
+            // Clear and repopulate
+            homeSelect.innerHTML = '<option value="">Select home team...</option>';
+            awaySelect.innerHTML = '<option value="">Select away team...</option>';
+            
+            sortedTeams.forEach(team => {
+                const batch = getBatchLabel(team.position);
+                const option1 = document.createElement('option');
+                option1.value = team.id;
+                option1.textContent = `${team.position}. ${team.name || team.short_name} (${batch})`;
+                homeSelect.appendChild(option1);
+                
+                const option2 = document.createElement('option');
+                option2.value = team.id;
+                option2.textContent = `${team.position}. ${team.name || team.short_name} (${batch})`;
+                awaySelect.appendChild(option2);
+            });
+        }
+        
+        function getBatchLabel(position) {
+            if (position <= 4) return 'Top 4';
+            if (position <= 8) return 'Upper Mid';
+            if (position <= 12) return 'Mid Table';
+            if (position <= 16) return 'Lower Mid';
+            return 'Bottom 4';
+        }
+        
+        function getBatchRange(position) {
+            if (position <= 4) return '1-4';
+            if (position <= 8) return '5-8';
+            if (position <= 12) return '9-12';
+            if (position <= 16) return '13-16';
+            return '17-20';
+        }
+        
+        function calculateMatchupPrediction() {
+            const homeSelect = document.getElementById('matchupHomeTeam');
+            const awaySelect = document.getElementById('matchupAwayTeam');
+            const resultDiv = document.getElementById('matchupResult');
+            
+            const homeTeamId = parseInt(homeSelect.value);
+            const awayTeamId = parseInt(awaySelect.value);
+            
+            if (!homeTeamId || !awayTeamId) {
+                resultDiv.style.display = 'none';
+                return;
+            }
+            
+            if (homeTeamId === awayTeamId) {
+                resultDiv.style.display = 'block';
+                resultDiv.innerHTML = '<p style="color: var(--accent-amber);">⚠️ Please select two different teams</p>';
+                return;
+            }
+            
+            const standings = batchAnalysisCache.plStandings;
+            if (!standings) return;
+            
+            const homeTeam = standings.find(t => t.id === homeTeamId);
+            const awayTeam = standings.find(t => t.id === awayTeamId);
+            
+            if (!homeTeam || !awayTeam) return;
+            
+            // Calculate predicted goals using batch logic
+            const prediction = predictMatchScore(homeTeam, awayTeam);
+            
+            resultDiv.style.display = 'block';
+            resultDiv.innerHTML = renderMatchupResult(homeTeam, awayTeam, prediction);
+        }
+        
+        function predictMatchScore(homeTeam, awayTeam) {
+            const standings = batchAnalysisCache.plStandings;
+            const teamStats = batchAnalysisCache.teamStats || {};
+            
+            // Get batch info
+            const homeBatch = getBatchRange(homeTeam.position);
+            const awayBatch = getBatchRange(awayTeam.position);
+            
+            // Base stats (per game)
+            const homeGames = homeTeam.games || homeTeam.played || 1;
+            const awayGames = awayTeam.games || awayTeam.played || 1;
+            
+            const homeBaseGF = (homeTeam.goalsFor || 0) / homeGames;
+            const homeBaseGA = (homeTeam.goalsAgainst || 0) / homeGames;
+            const awayBaseGF = (awayTeam.goalsFor || 0) / awayGames;
+            const awayBaseGA = (awayTeam.goalsAgainst || 0) / awayGames;
+            
+            // League averages
+            const totalGames = standings.reduce((sum, t) => sum + (t.games || t.played || 0), 0) / 2;
+            const totalGoals = standings.reduce((sum, t) => sum + (t.goalsFor || 0), 0);
+            const leagueAvgGoals = totalGames > 0 ? totalGoals / totalGames : 1.4;
+            
+            // Home advantage factor (typically +0.3-0.4 goals)
+            const homeAdvantage = 1.15;
+            const awayDisadvantage = 0.85;
+            
+            // Batch-adjusted calculations
+            // Home team attacking vs Away team defending
+            let homeExpectedGoals = homeBaseGF;
+            // How good is home team at scoring? (vs league avg)
+            const homeAttackStrength = homeBaseGF / leagueAvgGoals;
+            // How bad is away team at defending? (vs league avg)
+            const awayDefenseWeakness = awayBaseGA / leagueAvgGoals;
+            
+            // Home expected = league avg * home attack strength * away defense weakness * home advantage
+            homeExpectedGoals = leagueAvgGoals * homeAttackStrength * awayDefenseWeakness * homeAdvantage;
+            
+            // Away team attacking vs Home team defending
+            let awayExpectedGoals = awayBaseGF;
+            const awayAttackStrength = awayBaseGF / leagueAvgGoals;
+            const homeDefenseWeakness = homeBaseGA / leagueAvgGoals;
+            
+            awayExpectedGoals = leagueAvgGoals * awayAttackStrength * homeDefenseWeakness * awayDisadvantage;
+            
+            // Batch modifier - teams perform differently vs different level opponents
+            const batchModifiers = {
+                'vs-top': { attack: 0.8, defense: 1.2 },      // Harder to score, easier to concede
+                'vs-mid': { attack: 1.0, defense: 1.0 },      // Normal
+                'vs-bottom': { attack: 1.2, defense: 0.85 }   // Easier to score, harder to concede
+            };
+            
+            // Apply batch modifiers
+            let homeVsAwayBatchMod = batchModifiers['vs-mid'];
+            let awayVsHomeBatchMod = batchModifiers['vs-mid'];
+            
+            if (awayTeam.position <= 4) homeVsAwayBatchMod = batchModifiers['vs-top'];
+            else if (awayTeam.position >= 17) homeVsAwayBatchMod = batchModifiers['vs-bottom'];
+            
+            if (homeTeam.position <= 4) awayVsHomeBatchMod = batchModifiers['vs-top'];
+            else if (homeTeam.position >= 17) awayVsHomeBatchMod = batchModifiers['vs-bottom'];
+            
+            homeExpectedGoals *= homeVsAwayBatchMod.attack;
+            awayExpectedGoals *= awayVsHomeBatchMod.attack;
+            
+            // Cap at reasonable values
+            homeExpectedGoals = Math.max(0.3, Math.min(4.0, homeExpectedGoals));
+            awayExpectedGoals = Math.max(0.2, Math.min(3.5, awayExpectedGoals));
+            
+            // Calculate win probabilities using Poisson-ish approximation
+            const homeWinProb = calculateWinProbability(homeExpectedGoals, awayExpectedGoals);
+            const drawProb = calculateDrawProbability(homeExpectedGoals, awayExpectedGoals);
+            const awayWinProb = 1 - homeWinProb - drawProb;
+            
+            // Most likely scoreline
+            const homeRounded = Math.round(homeExpectedGoals);
+            const awayRounded = Math.round(awayExpectedGoals);
+            
+            return {
+                homeGoals: homeExpectedGoals,
+                awayGoals: awayExpectedGoals,
+                homeRounded,
+                awayRounded,
+                homeWinProb,
+                drawProb,
+                awayWinProb,
+                homeAttackStrength,
+                awayAttackStrength,
+                homeDefenseWeakness,
+                awayDefenseWeakness,
+                homeBatch,
+                awayBatch,
+                leagueAvgGoals
+            };
+        }
+        
+        function calculateWinProbability(teamAGoals, teamBGoals) {
+            // Simplified probability calculation
+            const diff = teamAGoals - teamBGoals;
+            // Using logistic function for smooth probability
+            const prob = 1 / (1 + Math.exp(-diff * 1.2));
+            // Adjust for draw probability
+            return Math.max(0.05, Math.min(0.85, prob * 0.85));
+        }
+        
+        function calculateDrawProbability(homeGoals, awayGoals) {
+            // Draws more likely when expected goals are close
+            const diff = Math.abs(homeGoals - awayGoals);
+            const avgGoals = (homeGoals + awayGoals) / 2;
+            // Base draw prob around 25%, adjusted by closeness
+            return Math.max(0.1, Math.min(0.35, 0.30 - diff * 0.15 + (1.5 - avgGoals) * 0.05));
+        }
+        
+        function renderMatchupResult(homeTeam, awayTeam, pred) {
+            const homeWinPct = (pred.homeWinProb * 100).toFixed(0);
+            const drawPct = (pred.drawProb * 100).toFixed(0);
+            const awayWinPct = (pred.awayWinProb * 100).toFixed(0);
+            
+            return `
+            <div style="background: var(--bg-secondary); border-radius: 12px; padding: 1.5rem; margin-top: 1rem;">
+                <!-- Score Prediction -->
+                <div style="display: flex; justify-content: center; align-items: center; gap: 2rem; margin-bottom: 1.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">HOME</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent-emerald);">${homeTeam.name || homeTeam.short_name}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Batch: ${pred.homeBatch}</div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 3rem; font-weight: 700; color: var(--text-primary); letter-spacing: 0.1em;">
+                            ${pred.homeRounded} - ${pred.awayRounded}
+                        </div>
+                        <div style="font-size: 0.85rem; color: var(--text-muted);">
+                            xG: ${pred.homeGoals.toFixed(2)} - ${pred.awayGoals.toFixed(2)}
+                        </div>
+                    </div>
+                    
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.25rem;">AWAY</div>
+                        <div style="font-size: 1.1rem; font-weight: 600; color: var(--accent-rose);">${awayTeam.name || awayTeam.short_name}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-muted);">Batch: ${pred.awayBatch}</div>
+                    </div>
+                </div>
+                
+                <!-- Win Probability Bar -->
+                <div style="margin-bottom: 1.5rem;">
+                    <div style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-bottom: 0.5rem;">
+                        <span style="color: var(--accent-emerald);">Home Win ${homeWinPct}%</span>
+                        <span style="color: var(--text-muted);">Draw ${drawPct}%</span>
+                        <span style="color: var(--accent-rose);">Away Win ${awayWinPct}%</span>
+                    </div>
+                    <div style="display: flex; height: 12px; border-radius: 6px; overflow: hidden;">
+                        <div style="width: ${homeWinPct}%; background: var(--accent-emerald);"></div>
+                        <div style="width: ${drawPct}%; background: var(--text-muted);"></div>
+                        <div style="width: ${awayWinPct}%; background: var(--accent-rose);"></div>
+                    </div>
+                </div>
+                
+                <!-- Detailed Stats -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px;">
+                        <div style="font-size: 0.85rem; color: var(--accent-emerald); margin-bottom: 0.5rem; font-weight: 600;">
+                            ${homeTeam.short_name || homeTeam.name} Stats
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Attack Strength:</span>
+                                <span style="color: ${pred.homeAttackStrength > 1 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
+                                    ${(pred.homeAttackStrength * 100).toFixed(0)}%
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Defense Weakness:</span>
+                                <span style="color: ${pred.homeDefenseWeakness < 1 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
+                                    ${(pred.homeDefenseWeakness * 100).toFixed(0)}%
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Goals/Game:</span>
+                                <span>${((homeTeam.goalsFor || 0) / (homeTeam.games || 1)).toFixed(2)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Conceded/Game:</span>
+                                <span>${((homeTeam.goalsAgainst || 0) / (homeTeam.games || 1)).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px;">
+                        <div style="font-size: 0.85rem; color: var(--accent-rose); margin-bottom: 0.5rem; font-weight: 600;">
+                            ${awayTeam.short_name || awayTeam.name} Stats
+                        </div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Attack Strength:</span>
+                                <span style="color: ${pred.awayAttackStrength > 1 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
+                                    ${(pred.awayAttackStrength * 100).toFixed(0)}%
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                                <span>Defense Weakness:</span>
+                                <span style="color: ${pred.awayDefenseWeakness < 1 ? 'var(--accent-emerald)' : 'var(--accent-rose)'};">
+                                    ${(pred.awayDefenseWeakness * 100).toFixed(0)}%
+                                </span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Goals/Game:</span>
+                                <span>${((awayTeam.goalsFor || 0) / (awayTeam.games || 1)).toFixed(2)}</span>
+                            </div>
+                            <div style="display: flex; justify-content: space-between;">
+                                <span>Conceded/Game:</span>
+                                <span>${((awayTeam.goalsAgainst || 0) / (awayTeam.games || 1)).toFixed(2)}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Methodology Note -->
+                <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-primary); border-radius: 6px; font-size: 0.75rem; color: var(--text-muted);">
+                    <strong>Methodology:</strong> xG = League Avg (${pred.leagueAvgGoals.toFixed(2)}) × Attack Strength × Opponent Defense Weakness × Home/Away Factor × Batch Modifier
+                </div>
+            </div>
+            `;
         }
         
         // Render attack vs defense comparison chart
