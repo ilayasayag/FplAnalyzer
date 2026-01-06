@@ -7658,16 +7658,19 @@
                 if (i % 10 === 9) await new Promise(r => setTimeout(r, 100));
             }
             
-            // ========== FETCH REAL PL STANDINGS & FIXTURES ==========
-            status.textContent = 'Fetching real PL standings from FPL API...';
-            try {
-                // Fetch from REGULAR FPL API (not Draft) - has actual PL standings
-                const fplBootRes = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
-                if (fplBootRes.ok) {
-                    const fplBootData = await fplBootRes.json();
-                    
-                    // Extract team standings (W/D/L/Pts/GF/GA)
-                    results.plStandings = (fplBootData.teams || []).map(function(t) {
+            // ========== CHECK DRAFT BOOTSTRAP FOR STANDINGS ==========
+            status.textContent = 'Checking for PL standings...';
+            
+            // First, check if Draft API bootstrap already has standings (some versions do)
+            if (results.bootstrap && results.bootstrap.teams) {
+                const draftTeams = results.bootstrap.teams;
+                const hasStandings = draftTeams.some(function(t) { 
+                    return (t.win !== undefined && t.win > 0) || (t.points !== undefined && t.points > 0); 
+                });
+                
+                if (hasStandings) {
+                    console.log('Draft bootstrap has standings data!');
+                    results.plStandings = draftTeams.map(function(t) {
                         return {
                             id: t.id,
                             name: t.name,
@@ -7693,44 +7696,63 @@
                         if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
                         return b.goals_for - a.goals_for;
                     });
-                    
-                    // Assign positions after sorting
                     results.plStandings.forEach(function(t, idx) { t.position = idx + 1; });
-                    
-                    console.log('Fetched real PL standings:', results.plStandings.slice(0, 5).map(function(t) { return t.position + '. ' + t.short_name + ' (' + t.points + 'pts)'; }));
                 }
-            } catch(standingsErr) {
-                console.log('Could not fetch PL standings:', standingsErr);
             }
             
-            // Fetch PL fixtures/results
-            status.textContent = 'Fetching PL fixtures and results...';
-            try {
-                const fixturesRes = await fetch('https://fantasy.premierleague.com/api/fixtures/');
-                if (fixturesRes.ok) {
-                    const fixturesData = await fixturesRes.json();
-                    
-                    // Store all fixtures with results
-                    results.plFixtures = fixturesData.map(function(f) {
-                        return {
-                            id: f.id,
-                            event: f.event,
-                            team_h: f.team_h,
-                            team_a: f.team_a,
-                            team_h_score: f.team_h_score,
-                            team_a_score: f.team_a_score,
-                            finished: f.finished,
-                            kickoff_time: f.kickoff_time,
-                            team_h_difficulty: f.team_h_difficulty,
-                            team_a_difficulty: f.team_a_difficulty
-                        };
-                    });
-                    
-                    const finishedCount = results.plFixtures.filter(function(f) { return f.finished; }).length;
-                    console.log('Fetched fixtures: ' + finishedCount + ' finished, ' + (results.plFixtures.length - finishedCount) + ' upcoming');
+            // If no standings from Draft API, try fetching from regular FPL API
+            if (!results.plStandings || results.plStandings.length === 0) {
+                status.textContent = 'Fetching real PL standings from FPL API...';
+                try {
+                    const fplBootRes = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
+                    if (fplBootRes.ok) {
+                        const fplBootData = await fplBootRes.json();
+                        
+                        results.plStandings = (fplBootData.teams || []).map(function(t) {
+                            return {
+                                id: t.id,
+                                name: t.name,
+                                short_name: t.short_name,
+                                position: t.position || 0,
+                                played: t.played || 0,
+                                win: t.win || 0,
+                                draw: t.draw || 0,
+                                loss: t.loss || 0,
+                                goals_for: t.goals_for || 0,
+                                goals_against: t.goals_against || 0,
+                                goal_difference: (t.goals_for || 0) - (t.goals_against || 0),
+                                points: t.points || 0,
+                                strength_overall_home: t.strength_overall_home || 0,
+                                strength_overall_away: t.strength_overall_away || 0,
+                                strength_attack_home: t.strength_attack_home || 0,
+                                strength_attack_away: t.strength_attack_away || 0,
+                                strength_defence_home: t.strength_defence_home || 0,
+                                strength_defence_away: t.strength_defence_away || 0
+                            };
+                        }).sort(function(a, b) {
+                            if (b.points !== a.points) return b.points - a.points;
+                            if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+                            return b.goals_for - a.goals_for;
+                        });
+                        
+                        results.plStandings.forEach(function(t, idx) { t.position = idx + 1; });
+                        console.log('Fetched real PL standings from FPL API');
+                    }
+                } catch(standingsErr) {
+                    console.log('Could not fetch PL standings (CORS?):', standingsErr);
+                    // Flag for manual fetch later
+                    results.needsStandingsFetch = true;
                 }
-            } catch(fixturesErr) {
-                console.log('Could not fetch fixtures:', fixturesErr);
+            }
+            
+            // Try to fetch fixtures (may also fail due to CORS)
+            if (!results.plStandings || results.plStandings.length === 0) {
+                status.textContent = 'PL standings fetch failed (CORS) - will fetch in analyzer...';
+            }
+            
+            // Log what we got
+            if (results.plStandings && results.plStandings.length > 0) {
+                console.log('PL standings ready:', results.plStandings.slice(0, 5).map(function(t) { return t.position + '. ' + t.short_name + ' (' + t.points + 'pts)'; }));
             }
             
             // Add timestamp
@@ -7773,8 +7795,7 @@
             const fileName = 'fpl_league_data_' + new Date().toISOString().slice(0,10) + '.json';
             
             const standingsCount = results.plStandings ? results.plStandings.length : 0;
-            const fixturesCount = results.plFixtures ? results.plFixtures.length : 0;
-            const finishedFixtures = results.plFixtures ? results.plFixtures.filter(function(f) { return f.finished; }).length : 0;
+            const needsFetch = results.needsStandingsFetch || false;
             
             overlay.innerHTML = '<div style="font-size:28px;color:#10b981;margin-bottom:20px;">✅ Success!</div>' +
                 '<div style="font-size:18px;margin-bottom:15px;font-weight:bold;">Data Ready!</div>' +
@@ -7783,8 +7804,9 @@
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + entries.length + ' teams (' + ownedCount + ' owned players)</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' free agents + ' + transactionCount + ' from transactions</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players fetched (' + playersWithHistory + ' with history, ' + playersWithoutHistory + ' without)</div>' +
-                (standingsCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">📊 Real PL Standings: ' + standingsCount + ' teams (W/D/L/Pts)</div>' : '<div style="font-size:14px;color:#ef4444;margin-bottom:5px;">⚠️ Could not fetch PL standings</div>') +
-                (fixturesCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">⚽ PL Fixtures: ' + finishedFixtures + ' finished / ' + fixturesCount + ' total</div>' : '') +
+                (standingsCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">📊 Real PL Standings: ' + standingsCount + ' teams (W/D/L/Pts)</div>' : 
+                    (needsFetch ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:5px;">⚠️ PL standings blocked by CORS - analyzer will fetch directly</div>' : 
+                    '<div style="font-size:14px;color:#ef4444;margin-bottom:5px;">⚠️ Could not fetch PL standings</div>')) +
                 (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
                 '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
                     '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
