@@ -11591,74 +11591,93 @@
         
         // Render PL team cards
         function renderPLTeamCards() {
-            if (!importedBootstrap?.teams) {
-                document.getElementById('plTeamCards').innerHTML = '<p style="color: var(--text-muted);">No team data available.</p>';
+            // Use calculated standings
+            let standings = batchAnalysisCache.plStandings;
+            if (!standings || standings.length === 0) {
+                document.getElementById('plTeamCards').innerHTML = '<p style="color: var(--text-muted);">No calculated standings available. Go to GW Simulation tab first to compute.</p>';
                 return;
             }
             
-            let teams = [...importedBootstrap.teams];
             const filter = document.getElementById('plTeamFilter')?.value || 'all';
             const sort = document.getElementById('plStatSort')?.value || 'rank';
             
-            // Sort by overall strength first
-            teams.sort((a, b) => (b.strength_overall_home + b.strength_overall_away) - (a.strength_overall_home + a.strength_overall_away));
+            let teams = [...standings];
             
-            // Apply filter
+            // Apply filter based on calculated position
             if (filter === 'top6') {
-                teams = teams.slice(0, 6);
+                teams = teams.filter(t => t.position <= 6);
             } else if (filter === 'mid') {
-                teams = teams.slice(6, 14);
+                teams = teams.filter(t => t.position >= 7 && t.position <= 14);
             } else if (filter === 'bottom') {
-                teams = teams.slice(14);
+                teams = teams.filter(t => t.position >= 15);
             }
             
             // Apply sorting
             if (sort === 'attack') {
-                teams.sort((a, b) => (b.strength_attack_home + b.strength_attack_away) - (a.strength_attack_home + a.strength_attack_away));
+                teams.sort((a, b) => b.goalsFor - a.goalsFor);
             } else if (sort === 'defense') {
-                teams.sort((a, b) => (b.strength_defence_home + b.strength_defence_away) - (a.strength_defence_home + a.strength_defence_away));
+                teams.sort((a, b) => a.goalsAgainst - b.goalsAgainst); // Lower is better
+            } else {
+                teams.sort((a, b) => a.position - b.position);
             }
             
             let html = '';
             
-            teams.forEach((team, idx) => {
-                const overallStrength = team.strength_overall_home + team.strength_overall_away;
-                const attackStrength = team.strength_attack_home + team.strength_attack_away;
-                const defenseStrength = team.strength_defence_home + team.strength_defence_away;
+            teams.forEach((team) => {
+                const gf = team.goalsFor || 0;
+                const ga = team.goalsAgainst || 0;
+                const gd = gf - ga;
+                const cs = team.cleanSheets || 0;
+                const gp = team.games || 0;
+                const batch = batchAnalysisCache.teamBatchMap[team.id];
+                
+                // Calculate per-game stats
+                const gfPG = gp > 0 ? (gf / gp).toFixed(2) : '0.00';
+                const gaPG = gp > 0 ? (ga / gp).toFixed(2) : '0.00';
+                const csRate = gp > 0 ? ((cs / gp) * 100).toFixed(0) : '0';
+                
+                const posColor = team.position <= 4 ? 'var(--accent-emerald)' : team.position >= 18 ? 'var(--accent-rose)' : 'var(--text-secondary)';
                 
                 html += `
                 <div class="pl-team-card">
                     <div class="pl-team-header">
-                        <div class="pl-team-name">${team.name}</div>
-                        <div class="pl-team-rank">${team.short_name}</div>
+                        <div class="pl-team-name">${team.name || team.short_name}</div>
+                        <div class="pl-team-rank" style="color: ${posColor};">#${team.position}</div>
                     </div>
                     <div class="pl-stats-grid">
                         <div class="pl-stat">
-                            <div class="pl-stat-value" style="color: var(--accent-violet);">${overallStrength}</div>
-                            <div class="pl-stat-label">Overall</div>
+                            <div class="pl-stat-value" style="color: var(--accent-violet);">${team.points}</div>
+                            <div class="pl-stat-label">Points</div>
                         </div>
                         <div class="pl-stat">
-                            <div class="pl-stat-value" style="color: var(--accent-emerald);">${attackStrength}</div>
-                            <div class="pl-stat-label">Attack</div>
+                            <div class="pl-stat-value" style="color: var(--accent-emerald);">${gf}</div>
+                            <div class="pl-stat-label">Goals For</div>
                         </div>
                         <div class="pl-stat">
-                            <div class="pl-stat-value" style="color: var(--accent-cyan);">${defenseStrength}</div>
-                            <div class="pl-stat-label">Defense</div>
+                            <div class="pl-stat-value" style="color: var(--accent-rose);">${ga}</div>
+                            <div class="pl-stat-label">Goals Agst</div>
                         </div>
                         <div class="pl-stat">
-                            <div class="pl-stat-value" style="color: var(--accent-amber);">${Math.round((attackStrength/defenseStrength)*100)/100}</div>
-                            <div class="pl-stat-label">A/D Ratio</div>
+                            <div class="pl-stat-value" style="color: ${gd >= 0 ? 'var(--accent-cyan)' : 'var(--accent-amber)'};">${gd > 0 ? '+' : ''}${gd}</div>
+                            <div class="pl-stat-label">Goal Diff</div>
                         </div>
                     </div>
-                    <div style="margin-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; font-size: 0.75rem;">
+                    <div style="margin-top: 0.75rem; display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 0.5rem; font-size: 0.75rem;">
                         <div style="text-align: center; padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;">
-                            <div style="color: var(--text-muted);">Home</div>
-                            <div>Atk: ${team.strength_attack_home} | Def: ${team.strength_defence_home}</div>
+                            <div style="color: var(--text-muted);">GF/Game</div>
+                            <div style="font-weight: 600; color: var(--accent-emerald);">${gfPG}</div>
                         </div>
                         <div style="text-align: center; padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;">
-                            <div style="color: var(--text-muted);">Away</div>
-                            <div>Atk: ${team.strength_attack_away} | Def: ${team.strength_defence_away}</div>
+                            <div style="color: var(--text-muted);">GA/Game</div>
+                            <div style="font-weight: 600; color: var(--accent-rose);">${gaPG}</div>
                         </div>
+                        <div style="text-align: center; padding: 0.5rem; background: var(--bg-secondary); border-radius: 6px;">
+                            <div style="color: var(--text-muted);">CS Rate</div>
+                            <div style="font-weight: 600; color: var(--accent-cyan);">${csRate}%</div>
+                        </div>
+                    </div>
+                    <div style="margin-top: 0.5rem; text-align: center; font-size: 0.7rem; color: var(--text-muted);">
+                        Batch: <span style="color: ${batch?.batchId <= 2 ? 'var(--accent-emerald)' : batch?.batchId >= 4 ? 'var(--accent-rose)' : 'var(--text-secondary)'};">${batch?.batchName || '?'}</span>
                     </div>
                 </div>`;
             });
@@ -11668,45 +11687,44 @@
         
         // Render attack vs defense comparison chart
         function renderAttackDefenseChart() {
-            if (!importedBootstrap?.teams) {
-                document.getElementById('attackDefenseChart').innerHTML = '<p style="color: var(--text-muted);">No team data available.</p>';
+            let standings = batchAnalysisCache.plStandings;
+            if (!standings || standings.length === 0) {
+                document.getElementById('attackDefenseChart').innerHTML = '<p style="color: var(--text-muted);">No calculated standings available.</p>';
                 return;
             }
             
-            const teams = importedBootstrap.teams;
-            
             // Find max values for scaling
-            const maxAttack = Math.max(...teams.map(t => t.strength_attack_home + t.strength_attack_away));
-            const maxDefense = Math.max(...teams.map(t => t.strength_defence_home + t.strength_defence_away));
+            const maxGF = Math.max(...standings.map(t => t.goalsFor || 0));
+            const maxGA = Math.max(...standings.map(t => t.goalsAgainst || 0));
             
             let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
             
-            // Sort by attack strength
-            const sortedTeams = [...teams].sort((a, b) => 
-                (b.strength_attack_home + b.strength_attack_away) - (a.strength_attack_home + a.strength_attack_away)
-            );
+            // Sort by goals for (attack)
+            const sortedTeams = [...standings].sort((a, b) => (b.goalsFor || 0) - (a.goalsFor || 0));
             
             sortedTeams.forEach(team => {
-                const attackVal = team.strength_attack_home + team.strength_attack_away;
-                const defenseVal = team.strength_defence_home + team.strength_defence_away;
-                const attackPct = (attackVal / maxAttack) * 100;
-                const defensePct = (defenseVal / maxDefense) * 100;
+                const gf = team.goalsFor || 0;
+                const ga = team.goalsAgainst || 0;
+                const gfPct = maxGF > 0 ? (gf / maxGF) * 100 : 0;
+                const gaPct = maxGA > 0 ? (ga / maxGA) * 100 : 0;
                 
                 html += `
                 <div style="display: flex; align-items: center; gap: 0.5rem;">
                     <div style="width: 50px; font-size: 0.75rem; font-weight: 500;">${team.short_name}</div>
-                    <div style="flex: 1; display: flex; gap: 2px;">
-                        <div style="width: ${attackPct}%; height: 16px; background: var(--accent-emerald); border-radius: 4px 0 0 4px;" title="Attack: ${attackVal}"></div>
-                        <div style="width: ${defensePct}%; height: 16px; background: var(--accent-cyan); border-radius: 0 4px 4px 0;" title="Defense: ${defenseVal}"></div>
+                    <div style="flex: 1; display: flex; gap: 2px; height: 20px;">
+                        <div style="width: ${gfPct}%; background: linear-gradient(90deg, var(--accent-emerald), #34d399); border-radius: 4px 0 0 4px;" title="Goals For: ${gf}"></div>
+                        <div style="width: ${gaPct}%; background: linear-gradient(90deg, var(--accent-rose), #f87171); border-radius: 0 4px 4px 0;" title="Goals Against: ${ga}"></div>
                     </div>
-                    <div style="width: 80px; font-size: 0.7rem; color: var(--text-muted);">${attackVal}/${defenseVal}</div>
+                    <div style="width: 70px; font-size: 0.75rem; text-align: right;">
+                        <span style="color: var(--accent-emerald);">${gf}</span> / <span style="color: var(--accent-rose);">${ga}</span>
+                    </div>
                 </div>`;
             });
             
             html += '</div>';
             html += `<div style="margin-top: 1rem; display: flex; gap: 1.5rem; font-size: 0.75rem; color: var(--text-muted);">
-                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-emerald); border-radius: 2px; margin-right: 4px;"></span>Attack Strength</span>
-                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-cyan); border-radius: 2px; margin-right: 4px;"></span>Defense Strength</span>
+                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-emerald); border-radius: 2px; margin-right: 4px;"></span>Goals Scored</span>
+                <span><span style="display: inline-block; width: 12px; height: 12px; background: var(--accent-rose); border-radius: 2px; margin-right: 4px;"></span>Goals Conceded</span>
             </div>`;
             
             document.getElementById('attackDefenseChart').innerHTML = html;
