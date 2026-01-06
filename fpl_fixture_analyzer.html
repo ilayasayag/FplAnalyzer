@@ -10210,35 +10210,212 @@
             teamStats: {},         // teamId -> { vsBatch: { goals, conceded, cs, games } }
             playerStats: {},       // playerId -> { vsBatch: { goals, assists, defcon, bonus, cards, games } }
             leagueAverages: {},    // League-wide averages for cross-reference
+            plStandings: [],       // Calculated PL standings
             lastComputed: null
         };
         
-        // Build batch map from current standings (using team strength as proxy for rank)
-        function buildBatchMap() {
-            if (!importedBootstrap?.teams) return {};
+        // Calculate actual PL standings from player history data
+        function calculatePLStandingsFromHistory() {
+            console.log('[Batch] Calculating PL standings from player history...');
             
-            const teams = [...importedBootstrap.teams];
+            if (!importedPlayerDetails || !importedBootstrap?.teams) {
+                console.warn('[Batch] No player details or teams data available');
+                return [];
+            }
             
-            // Sort by overall strength (descending) to approximate rank
-            teams.sort((a, b) => {
-                const strengthA = (a.strength_overall_home || 0) + (a.strength_overall_away || 0);
-                const strengthB = (b.strength_overall_home || 0) + (b.strength_overall_away || 0);
-                return strengthB - strengthA;
-            });
-            
-            // Assign batch based on sorted position
-            const batchMap = {};
-            teams.forEach((team, index) => {
-                const rank = index + 1;
-                const batch = BATCH_CONFIG.batches.find(b => rank >= b.minRank && rank <= b.maxRank);
-                batchMap[team.id] = {
-                    teamId: team.id,
-                    teamName: team.short_name,
-                    rank: rank,
-                    batchId: batch ? batch.id : 3,
-                    batchName: batch ? batch.name : 'Unknown'
+            // Build team performance from GK/DEF clean sheets and goals conceded
+            const teamPerformance = {};
+            importedBootstrap.teams.forEach(t => {
+                teamPerformance[t.id] = {
+                    id: t.id,
+                    name: t.name,
+                    short_name: t.short_name,
+                    wins: 0,
+                    draws: 0,
+                    losses: 0,
+                    goalsFor: 0,
+                    goalsAgainst: 0,
+                    cleanSheets: 0,
+                    games: 0,
+                    points: 0,
+                    _processedGames: new Set()
                 };
             });
+            
+            // Process each player's history to aggregate team stats
+            Object.entries(importedPlayerDetails).forEach(([playerId, details]) => {
+                const player = importedBootstrap.elements.find(e => e.id === parseInt(playerId));
+                if (!player) return;
+                
+                const teamId = player.team;
+                const isGK = player.element_type === 1;
+                
+                // Use GK data for most accurate team-level stats (they play full games)
+                if (!isGK) return;
+                
+                (details.history || []).forEach(game => {
+                    if (game.minutes < 60) return; // Only full games
+                    
+                    const gameKey = `${game.round}_${game.opponent_team}`;
+                    if (teamPerformance[teamId]._processedGames.has(gameKey)) return;
+                    teamPerformance[teamId]._processedGames.add(gameKey);
+                    
+                    const team = teamPerformance[teamId];
+                    const goalsConceded = game.goals_conceded || 0;
+                    const cleanSheet = game.clean_sheets || 0;
+                    
+                    team.goalsAgainst += goalsConceded;
+                    team.cleanSheets += cleanSheet;
+                    team.games++;
+                    
+                    // Estimate goals scored from match result (approximation)
+                    // We'll use a different method - aggregate forward goals
+                });
+            });
+            
+            // Get goals scored from forwards/midfielders
+            Object.entries(importedPlayerDetails).forEach(([playerId, details]) => {
+                const player = importedBootstrap.elements.find(e => e.id === parseInt(playerId));
+                if (!player) return;
+                
+                const teamId = player.team;
+                
+                (details.history || []).forEach(game => {
+                    if (game.minutes < 10) return;
+                    teamPerformance[teamId].goalsFor += game.goals_scored || 0;
+                });
+            });
+            
+            // Calculate points based on goals (approximation: GD * 0.5 + baseline)
+            // Better method: use win/loss estimation from clean sheets and goals
+            Object.values(teamPerformance).forEach(team => {
+                if (team.games > 0) {
+                    const gd = team.goalsFor - team.goalsAgainst;
+                    const csRate = team.cleanSheets / team.games;
+                    // Approximate points: more goals + fewer conceded = more wins
+                    team.points = Math.round(
+                        (team.goalsFor * 0.8) + // Goals scored correlates with wins
+                        (team.cleanSheets * 1.5) + // Clean sheets = likely wins/draws
+                        (gd * 0.5) + // Goal difference bonus
+                        (team.games * 1.2) // Base points for playing
+                    );
+                }
+                delete team._processedGames;
+            });
+            
+            // Sort by points (descending)
+            const standings = Object.values(teamPerformance)
+                .filter(t => t.games > 0)
+                .sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    const gdA = a.goalsFor - a.goalsAgainst;
+                    const gdB = b.goalsFor - b.goalsAgainst;
+                    if (gdB !== gdA) return gdB - gdA;
+                    return b.goalsFor - a.goalsFor;
+                });
+            
+            // Assign positions
+            standings.forEach((team, idx) => {
+                team.position = idx + 1;
+            });
+            
+            console.log('[Batch] Calculated standings:', standings.map(t => `${t.position}. ${t.short_name} (${t.points}pts, GF:${t.goalsFor}, GA:${t.goalsAgainst})`));
+            
+            batchAnalysisCache.plStandings = standings;
+            return standings;
+        }
+        
+        // Build batch map from calculated standings
+        function buildBatchMap() {
+            if (!importedBootstrap?.teams) {
+                console.warn('[Batch] No bootstrap teams data');
+                return {};
+            }
+            
+            console.log('[Batch] Building batch map...');
+            
+            // First, calculate standings from history if we have player data
+            let standings = batchAnalysisCache.plStandings;
+            if (!standings || standings.length === 0) {
+                standings = calculatePLStandingsFromHistory();
+            }
+            
+            // Check if we have valid strength data in bootstrap
+            const hasStrengthData = importedBootstrap.teams.some(t => 
+                (t.strength_overall_home || 0) > 0 || (t.strength_overall_away || 0) > 0
+            );
+            
+            console.log('[Batch] Has bootstrap strength data:', hasStrengthData);
+            console.log('[Batch] Has calculated standings:', standings.length > 0);
+            
+            const batchMap = {};
+            
+            if (standings.length > 0) {
+                // Use calculated standings
+                standings.forEach((team, index) => {
+                    const rank = index + 1;
+                    const batch = BATCH_CONFIG.batches.find(b => rank >= b.minRank && rank <= b.maxRank);
+                    batchMap[team.id] = {
+                        teamId: team.id,
+                        teamName: team.short_name,
+                        rank: rank,
+                        batchId: batch ? batch.id : 3,
+                        batchName: batch ? batch.name : 'Unknown',
+                        points: team.points,
+                        goalsFor: team.goalsFor,
+                        goalsAgainst: team.goalsAgainst
+                    };
+                });
+                
+                // Add any missing teams (no GK data) at default batch
+                importedBootstrap.teams.forEach(team => {
+                    if (!batchMap[team.id]) {
+                        batchMap[team.id] = {
+                            teamId: team.id,
+                            teamName: team.short_name,
+                            rank: 10, // Default mid-table
+                            batchId: 3,
+                            batchName: 'Mid Table (9-12)',
+                            points: 0,
+                            goalsFor: 0,
+                            goalsAgainst: 0
+                        };
+                    }
+                });
+            } else if (hasStrengthData) {
+                // Fallback to strength data
+                const teams = [...importedBootstrap.teams].sort((a, b) => {
+                    const strengthA = (a.strength_overall_home || 0) + (a.strength_overall_away || 0);
+                    const strengthB = (b.strength_overall_home || 0) + (b.strength_overall_away || 0);
+                    return strengthB - strengthA;
+                });
+                
+                teams.forEach((team, index) => {
+                    const rank = index + 1;
+                    const batch = BATCH_CONFIG.batches.find(b => rank >= b.minRank && rank <= b.maxRank);
+                    batchMap[team.id] = {
+                        teamId: team.id,
+                        teamName: team.short_name,
+                        rank: rank,
+                        batchId: batch ? batch.id : 3,
+                        batchName: batch ? batch.name : 'Unknown'
+                    };
+                });
+            } else {
+                // No data available - use default mid-table for all
+                console.warn('[Batch] No standings data available - using defaults');
+                importedBootstrap.teams.forEach(team => {
+                    batchMap[team.id] = {
+                        teamId: team.id,
+                        teamName: team.short_name,
+                        rank: 10,
+                        batchId: 3,
+                        batchName: 'Mid Table (9-12)'
+                    };
+                });
+            }
+            
+            console.log('[Batch] Final batch map:', Object.values(batchMap).sort((a,b) => a.rank - b.rank).map(t => `${t.rank}. ${t.teamName} -> ${t.batchName}`));
             
             batchAnalysisCache.teamBatchMap = batchMap;
             return batchMap;
@@ -10618,16 +10795,41 @@
         
         // Initialize the batch analysis system
         function initBatchAnalysis() {
-            console.log('Initializing batch analysis...');
+            console.log('[Batch] ====== INITIALIZING BATCH ANALYSIS ======');
+            console.log('[Batch] Data available:', {
+                hasBootstrap: !!importedBootstrap,
+                teamsCount: importedBootstrap?.teams?.length || 0,
+                elementsCount: importedBootstrap?.elements?.length || 0,
+                hasPlayerDetails: !!importedPlayerDetails,
+                playerDetailsCount: Object.keys(importedPlayerDetails || {}).length
+            });
+            
+            // Calculate standings first
+            const standings = calculatePLStandingsFromHistory();
+            console.log('[Batch] Standings calculated:', standings.length, 'teams');
+            
+            // Build batch map using standings
             buildBatchMap();
+            
+            // Calculate team and player stats
             calculateTeamBatchStats();
             calculatePlayerBatchStats();
             calculateLeagueAverages();
+            
             batchAnalysisCache.lastComputed = new Date().toISOString();
-            console.log('Batch analysis complete:', {
-                teams: Object.keys(batchAnalysisCache.teamBatchMap).length,
-                players: Object.keys(batchAnalysisCache.playerStats).length
+            
+            console.log('[Batch] ====== ANALYSIS COMPLETE ======');
+            console.log('[Batch] Results:', {
+                teamsInBatchMap: Object.keys(batchAnalysisCache.teamBatchMap).length,
+                playersWithStats: Object.keys(batchAnalysisCache.playerStats).length,
+                standingsCount: batchAnalysisCache.plStandings.length
             });
+            
+            // Log top 5 teams
+            const top5 = Object.values(batchAnalysisCache.teamBatchMap)
+                .sort((a, b) => a.rank - b.rank)
+                .slice(0, 5);
+            console.log('[Batch] Top 5 teams:', top5.map(t => `${t.rank}. ${t.teamName}`).join(', '));
         }
         
         // Tab switching function
@@ -11304,6 +11506,10 @@
         // ============================================
         
         function initPLStatsTab() {
+            // Ensure batch analysis is done so we have calculated standings
+            if (!batchAnalysisCache.lastComputed && importedPlayerDetails && importedBootstrap) {
+                initBatchAnalysis();
+            }
             renderPLStandings();
             renderPLTeamCards();
             renderAttackDefenseChart();
@@ -11316,41 +11522,66 @@
                 return;
             }
             
-            const teams = [...importedBootstrap.teams];
+            // Use calculated standings from batch analysis if available
+            let standings = batchAnalysisCache.plStandings;
             
-            // Sort by strength (as proxy for standings since we don't have full standings)
-            teams.sort((a, b) => (b.strength_overall_home + b.strength_overall_away) - (a.strength_overall_home + a.strength_overall_away));
+            // If no standings yet, calculate them
+            if (!standings || standings.length === 0) {
+                standings = calculatePLStandingsFromHistory();
+            }
+            
+            // Fallback to bootstrap teams if no standings calculated
+            if (!standings || standings.length === 0) {
+                standings = importedBootstrap.teams.map((t, idx) => ({
+                    ...t,
+                    position: idx + 1,
+                    points: 0,
+                    goalsFor: 0,
+                    goalsAgainst: 0,
+                    cleanSheets: 0,
+                    games: 0
+                }));
+            }
             
             let html = `
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; font-size: 0.8rem; color: var(--text-muted);">
+                <strong>Note:</strong> Standings calculated from GK clean sheets and goals conceded data in your exported player history.
+            </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                 <thead>
                     <tr style="background: var(--bg-tertiary);">
                         <th style="padding: 0.75rem; text-align: left;">#</th>
                         <th style="padding: 0.75rem; text-align: left;">Team</th>
-                        <th style="padding: 0.75rem; text-align: center;">Str (H)</th>
-                        <th style="padding: 0.75rem; text-align: center;">Str (A)</th>
-                        <th style="padding: 0.75rem; text-align: center;">Atk (H)</th>
-                        <th style="padding: 0.75rem; text-align: center;">Atk (A)</th>
-                        <th style="padding: 0.75rem; text-align: center;">Def (H)</th>
-                        <th style="padding: 0.75rem; text-align: center;">Def (A)</th>
+                        <th style="padding: 0.75rem; text-align: center;">Batch</th>
+                        <th style="padding: 0.75rem; text-align: center;">GP</th>
+                        <th style="padding: 0.75rem; text-align: center;">GF</th>
+                        <th style="padding: 0.75rem; text-align: center;">GA</th>
+                        <th style="padding: 0.75rem; text-align: center;">GD</th>
+                        <th style="padding: 0.75rem; text-align: center;">CS</th>
+                        <th style="padding: 0.75rem; text-align: center;">Pts</th>
                     </tr>
                 </thead>
                 <tbody>`;
             
-            teams.forEach((team, idx) => {
-                const rank = idx + 1;
+            standings.forEach((team) => {
+                const rank = team.position;
                 const rankStyle = rank <= 4 ? 'color: var(--accent-emerald);' : rank >= 18 ? 'color: var(--accent-rose);' : '';
+                const batch = batchAnalysisCache.teamBatchMap[team.id];
+                const batchColor = batch?.batchId <= 2 ? 'var(--accent-emerald)' : batch?.batchId >= 4 ? 'var(--accent-rose)' : 'var(--text-muted)';
+                const gd = team.goalsFor - team.goalsAgainst;
+                const gdColor = gd > 0 ? 'var(--accent-emerald)' : gd < 0 ? 'var(--accent-rose)' : 'var(--text-muted)';
                 
                 html += `
                 <tr style="border-bottom: 1px solid var(--border-color);">
                     <td style="padding: 0.75rem; font-weight: 600; ${rankStyle}">${rank}</td>
-                    <td style="padding: 0.75rem; font-weight: 500;">${team.name}</td>
-                    <td style="padding: 0.75rem; text-align: center;">${team.strength_overall_home || '-'}</td>
-                    <td style="padding: 0.75rem; text-align: center;">${team.strength_overall_away || '-'}</td>
-                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-emerald);">${team.strength_attack_home || '-'}</td>
-                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-emerald);">${team.strength_attack_away || '-'}</td>
-                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-cyan);">${team.strength_defence_home || '-'}</td>
-                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-cyan);">${team.strength_defence_away || '-'}</td>
+                    <td style="padding: 0.75rem; font-weight: 500;">${team.name || team.short_name}</td>
+                    <td style="padding: 0.75rem; text-align: center; font-size: 0.75rem; color: ${batchColor};">${batch?.batchName || '?'}</td>
+                    <td style="padding: 0.75rem; text-align: center;">${team.games || 0}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-emerald);">${team.goalsFor || 0}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: var(--accent-rose);">${team.goalsAgainst || 0}</td>
+                    <td style="padding: 0.75rem; text-align: center; color: ${gdColor};">${gd > 0 ? '+' : ''}${gd}</td>
+                    <td style="padding: 0.75rem; text-align: center;">${team.cleanSheets || 0}</td>
+                    <td style="padding: 0.75rem; text-align: center; font-weight: 700;">${team.points || 0}</td>
                 </tr>`;
             });
             
