@@ -7192,47 +7192,76 @@
         async function fetchStandingsFromFootballData(apiKey) {
             console.log('[Standings] Fetching from football-data.org...');
             
-            const response = await fetch('https://api.football-data.org/v4/competitions/PL/standings', {
-                headers: {
-                    'X-Auth-Token': apiKey
-                }
-            });
+            const apiUrl = 'https://api.football-data.org/v4/competitions/PL/standings';
             
-            if (!response.ok) {
-                const errorText = await response.text();
-                console.error('[Standings] API error:', response.status, errorText);
-                if (response.status === 403) {
-                    throw new Error('Invalid API key or rate limit exceeded');
+            // CORS proxies that can forward headers
+            const corsProxies = [
+                // Direct fetch first (works if running from a server)
+                { url: apiUrl, direct: true },
+                // corsproxy.io supports header forwarding
+                { url: `https://corsproxy.io/?${encodeURIComponent(apiUrl)}`, direct: false },
+                // allorigins as fallback (but may not forward auth headers)
+                { url: `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl + '?apiKey=' + apiKey)}`, direct: false, noHeader: true }
+            ];
+            
+            let lastError = null;
+            
+            for (const proxy of corsProxies) {
+                try {
+                    console.log('[Standings] Trying:', proxy.direct ? 'direct' : proxy.url.split('?')[0]);
+                    
+                    const fetchOptions = {};
+                    if (!proxy.noHeader) {
+                        fetchOptions.headers = { 'X-Auth-Token': apiKey };
+                    }
+                    
+                    const response = await fetch(proxy.url, fetchOptions);
+                    
+                    if (!response.ok) {
+                        console.warn('[Standings] Response not ok:', response.status);
+                        continue;
+                    }
+                    
+                    const data = await response.json();
+                    
+                    if (!data.standings) {
+                        console.warn('[Standings] No standings in response');
+                        continue;
+                    }
+                    
+                    console.log('[Standings] ✅ Success via', proxy.direct ? 'direct' : 'proxy');
+                    
+                    // Parse the standings from football-data.org format
+                    const table = data.standings?.[0]?.table || [];
+                    
+                    const standings = table.map(entry => ({
+                        id: entry.team.id,
+                        name: entry.team.name,
+                        short_name: entry.team.tla || entry.team.shortName || entry.team.name.substring(0, 3).toUpperCase(),
+                        position: entry.position,
+                        played: entry.playedGames,
+                        wins: entry.won,
+                        draws: entry.draw,
+                        losses: entry.lost,
+                        goalsFor: entry.goalsFor,
+                        goalsAgainst: entry.goalsAgainst,
+                        goalDiff: entry.goalDifference,
+                        points: entry.points,
+                        cleanSheets: 0,
+                        games: entry.playedGames
+                    }));
+                    
+                    console.log('[Standings] Parsed standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    
+                    return standings;
+                    
+                } catch (error) {
+                    console.warn('[Standings] Fetch failed:', error.message);
+                    lastError = error;
                 }
-                throw new Error(`API returned ${response.status}`);
             }
             
-            const data = await response.json();
-            console.log('[Standings] Raw API response:', data);
-            
-            // Parse the standings from football-data.org format
-            const table = data.standings?.[0]?.table || [];
-            
-            const standings = table.map(entry => ({
-                id: entry.team.id,
-                name: entry.team.name,
-                short_name: entry.team.tla || entry.team.shortName || entry.team.name.substring(0, 3).toUpperCase(),
-                position: entry.position,
-                played: entry.playedGames,
-                wins: entry.won,
-                draws: entry.draw,
-                losses: entry.lost,
-                goalsFor: entry.goalsFor,
-                goalsAgainst: entry.goalsAgainst,
-                goalDiff: entry.goalDifference,
-                points: entry.points,
-                cleanSheets: 0,
-                games: entry.playedGames
-            }));
-            
-            console.log('[Standings] Parsed standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
-            
-            return standings;
+            throw lastError || new Error('All fetch attempts failed');
         }
         
         // Try to load saved data on init
