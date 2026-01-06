@@ -11065,7 +11065,7 @@
                     overall: {
                         goals: 0, assists: 0, cleanSheets: 0, goalsConceded: 0,
                         saves: 0, bonus: 0, bps: 0, yellowCards: 0, redCards: 0,
-                        defCon: 0, minutes: 0, games: 0, games45plus: 0
+                        dc: 0, dcBonusHits: 0, minutes: 0, games: 0, games45plus: 0
                     },
                     vsBatch: {}
                 };
@@ -11074,9 +11074,16 @@
                     playerStats[playerId].vsBatch[b.id] = {
                         goals: 0, assists: 0, cleanSheets: 0, goalsConceded: 0,
                         saves: 0, bonus: 0, bps: 0, yellowCards: 0, redCards: 0,
-                        defCon: 0, minutes: 0, games: 0, games45plus: 0
+                        dc: 0, dcBonusHits: 0, minutes: 0, games: 0, games45plus: 0
                     };
                 });
+                
+                // Log first player's first game to see available fields
+                if (!window._loggedGameFields && details.history?.length > 0) {
+                    console.log('[DEBUG] Sample game object fields:', Object.keys(details.history[0]));
+                    console.log('[DEBUG] Sample game object:', details.history[0]);
+                    window._loggedGameFields = true;
+                }
                 
                 (details.history || []).forEach(game => {
                     if (game.minutes < BATCH_CONFIG.minMinutesForInclusion) return;
@@ -11101,8 +11108,16 @@
                             t.cleanSheets += game.clean_sheets || 0;
                             t.goalsConceded += game.goals_conceded || 0;
                             t.games45plus++;
-                            // Defensive contribution (tackles, interceptions, recoveries)
-                            t.defCon += (game.tackles || 0) + (game.interceptions || 0) + (game.recoveries || 0);
+                            
+                            // Defensive contribution (DC) - exact FPL Draft formula
+                            const gameDC = (game.clearances_blocks_interceptions || 0) + (game.tackles || 0);
+                            t.dc += gameDC;
+                            
+                            // Track DC threshold hits (DEF needs 10+, MID/FWD needs 12+)
+                            const dcThreshold = playerStats[playerId].position === 'DEF' || playerStats[playerId].position === 'GK' ? 10 : 12;
+                            if (gameDC >= dcThreshold) {
+                                t.dcBonusHits++;
+                            }
                         }
                     });
                 });
@@ -11122,7 +11137,9 @@
                     if (stats.games45plus > 0) {
                         stats.csPerGame = stats.cleanSheets / stats.games45plus;
                         stats.concededPerGame = stats.goalsConceded / stats.games45plus;
-                        stats.defConPerGame = stats.defCon / stats.games45plus;
+                        stats.dcPerGame = stats.dc / stats.games45plus;
+                        // DC bonus rate = how often player hits the threshold (10 for DEF, 12 for MID/FWD)
+                        stats.dcBonusRate = stats.dcBonusHits / stats.games45plus;
                     }
                 };
                 
