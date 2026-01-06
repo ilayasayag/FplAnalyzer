@@ -10421,89 +10421,93 @@
         function getStandingsFromImportedData() {
             console.log('[Standings] Checking imported data for standings...');
             
-            // First check for plStandings field (from bookmarklet's FPL API fetch)
+            // First check for plStandings field (from bookmarklet)
             if (window.importedPLStandings && window.importedPLStandings.length > 0) {
-                const standings = window.importedPLStandings.map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    short_name: t.short_name,
-                    position: t.position || 0,
-                    played: t.played || 0,
-                    wins: t.win || 0,
-                    draws: t.draw || 0,
-                    losses: t.loss || 0,
-                    goalsFor: t.goals_for || 0,
-                    goalsAgainst: t.goals_against || 0,
-                    goalDiff: t.goal_difference || ((t.goals_for || 0) - (t.goals_against || 0)),
-                    points: t.points || 0,
-                    cleanSheets: 0,
-                    games: t.played || 0,
-                    strength_overall_home: t.strength_overall_home || 0,
-                    strength_overall_away: t.strength_overall_away || 0
-                }));
-                
-                // Sort by points
-                standings.sort((a, b) => {
-                    if (b.points !== a.points) return b.points - a.points;
-                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-                    return b.goalsFor - a.goalsFor;
-                });
-                
-                standings.forEach((t, idx) => t.position = idx + 1);
-                
-                console.log('[Standings] ✅ Using REAL PL standings from import:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
-                
-                batchAnalysisCache.plStandings = standings;
-                batchAnalysisCache.standingsSource = 'imported';
-                return standings;
+                const hasPoints = window.importedPLStandings.some(t => t.points > 0);
+                if (hasPoints) {
+                    const standings = window.importedPLStandings.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        short_name: t.short_name,
+                        position: t.position || 0,
+                        played: t.played || 0,
+                        wins: t.win || 0,
+                        draws: t.draw || 0,
+                        losses: t.loss || 0,
+                        goalsFor: t.goals_for || 0,
+                        goalsAgainst: t.goals_against || 0,
+                        goalDiff: t.goal_difference || ((t.goals_for || 0) - (t.goals_against || 0)),
+                        points: t.points || 0,
+                        cleanSheets: 0,
+                        games: t.played || 0
+                    }));
+                    
+                    standings.sort((a, b) => {
+                        if (b.points !== a.points) return b.points - a.points;
+                        if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                        return b.goalsFor - a.goalsFor;
+                    });
+                    standings.forEach((t, idx) => t.position = idx + 1);
+                    
+                    console.log('[Standings] ✅ Using imported plStandings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    batchAnalysisCache.plStandings = standings;
+                    batchAnalysisCache.standingsSource = 'imported';
+                    return standings;
+                }
             }
             
-            // Fallback: check bootstrap.teams
-            if (!importedBootstrap?.teams) return null;
-            
-            const teams = importedBootstrap.teams;
-            
-            // Check if bootstrap has actual standings (win, draw, loss, points)
-            const hasStandingsData = teams.some(t => 
-                (t.win !== undefined && t.win > 0) || (t.points !== undefined && t.points > 0)
-            );
-            
-            if (!hasStandingsData) {
-                console.log('[Standings] Bootstrap has no standings data');
-                return null;
+            // Check Draft bootstrap.teams (this is from draft.premierleague.com API)
+            if (importedBootstrap?.teams) {
+                const teams = importedBootstrap.teams;
+                console.log('[Standings] Checking Draft bootstrap teams...');
+                console.log('[Standings] Sample team data:', JSON.stringify(teams[0], null, 2));
+                
+                // Check what fields are available
+                const sampleTeam = teams[0] || {};
+                console.log('[Standings] Available fields:', Object.keys(sampleTeam).join(', '));
+                
+                // Check for standings data
+                const hasWinLoss = teams.some(t => t.win !== undefined || t.loss !== undefined);
+                const hasPoints = teams.some(t => t.points !== undefined && t.points > 0);
+                const hasPlayed = teams.some(t => t.played !== undefined && t.played > 0);
+                
+                console.log('[Standings] Data check - hasWinLoss:', hasWinLoss, 'hasPoints:', hasPoints, 'hasPlayed:', hasPlayed);
+                
+                if (hasPoints || hasWinLoss || hasPlayed) {
+                    const standings = teams.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        short_name: t.short_name,
+                        position: t.position || 0,
+                        played: t.played || 0,
+                        wins: t.win || 0,
+                        draws: t.draw || 0,
+                        losses: t.loss || 0,
+                        goalsFor: t.goals_for || t.team_goals_for || 0,
+                        goalsAgainst: t.goals_against || t.team_goals_against || 0,
+                        goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
+                        points: t.points || 0,
+                        cleanSheets: 0,
+                        games: t.played || 0
+                    }));
+                    
+                    standings.sort((a, b) => {
+                        if (b.points !== a.points) return b.points - a.points;
+                        if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                        return b.goalsFor - a.goalsFor;
+                    });
+                    standings.forEach((t, idx) => t.position = idx + 1);
+                    
+                    console.log('[Standings] ✅ Using Draft bootstrap standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    batchAnalysisCache.plStandings = standings;
+                    batchAnalysisCache.standingsSource = 'draft_bootstrap';
+                    return standings;
+                } else {
+                    console.log('[Standings] Draft bootstrap has teams but NO standings data (win/loss/points)');
+                }
             }
             
-            const standings = teams.map(t => ({
-                id: t.id,
-                name: t.name,
-                short_name: t.short_name,
-                position: t.position || 0,
-                played: t.played || 0,
-                wins: t.win || 0,
-                draws: t.draw || 0,
-                losses: t.loss || 0,
-                goalsFor: t.goals_for || t.team_goals_for || 0,
-                goalsAgainst: t.goals_against || t.team_goals_against || 0,
-                goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
-                points: t.points || 0,
-                cleanSheets: 0,
-                games: t.played || 0
-            }));
-            
-            // Sort by points
-            standings.sort((a, b) => {
-                if (b.points !== a.points) return b.points - a.points;
-                if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-                return b.goalsFor - a.goalsFor;
-            });
-            
-            standings.forEach((t, idx) => t.position = idx + 1);
-            
-            console.log('[Standings] Got standings from bootstrap:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
-            
-            batchAnalysisCache.plStandings = standings;
-            batchAnalysisCache.standingsSource = 'bootstrap';
-            return standings;
+            return null;
         }
         
         // Main function to get best available standings
