@@ -10175,6 +10175,461 @@
         // PREDICTIONS TAB FUNCTIONS
         // ============================================
         
+        // ============================================
+        // BATCH-BASED PREDICTION ENGINE
+        // ============================================
+        
+        // Configuration for batch system
+        const BATCH_CONFIG = {
+            batches: [
+                { id: 1, name: 'Top (1-4)', minRank: 1, maxRank: 4 },
+                { id: 2, name: 'Upper Mid (5-8)', minRank: 5, maxRank: 8 },
+                { id: 3, name: 'Mid Table (9-12)', minRank: 9, maxRank: 12 },
+                { id: 4, name: 'Lower Mid (13-16)', minRank: 13, maxRank: 16 },
+                { id: 5, name: 'Bottom (17-20)', minRank: 17, maxRank: 20 }
+            ],
+            minMinutesForInclusion: 10,
+            minMinutesForDefensiveStats: 45,
+            bayesianPriorWeight: 3, // Equivalent games for small sample blending
+            fplScoringRules: {
+                goalGK: 6, goalDEF: 6, goalMID: 5, goalFWD: 4,
+                assist: 3,
+                cleanSheetGK: 4, cleanSheetDEF: 4, cleanSheetMID: 1,
+                savesPerPoint: 3,
+                goalsConcededPenalty: -1, // Per 2 goals conceded
+                yellowCard: -1,
+                redCard: -3,
+                bonus1: 1, bonus2: 2, bonus3: 3,
+                minutes1to59: 1, minutes60plus: 2
+            }
+        };
+        
+        // Store computed batch data
+        let batchAnalysisCache = {
+            teamBatchMap: {},      // teamId -> batchId
+            teamStats: {},         // teamId -> { vsBatch: { goals, conceded, cs, games } }
+            playerStats: {},       // playerId -> { vsBatch: { goals, assists, defcon, bonus, cards, games } }
+            leagueAverages: {},    // League-wide averages for cross-reference
+            lastComputed: null
+        };
+        
+        // Build batch map from current standings (using team strength as proxy for rank)
+        function buildBatchMap() {
+            if (!importedBootstrap?.teams) return {};
+            
+            const teams = [...importedBootstrap.teams];
+            
+            // Sort by overall strength (descending) to approximate rank
+            teams.sort((a, b) => {
+                const strengthA = (a.strength_overall_home || 0) + (a.strength_overall_away || 0);
+                const strengthB = (b.strength_overall_home || 0) + (b.strength_overall_away || 0);
+                return strengthB - strengthA;
+            });
+            
+            // Assign batch based on sorted position
+            const batchMap = {};
+            teams.forEach((team, index) => {
+                const rank = index + 1;
+                const batch = BATCH_CONFIG.batches.find(b => rank >= b.minRank && rank <= b.maxRank);
+                batchMap[team.id] = {
+                    teamId: team.id,
+                    teamName: team.short_name,
+                    rank: rank,
+                    batchId: batch ? batch.id : 3,
+                    batchName: batch ? batch.name : 'Unknown'
+                };
+            });
+            
+            batchAnalysisCache.teamBatchMap = batchMap;
+            return batchMap;
+        }
+        
+        // Get batch ID for a team
+        function getTeamBatch(teamId) {
+            if (!batchAnalysisCache.teamBatchMap[teamId]) {
+                buildBatchMap();
+            }
+            return batchAnalysisCache.teamBatchMap[teamId]?.batchId || 3;
+        }
+        
+        // Calculate team-level statistics against each batch
+        function calculateTeamBatchStats() {
+            if (!importedPlayerDetails || !importedBootstrap?.teams) return {};
+            
+            const teamStats = {};
+            const batchMap = batchAnalysisCache.teamBatchMap;
+            
+            // Initialize stats structure for each team
+            importedBootstrap.teams.forEach(team => {
+                teamStats[team.id] = {
+                    teamName: team.short_name,
+                    overall: { goalsScored: 0, goalsConceded: 0, cleanSheets: 0, games: 0 },
+                    vsBatch: {}
+                };
+                BATCH_CONFIG.batches.forEach(b => {
+                    teamStats[team.id].vsBatch[b.id] = { goalsScored: 0, goalsConceded: 0, cleanSheets: 0, games: 0 };
+                });
+            });
+            
+            // Aggregate from player history (use GK/DEF data for team-level stats)
+            Object.entries(importedPlayerDetails).forEach(([playerId, details]) => {
+                const player = importedBootstrap.elements.find(e => e.id === parseInt(playerId));
+                if (!player) return;
+                
+                const teamId = player.team;
+                const isDefensive = player.element_type <= 2; // GK or DEF
+                
+                (details.history || []).forEach(game => {
+                    if (game.minutes < BATCH_CONFIG.minMinutesForInclusion) return;
+                    
+                    const opponentBatch = getTeamBatch(game.opponent_team);
+                    if (!teamStats[teamId]) return;
+                    
+                    // For team goals, we need a representative sample - use highest minute player per team/game
+                    // This is a simplification - ideally we'd have team-level match data
+                    if (isDefensive && game.minutes >= 60) {
+                        // Track unique games per team (use round as game identifier)
+                        const gameKey = `${game.round}_${game.opponent_team}`;
+                        if (!teamStats[teamId]._processedGames) teamStats[teamId]._processedGames = new Set();
+                        
+                        if (!teamStats[teamId]._processedGames.has(gameKey)) {
+                            teamStats[teamId]._processedGames.add(gameKey);
+                            
+                            // Goals conceded from this player's data
+                            const goalsConceded = game.goals_conceded || 0;
+                            const cleanSheet = game.clean_sheets || 0;
+                            
+                            teamStats[teamId].overall.goalsConceded += goalsConceded;
+                            teamStats[teamId].overall.cleanSheets += cleanSheet;
+                            teamStats[teamId].overall.games++;
+                            
+                            teamStats[teamId].vsBatch[opponentBatch].goalsConceded += goalsConceded;
+                            teamStats[teamId].vsBatch[opponentBatch].cleanSheets += cleanSheet;
+                            teamStats[teamId].vsBatch[opponentBatch].games++;
+                        }
+                    }
+                });
+            });
+            
+            // Calculate averages
+            Object.values(teamStats).forEach(stats => {
+                if (stats.overall.games > 0) {
+                    stats.overall.avgConceded = stats.overall.goalsConceded / stats.overall.games;
+                    stats.overall.csRate = stats.overall.cleanSheets / stats.overall.games;
+                }
+                Object.values(stats.vsBatch).forEach(batchStats => {
+                    if (batchStats.games > 0) {
+                        batchStats.avgConceded = batchStats.goalsConceded / batchStats.games;
+                        batchStats.csRate = batchStats.cleanSheets / batchStats.games;
+                    }
+                });
+                delete stats._processedGames;
+            });
+            
+            batchAnalysisCache.teamStats = teamStats;
+            return teamStats;
+        }
+        
+        // Calculate player-level statistics against each batch
+        function calculatePlayerBatchStats() {
+            if (!importedPlayerDetails || !importedBootstrap?.elements) return {};
+            
+            const playerStats = {};
+            
+            Object.entries(importedPlayerDetails).forEach(([playerId, details]) => {
+                const player = importedBootstrap.elements.find(e => e.id === parseInt(playerId));
+                if (!player) return;
+                
+                playerStats[playerId] = {
+                    name: player.web_name,
+                    position: fplPositionMap[player.element_type] || 'UNK',
+                    teamId: player.team,
+                    overall: {
+                        goals: 0, assists: 0, cleanSheets: 0, goalsConceded: 0,
+                        saves: 0, bonus: 0, bps: 0, yellowCards: 0, redCards: 0,
+                        defCon: 0, minutes: 0, games: 0, games45plus: 0
+                    },
+                    vsBatch: {}
+                };
+                
+                BATCH_CONFIG.batches.forEach(b => {
+                    playerStats[playerId].vsBatch[b.id] = {
+                        goals: 0, assists: 0, cleanSheets: 0, goalsConceded: 0,
+                        saves: 0, bonus: 0, bps: 0, yellowCards: 0, redCards: 0,
+                        defCon: 0, minutes: 0, games: 0, games45plus: 0
+                    };
+                });
+                
+                (details.history || []).forEach(game => {
+                    if (game.minutes < BATCH_CONFIG.minMinutesForInclusion) return;
+                    
+                    const opponentBatch = getTeamBatch(game.opponent_team);
+                    const stats = playerStats[playerId];
+                    const targets = [stats.overall, stats.vsBatch[opponentBatch]];
+                    
+                    targets.forEach(t => {
+                        t.goals += game.goals_scored || 0;
+                        t.assists += game.assists || 0;
+                        t.bonus += game.bonus || 0;
+                        t.bps += game.bps || 0;
+                        t.yellowCards += game.yellow_cards || 0;
+                        t.redCards += game.red_cards || 0;
+                        t.saves += game.saves || 0;
+                        t.minutes += game.minutes || 0;
+                        t.games++;
+                        
+                        // Only count defensive stats for games with 45+ minutes
+                        if (game.minutes >= BATCH_CONFIG.minMinutesForDefensiveStats) {
+                            t.cleanSheets += game.clean_sheets || 0;
+                            t.goalsConceded += game.goals_conceded || 0;
+                            t.games45plus++;
+                            // Defensive contribution (tackles, interceptions, recoveries)
+                            t.defCon += (game.tackles || 0) + (game.interceptions || 0) + (game.recoveries || 0);
+                        }
+                    });
+                });
+                
+                // Calculate per-game averages
+                const calcAverages = (stats) => {
+                    if (stats.games > 0) {
+                        stats.goalsPerGame = stats.goals / stats.games;
+                        stats.assistsPerGame = stats.assists / stats.games;
+                        stats.bonusPerGame = stats.bonus / stats.games;
+                        stats.bpsPerGame = stats.bps / stats.games;
+                        stats.yellowPerGame = stats.yellowCards / stats.games;
+                        stats.redPerGame = stats.redCards / stats.games;
+                        stats.savesPerGame = stats.saves / stats.games;
+                        stats.minutesPerGame = stats.minutes / stats.games;
+                    }
+                    if (stats.games45plus > 0) {
+                        stats.csPerGame = stats.cleanSheets / stats.games45plus;
+                        stats.concededPerGame = stats.goalsConceded / stats.games45plus;
+                        stats.defConPerGame = stats.defCon / stats.games45plus;
+                    }
+                };
+                
+                calcAverages(playerStats[playerId].overall);
+                Object.values(playerStats[playerId].vsBatch).forEach(calcAverages);
+            });
+            
+            batchAnalysisCache.playerStats = playerStats;
+            return playerStats;
+        }
+        
+        // Calculate league-wide averages for cross-referencing
+        function calculateLeagueAverages() {
+            const playerStats = batchAnalysisCache.playerStats;
+            if (!playerStats || Object.keys(playerStats).length === 0) return {};
+            
+            const totals = {
+                goals: 0, assists: 0, cleanSheets: 0, saves: 0,
+                bonus: 0, yellowCards: 0, games: 0, games45plus: 0
+            };
+            
+            Object.values(playerStats).forEach(p => {
+                totals.goals += p.overall.goals;
+                totals.assists += p.overall.assists;
+                totals.cleanSheets += p.overall.cleanSheets;
+                totals.saves += p.overall.saves;
+                totals.bonus += p.overall.bonus;
+                totals.yellowCards += p.overall.yellowCards;
+                totals.games += p.overall.games;
+                totals.games45plus += p.overall.games45plus;
+            });
+            
+            const averages = {
+                goalsPerGame: totals.games > 0 ? totals.goals / totals.games : 0.1,
+                assistsPerGame: totals.games > 0 ? totals.assists / totals.games : 0.08,
+                csPerGame: totals.games45plus > 0 ? totals.cleanSheets / totals.games45plus : 0.3,
+                savesPerGame: totals.games > 0 ? totals.saves / totals.games : 1.0,
+                bonusPerGame: totals.games > 0 ? totals.bonus / totals.games : 0.5,
+                yellowPerGame: totals.games > 0 ? totals.yellowCards / totals.games : 0.1
+            };
+            
+            batchAnalysisCache.leagueAverages = averages;
+            return averages;
+        }
+        
+        // Apply Bayesian weighting for small sample sizes
+        function applyBayesianBlend(batchValue, overallValue, batchGames, priorWeight = BATCH_CONFIG.bayesianPriorWeight) {
+            if (batchGames === 0) return overallValue || 0;
+            if (batchGames >= priorWeight * 2) return batchValue; // Enough data, use batch directly
+            
+            // Weighted blend: more games in batch = more weight to batch value
+            const totalWeight = batchGames + priorWeight;
+            return ((batchValue * batchGames) + ((overallValue || 0) * priorWeight)) / totalWeight;
+        }
+        
+        // Cross-reference player stats with opponent's actual rates
+        function crossReferenceWithOpponent(playerBatchStats, playerOverallStats, opponentTeamStats, opponentBatch, leagueAvg) {
+            // If opponent concedes more than league average, boost expected goals/assists
+            const opponentConcededRate = opponentTeamStats?.vsBatch?.[opponentBatch]?.avgConceded 
+                                        || opponentTeamStats?.overall?.avgConceded 
+                                        || leagueAvg.goalsPerGame * 11; // Fallback
+            
+            const opponentCSRate = opponentTeamStats?.vsBatch?.[opponentBatch]?.csRate 
+                                  || opponentTeamStats?.overall?.csRate 
+                                  || 0.3;
+            
+            // Multiplier based on opponent's defensive weakness
+            const leagueAvgConceded = leagueAvg.goalsPerGame * 11 || 1.5;
+            const offensiveMultiplier = Math.max(0.5, Math.min(2.0, opponentConcededRate / leagueAvgConceded));
+            
+            // For clean sheets, lower multiplier if opponent scores a lot
+            const defensiveMultiplier = Math.max(0.3, Math.min(1.5, 1 - (1 - opponentCSRate) * 0.5));
+            
+            return {
+                offensiveMultiplier,
+                defensiveMultiplier
+            };
+        }
+        
+        // Main batch-based prediction for a single player
+        function predictPlayerPointsBatch(playerId, opponentTeamId, isHome, gameweek) {
+            const pStats = batchAnalysisCache.playerStats?.[playerId];
+            const player = importedBootstrap?.elements?.find(e => e.id === parseInt(playerId));
+            
+            if (!pStats || !player) {
+                return { predicted: 0, breakdown: {}, confidence: 'none' };
+            }
+            
+            const opponentBatch = getTeamBatch(opponentTeamId);
+            const teamStats = batchAnalysisCache.teamStats?.[player.team];
+            const opponentStats = batchAnalysisCache.teamStats?.[opponentTeamId];
+            const leagueAvg = batchAnalysisCache.leagueAverages || {};
+            const rules = BATCH_CONFIG.fplScoringRules;
+            const pos = fplPositionMap[player.element_type] || 'MID';
+            
+            // Get batch-specific stats with Bayesian blending
+            const batchData = pStats.vsBatch[opponentBatch] || {};
+            const overallData = pStats.overall || {};
+            const batchGames = batchData.games || 0;
+            
+            const expectedGoals = applyBayesianBlend(batchData.goalsPerGame || 0, overallData.goalsPerGame || 0, batchGames);
+            const expectedAssists = applyBayesianBlend(batchData.assistsPerGame || 0, overallData.assistsPerGame || 0, batchGames);
+            const expectedBonus = applyBayesianBlend(batchData.bonusPerGame || 0, overallData.bonusPerGame || 0, batchGames);
+            const expectedYellow = applyBayesianBlend(batchData.yellowPerGame || 0, overallData.yellowPerGame || 0, batchGames);
+            const expectedRed = applyBayesianBlend(batchData.redPerGame || 0, overallData.redPerGame || 0, batchGames);
+            const expectedSaves = applyBayesianBlend(batchData.savesPerGame || 0, overallData.savesPerGame || 0, batchGames);
+            
+            // Defensive stats (only for games 45+)
+            const batchGames45 = batchData.games45plus || 0;
+            const expectedCS = applyBayesianBlend(batchData.csPerGame || 0, overallData.csPerGame || 0, batchGames45);
+            const expectedConceded = applyBayesianBlend(batchData.concededPerGame || 0, overallData.concededPerGame || 0, batchGames45);
+            
+            // Cross-reference with opponent
+            const crossRef = crossReferenceWithOpponent(batchData, overallData, opponentStats, opponentBatch, leagueAvg);
+            
+            // Apply multipliers
+            const adjGoals = expectedGoals * crossRef.offensiveMultiplier;
+            const adjAssists = expectedAssists * crossRef.offensiveMultiplier;
+            const adjCS = expectedCS * crossRef.defensiveMultiplier;
+            
+            // Home/Away adjustment
+            const homeMultiplier = isHome ? 1.1 : 0.95;
+            
+            // Calculate FPL Points breakdown
+            const breakdown = {
+                minutes: rules.minutes60plus, // Assume 60+ if playing
+                goals: 0,
+                assists: 0,
+                cleanSheet: 0,
+                saves: 0,
+                goalsConceded: 0,
+                bonus: 0,
+                cards: 0
+            };
+            
+            // Goal points by position
+            const goalPts = pos === 'GK' || pos === 'DEF' ? rules.goalGK : pos === 'MID' ? rules.goalMID : rules.goalFWD;
+            breakdown.goals = adjGoals * homeMultiplier * goalPts;
+            
+            // Assists
+            breakdown.assists = adjAssists * homeMultiplier * rules.assist;
+            
+            // Clean sheets (GK/DEF only get full points)
+            if (pos === 'GK' || pos === 'DEF') {
+                breakdown.cleanSheet = adjCS * homeMultiplier * rules.cleanSheetGK;
+                // Goals conceded penalty (per 2)
+                breakdown.goalsConceded = (expectedConceded / crossRef.defensiveMultiplier) * (rules.goalsConcededPenalty / 2);
+            } else if (pos === 'MID') {
+                breakdown.cleanSheet = adjCS * homeMultiplier * rules.cleanSheetMID;
+            }
+            
+            // Saves (GK only)
+            if (pos === 'GK') {
+                breakdown.saves = (expectedSaves / rules.savesPerPoint);
+            }
+            
+            // Bonus points
+            breakdown.bonus = expectedBonus * homeMultiplier;
+            
+            // Cards
+            breakdown.cards = (expectedYellow * rules.yellowCard) + (expectedRed * rules.redCard);
+            
+            // Total predicted points
+            let totalPredicted = breakdown.minutes + breakdown.goals + breakdown.assists + 
+                                 breakdown.cleanSheet + breakdown.saves + breakdown.goalsConceded + 
+                                 breakdown.bonus + breakdown.cards;
+            
+            // Availability adjustment
+            const status = player.status || 'a';
+            const chance = player.chance_of_playing_next_round;
+            let availMultiplier = 1.0;
+            
+            if (status === 'u' || status === 'i') availMultiplier = 0;
+            else if (status === 'd') availMultiplier = 0.5;
+            else if (chance !== null && chance !== undefined && chance < 100) availMultiplier = chance / 100;
+            
+            totalPredicted *= availMultiplier;
+            
+            // Determine confidence level
+            let confidence = 'high';
+            if (batchGames < 2) confidence = 'low';
+            else if (batchGames < 5) confidence = 'medium';
+            
+            return {
+                playerId: parseInt(playerId),
+                name: player.web_name,
+                pos,
+                team: fplTeamIdMap[player.team] || '?',
+                teamId: player.team,
+                opponent: fplTeamIdMap[opponentTeamId] || '?',
+                opponentId: opponentTeamId,
+                opponentBatch,
+                opponentBatchName: BATCH_CONFIG.batches.find(b => b.id === opponentBatch)?.name || 'Unknown',
+                isHome,
+                predicted: Math.round(Math.max(0, totalPredicted) * 10) / 10,
+                breakdown: {
+                    minutes: Math.round(breakdown.minutes * 10) / 10,
+                    goals: Math.round(breakdown.goals * 10) / 10,
+                    assists: Math.round(breakdown.assists * 10) / 10,
+                    cs: Math.round(breakdown.cleanSheet * 10) / 10,
+                    saves: Math.round(breakdown.saves * 10) / 10,
+                    conceded: Math.round(breakdown.goalsConceded * 10) / 10,
+                    bonus: Math.round(breakdown.bonus * 10) / 10,
+                    cards: Math.round(breakdown.cards * 10) / 10
+                },
+                confidence,
+                batchGames,
+                crossRef
+            };
+        }
+        
+        // Initialize the batch analysis system
+        function initBatchAnalysis() {
+            console.log('Initializing batch analysis...');
+            buildBatchMap();
+            calculateTeamBatchStats();
+            calculatePlayerBatchStats();
+            calculateLeagueAverages();
+            batchAnalysisCache.lastComputed = new Date().toISOString();
+            console.log('Batch analysis complete:', {
+                teams: Object.keys(batchAnalysisCache.teamBatchMap).length,
+                players: Object.keys(batchAnalysisCache.playerStats).length
+            });
+        }
+        
         // Tab switching function
         function switchAnalysisTab(tabName, buttonEl) {
             // Hide all tabs
@@ -10210,6 +10665,11 @@
         
         // Initialize predictions tab
         function initPredictionsTab() {
+            // Initialize batch analysis for predictions
+            if (!batchAnalysisCache.lastComputed && importedPlayerDetails && importedBootstrap) {
+                initBatchAnalysis();
+            }
+            
             // Populate GW selector
             const gwSelect = document.getElementById('predictionGW');
             if (gwSelect && gwSelect.options.length === 0) {
@@ -10237,45 +10697,29 @@
             renderPredictionsTab();
         }
         
-        // Main prediction calculator for a gameweek
+        // Main prediction calculator for a gameweek (BATCH-BASED)
         function calculateGWPredictions(gameweek) {
             if (!importedLeagueData || !importedBootstrap) return [];
+            
+            // Initialize batch analysis if not done
+            if (!batchAnalysisCache.lastComputed) {
+                initBatchAnalysis();
+            }
             
             const squads = importedLeagueData.squads || {};
             const fixtures = importedBootstrap.fixtures || {};
             const gwFixtures = fixtures[String(gameweek)] || [];
-            const teams = importedBootstrap.teams || [];
             
-            // Build team strength map for FDR calculation
-            const teamStrength = {};
-            teams.forEach(t => {
-                const avgStrength = ((t.strength_overall_home || 1000) + (t.strength_overall_away || 1000)) / 2;
-                teamStrength[t.id] = avgStrength;
-            });
-            
-            // Calculate FDR based on opponent strength (1=easiest, 5=hardest)
-            function calculateFDR(opponentId) {
-                const strength = teamStrength[opponentId] || 1000;
-                // Scale strength (typically 900-1400) to FDR (1-5)
-                if (strength >= 1300) return 5;
-                if (strength >= 1200) return 4;
-                if (strength >= 1100) return 3;
-                if (strength >= 1000) return 2;
-                return 1;
-            }
-            
-            // Build team fixture map
+            // Build team fixture map for this gameweek
             const teamFixtureMap = {};
             gwFixtures.forEach(fix => {
                 teamFixtureMap[fix.team_h] = { 
                     opponent: fix.team_a, 
-                    isHome: true, 
-                    fdr: fix.team_h_difficulty || calculateFDR(fix.team_a)
+                    isHome: true
                 };
                 teamFixtureMap[fix.team_a] = { 
                     opponent: fix.team_h, 
-                    isHome: false, 
-                    fdr: fix.team_a_difficulty || calculateFDR(fix.team_h)
+                    isHome: false
                 };
             });
             
@@ -10286,8 +10730,30 @@
                 const squadData = squads[entryId];
                 if (!squadData || !squadData.picks) return;
                 
+                // Use new batch-based prediction for each player
                 const playerPredictions = squadData.picks.map(pick => {
-                    return calculatePlayerPrediction(pick.element, teamFixtureMap, gameweek);
+                    const player = importedBootstrap?.elements?.find(e => e.id === pick.element);
+                    if (!player) return { playerId: pick.element, name: 'Unknown', pos: '?', predicted: 0, breakdown: {} };
+                    
+                    const teamId = player.team;
+                    const fixture = teamFixtureMap[teamId];
+                    
+                    if (!fixture) {
+                        return { 
+                            playerId: pick.element, 
+                            name: player.web_name, 
+                            pos: fplPositionMap[player.element_type] || '?',
+                            team: fplTeamIdMap[teamId] || '?',
+                            predicted: 0, 
+                            opponent: 'BYE',
+                            isHome: false,
+                            breakdown: { minutes: 0, goals: 0, assists: 0, cs: 0, saves: 0, bonus: 0, cards: 0, conceded: 0 },
+                            confidence: 'none'
+                        };
+                    }
+                    
+                    // Use batch-based prediction
+                    return predictPlayerPointsBatch(pick.element, fixture.opponent, fixture.isHome, gameweek);
                 });
                 
                 // Sort by predicted points
@@ -10305,9 +10771,9 @@
                     players: playerPredictions,
                     optimal11: optimal11.lineup,
                     formation: optimal11.formation,
-                    optimalPoints,
-                    benchPoints,
-                    totalPoints
+                    optimalPoints: Math.round(optimalPoints * 10) / 10,
+                    benchPoints: Math.round(benchPoints * 10) / 10,
+                    totalPoints: Math.round(totalPoints * 10) / 10
                 });
             });
             
@@ -10317,8 +10783,8 @@
             return predictions;
         }
         
-        // Calculate prediction for a single player
-        function calculatePlayerPrediction(playerId, teamFixtureMap, gameweek) {
+        // Legacy prediction function (kept for backward compatibility with other features)
+        function calculatePlayerPredictionLegacy(playerId, teamFixtureMap, gameweek) {
             // Get player from processed map AND raw bootstrap for complete data
             const playerMap = fplElementMap[playerId];
             const playerRaw = importedBootstrap?.elements?.find(e => e.id === playerId);
@@ -10568,8 +11034,26 @@
         function renderTeamRankings(predictions, gameweek) {
             const maxPts = Math.max(...predictions.map(p => p.optimalPoints));
             
-            let html = `<div style="margin-bottom: 1rem; color: var(--text-secondary); font-size: 0.85rem;">
-                Showing predictions for GW${gameweek} • Based on form, fixtures, and player stats
+            // Count players with high/medium/low confidence predictions
+            const analyzeConfidence = (pred) => {
+                const counts = { high: 0, medium: 0, low: 0 };
+                (pred.optimal11 || []).forEach(p => {
+                    if (p.confidence === 'high') counts.high++;
+                    else if (p.confidence === 'medium') counts.medium++;
+                    else counts.low++;
+                });
+                return counts;
+            };
+            
+            let html = `<div style="margin-bottom: 1rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                <div style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">
+                    <strong>GW${gameweek} Predictions</strong> • Batch-Based Model
+                </div>
+                <div style="display: flex; gap: 2rem; font-size: 0.75rem; color: var(--text-muted);">
+                    <span>Teams analyzed: ${Object.keys(batchAnalysisCache.teamBatchMap).length}</span>
+                    <span>Players w/ history: ${Object.keys(batchAnalysisCache.playerStats).length}</span>
+                    <span>Batches: ${BATCH_CONFIG.batches.map(b => b.name).join(', ')}</span>
+                </div>
             </div>`;
             
             predictions.forEach((pred, idx) => {
@@ -10577,6 +11061,7 @@
                 const pctWidth = (pred.optimalPoints / maxPts) * 100;
                 const rankClass = rank === 1 ? 'gold' : rank === 2 ? 'silver' : rank === 3 ? 'bronze' : 'default';
                 const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                const conf = analyzeConfidence(pred);
                 
                 html += `
                 <div class="team-rank-bar">
@@ -10592,6 +11077,9 @@
                     </div>
                     <div style="min-width: 60px; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
                         +${pred.benchPoints.toFixed(1)}
+                    </div>
+                    <div style="min-width: 70px; text-align: right; font-size: 0.7rem;" title="Confidence: High/Med/Low">
+                        <span style="color: #10b981;">${conf.high}</span>/<span style="color: #f59e0b;">${conf.medium}</span>/<span style="color: #ef4444;">${conf.low}</span>
                     </div>
                 </div>`;
             });
@@ -10680,6 +11168,12 @@
             
             const players = showOptimalOnly ? teamPred.optimal11 : teamPred.players;
             
+            // Confidence badge styling
+            const confBadge = (conf) => {
+                const colors = { high: '#10b981', medium: '#f59e0b', low: '#ef4444', none: '#6b7280' };
+                return `<span style="color: ${colors[conf] || colors.none}; font-size: 0.7rem;">●</span>`;
+            };
+            
             let html = `
             <table class="player-breakdown-table">
                 <thead>
@@ -10688,12 +11182,14 @@
                         <th>Pos</th>
                         <th>Team</th>
                         <th>vs</th>
-                        <th>FDR</th>
+                        <th>Opp Batch</th>
+                        <th title="Games in batch data">Games</th>
                         <th class="stat-cell">Goals</th>
                         <th class="stat-cell">Assists</th>
                         <th class="stat-cell">CS</th>
                         <th class="stat-cell">Saves</th>
                         <th class="stat-cell">Bonus</th>
+                        <th class="stat-cell">Cards</th>
                         <th class="stat-cell">Predicted</th>
                     </tr>
                 </thead>
@@ -10702,29 +11198,32 @@
             players.forEach((p, idx) => {
                 const inOptimal = teamPred.optimal11.some(o => o.playerId === p.playerId);
                 const rowStyle = !showOptimalOnly && !inOptimal ? 'opacity: 0.5;' : '';
-                const fdrClass = `fdr-${p.fdr}`;
+                const batchColor = p.opponentBatch <= 2 ? 'var(--accent-red)' : p.opponentBatch >= 4 ? 'var(--accent-emerald)' : 'var(--text-muted)';
                 
                 html += `
                 <tr style="${rowStyle}">
-                    <td style="font-weight: 500;">${p.name} ${inOptimal ? '⭐' : ''}</td>
+                    <td style="font-weight: 500;">${p.name} ${inOptimal ? '⭐' : ''} ${confBadge(p.confidence)}</td>
                     <td>${p.pos}</td>
                     <td>${p.team}</td>
                     <td>${p.isHome ? '🏠' : '✈️'} ${p.opponent}</td>
-                    <td><span class="${fdrClass}" style="padding: 2px 6px; border-radius: 4px;">${p.fdr}</span></td>
-                    <td class="stat-cell ${p.breakdown.goals > 0 ? 'highlight' : ''}">${p.breakdown.goals.toFixed(1)}</td>
-                    <td class="stat-cell ${p.breakdown.assists > 0 ? 'highlight' : ''}">${p.breakdown.assists.toFixed(1)}</td>
-                    <td class="stat-cell ${p.breakdown.cs > 0 ? 'highlight' : ''}">${p.breakdown.cs.toFixed(1)}</td>
-                    <td class="stat-cell ${p.breakdown.saves > 0 ? 'highlight' : ''}">${p.breakdown.saves.toFixed(1)}</td>
-                    <td class="stat-cell">${p.breakdown.bonus.toFixed(1)}</td>
+                    <td style="font-size: 0.75rem; color: ${batchColor};">${p.opponentBatchName || '?'}</td>
+                    <td style="font-size: 0.75rem; color: var(--text-muted);">${p.batchGames || 0}</td>
+                    <td class="stat-cell ${p.breakdown?.goals > 0 ? 'highlight' : ''}">${(p.breakdown?.goals || 0).toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown?.assists > 0 ? 'highlight' : ''}">${(p.breakdown?.assists || 0).toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown?.cs > 0 ? 'highlight' : ''}">${(p.breakdown?.cs || 0).toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown?.saves > 0 ? 'highlight' : ''}">${(p.breakdown?.saves || 0).toFixed(1)}</td>
+                    <td class="stat-cell">${(p.breakdown?.bonus || 0).toFixed(1)}</td>
+                    <td class="stat-cell" style="color: ${(p.breakdown?.cards || 0) < 0 ? 'var(--accent-red)' : 'var(--text-muted)'}">${(p.breakdown?.cards || 0).toFixed(1)}</td>
                     <td class="stat-cell" style="font-weight: 700; color: var(--accent-cyan);">${p.predicted.toFixed(1)}</td>
                 </tr>`;
             });
             
             html += `</tbody></table>
-            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; display: flex; justify-content: space-between;">
-                <span>Formation: <strong>${teamPred.formation}</strong></span>
-                <span>Optimal 11: <strong style="color: var(--accent-emerald);">${teamPred.optimalPoints.toFixed(1)} pts</strong></span>
-                <span>Bench: <strong style="color: var(--text-muted);">+${teamPred.benchPoints.toFixed(1)} pts</strong></span>
+            <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; text-align: center;">
+                <div><span style="color: var(--text-muted);">Formation:</span><br><strong>${teamPred.formation}</strong></div>
+                <div><span style="color: var(--text-muted);">Optimal 11:</span><br><strong style="color: var(--accent-emerald);">${teamPred.optimalPoints.toFixed(1)} pts</strong></div>
+                <div><span style="color: var(--text-muted);">Bench:</span><br><strong>+${teamPred.benchPoints.toFixed(1)} pts</strong></div>
+                <div><span style="color: var(--text-muted);">Confidence:</span><br><span style="color: #10b981;">●</span> High <span style="color: #f59e0b;">●</span> Med <span style="color: #ef4444;">●</span> Low</div>
             </div>`;
             
             document.getElementById('playerBreakdownTable').innerHTML = html;
