@@ -7116,6 +7116,8 @@
                     elements: importedElementStatus,
                     bootstrap: importedBootstrap,
                     playerDetails: importedPlayerDetails,
+                    plStandings: window.importedPLStandings || null,
+                    plFixtures: window.importedPLFixtures || null,
                     savedAt: new Date().toISOString()
                 };
                 localStorage.setItem(STORAGE_KEY, JSON.stringify(dataToSave));
@@ -7365,6 +7367,16 @@
                 importedElementStatus = savedData.elements;
                 importedBootstrap = savedData.bootstrap;
                 importedPlayerDetails = savedData.playerDetails;
+                
+                // Load PL standings and fixtures
+                if (savedData.plStandings && savedData.plStandings.length > 0) {
+                    window.importedPLStandings = savedData.plStandings;
+                    console.log('[Init] Loaded saved PL standings:', savedData.plStandings.length, 'teams');
+                }
+                if (savedData.plFixtures && savedData.plFixtures.length > 0) {
+                    window.importedPLFixtures = savedData.plFixtures;
+                    console.log('[Init] Loaded saved PL fixtures:', savedData.plFixtures.length, 'fixtures');
+                }
                 
                 if (importedBootstrap) {
                     buildFplTeamIdMap();
@@ -7646,6 +7658,81 @@
                 if (i % 10 === 9) await new Promise(r => setTimeout(r, 100));
             }
             
+            // ========== FETCH REAL PL STANDINGS & FIXTURES ==========
+            status.textContent = 'Fetching real PL standings from FPL API...';
+            try {
+                // Fetch from REGULAR FPL API (not Draft) - has actual PL standings
+                const fplBootRes = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
+                if (fplBootRes.ok) {
+                    const fplBootData = await fplBootRes.json();
+                    
+                    // Extract team standings (W/D/L/Pts/GF/GA)
+                    results.plStandings = (fplBootData.teams || []).map(function(t) {
+                        return {
+                            id: t.id,
+                            name: t.name,
+                            short_name: t.short_name,
+                            position: t.position || 0,
+                            played: t.played || 0,
+                            win: t.win || 0,
+                            draw: t.draw || 0,
+                            loss: t.loss || 0,
+                            goals_for: t.goals_for || 0,
+                            goals_against: t.goals_against || 0,
+                            goal_difference: (t.goals_for || 0) - (t.goals_against || 0),
+                            points: t.points || 0,
+                            strength_overall_home: t.strength_overall_home || 0,
+                            strength_overall_away: t.strength_overall_away || 0,
+                            strength_attack_home: t.strength_attack_home || 0,
+                            strength_attack_away: t.strength_attack_away || 0,
+                            strength_defence_home: t.strength_defence_home || 0,
+                            strength_defence_away: t.strength_defence_away || 0
+                        };
+                    }).sort(function(a, b) {
+                        if (b.points !== a.points) return b.points - a.points;
+                        if (b.goal_difference !== a.goal_difference) return b.goal_difference - a.goal_difference;
+                        return b.goals_for - a.goals_for;
+                    });
+                    
+                    // Assign positions after sorting
+                    results.plStandings.forEach(function(t, idx) { t.position = idx + 1; });
+                    
+                    console.log('Fetched real PL standings:', results.plStandings.slice(0, 5).map(function(t) { return t.position + '. ' + t.short_name + ' (' + t.points + 'pts)'; }));
+                }
+            } catch(standingsErr) {
+                console.log('Could not fetch PL standings:', standingsErr);
+            }
+            
+            // Fetch PL fixtures/results
+            status.textContent = 'Fetching PL fixtures and results...';
+            try {
+                const fixturesRes = await fetch('https://fantasy.premierleague.com/api/fixtures/');
+                if (fixturesRes.ok) {
+                    const fixturesData = await fixturesRes.json();
+                    
+                    // Store all fixtures with results
+                    results.plFixtures = fixturesData.map(function(f) {
+                        return {
+                            id: f.id,
+                            event: f.event,
+                            team_h: f.team_h,
+                            team_a: f.team_a,
+                            team_h_score: f.team_h_score,
+                            team_a_score: f.team_a_score,
+                            finished: f.finished,
+                            kickoff_time: f.kickoff_time,
+                            team_h_difficulty: f.team_h_difficulty,
+                            team_a_difficulty: f.team_a_difficulty
+                        };
+                    });
+                    
+                    const finishedCount = results.plFixtures.filter(function(f) { return f.finished; }).length;
+                    console.log('Fetched fixtures: ' + finishedCount + ' finished, ' + (results.plFixtures.length - finishedCount) + ' upcoming');
+                }
+            } catch(fixturesErr) {
+                console.log('Could not fetch fixtures:', fixturesErr);
+            }
+            
             // Add timestamp
             results.fetchedAt = new Date().toISOString();
             
@@ -7685,6 +7772,10 @@
             const downloadUrl = URL.createObjectURL(blob);
             const fileName = 'fpl_league_data_' + new Date().toISOString().slice(0,10) + '.json';
             
+            const standingsCount = results.plStandings ? results.plStandings.length : 0;
+            const fixturesCount = results.plFixtures ? results.plFixtures.length : 0;
+            const finishedFixtures = results.plFixtures ? results.plFixtures.filter(function(f) { return f.finished; }).length : 0;
+            
             overlay.innerHTML = '<div style="font-size:28px;color:#10b981;margin-bottom:20px;">✅ Success!</div>' +
                 '<div style="font-size:18px;margin-bottom:15px;font-weight:bold;">Data Ready!</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">League: ' + (results.league.league?.name || 'Unknown') + '</div>' +
@@ -7692,6 +7783,8 @@
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + entries.length + ' teams (' + ownedCount + ' owned players)</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">+ ' + freeAgentCount + ' free agents + ' + transactionCount + ' from transactions</div>' +
                 '<div style="font-size:14px;color:#94a3b8;margin-bottom:5px;">' + Object.keys(results.playerDetails).length + ' players fetched (' + playersWithHistory + ' with history, ' + playersWithoutHistory + ' without)</div>' +
+                (standingsCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">📊 Real PL Standings: ' + standingsCount + ' teams (W/D/L/Pts)</div>' : '<div style="font-size:14px;color:#ef4444;margin-bottom:5px;">⚠️ Could not fetch PL standings</div>') +
+                (fixturesCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">⚽ PL Fixtures: ' + finishedFixtures + ' finished / ' + fixturesCount + ' total</div>' : '') +
                 (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
                 '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
                     '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
@@ -7794,9 +7887,21 @@
                         if (parsed.playerDetails) {
                             importedPlayerDetails = parsed.playerDetails;
                         }
+                        // Import REAL PL standings from bookmarklet's FPL API fetch
+                        if (parsed.plStandings && parsed.plStandings.length > 0) {
+                            window.importedPLStandings = parsed.plStandings;
+                            console.log('[Import] Real PL standings imported:', parsed.plStandings.length, 'teams');
+                        }
+                        // Import PL fixtures/results
+                        if (parsed.plFixtures && parsed.plFixtures.length > 0) {
+                            window.importedPLFixtures = parsed.plFixtures;
+                            console.log('[Import] PL fixtures imported:', parsed.plFixtures.length, 'fixtures');
+                        }
                         const gwInfo = parsed.currentEvent ? ` (Squads for GW${parsed.currentEvent})` : '';
                         const playerDetailsCount = parsed.playerDetails ? Object.keys(parsed.playerDetails).length : 0;
-                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + ' (' + playerDetailsCount + ' players with GW history)</div>';
+                        const standingsInfo = parsed.plStandings && parsed.plStandings.length > 0 ? ' • ✅ Real PL standings' : ' • ⚠️ No PL standings';
+                        const fixturesInfo = parsed.plFixtures ? ` • ${parsed.plFixtures.filter(f => f.finished).length} match results` : '';
+                        statusHtml += '<div style="color: var(--accent-emerald);">✅ All data imported from bookmarklet' + gwInfo + ' (' + playerDetailsCount + ' players with GW history)' + standingsInfo + fixturesInfo + '</div>';
                         hasData = true;
                     } else if (parsed.league) {
                         importedLeagueData = parsed;
@@ -10277,17 +10382,55 @@
             }
         }
         
-        // Try to get standings from imported bootstrap data
-        function getStandingsFromBootstrap() {
-            console.log('[Standings] Checking bootstrap data for standings...');
+        // Try to get standings from imported data (plStandings field or bootstrap.teams)
+        function getStandingsFromImportedData() {
+            console.log('[Standings] Checking imported data for standings...');
             
+            // First check for plStandings field (from bookmarklet's FPL API fetch)
+            if (window.importedPLStandings && window.importedPLStandings.length > 0) {
+                const standings = window.importedPLStandings.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    short_name: t.short_name,
+                    position: t.position || 0,
+                    played: t.played || 0,
+                    wins: t.win || 0,
+                    draws: t.draw || 0,
+                    losses: t.loss || 0,
+                    goalsFor: t.goals_for || 0,
+                    goalsAgainst: t.goals_against || 0,
+                    goalDiff: t.goal_difference || ((t.goals_for || 0) - (t.goals_against || 0)),
+                    points: t.points || 0,
+                    cleanSheets: 0,
+                    games: t.played || 0,
+                    strength_overall_home: t.strength_overall_home || 0,
+                    strength_overall_away: t.strength_overall_away || 0
+                }));
+                
+                // Sort by points
+                standings.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                    return b.goalsFor - a.goalsFor;
+                });
+                
+                standings.forEach((t, idx) => t.position = idx + 1);
+                
+                console.log('[Standings] ✅ Using REAL PL standings from import:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                
+                batchAnalysisCache.plStandings = standings;
+                batchAnalysisCache.standingsSource = 'imported';
+                return standings;
+            }
+            
+            // Fallback: check bootstrap.teams
             if (!importedBootstrap?.teams) return null;
             
             const teams = importedBootstrap.teams;
             
             // Check if bootstrap has actual standings (win, draw, loss, points)
             const hasStandingsData = teams.some(t => 
-                t.win !== undefined || t.points !== undefined || t.played !== undefined
+                (t.win !== undefined && t.win > 0) || (t.points !== undefined && t.points > 0)
             );
             
             if (!hasStandingsData) {
@@ -10315,9 +10458,7 @@
             // Sort by points
             standings.sort((a, b) => {
                 if (b.points !== a.points) return b.points - a.points;
-                const gdA = a.goalsFor - a.goalsAgainst;
-                const gdB = b.goalsFor - b.goalsAgainst;
-                if (gdB !== gdA) return gdB - gdA;
+                if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
                 return b.goalsFor - a.goalsFor;
             });
             
@@ -10334,22 +10475,22 @@
         async function getBestAvailableStandings() {
             console.log('[Standings] ====== GETTING BEST AVAILABLE STANDINGS ======');
             
-            // Priority 1: Try bootstrap data (already imported)
-            let standings = getStandingsFromBootstrap();
+            // Priority 1: Try imported plStandings (from bookmarklet's FPL API fetch)
+            let standings = getStandingsFromImportedData();
             if (standings && standings.length > 0 && standings[0].points > 0) {
-                console.log('[Standings] Using bootstrap standings');
+                console.log('[Standings] Using imported standings (source:', batchAnalysisCache.standingsSource, ')');
                 return standings;
             }
             
-            // Priority 2: Fetch from FPL API
+            // Priority 2: Fetch from FPL API directly
             standings = await fetchRealPLStandings();
-            if (standings && standings.length > 0) {
+            if (standings && standings.length > 0 && standings[0].points > 0) {
                 console.log('[Standings] Using FPL API standings');
                 return standings;
             }
             
-            // Priority 3: Fall back to calculated from history
-            console.log('[Standings] Falling back to calculated standings from player history');
+            // Priority 3: Fall back to calculated from history (LAST RESORT)
+            console.warn('[Standings] ⚠️ Falling back to ESTIMATED standings - NOT ACCURATE');
             standings = calculatePLStandingsFromHistory();
             batchAnalysisCache.standingsSource = 'calculated';
             return standings;
