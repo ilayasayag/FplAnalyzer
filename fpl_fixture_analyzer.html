@@ -11078,13 +11078,6 @@
                     };
                 });
                 
-                // Log first player's first game to see available fields
-                if (!window._loggedGameFields && details.history?.length > 0) {
-                    console.log('[DEBUG] Sample game object fields:', Object.keys(details.history[0]));
-                    console.log('[DEBUG] Sample game object:', details.history[0]);
-                    window._loggedGameFields = true;
-                }
-                
                 (details.history || []).forEach(game => {
                     if (game.minutes < BATCH_CONFIG.minMinutesForInclusion) return;
                     
@@ -11109,11 +11102,11 @@
                             t.goalsConceded += game.goals_conceded || 0;
                             t.games45plus++;
                             
-                            // Defensive contribution (DC) - exact FPL Draft formula
-                            const gameDC = (game.clearances_blocks_interceptions || 0) + (game.tackles || 0);
+                            // Defensive contribution (DC) - directly from game data
+                            const gameDC = game.defensive_contribution || 0;
                             t.dc += gameDC;
                             
-                            // Track DC threshold hits (DEF needs 10+, MID/FWD needs 12+)
+                            // Track DC threshold hits (DEF/GK needs 10+, MID/FWD needs 12+)
                             const dcThreshold = playerStats[playerId].position === 'DEF' || playerStats[playerId].position === 'GK' ? 10 : 12;
                             if (gameDC >= dcThreshold) {
                                 t.dcBonusHits++;
@@ -11252,6 +11245,10 @@
             const expectedCS = applyBayesianBlend(batchData.csPerGame || 0, overallData.csPerGame || 0, batchGames45);
             const expectedConceded = applyBayesianBlend(batchData.concededPerGame || 0, overallData.concededPerGame || 0, batchGames45);
             
+            // Defensive Contribution (DC) stats
+            const expectedDC = applyBayesianBlend(batchData.dcPerGame || 0, overallData.dcPerGame || 0, batchGames45);
+            const dcBonusRate = applyBayesianBlend(batchData.dcBonusRate || 0, overallData.dcBonusRate || 0, batchGames45);
+            
             // Cross-reference with opponent
             const crossRef = crossReferenceWithOpponent(batchData, overallData, opponentStats, opponentBatch, leagueAvg);
             
@@ -11272,6 +11269,7 @@
                 saves: 0,
                 goalsConceded: 0,
                 bonus: 0,
+                dcBonus: 0,
                 cards: 0
             };
             
@@ -11299,13 +11297,30 @@
             // Bonus points
             breakdown.bonus = expectedBonus * homeMultiplier;
             
+            // Defensive Contribution bonus (2 pts if DC >= threshold)
+            // DEF/GK threshold: 10, MID/FWD threshold: 12
+            const dcThreshold = (pos === 'DEF' || pos === 'GK') ? 10 : 12;
+            // Calculate probability of hitting DC threshold based on expected DC and historical rate
+            let dcBonusProb = 0;
+            if (expectedDC >= dcThreshold) {
+                // Expected DC already above threshold - high probability
+                dcBonusProb = Math.min(0.9, 0.5 + (expectedDC - dcThreshold) * 0.1);
+            } else if (expectedDC >= dcThreshold - 3) {
+                // Close to threshold - use historical rate with adjustment
+                dcBonusProb = dcBonusRate * (expectedDC / dcThreshold);
+            } else {
+                // Far from threshold - low probability
+                dcBonusProb = dcBonusRate * 0.5;
+            }
+            breakdown.dcBonus = dcBonusProb * 2; // 2 points if threshold hit
+            
             // Cards
             breakdown.cards = (expectedYellow * rules.yellowCard) + (expectedRed * rules.redCard);
             
             // Total predicted points
             let totalPredicted = breakdown.minutes + breakdown.goals + breakdown.assists + 
                                  breakdown.cleanSheet + breakdown.saves + breakdown.goalsConceded + 
-                                 breakdown.bonus + breakdown.cards;
+                                 breakdown.bonus + breakdown.dcBonus + breakdown.cards;
             
             // Availability adjustment
             const status = player.status || 'a';
@@ -11343,8 +11358,10 @@
                     saves: Math.round(breakdown.saves * 10) / 10,
                     conceded: Math.round(breakdown.goalsConceded * 10) / 10,
                     bonus: Math.round(breakdown.bonus * 10) / 10,
+                    dcBonus: Math.round(breakdown.dcBonus * 10) / 10,
                     cards: Math.round(breakdown.cards * 10) / 10
                 },
+                expectedDC: Math.round(expectedDC * 10) / 10,
                 confidence,
                 batchGames,
                 crossRef
@@ -11513,7 +11530,7 @@
                             predicted: 0, 
                             opponent: 'BYE',
                             isHome: false,
-                            breakdown: { minutes: 0, goals: 0, assists: 0, cs: 0, saves: 0, bonus: 0, cards: 0, conceded: 0 },
+                            breakdown: { minutes: 0, goals: 0, assists: 0, cs: 0, saves: 0, bonus: 0, dcBonus: 0, cards: 0, conceded: 0 },
                             confidence: 'none'
                         };
                     }
@@ -11966,6 +11983,7 @@
                         <th class="stat-cell">CS</th>
                         <th class="stat-cell">Saves</th>
                         <th class="stat-cell">Bonus</th>
+                        <th class="stat-cell" title="Defensive Contribution bonus (2pts)">DC</th>
                         <th class="stat-cell">Cards</th>
                         <th class="stat-cell">Predicted</th>
                     </tr>
@@ -11990,6 +12008,7 @@
                     <td class="stat-cell ${p.breakdown?.cs > 0 ? 'highlight' : ''}">${(p.breakdown?.cs || 0).toFixed(1)}</td>
                     <td class="stat-cell ${p.breakdown?.saves > 0 ? 'highlight' : ''}">${(p.breakdown?.saves || 0).toFixed(1)}</td>
                     <td class="stat-cell">${(p.breakdown?.bonus || 0).toFixed(1)}</td>
+                    <td class="stat-cell ${p.breakdown?.dcBonus > 0 ? 'highlight' : ''}" title="Expected DC: ${p.expectedDC || 0}">${(p.breakdown?.dcBonus || 0).toFixed(1)}</td>
                     <td class="stat-cell" style="color: ${(p.breakdown?.cards || 0) < 0 ? 'var(--accent-red)' : 'var(--text-muted)'}">${(p.breakdown?.cards || 0).toFixed(1)}</td>
                     <td class="stat-cell" style="font-weight: 700; color: var(--accent-cyan);">${p.predicted.toFixed(1)}</td>
                 </tr>`;
