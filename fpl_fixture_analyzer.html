@@ -10346,62 +10346,75 @@
         async function fetchRealPLStandings() {
             console.log('[Standings] Fetching real PL standings from FPL API...');
             
-            try {
-                // Try FPL regular API first (has actual league standings)
-                const response = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
-                if (!response.ok) throw new Error('FPL API failed');
-                
-                const data = await response.json();
-                const teams = data.teams || [];
-                
-                if (!teams.length) throw new Error('No teams in FPL API response');
-                
-                // Check if we have actual standings data (win, draw, loss, points)
-                const hasStandingsData = teams.some(t => t.win !== undefined || t.played !== undefined);
-                
-                if (!hasStandingsData) {
-                    console.warn('[Standings] FPL API has teams but no standings data');
-                    throw new Error('No standings data in FPL API');
+            // Try multiple methods due to CORS
+            const urls = [
+                'https://fantasy.premierleague.com/api/bootstrap-static/',
+                // CORS proxies as fallback
+                'https://corsproxy.io/?https://fantasy.premierleague.com/api/bootstrap-static/',
+                'https://api.allorigins.win/raw?url=https://fantasy.premierleague.com/api/bootstrap-static/'
+            ];
+            
+            for (const url of urls) {
+                try {
+                    console.log('[Standings] Trying:', url.substring(0, 50) + '...');
+                    const response = await fetch(url);
+                    if (!response.ok) continue;
+                    
+                    const data = await response.json();
+                    const teams = data.teams || [];
+                    
+                    if (!teams.length) continue;
+                    
+                    // Check if we have actual standings data
+                    const hasStandingsData = teams.some(t => 
+                        (t.win !== undefined && t.win > 0) || (t.points !== undefined && t.points > 0)
+                    );
+                    
+                    if (!hasStandingsData) {
+                        console.warn('[Standings] API has teams but no standings data');
+                        continue;
+                    }
+                    
+                    // Build standings from API data
+                    const standings = teams.map(t => ({
+                        id: t.id,
+                        name: t.name,
+                        short_name: t.short_name,
+                        position: t.position || 0,
+                        played: t.played || 0,
+                        wins: t.win || 0,
+                        draws: t.draw || 0,
+                        losses: t.loss || 0,
+                        goalsFor: t.goals_for || t.team_goals_for || 0,
+                        goalsAgainst: t.goals_against || t.team_goals_against || 0,
+                        goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
+                        points: t.points || 0,
+                        cleanSheets: 0,
+                        games: t.played || 0
+                    }));
+                    
+                    // Sort by points
+                    standings.sort((a, b) => {
+                        if (b.points !== a.points) return b.points - a.points;
+                        if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                        return b.goalsFor - a.goalsFor;
+                    });
+                    
+                    standings.forEach((t, idx) => t.position = idx + 1);
+                    
+                    console.log('[Standings] ✅ Fetched real standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    
+                    batchAnalysisCache.plStandings = standings;
+                    batchAnalysisCache.standingsSource = 'api';
+                    return standings;
+                    
+                } catch (error) {
+                    console.warn('[Standings] Failed with', url.substring(0, 30), ':', error.message);
                 }
-                
-                // Build standings from FPL API data
-                const standings = teams.map(t => ({
-                    id: t.id,
-                    name: t.name,
-                    short_name: t.short_name,
-                    position: t.position || 0,
-                    played: t.played || 0,
-                    wins: t.win || 0,
-                    draws: t.draw || 0,
-                    losses: t.loss || 0,
-                    goalsFor: t.goals_for || t.team_goals_for || 0,
-                    goalsAgainst: t.goals_against || t.team_goals_against || 0,
-                    goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
-                    points: t.points || 0,
-                    cleanSheets: 0, // Not in API, calculate later
-                    games: t.played || 0
-                }));
-                
-                // Sort by points (desc), then GD (desc), then GF (desc)
-                standings.sort((a, b) => {
-                    if (b.points !== a.points) return b.points - a.points;
-                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
-                    return b.goalsFor - a.goalsFor;
-                });
-                
-                // Assign positions
-                standings.forEach((t, idx) => t.position = idx + 1);
-                
-                console.log('[Standings] Fetched real standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
-                
-                batchAnalysisCache.plStandings = standings;
-                batchAnalysisCache.standingsSource = 'api';
-                return standings;
-                
-            } catch (error) {
-                console.warn('[Standings] Failed to fetch from FPL API:', error.message);
-                return null;
             }
+            
+            console.error('[Standings] ❌ All fetch methods failed');
+            return null;
         }
         
         // Try to get standings from imported data (plStandings field or bootstrap.teams)
