@@ -10603,16 +10603,17 @@
                         name: t.name,
                         short_name: t.short_name,
                         position: t.position || 0,
-                        played: t.played || 0,
-                        wins: t.win || 0,
-                        draws: t.draw || 0,
-                        losses: t.loss || 0,
-                        goalsFor: t.goals_for || 0,
-                        goalsAgainst: t.goals_against || 0,
-                        goalDiff: t.goal_difference || ((t.goals_for || 0) - (t.goals_against || 0)),
+                        played: t.played || t.games || 0,
+                        wins: t.win || t.wins || 0,
+                        draws: t.draw || t.draws || 0,
+                        losses: t.loss || t.losses || 0,
+                        // Check both snake_case and camelCase
+                        goalsFor: t.goals_for || t.goalsFor || 0,
+                        goalsAgainst: t.goals_against || t.goalsAgainst || 0,
+                        goalDiff: t.goal_difference || t.goalDiff || ((t.goals_for || t.goalsFor || 0) - (t.goals_against || t.goalsAgainst || 0)),
                         points: t.points || 0,
-                        cleanSheets: 0,
-                        games: t.played || 0
+                        cleanSheets: t.cleanSheets || 0,
+                        games: t.played || t.games || 0
                     }));
                     
                     standings.sort((a, b) => {
@@ -10622,7 +10623,7 @@
                     });
                     standings.forEach((t, idx) => t.position = idx + 1);
                     
-                    console.log('[Standings] ✅ Using imported plStandings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    console.log('[Standings] ✅ Using imported plStandings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts, GF:${t.goalsFor}, GA:${t.goalsAgainst})`));
                     batchAnalysisCache.plStandings = standings;
                     batchAnalysisCache.standingsSource = 'imported';
                     return standings;
