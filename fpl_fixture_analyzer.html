@@ -7179,8 +7179,9 @@
                     // Save to localStorage with league data
                     saveLeagueData();
                     
-                    const top5 = standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`).join(', ');
-                    statusDiv.innerHTML = `<span style="color: var(--accent-emerald);">✅ Success! Fetched ${standings.length} teams.<br>Top 5: ${top5}</span>`;
+                    const top5 = standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts, GF:${t.goalsFor})`).join(', ');
+                    const totalGoals = standings.reduce((sum, t) => sum + (t.goalsFor || 0), 0);
+                    statusDiv.innerHTML = `<span style="color: var(--accent-emerald);">✅ Success! Fetched ${standings.length} teams. Total goals: ${totalGoals}<br>Top 5: ${top5}</span>`;
                 } else {
                     statusDiv.innerHTML = '<span style="color: var(--accent-rose);">❌ No standings data returned. Check API key.</span>';
                 }
@@ -7251,7 +7252,7 @@
                         games: entry.playedGames
                     }));
                     
-                    console.log('[Standings] Parsed standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                    console.log('[Standings] Parsed standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts, GF:${t.goalsFor}, GA:${t.goalsAgainst})`));
                     
                     return standings;
                     
