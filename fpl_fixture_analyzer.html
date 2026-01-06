@@ -10210,11 +10210,152 @@
             teamStats: {},         // teamId -> { vsBatch: { goals, conceded, cs, games } }
             playerStats: {},       // playerId -> { vsBatch: { goals, assists, defcon, bonus, cards, games } }
             leagueAverages: {},    // League-wide averages for cross-reference
-            plStandings: [],       // Calculated PL standings
+            plStandings: [],       // Real or calculated PL standings
+            standingsSource: null, // 'api', 'bootstrap', or 'calculated'
             lastComputed: null
         };
         
-        // Calculate actual PL standings from player history data
+        // Fetch REAL PL standings from FPL API
+        async function fetchRealPLStandings() {
+            console.log('[Standings] Fetching real PL standings from FPL API...');
+            
+            try {
+                // Try FPL regular API first (has actual league standings)
+                const response = await fetch('https://fantasy.premierleague.com/api/bootstrap-static/');
+                if (!response.ok) throw new Error('FPL API failed');
+                
+                const data = await response.json();
+                const teams = data.teams || [];
+                
+                if (!teams.length) throw new Error('No teams in FPL API response');
+                
+                // Check if we have actual standings data (win, draw, loss, points)
+                const hasStandingsData = teams.some(t => t.win !== undefined || t.played !== undefined);
+                
+                if (!hasStandingsData) {
+                    console.warn('[Standings] FPL API has teams but no standings data');
+                    throw new Error('No standings data in FPL API');
+                }
+                
+                // Build standings from FPL API data
+                const standings = teams.map(t => ({
+                    id: t.id,
+                    name: t.name,
+                    short_name: t.short_name,
+                    position: t.position || 0,
+                    played: t.played || 0,
+                    wins: t.win || 0,
+                    draws: t.draw || 0,
+                    losses: t.loss || 0,
+                    goalsFor: t.goals_for || t.team_goals_for || 0,
+                    goalsAgainst: t.goals_against || t.team_goals_against || 0,
+                    goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
+                    points: t.points || 0,
+                    cleanSheets: 0, // Not in API, calculate later
+                    games: t.played || 0
+                }));
+                
+                // Sort by points (desc), then GD (desc), then GF (desc)
+                standings.sort((a, b) => {
+                    if (b.points !== a.points) return b.points - a.points;
+                    if (b.goalDiff !== a.goalDiff) return b.goalDiff - a.goalDiff;
+                    return b.goalsFor - a.goalsFor;
+                });
+                
+                // Assign positions
+                standings.forEach((t, idx) => t.position = idx + 1);
+                
+                console.log('[Standings] Fetched real standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+                
+                batchAnalysisCache.plStandings = standings;
+                batchAnalysisCache.standingsSource = 'api';
+                return standings;
+                
+            } catch (error) {
+                console.warn('[Standings] Failed to fetch from FPL API:', error.message);
+                return null;
+            }
+        }
+        
+        // Try to get standings from imported bootstrap data
+        function getStandingsFromBootstrap() {
+            console.log('[Standings] Checking bootstrap data for standings...');
+            
+            if (!importedBootstrap?.teams) return null;
+            
+            const teams = importedBootstrap.teams;
+            
+            // Check if bootstrap has actual standings (win, draw, loss, points)
+            const hasStandingsData = teams.some(t => 
+                t.win !== undefined || t.points !== undefined || t.played !== undefined
+            );
+            
+            if (!hasStandingsData) {
+                console.log('[Standings] Bootstrap has no standings data');
+                return null;
+            }
+            
+            const standings = teams.map(t => ({
+                id: t.id,
+                name: t.name,
+                short_name: t.short_name,
+                position: t.position || 0,
+                played: t.played || 0,
+                wins: t.win || 0,
+                draws: t.draw || 0,
+                losses: t.loss || 0,
+                goalsFor: t.goals_for || t.team_goals_for || 0,
+                goalsAgainst: t.goals_against || t.team_goals_against || 0,
+                goalDiff: (t.goals_for || 0) - (t.goals_against || 0),
+                points: t.points || 0,
+                cleanSheets: 0,
+                games: t.played || 0
+            }));
+            
+            // Sort by points
+            standings.sort((a, b) => {
+                if (b.points !== a.points) return b.points - a.points;
+                const gdA = a.goalsFor - a.goalsAgainst;
+                const gdB = b.goalsFor - b.goalsAgainst;
+                if (gdB !== gdA) return gdB - gdA;
+                return b.goalsFor - a.goalsFor;
+            });
+            
+            standings.forEach((t, idx) => t.position = idx + 1);
+            
+            console.log('[Standings] Got standings from bootstrap:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+            
+            batchAnalysisCache.plStandings = standings;
+            batchAnalysisCache.standingsSource = 'bootstrap';
+            return standings;
+        }
+        
+        // Main function to get best available standings
+        async function getBestAvailableStandings() {
+            console.log('[Standings] ====== GETTING BEST AVAILABLE STANDINGS ======');
+            
+            // Priority 1: Try bootstrap data (already imported)
+            let standings = getStandingsFromBootstrap();
+            if (standings && standings.length > 0 && standings[0].points > 0) {
+                console.log('[Standings] Using bootstrap standings');
+                return standings;
+            }
+            
+            // Priority 2: Fetch from FPL API
+            standings = await fetchRealPLStandings();
+            if (standings && standings.length > 0) {
+                console.log('[Standings] Using FPL API standings');
+                return standings;
+            }
+            
+            // Priority 3: Fall back to calculated from history
+            console.log('[Standings] Falling back to calculated standings from player history');
+            standings = calculatePLStandingsFromHistory();
+            batchAnalysisCache.standingsSource = 'calculated';
+            return standings;
+        }
+        
+        // Calculate PL standings from player history data (FALLBACK)
         function calculatePLStandingsFromHistory() {
             console.log('[Batch] Calculating PL standings from player history...');
             
@@ -10794,7 +10935,7 @@
         }
         
         // Initialize the batch analysis system
-        function initBatchAnalysis() {
+        async function initBatchAnalysis() {
             console.log('[Batch] ====== INITIALIZING BATCH ANALYSIS ======');
             console.log('[Batch] Data available:', {
                 hasBootstrap: !!importedBootstrap,
@@ -10804,9 +10945,10 @@
                 playerDetailsCount: Object.keys(importedPlayerDetails || {}).length
             });
             
-            // Calculate standings first
-            const standings = calculatePLStandingsFromHistory();
-            console.log('[Batch] Standings calculated:', standings.length, 'teams');
+            // Get best available standings (API > Bootstrap > Calculated)
+            const standings = await getBestAvailableStandings();
+            console.log('[Batch] Standings source:', batchAnalysisCache.standingsSource);
+            console.log('[Batch] Standings count:', standings?.length || 0);
             
             // Build batch map using standings
             buildBatchMap();
@@ -10822,7 +10964,8 @@
             console.log('[Batch] Results:', {
                 teamsInBatchMap: Object.keys(batchAnalysisCache.teamBatchMap).length,
                 playersWithStats: Object.keys(batchAnalysisCache.playerStats).length,
-                standingsCount: batchAnalysisCache.plStandings.length
+                standingsCount: batchAnalysisCache.plStandings.length,
+                source: batchAnalysisCache.standingsSource
             });
             
             // Log top 5 teams
@@ -10866,10 +11009,10 @@
         }
         
         // Initialize predictions tab
-        function initPredictionsTab() {
+        async function initPredictionsTab() {
             // Initialize batch analysis for predictions
             if (!batchAnalysisCache.lastComputed && importedPlayerDetails && importedBootstrap) {
-                initBatchAnalysis();
+                await initBatchAnalysis();
             }
             
             // Populate GW selector
@@ -10900,12 +11043,12 @@
         }
         
         // Main prediction calculator for a gameweek (BATCH-BASED)
-        function calculateGWPredictions(gameweek) {
+        async function calculateGWPredictions(gameweek) {
             if (!importedLeagueData || !importedBootstrap) return [];
             
             // Initialize batch analysis if not done
             if (!batchAnalysisCache.lastComputed) {
-                initBatchAnalysis();
+                await initBatchAnalysis();
             }
             
             const squads = importedLeagueData.squads || {};
@@ -11217,9 +11360,9 @@
         }
         
         // Render predictions tab
-        function renderPredictionsTab() {
+        async function renderPredictionsTab() {
             const selectedGW = parseInt(document.getElementById('predictionGW')?.value) || getCurrentGameweek();
-            const predictions = calculateGWPredictions(selectedGW);
+            const predictions = await calculateGWPredictions(selectedGW);
             
             if (predictions.length === 0) {
                 document.getElementById('predictionRankings').innerHTML = '<p style="color: var(--text-muted);">No prediction data available. Make sure league data is imported.</p>';
@@ -11350,7 +11493,7 @@
         }
         
         // Render player breakdown table
-        function renderPlayerBreakdown() {
+        async function renderPlayerBreakdown() {
             const teamSelect = document.getElementById('breakdownTeamSelect');
             const showOptimalOnly = document.getElementById('showOptimal11Only')?.checked;
             
@@ -11360,7 +11503,7 @@
             }
             
             const selectedGW = parseInt(document.getElementById('predictionGW')?.value) || getCurrentGameweek();
-            const predictions = calculateGWPredictions(selectedGW);
+            const predictions = await calculateGWPredictions(selectedGW);
             const teamPred = predictions.find(p => String(p.entryId) === teamSelect.value);
             
             if (!teamPred) {
@@ -11505,10 +11648,10 @@
         // PL STATS TAB FUNCTIONS
         // ============================================
         
-        function initPLStatsTab() {
+        async function initPLStatsTab() {
             // Ensure batch analysis is done so we have calculated standings
             if (!batchAnalysisCache.lastComputed && importedPlayerDetails && importedBootstrap) {
-                initBatchAnalysis();
+                await initBatchAnalysis();
             }
             renderPLStandings();
             renderPLTeamCards();
@@ -11543,9 +11686,18 @@
                 }));
             }
             
+            const sourceLabels = {
+                'api': '✅ Real PL standings fetched from FPL API',
+                'bootstrap': '📊 Standings from imported bootstrap data (W/D/L/Pts)',
+                'calculated': '⚠️ Estimated from GK clean sheets and goals - NOT ACCURATE'
+            };
+            const sourceLabel = sourceLabels[batchAnalysisCache.standingsSource] || 'Unknown source';
+            const sourceColor = batchAnalysisCache.standingsSource === 'api' ? 'var(--accent-emerald)' : 
+                               batchAnalysisCache.standingsSource === 'bootstrap' ? 'var(--accent-cyan)' : 'var(--accent-amber)';
+            
             let html = `
-            <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; font-size: 0.8rem; color: var(--text-muted);">
-                <strong>Note:</strong> Standings calculated from GK clean sheets and goals conceded data in your exported player history.
+            <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; font-size: 0.8rem;">
+                <strong style="color: ${sourceColor};">${sourceLabel}</strong>
             </div>
             <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
                 <thead>
@@ -11764,7 +11916,7 @@
         }
         
         // Use current imported data to generate simulation
-        function useCurrentData() {
+        async function useCurrentData() {
             if (!importedLeagueData || !importedBootstrap) {
                 document.getElementById('simulationResults').innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: var(--accent-rose);">
@@ -11774,7 +11926,7 @@
             }
             
             const currentGW = getCurrentGameweek();
-            const predictions = calculateGWPredictions(currentGW);
+            const predictions = await calculateGWPredictions(currentGW);
             
             simulationData = {
                 gameweek: currentGW,
