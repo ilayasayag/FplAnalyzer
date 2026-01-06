@@ -2591,6 +2591,28 @@
                         </button>
                     </div>
                 </div>
+                
+                <!-- Football-Data.org API Key for PL Standings -->
+                <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-amber);">
+                    <h3 style="color: var(--accent-amber); margin-bottom: 1rem;">📊 PL Standings API Key (Optional)</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1rem;">
+                        To get <strong>real Premier League standings</strong> (W/D/L/Pts), you need a free API key from football-data.org.
+                        <br><a href="https://www.football-data.org/client/register" target="_blank" style="color: var(--accent-cyan);">→ Sign up for free API key (takes 30 seconds)</a>
+                    </p>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; align-items: flex-end;">
+                        <div class="control-group" style="flex: 1; min-width: 250px;">
+                            <label>Football-Data.org API Key</label>
+                            <input type="text" id="footballDataApiKey" placeholder="Paste your API key here..." style="width: 100%; font-family: monospace;">
+                        </div>
+                        <button onclick="saveFootballDataApiKey()" style="padding: 0.75rem 1.5rem; background: var(--accent-amber);">
+                            💾 Save Key
+                        </button>
+                        <button onclick="testFootballDataApiKey()" style="padding: 0.75rem 1.5rem; background: var(--accent-emerald);">
+                            🧪 Test & Fetch Standings
+                        </button>
+                    </div>
+                    <div id="apiKeyStatus" style="margin-top: 0.75rem; font-size: 0.85rem; display: none;"></div>
+                </div>
 
                 <!-- Step 3: Upload or Paste Data -->
                 <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-emerald);">
@@ -7093,6 +7115,125 @@
         
         // LocalStorage key for persisting data
         const STORAGE_KEY = 'fpl_league_data';
+        const API_KEY_STORAGE = 'football_data_api_key';
+        
+        // ========== FOOTBALL-DATA.ORG API KEY FUNCTIONS ==========
+        
+        function saveFootballDataApiKey() {
+            const keyInput = document.getElementById('footballDataApiKey');
+            const statusDiv = document.getElementById('apiKeyStatus');
+            const key = keyInput.value.trim();
+            
+            if (!key) {
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<span style="color: var(--accent-rose);">❌ Please enter an API key</span>';
+                return;
+            }
+            
+            localStorage.setItem(API_KEY_STORAGE, key);
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<span style="color: var(--accent-emerald);">✅ API key saved! Click "Test & Fetch Standings" to verify.</span>';
+        }
+        
+        function loadFootballDataApiKey() {
+            const saved = localStorage.getItem(API_KEY_STORAGE);
+            if (saved) {
+                const keyInput = document.getElementById('footballDataApiKey');
+                if (keyInput) {
+                    keyInput.value = saved;
+                }
+            }
+            return saved;
+        }
+        
+        async function testFootballDataApiKey() {
+            const keyInput = document.getElementById('footballDataApiKey');
+            const statusDiv = document.getElementById('apiKeyStatus');
+            const key = keyInput?.value?.trim() || localStorage.getItem(API_KEY_STORAGE);
+            
+            if (!key) {
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = '<span style="color: var(--accent-rose);">❌ No API key found. Please enter your key first.</span>';
+                return;
+            }
+            
+            statusDiv.style.display = 'block';
+            statusDiv.innerHTML = '<span style="color: var(--accent-cyan);">⏳ Fetching PL standings...</span>';
+            
+            try {
+                const standings = await fetchStandingsFromFootballData(key);
+                
+                if (standings && standings.length > 0) {
+                    // Save key since it works
+                    localStorage.setItem(API_KEY_STORAGE, key);
+                    
+                    // Store standings globally
+                    window.importedPLStandings = standings;
+                    
+                    // Update batch cache if initialized
+                    if (batchAnalysisCache) {
+                        batchAnalysisCache.plStandings = standings;
+                        batchAnalysisCache.standingsSource = 'football-data.org';
+                    }
+                    
+                    // Save to localStorage with league data
+                    saveLeagueData();
+                    
+                    const top5 = standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`).join(', ');
+                    statusDiv.innerHTML = `<span style="color: var(--accent-emerald);">✅ Success! Fetched ${standings.length} teams.<br>Top 5: ${top5}</span>`;
+                } else {
+                    statusDiv.innerHTML = '<span style="color: var(--accent-rose);">❌ No standings data returned. Check API key.</span>';
+                }
+            } catch (error) {
+                statusDiv.innerHTML = `<span style="color: var(--accent-rose);">❌ Error: ${error.message}</span>`;
+            }
+        }
+        
+        async function fetchStandingsFromFootballData(apiKey) {
+            console.log('[Standings] Fetching from football-data.org...');
+            
+            const response = await fetch('https://api.football-data.org/v4/competitions/PL/standings', {
+                headers: {
+                    'X-Auth-Token': apiKey
+                }
+            });
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Standings] API error:', response.status, errorText);
+                if (response.status === 403) {
+                    throw new Error('Invalid API key or rate limit exceeded');
+                }
+                throw new Error(`API returned ${response.status}`);
+            }
+            
+            const data = await response.json();
+            console.log('[Standings] Raw API response:', data);
+            
+            // Parse the standings from football-data.org format
+            const table = data.standings?.[0]?.table || [];
+            
+            const standings = table.map(entry => ({
+                id: entry.team.id,
+                name: entry.team.name,
+                short_name: entry.team.tla || entry.team.shortName || entry.team.name.substring(0, 3).toUpperCase(),
+                position: entry.position,
+                played: entry.playedGames,
+                wins: entry.won,
+                draws: entry.draw,
+                losses: entry.lost,
+                goalsFor: entry.goalsFor,
+                goalsAgainst: entry.goalsAgainst,
+                goalDiff: entry.goalDifference,
+                points: entry.points,
+                cleanSheets: 0,
+                games: entry.playedGames
+            }));
+            
+            console.log('[Standings] Parsed standings:', standings.slice(0, 5).map(t => `${t.position}. ${t.short_name} (${t.points}pts)`));
+            
+            return standings;
+        }
         
         // Try to load saved data on init
         function loadSavedData() {
@@ -7359,6 +7500,9 @@
         function initLeagueImport() {
             generateBookmarklet();
             setupDropZone();
+            
+            // Load saved football-data.org API key
+            loadFootballDataApiKey();
             
             // Try to load saved data
             const savedData = loadSavedData();
@@ -10514,22 +10658,37 @@
         async function getBestAvailableStandings() {
             console.log('[Standings] ====== GETTING BEST AVAILABLE STANDINGS ======');
             
-            // Priority 1: Try imported plStandings (from bookmarklet's FPL API fetch)
+            // Priority 1: Try imported plStandings (already fetched and stored)
             let standings = getStandingsFromImportedData();
             if (standings && standings.length > 0 && standings[0].points > 0) {
                 console.log('[Standings] Using imported standings (source:', batchAnalysisCache.standingsSource, ')');
                 return standings;
             }
             
-            // Priority 2: Fetch from FPL API directly
-            standings = await fetchRealPLStandings();
-            if (standings && standings.length > 0 && standings[0].points > 0) {
-                console.log('[Standings] Using FPL API standings');
-                return standings;
+            // Priority 2: Fetch from football-data.org if we have an API key
+            const apiKey = localStorage.getItem(API_KEY_STORAGE);
+            if (apiKey) {
+                try {
+                    console.log('[Standings] Trying football-data.org with saved API key...');
+                    standings = await fetchStandingsFromFootballData(apiKey);
+                    if (standings && standings.length > 0 && standings[0].points > 0) {
+                        window.importedPLStandings = standings;
+                        batchAnalysisCache.plStandings = standings;
+                        batchAnalysisCache.standingsSource = 'football-data.org';
+                        saveLeagueData(); // Persist
+                        console.log('[Standings] ✅ Using football-data.org standings');
+                        return standings;
+                    }
+                } catch (error) {
+                    console.warn('[Standings] football-data.org fetch failed:', error.message);
+                }
+            } else {
+                console.log('[Standings] No football-data.org API key saved');
             }
             
             // Priority 3: Fall back to calculated from history (LAST RESORT)
             console.warn('[Standings] ⚠️ Falling back to ESTIMATED standings - NOT ACCURATE');
+            console.warn('[Standings] 💡 Add a football-data.org API key for real standings!');
             standings = calculatePLStandingsFromHistory();
             batchAnalysisCache.standingsSource = 'calculated';
             return standings;
@@ -11867,13 +12026,17 @@
             }
             
             const sourceLabels = {
+                'football-data.org': '✅ Real PL standings from football-data.org API',
+                'imported': '✅ Real PL standings from imported data',
                 'api': '✅ Real PL standings fetched from FPL API',
+                'draft_bootstrap': '📊 Standings from Draft bootstrap data',
                 'bootstrap': '📊 Standings from imported bootstrap data (W/D/L/Pts)',
-                'calculated': '⚠️ Estimated from GK clean sheets and goals - NOT ACCURATE'
+                'calculated': '⚠️ Estimated from GK clean sheets - NOT ACCURATE. Add a football-data.org API key for real standings!'
             };
             const sourceLabel = sourceLabels[batchAnalysisCache.standingsSource] || 'Unknown source';
-            const sourceColor = batchAnalysisCache.standingsSource === 'api' ? 'var(--accent-emerald)' : 
-                               batchAnalysisCache.standingsSource === 'bootstrap' ? 'var(--accent-cyan)' : 'var(--accent-amber)';
+            const isGoodSource = ['football-data.org', 'imported', 'api'].includes(batchAnalysisCache.standingsSource);
+            const sourceColor = isGoodSource ? 'var(--accent-emerald)' : 
+                               batchAnalysisCache.standingsSource === 'calculated' ? 'var(--accent-rose)' : 'var(--accent-cyan)';
             
             let html = `
             <div style="margin-bottom: 1rem; padding: 0.75rem; background: var(--bg-secondary); border-radius: 8px; font-size: 0.8rem;">
