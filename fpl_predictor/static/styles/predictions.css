@@ -1,0 +1,442 @@
+/**
+ * FPL Analyzer - Predictions Styles
+ * GW simulation, player breakdown, H2H
+ */
+
+/* =============================================================================
+   Predictions Grid
+   ============================================================================= */
+
+.predictions-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.prediction-card {
+    background: var(--bg-tertiary);
+    border-radius: 16px;
+    padding: 1.5rem;
+    border: 1px solid var(--border-color);
+    transition: all 0.3s ease;
+}
+
+.prediction-card:hover {
+    border-color: var(--accent-cyan);
+    transform: translateY(-2px);
+}
+
+.prediction-card.winner {
+    border-color: var(--accent-emerald);
+    box-shadow: 0 0 20px rgba(16, 185, 129, 0.2);
+}
+
+.team-rank-bar {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+/* =============================================================================
+   Player Breakdown Table
+   ============================================================================= */
+
+.player-breakdown-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.85rem;
+}
+
+.player-breakdown-table th {
+    background: var(--bg-secondary);
+    padding: 0.75rem 0.5rem;
+    text-align: left;
+    font-weight: 500;
+    color: var(--text-secondary);
+    border-bottom: 2px solid var(--border-color);
+}
+
+.player-breakdown-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.player-breakdown-table tr:hover {
+    background: var(--bg-tertiary);
+}
+
+.player-breakdown-table tr.starter {
+    background: rgba(16, 185, 129, 0.05);
+}
+
+.player-breakdown-table tr.bench {
+    opacity: 0.6;
+}
+
+.stat-cell {
+    text-align: center;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.8rem;
+}
+
+.stat-cell.highlight { color: var(--accent-emerald); font-weight: 600; }
+.stat-cell.negative { color: var(--accent-rose); }
+
+/* =============================================================================
+   H2H Matchup
+   ============================================================================= */
+
+.h2h-matchup-card {
+    background: var(--bg-tertiary);
+    border-radius: 16px;
+    padding: 1.5rem;
+    margin-bottom: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.h2h-teams {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.h2h-team {
+    flex: 1;
+    text-align: center;
+}
+
+.h2h-team-name {
+    font-weight: 600;
+    font-size: 1.1rem;
+}
+
+.h2h-team-points {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+    color: var(--accent-cyan);
+    margin-top: 0.25rem;
+}
+
+.h2h-vs {
+    color: var(--text-muted);
+    font-size: 0.9rem;
+    padding: 0 1rem;
+}
+
+.win-probability-bar {
+    height: 32px;
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex;
+    margin-bottom: 0.75rem;
+}
+
+.win-prob-segment {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.8rem;
+    font-weight: 600;
+    transition: width 0.5s ease;
+}
+
+.win-prob-segment.team1 { background: var(--accent-cyan); color: #000; }
+.win-prob-segment.draw { background: var(--text-muted); color: #fff; }
+.win-prob-segment.team2 { background: var(--accent-violet); color: #fff; }
+
+.h2h-stats-comparison {
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.h2h-stat-row {
+    display: contents;
+}
+
+.h2h-stat-value {
+    font-family: 'JetBrains Mono', monospace;
+    font-weight: 600;
+}
+
+.h2h-stat-value.left {
+    text-align: right;
+}
+
+.h2h-stat-value.right {
+    text-align: left;
+}
+
+.h2h-stat-label {
+    text-align: center;
+    color: var(--text-muted);
+    font-size: 0.8rem;
+}
+
+/* =============================================================================
+   Simulation Results
+   ============================================================================= */
+
+.simulation-results {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-top: 1rem;
+}
+
+.result-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    background: var(--bg-tertiary);
+    border-radius: 10px;
+    margin-bottom: 0.5rem;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.85rem;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.2s;
+}
+
+.result-row:hover {
+    border-color: var(--accent-cyan);
+}
+
+.result-rank {
+    font-weight: 700;
+    color: var(--accent-cyan);
+    min-width: 40px;
+    font-size: 1rem;
+}
+
+.result-teams {
+    flex: 1;
+    margin-left: 1rem;
+}
+
+.result-score {
+    font-weight: 600;
+    padding: 0.5rem 1rem;
+    border-radius: 10px;
+    background: rgba(16, 185, 129, 0.15);
+    color: var(--easy-game);
+    text-align: right;
+    min-width: 140px;
+}
+
+/* =============================================================================
+   Player Cards
+   ============================================================================= */
+
+.player-card-mini {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.4rem 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 0.8rem;
+    margin: 0.25rem;
+    border: 1px solid var(--border-color);
+}
+
+.player-card-mini.high-conf {
+    border-color: var(--easy-game);
+    background: rgba(16, 185, 129, 0.1);
+}
+
+.player-card-mini.med-conf {
+    border-color: var(--accent-amber);
+    background: rgba(245, 158, 11, 0.1);
+}
+
+.player-card-mini.low-conf {
+    border-color: var(--accent-rose);
+    background: rgba(244, 63, 94, 0.1);
+}
+
+/* =============================================================================
+   Charts
+   ============================================================================= */
+
+.chart-container {
+    position: relative;
+    height: 400px;
+    margin-top: 1rem;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
+    gap: 2rem;
+}
+
+/* =============================================================================
+   Squad Analysis
+   ============================================================================= */
+
+.squad-builder {
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 2rem;
+}
+
+.position-section {
+    margin-bottom: 1.5rem;
+}
+
+.position-title {
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.player-checkboxes {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.player-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background: var(--bg-tertiary);
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.player-checkbox:hover {
+    border-color: var(--accent-cyan);
+}
+
+.player-checkbox.selected {
+    background: rgba(34, 211, 238, 0.2);
+    border-color: var(--accent-cyan);
+}
+
+.player-checkbox input {
+    display: none;
+}
+
+.squad-summary {
+    background: var(--bg-tertiary);
+    border-radius: 14px;
+    padding: 1.5rem;
+    position: sticky;
+    top: 2rem;
+    height: fit-content;
+}
+
+.squad-counter {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1.5rem;
+}
+
+.counter-item {
+    text-align: center;
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.counter-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.counter-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+/* =============================================================================
+   PL Standings / Team Cards
+   ============================================================================= */
+
+.pl-team-card {
+    background: var(--bg-tertiary);
+    border-radius: 12px;
+    padding: 1rem;
+    border: 1px solid var(--border-color);
+}
+
+.pl-team-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 0.75rem;
+}
+
+.pl-team-name {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.pl-team-rank {
+    background: var(--bg-secondary);
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.pl-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    text-align: center;
+}
+
+.pl-stat {
+    padding: 0.5rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+.pl-stat-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.pl-stat-label {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+}
+
+.form-indicator {
+    display: flex;
+    gap: 3px;
+    justify-content: center;
+    margin-top: 0.5rem;
+}
+
+.form-dot {
+    width: 18px;
+    height: 18px;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+}
+
+.form-dot.W { background: var(--accent-emerald); color: #000; }
+.form-dot.D { background: var(--accent-amber); color: #000; }
+.form-dot.L { background: var(--accent-rose); color: white; }
+

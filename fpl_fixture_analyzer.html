@@ -1726,13 +1726,14 @@
 <body>
     <div class="container">
         <header>
-            <h1>⚽ FPL Fixture Rotation Analyzer</h1>
-            <p class="subtitle">Optimize your 15-player squad with fixture difficulty analysis & rotation simulations</p>
+            <h1>⚽ FPL League Analyzer</h1>
+            <p class="subtitle">Comprehensive FPL Draft analysis with batch predictions, H2H matchups & squad optimization</p>
         </header>
 
         <!-- Tabs Navigation -->
         <div class="tabs">
-            <button class="tab active" onclick="showTab('fixtures')">📅 Fixture Grid</button>
+            <button class="tab active" onclick="showTab('leagueimport')">🏆 League Analyzer</button>
+            <button class="tab" onclick="showTab('fixtures')">📅 Fixture Grid</button>
             <button class="tab" onclick="showTab('overlap')">🔄 Team Overlaps</button>
             <button class="tab" onclick="showTab('simulation')">🎲 N-K-D Simulation</button>
             <button class="tab" onclick="showTab('charts')">📊 Visualizations</button>
@@ -1740,11 +1741,10 @@
             <button class="tab" onclick="showTab('mockdraft')">🎯 Mock Draft</button>
             <button class="tab" onclick="showTab('players')">⭐ Players Manager</button>
             <button class="tab" onclick="showTab('mysquad')">🏟️ My Squad Analysis</button>
-            <button class="tab" onclick="showTab('leagueimport')">🌐 League Import</button>
         </div>
 
         <!-- Fixture Grid Tab -->
-        <div id="fixtures" class="tab-content active">
+        <div id="fixtures" class="tab-content">
             <div class="section">
                 <h2 class="section-title">Fixture Difficulty Rating (GW20-38)</h2>
                 
@@ -2532,13 +2532,31 @@
             </div>
         </div>
 
-        <!-- League Import Tab -->
-        <div id="leagueimport" class="tab-content">
+        <!-- League Import Tab (Default) -->
+        <div id="leagueimport" class="tab-content active">
             <div class="section">
-                <h2 class="section-title">🌐 FPL Draft League Import</h2>
+                <h2 class="section-title">🏆 FPL League Analyzer</h2>
                 <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
                     Import your FPL Draft league data to analyze all teams, compare squads, and get insights.
                 </p>
+
+                <!-- Auto-Import from Server -->
+                <div id="serverDataStatus" style="display: none; background: rgba(139, 92, 246, 0.15); border: 2px solid var(--accent-violet); border-radius: 12px; padding: 1.25rem; margin-bottom: 1.5rem;">
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <span style="color: var(--accent-violet); font-weight: 700; font-size: 1.1rem;">📁 Server Data Available</span>
+                            <div id="serverFileInfo" style="color: var(--text-secondary); font-size: 0.9rem; margin-top: 0.25rem;"></div>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="loadFromServer()" style="padding: 0.6rem 1.25rem; background: linear-gradient(135deg, var(--accent-violet), var(--accent-cyan)); font-weight: 600;">
+                                🚀 Auto-Load Latest
+                            </button>
+                            <button onclick="refreshServerFiles()" style="padding: 0.6rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color);">
+                                🔄
+                            </button>
+                        </div>
+                    </div>
+                </div>
 
                 <!-- Saved Data Status -->
                 <div id="savedDataStatus" style="display: none; background: rgba(16, 185, 129, 0.1); border: 1px solid var(--accent-emerald); border-radius: 12px; padding: 1rem; margin-bottom: 1.5rem;"></div>
@@ -4464,6 +4482,9 @@
         
         // Initialize
         document.addEventListener('DOMContentLoaded', () => {
+            // Initialize League Analyzer tab first (default tab)
+            initLeagueImport();
+            
             // Apply manual overrides on load
             fixtureData = createWeightedFixtureData();
             applyManualOverrides();
@@ -7564,6 +7585,9 @@
             // Load saved football-data.org API key
             loadFootballDataApiKey();
             
+            // Check for server data files first
+            checkServerDataFiles();
+            
             // Try to load saved data
             const savedData = loadSavedData();
             if (savedData) {
@@ -7622,6 +7646,9 @@
                 if (importedLeagueData && importedLeagueData.league) {
                     renderLeagueAnalysis();
                 }
+            } else {
+                // No saved data - try auto-loading from server
+                autoLoadFromServerIfAvailable();
             }
             
             // Listen for tab focus to try auto-import from clipboard
@@ -7630,6 +7657,176 @@
                     tryAutoImportFromClipboard(true); // silent mode
                 }
             });
+        }
+        
+        // Check for available server data files
+        async function checkServerDataFiles() {
+            try {
+                const response = await fetch('/api/data-files');
+                if (!response.ok) return;
+                
+                const result = await response.json();
+                if (result.files && result.files.length > 0) {
+                    const statusDiv = document.getElementById('serverDataStatus');
+                    const infoDiv = document.getElementById('serverFileInfo');
+                    
+                    const newest = result.newest;
+                    infoDiv.innerHTML = `
+                        <strong>${newest.filename}</strong> (${newest.size_mb} MB)
+                        ${result.count > 1 ? `<span style="color: var(--text-muted);"> • ${result.count} files available</span>` : ''}
+                    `;
+                    statusDiv.style.display = 'block';
+                    
+                    // Store for later use
+                    window.serverDataFiles = result.files;
+                }
+            } catch (e) {
+                console.log('[Server] No server data files available:', e.message);
+            }
+        }
+        
+        // Refresh server files list
+        function refreshServerFiles() {
+            checkServerDataFiles();
+            showNotification('🔄 Refreshed server file list', 'info');
+        }
+        
+        // Auto-load from server if no saved data and files available
+        async function autoLoadFromServerIfAvailable() {
+            try {
+                const response = await fetch('/api/data-files');
+                if (!response.ok) return;
+                
+                const result = await response.json();
+                if (result.newest) {
+                    console.log('[AutoLoad] Found server data file:', result.newest.filename);
+                    // Auto-load the newest file
+                    loadFromServer(true); // silent mode
+                }
+            } catch (e) {
+                console.log('[AutoLoad] Server not available:', e.message);
+            }
+        }
+        
+        // Load data from server
+        async function loadFromServer(silent = false) {
+            try {
+                if (!silent) {
+                    showNotification('🔄 Loading data from server...', 'info');
+                }
+                
+                const response = await fetch('/api/auto-load', { method: 'POST' });
+                const result = await response.json();
+                
+                if (!result.success) {
+                    if (!silent) {
+                        showNotification(`❌ ${result.error}: ${result.message}`, 'error');
+                    }
+                    return;
+                }
+                
+                // Process the data (same as processLeagueData)
+                const data = result.data;
+                
+                // Set league data
+                if (data.league) {
+                    importedLeagueData = data.league;
+                }
+                
+                // Add squads to league data (they're at top level in JSON)
+                if (data.squads) {
+                    importedLeagueData.squads = data.squads;
+                }
+                
+                // Add transactions to league data
+                if (data.transactions) {
+                    importedLeagueData.transactions = data.transactions;
+                }
+                
+                // Add current event
+                if (data.currentEvent) {
+                    importedLeagueData.currentEvent = data.currentEvent;
+                }
+                
+                // Store fetch time
+                if (data.fetchedAt) {
+                    importedLeagueData.fetchedAt = data.fetchedAt;
+                }
+                
+                // Set other global data
+                if (data.elements) importedElementStatus = data.elements;
+                if (data.bootstrap) importedBootstrap = data.bootstrap;
+                if (data.playerDetails) importedPlayerDetails = data.playerDetails;
+                
+                // Load PL standings and fixtures if present
+                if (data.plStandings && data.plStandings.length > 0) {
+                    window.importedPLStandings = data.plStandings;
+                    console.log('[Server] Loaded PL standings:', data.plStandings.length, 'teams');
+                }
+                if (data.plFixtures && data.plFixtures.length > 0) {
+                    window.importedPLFixtures = data.plFixtures;
+                    console.log('[Server] Loaded PL fixtures:', data.plFixtures.length, 'fixtures');
+                }
+                
+                // Build maps from bootstrap data
+                if (importedBootstrap) {
+                    buildFplTeamIdMap();
+                    buildElementMap();
+                }
+                
+                // Apply transactions to update squads with trades/waivers
+                if (importedLeagueData?.squads && importedLeagueData?.transactions) {
+                    applyTransactionsToSquads();
+                }
+                
+                console.log('[Server] Data loaded - Squads:', Object.keys(importedLeagueData?.squads || {}).length);
+                
+                // Save to localStorage for persistence
+                saveLeagueData();
+                
+                // Show success and render
+                const msg = `✅ Loaded ${result.filename} from server`;
+                if (!silent) {
+                    showNotification(msg, 'success');
+                }
+                console.log('[Server]', msg);
+                
+                // Update saved status
+                const statusDiv = document.getElementById('savedDataStatus');
+                statusDiv.style.display = 'block';
+                statusDiv.innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                        <div>
+                            <span style="color: var(--accent-emerald); font-weight: 600;">✅ Data Loaded from Server</span>
+                            <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">
+                                File: ${result.filename}
+                            </span>
+                        </div>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="loadFromServer()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem;">
+                                🔄 Reload from Server
+                            </button>
+                            <button onclick="renderLeagueAnalysis()" style="padding: 0.5rem 1rem; background: var(--accent-emerald); font-size: 0.85rem;">
+                                📊 Show Analysis
+                            </button>
+                            <button onclick="clearSavedData()" style="padding: 0.5rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); font-size: 0.85rem;">
+                                🗑️ Clear
+                            </button>
+                        </div>
+                    </div>
+                `;
+                
+                // Render analysis
+                if (importedLeagueData && importedLeagueData.league) {
+                    renderLeagueAnalysis();
+                }
+                
+            } catch (e) {
+                console.error('[Server] Load error:', e);
+                if (!silent) {
+                    showNotification(`❌ Failed to load from server: ${e.message}`, 'error');
+                }
+            }
         }
         
         // Try to import FPL data from clipboard

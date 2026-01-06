@@ -1,0 +1,352 @@
+/**
+ * FPL Analyzer - Component Styles
+ * Buttons, forms, cards, badges
+ */
+
+/* =============================================================================
+   Buttons
+   ============================================================================= */
+
+button {
+    background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet));
+    border: none;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    color: #000;
+    font-weight: 600;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    font-family: 'Outfit', sans-serif;
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 30px rgba(34, 211, 238, 0.3);
+}
+
+button:active {
+    transform: translateY(0);
+}
+
+button.secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+}
+
+button.secondary:hover {
+    border-color: var(--accent-cyan);
+    box-shadow: none;
+}
+
+button.danger {
+    background: var(--accent-rose);
+    color: white;
+}
+
+/* =============================================================================
+   Form Controls
+   ============================================================================= */
+
+.controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+    align-items: center;
+}
+
+.control-group {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.control-group label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+input[type="number"], 
+input[type="text"],
+select,
+textarea {
+    background: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    padding: 0.75rem 1rem;
+    border-radius: 10px;
+    color: var(--text-primary);
+    font-family: 'JetBrains Mono', monospace;
+    min-width: 120px;
+}
+
+input[type="number"]:focus, 
+input[type="text"]:focus,
+select:focus,
+textarea:focus {
+    outline: none;
+    border-color: var(--accent-cyan);
+    box-shadow: 0 0 0 3px rgba(34, 211, 238, 0.2);
+}
+
+textarea {
+    font-family: 'JetBrains Mono', monospace;
+    min-height: 150px;
+    resize: vertical;
+}
+
+/* =============================================================================
+   Cards
+   ============================================================================= */
+
+.card {
+    background: var(--bg-tertiary);
+    border-radius: 14px;
+    padding: 1.25rem;
+    border: 1px solid var(--border-color);
+    transition: border-color 0.3s, transform 0.2s;
+}
+
+.card:hover {
+    border-color: var(--accent-cyan);
+}
+
+.card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 1rem;
+}
+
+.card-title {
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+/* =============================================================================
+   Badges
+   ============================================================================= */
+
+.badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.badge.success {
+    background: rgba(16, 185, 129, 0.2);
+    color: var(--accent-emerald);
+}
+
+.badge.warning {
+    background: rgba(245, 158, 11, 0.2);
+    color: var(--accent-amber);
+}
+
+.badge.danger {
+    background: rgba(244, 63, 94, 0.2);
+    color: var(--accent-rose);
+}
+
+.badge.info {
+    background: rgba(34, 211, 238, 0.2);
+    color: var(--accent-cyan);
+}
+
+/* Position badges */
+.position-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.position-badge.gk { background: #eab308; color: #000; }
+.position-badge.def { background: #3b82f6; color: #fff; }
+.position-badge.mid { background: #22c55e; color: #000; }
+.position-badge.fwd { background: #ef4444; color: #fff; }
+
+/* Rank badges */
+.rank-badge {
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    font-size: 0.9rem;
+}
+
+.rank-badge.gold { background: linear-gradient(135deg, #ffd700, #ffaa00); color: #000; }
+.rank-badge.silver { background: linear-gradient(135deg, #c0c0c0, #a0a0a0); color: #000; }
+.rank-badge.bronze { background: linear-gradient(135deg, #cd7f32, #a0522d); color: #fff; }
+.rank-badge.default { background: var(--bg-secondary); color: var(--text-secondary); }
+
+/* =============================================================================
+   Stats Display
+   ============================================================================= */
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
+    gap: 0.75rem;
+}
+
+.stat-item {
+    padding: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    text-align: center;
+}
+
+.stat-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    font-family: 'JetBrains Mono', monospace;
+}
+
+.stat-label {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.stat-value.good { color: var(--easy-game); }
+.stat-value.bad { color: var(--hard-game); }
+.stat-value.neutral { color: var(--medium-game); }
+
+/* =============================================================================
+   Progress Bars
+   ============================================================================= */
+
+.progress-bar {
+    height: 6px;
+    background: var(--bg-tertiary);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet));
+    width: 0%;
+    transition: width 0.3s;
+}
+
+.points-bar {
+    flex: 1;
+    height: 24px;
+    background: var(--bg-secondary);
+    border-radius: 12px;
+    overflow: hidden;
+    position: relative;
+}
+
+.points-bar-fill {
+    height: 100%;
+    border-radius: 12px;
+    background: linear-gradient(90deg, var(--accent-cyan), var(--accent-violet));
+    transition: width 0.5s ease;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: white;
+}
+
+/* =============================================================================
+   Legend
+   ============================================================================= */
+
+.legend {
+    display: flex;
+    gap: 1.5rem;
+    margin-top: 1rem;
+    flex-wrap: wrap;
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.85rem;
+}
+
+.legend-color {
+    width: 20px;
+    height: 20px;
+    border-radius: 4px;
+}
+
+/* =============================================================================
+   Alerts / Notifications
+   ============================================================================= */
+
+.alert {
+    padding: 1rem 1.25rem;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    border-left: 4px solid;
+}
+
+.alert.success {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: var(--accent-emerald);
+    color: var(--accent-emerald);
+}
+
+.alert.warning {
+    background: rgba(245, 158, 11, 0.1);
+    border-color: var(--accent-amber);
+    color: var(--accent-amber);
+}
+
+.alert.error {
+    background: rgba(244, 63, 94, 0.1);
+    border-color: var(--accent-rose);
+    color: var(--accent-rose);
+}
+
+.alert.info {
+    background: rgba(34, 211, 238, 0.1);
+    border-color: var(--accent-cyan);
+    color: var(--accent-cyan);
+}
+
+/* =============================================================================
+   Empty States
+   ============================================================================= */
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+}
+
+.empty-state-icon {
+    font-size: 3rem;
+    margin-bottom: 1rem;
+    opacity: 0.5;
+}
+
+.empty-state-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.5rem;
+}
+
+.empty-state-description {
+    font-size: 0.9rem;
+    max-width: 400px;
+    margin: 0 auto;
+}
+

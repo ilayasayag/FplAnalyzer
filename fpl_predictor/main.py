@@ -18,13 +18,13 @@ from rich.panel import Panel
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich import box
 
-from config import DATA_DIR, OUTPUT_DIR, DEFAULT_BATCHES
-from data.loader import DataLoader
-from data.standings import StandingsFetcher
-from engine.batch_analyzer import BatchAnalyzer
-from engine.player_stats import PlayerStatsEngine
-from engine.points_calculator import create_prediction_engine
-from models.prediction import Prediction, SquadPrediction
+from .config import DATA_DIR, OUTPUT_DIR, DEFAULT_BATCHES
+from .data.loader import DataLoader
+from .data.standings import StandingsFetcher
+from .engine.batch_analyzer import BatchAnalyzer
+from .engine.player_stats import PlayerStatsEngine
+from .engine.points_calculator import create_prediction_engine
+from .models.prediction import Prediction, SquadPrediction
 
 console = Console()
 

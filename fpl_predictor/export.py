@@ -11,10 +11,10 @@ from datetime import datetime
 from typing import Dict, List, Optional, Any
 from pathlib import Path
 
-from config import OUTPUT_DIR
-from models.prediction import Prediction, SquadPrediction
-from engine.player_stats import PlayerStatsEngine, PlayerAnalysis
-from engine.batch_analyzer import BatchAnalyzer
+from .config import OUTPUT_DIR
+from .models.prediction import Prediction, SquadPrediction
+from .engine.player_stats import PlayerStatsEngine, PlayerAnalysis
+from .engine.batch_analyzer import BatchAnalyzer
 
 
 class PredictionExporter:

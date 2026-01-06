@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FPL Draft Analyzer</title>
+    
+    <!-- External Dependencies -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    
+    <!-- Stylesheets -->
+    <link rel="stylesheet" href="styles/main.css">
+    <link rel="stylesheet" href="styles/components.css">
+    <link rel="stylesheet" href="styles/fixtures.css">
+    <link rel="stylesheet" href="styles/predictions.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header>
+            <h1>FPL Draft Analyzer</h1>
+            <p class="subtitle">Fixture analysis, GW predictions, and squad optimization</p>
+            <div id="dataStatus" class="alert info" style="display: none; margin-top: 1rem;"></div>
+        </header>
+
+        <!-- Tab Navigation -->
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="import">📥 Import Data</button>
+            <button class="tab-btn" data-tab="fixtures">📊 Fixtures</button>
+            <button class="tab-btn" data-tab="predictions">🎯 Predictions</button>
+            <button class="tab-btn" data-tab="squad">👥 Squad Analysis</button>
+            <button class="tab-btn" data-tab="h2h">⚔️ H2H</button>
+            <button class="tab-btn" data-tab="trades">🔄 Trades</button>
+        </nav>
+
+        <!-- Tab Content: Import Data -->
+        <div id="tab-import" class="tab-content active">
+            <div class="section">
+                <h2 class="section-title">Import League Data</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="leagueIdInput">League ID</label>
+                        <input type="number" id="leagueIdInput" placeholder="e.g., 12345">
+                    </div>
+                    <button id="generateBookmarkletBtn" onclick="FPL.generateBookmarklet()">
+                        Generate Bookmarklet
+                    </button>
+                </div>
+                
+                <div id="bookmarkletArea" style="display: none; margin-top: 1rem;">
+                    <p style="color: var(--text-secondary); margin-bottom: 0.5rem;">
+                        Drag this to your bookmarks bar, then click it while on draft.premierleague.com:
+                    </p>
+                    <a id="bookmarkletLink" href="#" class="badge info" 
+                       style="font-size: 1rem; padding: 0.5rem 1rem; text-decoration: none; display: inline-block;">
+                        📚 FPL Data Fetcher
+                    </a>
+                </div>
+                
+                <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 2rem 0;">
+                
+                <h3 style="margin-bottom: 1rem;">Paste Exported JSON</h3>
+                <textarea id="jsonInput" placeholder="Paste the JSON data from the bookmarklet here..."></textarea>
+                
+                <div class="controls" style="margin-top: 1rem;">
+                    <button id="importDataBtn" onclick="FPL.importData()">
+                        Import Data
+                    </button>
+                    <button class="secondary" onclick="FPL.loadSampleData()">
+                        Load Sample
+                    </button>
+                </div>
+                
+                <div id="importResult" style="margin-top: 1rem;"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Fixtures -->
+        <div id="tab-fixtures" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Fixture Difficulty Grid</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label>GW Range</label>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <input type="number" id="gwStart" value="20" min="1" max="38" style="width: 80px;">
+                            <span style="color: var(--text-muted);">to</span>
+                            <input type="number" id="gwEnd" value="38" min="1" max="38" style="width: 80px;">
+                        </div>
+                    </div>
+                    <button onclick="Fixtures.loadGrid()">Update Grid</button>
+                </div>
+                
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-color easy"></div>
+                        <span>Easy (FDR 1-2)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color medium"></div>
+                        <span>Medium (FDR 3)</span>
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-color hard"></div>
+                        <span>Hard (FDR 4-5)</span>
+                    </div>
+                </div>
+                
+                <div id="fixtureGrid" class="fixture-grid">
+                    <div class="loading">Loading fixtures</div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Rotation Analysis</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="team1Select">Team 1</label>
+                        <select id="team1Select"></select>
+                    </div>
+                    <div class="control-group">
+                        <label for="team2Select">Team 2</label>
+                        <select id="team2Select"></select>
+                    </div>
+                    <button onclick="Fixtures.analyzeOverlap()">Analyze Rotation</button>
+                </div>
+                
+                <div id="overlapResult"></div>
+                
+                <h3 style="margin-top: 2rem; margin-bottom: 1rem;">Best Rotation Partners</h3>
+                <div id="bestOverlaps" class="overlap-grid">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔄</div>
+                        <div class="empty-state-title">Select a team to find rotation partners</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Predictions -->
+        <div id="tab-predictions" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">GW Predictions</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="predGwSelect">Gameweek</label>
+                        <select id="predGwSelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="predEntrySelect">Squad</label>
+                        <select id="predEntrySelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="Predictions.loadSquadPredictions()">Get Predictions</button>
+                </div>
+                
+                <div id="predictionRequiresData" class="alert warning" style="display: none;">
+                    Import league data first to see predictions.
+                </div>
+                
+                <div id="squadPredictionResult">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🎯</div>
+                        <div class="empty-state-title">No predictions loaded</div>
+                        <div class="empty-state-description">Import your league data and select a squad to see GW predictions</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="section">
+                <h2 class="section-title">Team Rankings</h2>
+                <div id="teamRankings" class="predictions-grid">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📊</div>
+                        <div class="empty-state-title">Rankings will appear here</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Squad Analysis -->
+        <div id="tab-squad" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Squad Coverage Analysis</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="squadEntrySelect">Select Squad</label>
+                        <select id="squadEntrySelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="Squad.analyzeSquad()">Analyze Coverage</button>
+                </div>
+                
+                <div id="squadRequiresData" class="alert warning" style="display: none;">
+                    Import league data first to analyze squads.
+                </div>
+                
+                <div id="squadAnalysisResult">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">👥</div>
+                        <div class="empty-state-title">Select a squad to analyze</div>
+                        <div class="empty-state-description">See fixture coverage, position breakdown, and improvement suggestions</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: H2H -->
+        <div id="tab-h2h" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Head-to-Head Comparison</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="h2hEntry1">Team 1</label>
+                        <select id="h2hEntry1">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="h2hEntry2">Team 2</label>
+                        <select id="h2hEntry2">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label for="h2hGwSelect">Gameweek</label>
+                        <select id="h2hGwSelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="H2H.compare()">Compare</button>
+                </div>
+                
+                <div id="h2hRequiresData" class="alert warning" style="display: none;">
+                    Import league data first to compare squads.
+                </div>
+                
+                <div id="h2hResult">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">⚔️</div>
+                        <div class="empty-state-title">Select two teams to compare</div>
+                        <div class="empty-state-description">See win probabilities and player-by-player breakdown</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Trades -->
+        <div id="tab-trades" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Trade Suggestions</h2>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="tradeEntrySelect">Your Squad</label>
+                        <select id="tradeEntrySelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="Trades.getSuggestions()">Get Suggestions</button>
+                </div>
+                
+                <div id="tradesRequiresData" class="alert warning" style="display: none;">
+                    Import league data first to get trade suggestions.
+                </div>
+                
+                <div id="tradeSuggestionsResult">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">🔄</div>
+                        <div class="empty-state-title">Select your squad</div>
+                        <div class="empty-state-description">Get smart trade recommendations based on fixtures and player form</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Modules -->
+    <script src="js/api.js"></script>
+    <script src="js/state.js"></script>
+    <script src="js/ui/fixtures.js"></script>
+    <script src="js/ui/predictions.js"></script>
+    <script src="js/ui/squad.js"></script>
+    <script src="js/ui/h2h.js"></script>
+    <script src="js/ui/trades.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
+

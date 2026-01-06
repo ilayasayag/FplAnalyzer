@@ -20,7 +20,7 @@ from ..utils.weighted_average import WeightedAverageCalculator, calculate_ewma
 class PlayerBatchStats:
     """Statistics for a player against a specific opponent batch"""
     
-    batch: Tuple[int, int]
+    batch: Tuple[int, int] = (0, 0)  # Default to 'overall' batch
     games_played: int = 0
     total_minutes: int = 0
     
