@@ -10740,6 +10740,8 @@
             leagueAverages: {},    // League-wide averages for cross-reference
             plStandings: [],       // Real or calculated PL standings
             standingsSource: null, // 'api', 'bootstrap', or 'calculated'
+            teamVenueStats: {},    // teamId -> { home: {gf, ga, games}, away: {gf, ga, games} }
+            venueLeagueAvg: null,  // { homeGF, homeGA, awayGF, awayGA } - league averages per game
             lastComputed: null
         };
         
@@ -11375,6 +11377,179 @@
             return averages;
         }
         
+        // ============================================
+        // TEAM VENUE (HOME/AWAY) STATS SYSTEM
+        // ============================================
+        
+        // Compute team-level home vs away performance stats
+        function computeTeamVenueStats() {
+            console.log('[Venue] Computing team venue (home/away) stats...');
+            
+            const teamVenueStats = {};
+            const seen = new Set(); // Track seen fixtures to avoid double-counting
+            
+            // Process all player histories to build team-level stats
+            Object.entries(importedPlayerDetails || {}).forEach(([playerId, details]) => {
+                const player = importedBootstrap?.elements?.find(e => e.id === parseInt(playerId));
+                if (!player) return;
+                
+                const teamId = player.team;
+                if (!teamVenueStats[teamId]) {
+                    teamVenueStats[teamId] = {
+                        home: { gf: 0, ga: 0, games: 0, cs: 0 },
+                        away: { gf: 0, ga: 0, games: 0, cs: 0 }
+                    };
+                }
+                
+                (details.history || []).forEach(game => {
+                    // Use team + fixture as unique key to avoid counting same match multiple times
+                    const key = `${teamId}-${game.fixture}`;
+                    if (seen.has(key)) return;
+                    seen.add(key);
+                    
+                    const detail = game.detail || '';
+                    const isHome = detail.includes('(H)');
+                    
+                    // Parse score from detail like "MUN (A) 0-1" or "LEE (H) 5-0"
+                    const scorePart = detail.split(' ').pop();
+                    const scoreParts = scorePart.split('-');
+                    
+                    if (scoreParts.length === 2) {
+                        const score1 = parseInt(scoreParts[0]);
+                        const score2 = parseInt(scoreParts[1]);
+                        
+                        if (!isNaN(score1) && !isNaN(score2)) {
+                            const gf = isHome ? score1 : score2;
+                            const ga = isHome ? score2 : score1;
+                            const venue = isHome ? 'home' : 'away';
+                            
+                            teamVenueStats[teamId][venue].gf += gf;
+                            teamVenueStats[teamId][venue].ga += ga;
+                            teamVenueStats[teamId][venue].games++;
+                            if (ga === 0) {
+                                teamVenueStats[teamId][venue].cs++;
+                            }
+                        }
+                    }
+                });
+            });
+            
+            // Calculate league-wide venue averages
+            let totalHomeGF = 0, totalHomeGA = 0, totalHomeGames = 0;
+            let totalAwayGF = 0, totalAwayGA = 0, totalAwayGames = 0;
+            
+            Object.values(teamVenueStats).forEach(team => {
+                totalHomeGF += team.home.gf;
+                totalHomeGA += team.home.ga;
+                totalHomeGames += team.home.games;
+                totalAwayGF += team.away.gf;
+                totalAwayGA += team.away.ga;
+                totalAwayGames += team.away.games;
+            });
+            
+            const venueLeagueAvg = {
+                homeGF: totalHomeGames > 0 ? totalHomeGF / totalHomeGames : 1.5,
+                homeGA: totalHomeGames > 0 ? totalHomeGA / totalHomeGames : 1.2,
+                awayGF: totalAwayGames > 0 ? totalAwayGF / totalAwayGames : 1.2,
+                awayGA: totalAwayGames > 0 ? totalAwayGA / totalAwayGames : 1.5
+            };
+            
+            // Store in cache
+            batchAnalysisCache.teamVenueStats = teamVenueStats;
+            batchAnalysisCache.venueLeagueAvg = venueLeagueAvg;
+            
+            console.log('[Venue] Stats computed for', Object.keys(teamVenueStats).length, 'teams');
+            console.log('[Venue] League averages:', venueLeagueAvg);
+            
+            return { teamVenueStats, venueLeagueAvg };
+        }
+        
+        // Get team venue stat with Bayesian blending for small samples
+        function getTeamVenueStat(teamStats, venue, stat, leagueAvg, minGames = 3) {
+            const data = teamStats?.[venue];
+            if (!data || data.games === 0) return leagueAvg;
+            
+            const teamValue = data[stat] / data.games;
+            
+            // If enough games, use team's actual value
+            if (data.games >= minGames * 2) {
+                return teamValue;
+            }
+            
+            // Bayesian blend with league average for small samples
+            const weight = data.games / (data.games + minGames);
+            return (teamValue * weight) + (leagueAvg * (1 - weight));
+        }
+        
+        // Clamp value within range
+        function clamp(val, min, max) {
+            return Math.max(min, Math.min(max, val));
+        }
+        
+        // Get dynamic venue cross-reference multipliers for a specific matchup
+        function getVenueCrossReference(playerTeamId, opponentTeamId, isHome) {
+            const stats = batchAnalysisCache.teamVenueStats || {};
+            const avg = batchAnalysisCache.venueLeagueAvg || { homeGF: 1.5, homeGA: 1.2, awayGF: 1.2, awayGA: 1.5 };
+            
+            const playerTeam = stats[playerTeamId];
+            const opponent = stats[opponentTeamId];
+            
+            // Default multipliers if no data
+            if (!playerTeam || !opponent) {
+                return {
+                    attackMultiplier: isHome ? 1.1 : 0.95,
+                    csMultiplier: isHome ? 1.1 : 0.95,
+                    savesMultiplier: isHome ? 0.95 : 1.05,
+                    bonusMultiplier: isHome ? 1.05 : 0.98,
+                    isHome
+                };
+            }
+            
+            if (isHome) {
+                // === HOME TEAM CALCULATIONS ===
+                
+                // Attack: How good is home team at scoring at home × How leaky is away team when away
+                const homeAttackStrength = getTeamVenueStat(playerTeam, 'home', 'gf', avg.homeGF) / avg.homeGF;
+                const awayDefenseWeakness = getTeamVenueStat(opponent, 'away', 'ga', avg.awayGA) / avg.awayGA;
+                
+                // Defense: How solid is home team at home × How weak is away team's attack when away
+                const homeDefenseStrength = avg.homeGA / Math.max(0.1, getTeamVenueStat(playerTeam, 'home', 'ga', avg.homeGA));
+                const awayAttackWeakness = avg.awayGF / Math.max(0.1, getTeamVenueStat(opponent, 'away', 'gf', avg.awayGF));
+                
+                const attackMult = homeAttackStrength * awayDefenseWeakness;
+                const csMult = homeDefenseStrength * awayAttackWeakness;
+                
+                return {
+                    attackMultiplier: clamp(attackMult, 0.4, 2.5),
+                    csMultiplier: clamp(csMult, 0.3, 3.0),
+                    savesMultiplier: clamp(1 / csMult, 0.5, 2.0), // Inverse - more shots faced if defense is weaker
+                    bonusMultiplier: clamp(attackMult * 0.6 + 0.4, 0.7, 1.5), // Correlated with attack
+                    isHome: true
+                };
+            } else {
+                // === AWAY TEAM CALCULATIONS ===
+                
+                // Attack: How good is away team at scoring away × How leaky is home team at home
+                const awayAttackStrength = getTeamVenueStat(playerTeam, 'away', 'gf', avg.awayGF) / avg.awayGF;
+                const homeDefenseWeakness = getTeamVenueStat(opponent, 'home', 'ga', avg.homeGA) / avg.homeGA;
+                
+                // Defense: How solid is away team when away × How weak is home team's attack at home
+                const awayDefenseStrength = avg.awayGA / Math.max(0.1, getTeamVenueStat(playerTeam, 'away', 'ga', avg.awayGA));
+                const homeAttackWeakness = avg.homeGF / Math.max(0.1, getTeamVenueStat(opponent, 'home', 'gf', avg.homeGF));
+                
+                const attackMult = awayAttackStrength * homeDefenseWeakness;
+                const csMult = awayDefenseStrength * homeAttackWeakness;
+                
+                return {
+                    attackMultiplier: clamp(attackMult, 0.4, 2.5),
+                    csMultiplier: clamp(csMult, 0.3, 3.0),
+                    savesMultiplier: clamp(1 / csMult, 0.5, 2.0),
+                    bonusMultiplier: clamp(attackMult * 0.6 + 0.4, 0.7, 1.5),
+                    isHome: false
+                };
+            }
+        }
+        
         // Apply Bayesian weighting for small sample sizes
         function applyBayesianBlend(batchValue, overallValue, batchGames, priorWeight = BATCH_CONFIG.bayesianPriorWeight) {
             if (batchGames === 0) return overallValue || 0;
@@ -11446,16 +11621,16 @@
             const expectedDC = applyBayesianBlend(batchData.dcPerGame || 0, overallData.dcPerGame || 0, batchGames45);
             const dcBonusRate = applyBayesianBlend(batchData.dcBonusRate || 0, overallData.dcBonusRate || 0, batchGames45);
             
-            // Cross-reference with opponent
+            // Cross-reference with opponent (batch-based)
             const crossRef = crossReferenceWithOpponent(batchData, overallData, opponentStats, opponentBatch, leagueAvg);
             
-            // Apply multipliers
+            // Apply batch-based multipliers
             const adjGoals = expectedGoals * crossRef.offensiveMultiplier;
             const adjAssists = expectedAssists * crossRef.offensiveMultiplier;
             const adjCS = expectedCS * crossRef.defensiveMultiplier;
             
-            // Home/Away adjustment
-            const homeMultiplier = isHome ? 1.1 : 0.95;
+            // Dynamic Home/Away venue cross-reference (team-specific, not flat!)
+            const venueRef = getVenueCrossReference(player.team, opponentTeamId, isHome);
             
             // Calculate FPL Points breakdown
             const breakdown = {
@@ -11470,29 +11645,29 @@
                 cards: 0
             };
             
-            // Goal points by position
+            // Goal points by position - using dynamic venue attack multiplier
             const goalPts = pos === 'GK' || pos === 'DEF' ? rules.goalGK : pos === 'MID' ? rules.goalMID : rules.goalFWD;
-            breakdown.goals = adjGoals * homeMultiplier * goalPts;
+            breakdown.goals = adjGoals * venueRef.attackMultiplier * goalPts;
             
-            // Assists
-            breakdown.assists = adjAssists * homeMultiplier * rules.assist;
+            // Assists - using dynamic venue attack multiplier
+            breakdown.assists = adjAssists * venueRef.attackMultiplier * rules.assist;
             
-            // Clean sheets (GK/DEF only get full points)
+            // Clean sheets (GK/DEF only get full points) - using dynamic venue CS multiplier
             if (pos === 'GK' || pos === 'DEF') {
-                breakdown.cleanSheet = adjCS * homeMultiplier * rules.cleanSheetGK;
-                // Goals conceded penalty (per 2)
-                breakdown.goalsConceded = (expectedConceded / crossRef.defensiveMultiplier) * (rules.goalsConcededPenalty / 2);
+                breakdown.cleanSheet = adjCS * venueRef.csMultiplier * rules.cleanSheetGK;
+                // Goals conceded penalty (per 2) - inverse of CS multiplier
+                breakdown.goalsConceded = (expectedConceded / venueRef.csMultiplier) * (rules.goalsConcededPenalty / 2);
             } else if (pos === 'MID') {
-                breakdown.cleanSheet = adjCS * homeMultiplier * rules.cleanSheetMID;
+                breakdown.cleanSheet = adjCS * venueRef.csMultiplier * rules.cleanSheetMID;
             }
             
-            // Saves (GK only)
+            // Saves (GK only) - using dynamic venue saves multiplier
             if (pos === 'GK') {
-                breakdown.saves = (expectedSaves / rules.savesPerPoint);
+                breakdown.saves = (expectedSaves * venueRef.savesMultiplier) / rules.savesPerPoint;
             }
             
-            // Bonus points
-            breakdown.bonus = expectedBonus * homeMultiplier;
+            // Bonus points - using dynamic venue bonus multiplier
+            breakdown.bonus = expectedBonus * venueRef.bonusMultiplier;
             
             // Defensive Contribution bonus (2 pts if DC >= threshold)
             // DEF/GK threshold: 10, MID/FWD threshold: 12
@@ -11511,8 +11686,9 @@
             }
             breakdown.dcBonus = dcBonusProb * 2; // 2 points if threshold hit
             
-            // Cards
-            breakdown.cards = (expectedYellow * rules.yellowCard) + (expectedRed * rules.redCard);
+            // Cards - slightly more cards when playing away
+            const cardVenueMult = isHome ? 0.85 : 1.15;
+            breakdown.cards = (expectedYellow * rules.yellowCard * cardVenueMult) + (expectedRed * rules.redCard);
             
             // Total predicted points
             let totalPredicted = breakdown.minutes + breakdown.goals + breakdown.assists + 
@@ -11561,7 +11737,15 @@
                 expectedDC: Math.round(expectedDC * 10) / 10,
                 confidence,
                 batchGames,
-                crossRef
+                crossRef,
+                // Dynamic venue multipliers (team-specific home/away factors)
+                venueMultipliers: {
+                    attack: Math.round(venueRef.attackMultiplier * 100) / 100,
+                    cs: Math.round(venueRef.csMultiplier * 100) / 100,
+                    saves: Math.round(venueRef.savesMultiplier * 100) / 100,
+                    bonus: Math.round(venueRef.bonusMultiplier * 100) / 100,
+                    isHome: venueRef.isHome
+                }
             };
         }
         
@@ -11588,6 +11772,9 @@
             calculateTeamBatchStats();
             calculatePlayerBatchStats();
             calculateLeagueAverages();
+            
+            // Compute team venue (home/away) stats for dynamic multipliers
+            computeTeamVenueStats();
             
             batchAnalysisCache.lastComputed = new Date().toISOString();
             
@@ -12251,6 +12438,7 @@
                         <th>vs</th>
                         <th>Opp Batch</th>
                         <th title="Games in batch data">Games</th>
+                        <th title="Dynamic venue attack multiplier (team-specific home/away factor)" class="stat-cell">⚔️</th>
                         <th class="stat-cell">Goals</th>
                         <th class="stat-cell">Assists</th>
                         <th class="stat-cell">CS</th>
@@ -12268,6 +12456,13 @@
                 const rowStyle = !showOptimalOnly && !inOptimal ? 'opacity: 0.5;' : '';
                 const batchColor = p.opponentBatch <= 2 ? 'var(--accent-red)' : p.opponentBatch >= 4 ? 'var(--accent-emerald)' : 'var(--text-muted)';
                 
+                // Venue multiplier formatting
+                const venueMult = p.venueMultipliers?.attack || 1.0;
+                const venueColor = venueMult >= 1.3 ? 'var(--accent-emerald)' : venueMult <= 0.7 ? 'var(--accent-red)' : 'var(--text-muted)';
+                const venueTitle = p.venueMultipliers ? 
+                    `Attack: ${venueMult.toFixed(2)}x | CS: ${(p.venueMultipliers.cs || 1).toFixed(2)}x | Bonus: ${(p.venueMultipliers.bonus || 1).toFixed(2)}x` : 
+                    'No venue data';
+                
                 html += `
                 <tr style="${rowStyle}">
                     <td style="font-weight: 500;">${p.name} ${inOptimal ? '⭐' : ''} ${confBadge(p.confidence)}</td>
@@ -12276,6 +12471,7 @@
                     <td>${p.isHome ? '🏠' : '✈️'} ${p.opponent}</td>
                     <td style="font-size: 0.75rem; color: ${batchColor};">${p.opponentBatchName || '?'}</td>
                     <td style="font-size: 0.75rem; color: var(--text-muted);">${p.batchGames || 0}</td>
+                    <td class="stat-cell" style="font-size: 0.75rem; color: ${venueColor}; font-weight: 600;" title="${venueTitle}">${venueMult.toFixed(2)}x</td>
                     <td class="stat-cell ${p.breakdown?.goals > 0 ? 'highlight' : ''}">${(p.breakdown?.goals || 0).toFixed(1)}</td>
                     <td class="stat-cell ${p.breakdown?.assists > 0 ? 'highlight' : ''}">${(p.breakdown?.assists || 0).toFixed(1)}</td>
                     <td class="stat-cell ${p.breakdown?.cs > 0 ? 'highlight' : ''}">${(p.breakdown?.cs || 0).toFixed(1)}</td>
