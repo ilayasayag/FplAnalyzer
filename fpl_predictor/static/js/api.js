@@ -168,7 +168,7 @@ const FPL = {
      * @param {number} gwStart - Start gameweek
      * @param {number} gwEnd - End gameweek
      */
-    async getFixtureGrid(gwStart = 20, gwEnd = 38) {
+    async getFixtureGrid(gwStart = 21, gwEnd = 38) {
         return this.get('/fixtures/grid', { gw_start: gwStart, gw_end: gwEnd });
     },
     

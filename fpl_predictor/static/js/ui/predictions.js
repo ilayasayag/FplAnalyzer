@@ -279,3 +279,4 @@ const Predictions = {
 // Make globally available
 window.Predictions = Predictions;
 
+

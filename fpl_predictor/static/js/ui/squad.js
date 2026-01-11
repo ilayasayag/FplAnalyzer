@@ -280,3 +280,4 @@ const Squad = {
 // Make globally available
 window.Squad = Squad;
 
+

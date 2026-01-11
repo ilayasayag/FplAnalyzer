@@ -8,6 +8,9 @@ python-dateutil>=2.8.2
 numpy>=1.24.0
 pandas>=2.0.0
 
+# Database
+duckdb>=0.9.0
+
 # CLI interface
 rich>=13.0.0
 click>=8.1.0

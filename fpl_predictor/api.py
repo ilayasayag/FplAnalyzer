@@ -7,6 +7,8 @@ Serves static frontend files.
 
 import os
 import math
+import json
+from datetime import datetime
 from typing import Optional, Dict, List, Any, Tuple
 from flask import Flask, jsonify, request, abort, send_from_directory
 from flask_cors import CORS
@@ -41,7 +43,7 @@ TEAMS = [
     'West Ham', 'Sunderland', 'Burnley', 'Wolves', 'Leeds'
 ]
 
-# Official FDR scores for GW20-38
+# Official FDR scores for GW21-38
 OFFICIAL_FDR = {
     'City': {20:3, 21:3, 22:3, 23:2, 24:3, 25:4, 26:2, 27:3, 28:3, 29:2, 30:2, 31:3, 32:3, 33:4, 34:2, 35:3, 36:3, 37:3, 38:3},
     'Arsenal': {20:4, 21:4, 22:3, 23:3, 24:3, 25:2, 26:3, 27:3, 28:3, 29:3, 30:2, 31:2, 32:3, 33:4, 34:3, 35:2, 36:3, 37:4, 38:3},
@@ -247,7 +249,7 @@ def get_fixture_grid():
     Get fixture difficulty grid for all teams.
     
     Query params:
-    - gw_start: Start gameweek (default 20)
+    - gw_start: Start gameweek (default 21)
     - gw_end: End gameweek (default 38)
     
     Returns fixture difficulty rating matrix with opponent info.
@@ -1088,6 +1090,977 @@ def auto_load_newest():
             'error': 'Load failed',
             'message': str(e)
         }), 500
+
+
+# ==============================================================================
+# API Routes - Score Distributions & Monte Carlo
+# ==============================================================================
+
+@app.route('/api/player-distribution/<int:player_id>', methods=['GET'])
+def get_player_distribution(player_id: int):
+    """
+    Get score probability distribution for a player.
+    
+    Query params:
+        - opponent_id: Optional opponent team ID for context
+        - is_home: Optional true/false for home/away context
+        
+    Returns:
+        - Distribution with probabilities for each score
+        - Confidence intervals (50%, 80%, 95%)
+        - Form analysis
+    """
+    from .engine.score_distribution import PlayerDistributionBuilder
+    from .engine.form_analyzer import FormAnalyzer
+    
+    pred = get_predictor()
+    if not pred.is_initialized:
+        abort(400, description="Data not loaded. Call /api/import first")
+    
+    player = pred.loader.players.get(player_id)
+    if not player:
+        abort(404, description=f"Player {player_id} not found")
+    
+    # Parse context from query params
+    opponent_id = request.args.get('opponent_id', type=int)
+    is_home = request.args.get('is_home')
+    if is_home is not None:
+        is_home = is_home.lower() == 'true'
+    
+    # Get opponent batch if provided
+    opponent_batch = None
+    if opponent_id and pred.batch_analyzer:
+        opponent_batch = pred.batch_analyzer.get_batch_for_team(opponent_id)
+    
+    # Build distribution
+    dist_builder = PlayerDistributionBuilder()
+    distribution = dist_builder.build_for_player(player, opponent_batch, is_home)
+    
+    # Get form analysis
+    form_analyzer = FormAnalyzer()
+    form = form_analyzer.analyze_form(player)
+    
+    return jsonify({
+        'player_id': player_id,
+        'player_name': player.web_name,
+        'team': player.team_name,
+        'position': player.position_name,
+        'distribution': distribution.to_dict(),
+        'form': form.to_dict(),
+        'context': {
+            'opponent_id': opponent_id,
+            'opponent_batch': list(opponent_batch) if opponent_batch else None,
+            'is_home': is_home
+        }
+    })
+
+
+@app.route('/api/simulate-lineup', methods=['POST'])
+def simulate_lineup():
+    """
+    Run Monte Carlo simulation to find optimal lineup.
+    
+    Request body:
+        - entry_id: Squad entry ID
+        - gameweek: Gameweek number
+        - simulations: Number of simulations (default 1000, max 10000)
+        - formation: Optional formation constraint (e.g., "4-4-2")
+        
+    Returns:
+        - Recommended starting XI with selection rates
+        - Captain and vice-captain recommendations
+        - Expected points distribution
+    """
+    from .engine.lineup_simulator import MonteCarloSimulator
+    
+    pred = get_predictor()
+    if not pred.is_initialized:
+        abort(400, description="Data not loaded. Call /api/import first")
+    
+    data = request.get_json() or {}
+    entry_id = data.get('entry_id')
+    gameweek = data.get('gameweek', pred.loader.current_gameweek + 1)
+    n_simulations = min(data.get('simulations', 1000), 10000)
+    formation = data.get('formation')
+    
+    if not entry_id:
+        abort(400, description="entry_id is required")
+    
+    # Get squad players
+    players = pred.loader.get_squad_players(entry_id)
+    if not players:
+        abort(404, description=f"Squad not found for entry {entry_id}")
+    
+    # Build fixture context for each player
+    opponent_batches = {}
+    is_home = {}
+    
+    for player in players:
+        team_name = player.team_name
+        fixture = FIXTURES.get(team_name, {}).get(gameweek, '')
+        
+        if fixture:
+            # Parse fixture string like "CHE(H)" or "MUN(A)"
+            home = '(H)' in fixture
+            opp_abbrev = fixture.replace('(H)', '').replace('(A)', '')
+            
+            # Get opponent team ID
+            opp_team_name = next(
+                (t for t, abbrev in TEAM_ABBREV.items() if abbrev == opp_abbrev),
+                None
+            )
+            
+            is_home[player.id] = home
+            
+            if opp_team_name and pred.batch_analyzer:
+                opp_team_id = next(
+                    (t.id for t in pred.loader.teams.values() if t.name == opp_team_name),
+                    None
+                )
+                if opp_team_id:
+                    batch = pred.batch_analyzer.get_batch_for_team(opp_team_id)
+                    if batch:
+                        opponent_batches[player.id] = batch
+    
+    # Run simulation
+    simulator = MonteCarloSimulator()
+    recommendation = simulator.simulate_lineup(
+        players,
+        opponent_batches,
+        is_home,
+        n_simulations=n_simulations,
+        formation_constraint=formation
+    )
+    
+    entry_name = pred.loader.get_entry_name(entry_id)
+    
+    return jsonify({
+        'entry_id': entry_id,
+        'entry_name': entry_name,
+        'gameweek': gameweek,
+        'recommendation': recommendation.to_dict()
+    })
+
+
+@app.route('/api/free-agents', methods=['GET'])
+def get_free_agents():
+    """
+    Get ranked free agent recommendations.
+    
+    Query params:
+        - gameweek: Gameweek for predictions (default: next GW)
+        - position: Filter by position (GK/DEF/MID/FWD)
+        - top_n: Number of recommendations (default 20, max 50)
+        
+    Returns:
+        - Ranked list of free agents with distributions and form
+    """
+    from .engine.lineup_simulator import FreeAgentAnalyzer
+    
+    pred = get_predictor()
+    if not pred.is_initialized:
+        abort(400, description="Data not loaded. Call /api/import first")
+    
+    gameweek = request.args.get('gameweek', type=int, default=pred.loader.current_gameweek + 1)
+    position = request.args.get('position')
+    top_n = min(request.args.get('top_n', type=int, default=20), 50)
+    
+    # Get all owned player IDs
+    owned_ids = set()
+    if pred.loader.squads:
+        for squad in pred.loader.squads.values():
+            for pick in squad.get('picks', []):
+                owned_ids.add(pick.get('element'))
+    
+    # Get all players
+    all_players = list(pred.loader.players.values())
+    
+    # Build fixture context
+    opponent_batches = {}
+    is_home = {}
+    
+    for player in all_players:
+        team_name = player.team_name
+        fixture = FIXTURES.get(team_name, {}).get(gameweek, '')
+        
+        if fixture:
+            home = '(H)' in fixture
+            opp_abbrev = fixture.replace('(H)', '').replace('(A)', '')
+            
+            opp_team_name = next(
+                (t for t, abbrev in TEAM_ABBREV.items() if abbrev == opp_abbrev),
+                None
+            )
+            
+            is_home[player.id] = home
+            
+            if opp_team_name and pred.batch_analyzer:
+                opp_team_id = next(
+                    (t.id for t in pred.loader.teams.values() if t.name == opp_team_name),
+                    None
+                )
+                if opp_team_id:
+                    batch = pred.batch_analyzer.get_batch_for_team(opp_team_id)
+                    if batch:
+                        opponent_batches[player.id] = batch
+    
+    # Analyze free agents
+    analyzer = FreeAgentAnalyzer()
+    recommendations = analyzer.analyze_free_agents(
+        all_players,
+        owned_ids,
+        opponent_batches,
+        is_home,
+        position_filter=position,
+        top_n=top_n
+    )
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'position_filter': position,
+        'total_free_agents': len(all_players) - len(owned_ids),
+        'recommendations': [r.to_dict() for r in recommendations]
+    })
+
+
+@app.route('/api/free-agents/by-position', methods=['GET'])
+def get_free_agents_by_position():
+    """
+    Get best free agents for each position.
+    
+    Query params:
+        - gameweek: Gameweek for predictions
+        - per_position: Number per position (default 5, max 10)
+        
+    Returns:
+        - Dict mapping position -> list of recommendations
+    """
+    from .engine.lineup_simulator import FreeAgentAnalyzer
+    
+    pred = get_predictor()
+    if not pred.is_initialized:
+        abort(400, description="Data not loaded. Call /api/import first")
+    
+    gameweek = request.args.get('gameweek', type=int, default=pred.loader.current_gameweek + 1)
+    per_position = min(request.args.get('per_position', type=int, default=5), 10)
+    
+    # Get owned IDs
+    owned_ids = set()
+    if pred.loader.squads:
+        for squad in pred.loader.squads.values():
+            for pick in squad.get('picks', []):
+                owned_ids.add(pick.get('element'))
+    
+    all_players = list(pred.loader.players.values())
+    
+    # Build fixture context
+    opponent_batches = {}
+    is_home = {}
+    
+    for player in all_players:
+        team_name = player.team_name
+        fixture = FIXTURES.get(team_name, {}).get(gameweek, '')
+        
+        if fixture:
+            home = '(H)' in fixture
+            opp_abbrev = fixture.replace('(H)', '').replace('(A)', '')
+            
+            opp_team_name = next(
+                (t for t, abbrev in TEAM_ABBREV.items() if abbrev == opp_abbrev),
+                None
+            )
+            
+            is_home[player.id] = home
+            
+            if opp_team_name and pred.batch_analyzer:
+                opp_team_id = next(
+                    (t.id for t in pred.loader.teams.values() if t.name == opp_team_name),
+                    None
+                )
+                if opp_team_id:
+                    batch = pred.batch_analyzer.get_batch_for_team(opp_team_id)
+                    if batch:
+                        opponent_batches[player.id] = batch
+    
+    analyzer = FreeAgentAnalyzer()
+    by_position = analyzer.get_best_by_position(
+        all_players,
+        owned_ids,
+        opponent_batches,
+        is_home,
+        per_position=per_position
+    )
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'by_position': {
+            pos: [r.to_dict() for r in recs]
+            for pos, recs in by_position.items()
+        }
+    })
+
+
+@app.route('/api/free-agents/differentials', methods=['GET'])
+def get_differential_picks():
+    """
+    Get high-upside differential picks.
+    
+    These are players with high 90th percentile scores - good for
+    chasing points or taking risks.
+    
+    Query params:
+        - gameweek: Gameweek for predictions
+        - top_n: Number of recommendations (default 10, max 20)
+    """
+    from .engine.lineup_simulator import FreeAgentAnalyzer
+    
+    pred = get_predictor()
+    if not pred.is_initialized:
+        abort(400, description="Data not loaded. Call /api/import first")
+    
+    gameweek = request.args.get('gameweek', type=int, default=pred.loader.current_gameweek + 1)
+    top_n = min(request.args.get('top_n', type=int, default=10), 20)
+    
+    # Get owned IDs
+    owned_ids = set()
+    if pred.loader.squads:
+        for squad in pred.loader.squads.values():
+            for pick in squad.get('picks', []):
+                owned_ids.add(pick.get('element'))
+    
+    all_players = list(pred.loader.players.values())
+    
+    # Build fixture context
+    opponent_batches = {}
+    is_home = {}
+    
+    for player in all_players:
+        team_name = player.team_name
+        fixture = FIXTURES.get(team_name, {}).get(gameweek, '')
+        
+        if fixture:
+            home = '(H)' in fixture
+            opp_abbrev = fixture.replace('(H)', '').replace('(A)', '')
+            
+            opp_team_name = next(
+                (t for t, abbrev in TEAM_ABBREV.items() if abbrev == opp_abbrev),
+                None
+            )
+            
+            is_home[player.id] = home
+            
+            if opp_team_name and pred.batch_analyzer:
+                opp_team_id = next(
+                    (t.id for t in pred.loader.teams.values() if t.name == opp_team_name),
+                    None
+                )
+                if opp_team_id:
+                    batch = pred.batch_analyzer.get_batch_for_team(opp_team_id)
+                    if batch:
+                        opponent_batches[player.id] = batch
+    
+    analyzer = FreeAgentAnalyzer()
+    differentials = analyzer.find_differentials(
+        all_players,
+        owned_ids,
+        opponent_batches,
+        is_home,
+        top_n=top_n
+    )
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'differentials': [r.to_dict() for r in differentials]
+    })
+
+
+# ==============================================================================
+# Database API Routes (/api/db/*)
+# ==============================================================================
+
+from .data.database import get_connection, get_db_stats, init_schema
+from .data.repository import (
+    PlayerRepository, TeamRepository, SquadRepository,
+    LeagueRepository, FixtureRepository, CacheRepository
+)
+from .data.importer import DataImporter, import_from_dict
+
+@app.route('/api/db/status', methods=['GET'])
+def db_status():
+    """Get database status and statistics."""
+    try:
+        stats = get_db_stats()
+        return jsonify({
+            'status': 'connected',
+            **stats
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/db/import', methods=['POST'])
+def db_import():
+    """Import JSON data into the database."""
+    json_data = request.get_json()
+    if not json_data:
+        abort(400, description="Request body required")
+    
+    try:
+        result = import_from_dict(json_data)
+        return jsonify(result.to_dict())
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/db/players', methods=['GET'])
+def db_get_players():
+    """Get all players with optional filters."""
+    position = request.args.get('position', type=int)
+    team_id = request.args.get('team_id', type=int)
+    status = request.args.get('status')
+    limit = request.args.get('limit', 1000, type=int)
+    
+    repo = PlayerRepository()
+    players = repo.get_all(position=position, team_id=team_id, status=status, limit=limit)
+    
+    # Clean NaN/NaT values for JSON serialization
+    players = _clean_nan(players)
+    
+    return jsonify(players)
+
+
+@app.route('/api/db/player/<int:player_id>', methods=['GET'])
+def db_get_player(player_id: int):
+    """Get a single player with full details and history."""
+    include_history = request.args.get('history', 'true').lower() == 'true'
+    
+    repo = PlayerRepository()
+    
+    try:
+        if include_history:
+            player = repo.get_with_history(player_id)
+        else:
+            player = repo.get_by_id(player_id)
+        
+        if not player:
+            return jsonify({'error': f'Player {player_id} not found'}), 404
+        
+        # Clean NaN/NaT values
+        player = _clean_nan(player)
+        
+        return jsonify(player)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/db/player/<int:player_id>/vs-batches', methods=['GET'])
+def db_get_player_vs_batches(player_id: int):
+    """Get player performance breakdown by opponent batch."""
+    repo = PlayerRepository()
+    stats = repo.get_player_vs_batch_stats(player_id)
+    return jsonify({
+        'player_id': player_id,
+        'batch_stats': stats
+    })
+
+
+@app.route('/api/db/player/<int:player_id>/form', methods=['GET'])
+def db_get_player_form(player_id: int):
+    """Get player's recent form statistics."""
+    last_n = request.args.get('games', 5, type=int)
+    
+    repo = PlayerRepository()
+    form = repo.get_player_form(player_id, last_n=last_n)
+    return jsonify({
+        'player_id': player_id,
+        'last_n_games': last_n,
+        'form': form
+    })
+
+
+@app.route('/api/db/player-details', methods=['GET'])
+def db_get_all_player_details():
+    """Get all players with their gameweek history for predictions."""
+    try:
+        con = get_connection()
+        
+        # Get all player gameweek history
+        history_df = con.execute("""
+            SELECT 
+                pg.player_id,
+                pg.gameweek,
+                pg.gameweek as round,
+                pg.gameweek as event,
+                pg.opponent_id,
+                pg.opponent_id as opponent_team,
+                t.short_name as opponent_name,
+                pg.was_home,
+                pg.minutes,
+                pg.total_points,
+                pg.goals_scored,
+                pg.assists,
+                pg.clean_sheets,
+                pg.goals_conceded,
+                pg.bonus,
+                pg.bps,
+                pg.saves,
+                pg.yellow_cards,
+                pg.red_cards,
+                pg.own_goals,
+                pg.penalties_missed,
+                pg.penalties_saved,
+                pg.started,
+                pg.expected_goals,
+                pg.expected_assists,
+                pg.expected_goal_involvements,
+                pg.expected_goals_conceded,
+                pg.detail
+            FROM player_gameweeks pg
+            LEFT JOIN pl_teams t ON pg.opponent_id = t.id
+            ORDER BY pg.player_id, pg.gameweek
+        """).fetchdf()
+        
+        # Group by player_id
+        player_details = {}
+        for player_id, group in history_df.groupby('player_id'):
+            history = group.to_dict('records')
+            # Clean NaN values in history
+            cleaned_history = [_clean_nan(h) for h in history]
+            player_details[int(player_id)] = {
+                'history': cleaned_history
+            }
+        
+        return jsonify(player_details)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/db/players/search', methods=['GET'])
+def db_search_players():
+    """Search players by name."""
+    query = request.args.get('q', '')
+    limit = request.args.get('limit', 20, type=int)
+    
+    if not query:
+        return jsonify([])
+    
+    repo = PlayerRepository()
+    players = repo.search(query, limit=limit)
+    return jsonify(players)
+
+
+@app.route('/api/db/teams', methods=['GET'])
+def db_get_teams():
+    """Get all teams with standings."""
+    repo = TeamRepository()
+    teams = repo.get_all()
+    return jsonify(_clean_nan(teams))
+
+
+@app.route('/api/db/team/<int:team_id>', methods=['GET'])
+def db_get_team(team_id: int):
+    """Get a single team."""
+    repo = TeamRepository()
+    team = repo.get_by_id(team_id)
+    
+    if not team:
+        abort(404, description=f"Team {team_id} not found")
+    
+    return jsonify(team)
+
+
+@app.route('/api/db/team/<int:team_id>/venue-stats', methods=['GET'])
+def db_get_team_venue_stats(team_id: int):
+    """Get team's home vs away performance."""
+    repo = TeamRepository()
+    stats = repo.get_venue_stats(team_id=team_id)
+    return jsonify({
+        'team_id': team_id,
+        'venue_stats': stats
+    })
+
+
+@app.route('/api/db/standings', methods=['GET'])
+def db_get_standings():
+    """Get current PL standings."""
+    repo = TeamRepository()
+    standings = repo.get_standings()
+    return jsonify(standings)
+
+
+@app.route('/api/db/squads', methods=['GET'])
+def db_get_squads():
+    """Get all squads for a gameweek."""
+    gameweek = request.args.get('gameweek', type=int)
+    
+    if not gameweek:
+        # Try to get current gameweek from league
+        league_repo = LeagueRepository()
+        league = league_repo.get_league()
+        gameweek = league.get('start_event', 22) if league else 22
+    
+    repo = SquadRepository()
+    squads = repo.get_all_squads(gameweek)
+    return jsonify({
+        'gameweek': gameweek,
+        'squads': squads
+    })
+
+
+@app.route('/api/db/squad/<int:entry_id>', methods=['GET'])
+def db_get_squad(entry_id: int):
+    """Get a single squad."""
+    gameweek = request.args.get('gameweek', type=int)
+    
+    if not gameweek:
+        league_repo = LeagueRepository()
+        league = league_repo.get_league()
+        gameweek = league.get('start_event', 22) if league else 22
+    
+    repo = SquadRepository()
+    squad = repo.get_squad_by_entry(entry_id, gameweek)
+    return jsonify({
+        'entry_id': entry_id,
+        'gameweek': gameweek,
+        'players': squad
+    })
+
+
+@app.route('/api/db/owned-ids', methods=['GET'])
+def db_get_owned_ids():
+    """Get all owned player IDs for a gameweek."""
+    gameweek = request.args.get('gameweek', type=int)
+    
+    if not gameweek:
+        league_repo = LeagueRepository()
+        league = league_repo.get_league()
+        gameweek = league.get('start_event', 22) if league else 22
+    
+    repo = SquadRepository()
+    owned_ids = repo.get_owned_player_ids(gameweek)
+    return jsonify({
+        'gameweek': gameweek,
+        'owned_ids': list(owned_ids),
+        'count': len(owned_ids)
+    })
+
+
+def _clean_nan(obj):
+    """Replace NaN/inf/NaT values with None for JSON serialization."""
+    import math
+    import pandas as pd
+    import numpy as np
+    
+    if obj is None:
+        return None
+    
+    # Handle dict first
+    if isinstance(obj, dict):
+        return {k: _clean_nan(v) for k, v in obj.items()}
+    
+    # Handle list
+    if isinstance(obj, list):
+        return [_clean_nan(item) for item in obj]
+    
+    # Handle pandas/numpy NaN/NaT - must check scalar values only
+    try:
+        if isinstance(obj, (pd.Timestamp, np.datetime64)):
+            if pd.isna(obj):
+                return None
+            return str(obj)
+        if isinstance(obj, (float, np.floating)):
+            if math.isnan(obj) or math.isinf(obj):
+                return None
+            return float(obj)
+        if isinstance(obj, (np.integer,)):
+            return int(obj)
+        if isinstance(obj, (np.bool_,)):
+            return bool(obj)
+    except (TypeError, ValueError):
+        pass
+    
+    # Handle datetime objects
+    if hasattr(obj, 'isoformat'):
+        try:
+            return obj.isoformat()
+        except:
+            return None
+    
+    return obj
+
+
+@app.route('/api/db/free-agents', methods=['GET'])
+def db_get_free_agents():
+    """Get unowned available players - FIXES THE FREE AGENTS BUG!"""
+    gameweek = request.args.get('gameweek', type=int)
+    position = request.args.get('position', type=int)
+    limit = request.args.get('limit', 50, type=int)
+    
+    if not gameweek:
+        league_repo = LeagueRepository()
+        league = league_repo.get_league()
+        gameweek = league.get('start_event', 22) if league else 22
+    
+    repo = SquadRepository()
+    free_agents = repo.get_free_agents(gameweek, position=position, limit=limit)
+    
+    # Clean NaN values for JSON serialization
+    free_agents = _clean_nan(free_agents)
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'position': position,
+        'count': len(free_agents),
+        'players': free_agents
+    })
+
+
+@app.route('/api/db/free-agents/by-position', methods=['GET'])
+def db_get_free_agents_by_position():
+    """Get top free agents per position."""
+    gameweek = request.args.get('gameweek', type=int)
+    per_position = request.args.get('per_position', 3, type=int)
+    
+    if not gameweek:
+        league_repo = LeagueRepository()
+        league = league_repo.get_league()
+        gameweek = league.get('start_event', 22) if league else 22
+    
+    repo = SquadRepository()
+    by_position = repo.get_free_agents_by_position(gameweek, per_position=per_position)
+    
+    # Clean NaN values
+    by_position = _clean_nan(by_position)
+    
+    return jsonify({
+        'gameweek': gameweek,
+        'by_position': by_position
+    })
+
+
+@app.route('/api/db/league', methods=['GET'])
+def db_get_league():
+    """Get league info."""
+    repo = LeagueRepository()
+    league = repo.get_league()
+    
+    if not league:
+        return jsonify({'error': 'No league data found'}), 404
+    
+    return jsonify(league)
+
+
+@app.route('/api/db/entries', methods=['GET'])
+def db_get_entries():
+    """Get all league entries."""
+    repo = LeagueRepository()
+    entries = repo.get_entries()
+    return jsonify(entries)
+
+
+@app.route('/api/db/matches', methods=['GET'])
+def db_get_matches():
+    """Get H2H matches."""
+    gameweek = request.args.get('gameweek', type=int)
+    
+    repo = LeagueRepository()
+    matches = repo.get_matches(gameweek=gameweek)
+    return jsonify(matches)
+
+
+@app.route('/api/db/transactions', methods=['GET'])
+def db_get_transactions():
+    """Get transactions."""
+    gameweek = request.args.get('gameweek', type=int)
+    entry_id = request.args.get('entry_id', type=int)
+    
+    repo = LeagueRepository()
+    transactions = repo.get_transactions(gameweek=gameweek, entry_id=entry_id)
+    return jsonify(transactions)
+
+
+@app.route('/api/db/element-status', methods=['GET'])
+def db_get_element_status():
+    """Get element (player) ownership status."""
+    try:
+        import pandas as pd
+        con = get_connection()
+        result = con.execute("""
+            SELECT 
+                element_id,
+                owner_entry_id,
+                status,
+                in_squad
+            FROM element_status
+        """).fetchdf()
+        
+        # Replace NA values
+        result = result.fillna({'owner_entry_id': 0, 'status': '', 'in_squad': False})
+        
+        status_dict = {}
+        for _, row in result.iterrows():
+            element_id = int(row['element_id'])
+            owner = int(row['owner_entry_id']) if row['owner_entry_id'] and row['owner_entry_id'] != 0 else None
+            status_dict[element_id] = {
+                'element': element_id,
+                'owner': owner,
+                'status': str(row['status']) if row['status'] else None,
+                'in_squad': bool(row['in_squad'])
+            }
+        
+        return jsonify(status_dict)
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/db/fixtures', methods=['GET'])
+def db_get_fixtures():
+    """Get PL fixtures."""
+    gameweek = request.args.get('gameweek', type=int)
+    finished = request.args.get('finished')
+    
+    if finished is not None:
+        finished = finished.lower() == 'true'
+    
+    repo = FixtureRepository()
+    fixtures = repo.get_fixtures(gameweek=gameweek, finished=finished)
+    return jsonify(fixtures)
+
+
+@app.route('/api/db/fixtures/grid', methods=['GET'])
+def db_get_fixture_grid():
+    """Get FDR grid for fixture display."""
+    gw_start = request.args.get('gw_start', 21, type=int)
+    gw_end = request.args.get('gw_end', 38, type=int)
+    
+    repo = FixtureRepository()
+    grid = repo.get_fixture_grid(gw_start, gw_end)
+    return jsonify({
+        'gw_start': gw_start,
+        'gw_end': gw_end,
+        'fixtures': grid
+    })
+
+
+@app.route('/api/db/fixtures/team/<int:team_id>', methods=['GET'])
+def db_get_team_fixtures(team_id: int):
+    """Get fixtures for a specific team."""
+    gw_start = request.args.get('gw_start', 21, type=int)
+    gw_end = request.args.get('gw_end', 38, type=int)
+    
+    repo = FixtureRepository()
+    fixtures = repo.get_team_fixtures(team_id, gw_start, gw_end)
+    return jsonify({
+        'team_id': team_id,
+        'gw_start': gw_start,
+        'gw_end': gw_end,
+        'fixtures': fixtures
+    })
+
+
+@app.route('/api/db/cache/<key>', methods=['GET'])
+def db_get_cache(key: str):
+    """Get a cached value."""
+    repo = CacheRepository()
+    value = repo.get(key)
+    
+    if value is None:
+        return jsonify({'key': key, 'value': None, 'found': False})
+    
+    # Try to parse as JSON
+    try:
+        parsed = json.loads(value)
+        return jsonify({'key': key, 'value': parsed, 'found': True})
+    except:
+        return jsonify({'key': key, 'value': value, 'found': True})
+
+
+@app.route('/api/db/cache/<key>', methods=['PUT'])
+def db_set_cache(key: str):
+    """Set a cached value."""
+    data = request.get_json()
+    value = data.get('value')
+    ttl = data.get('ttl')  # seconds
+    gameweek = data.get('gameweek')
+    
+    if value is None:
+        abort(400, description="value is required")
+    
+    # Serialize to JSON if needed
+    if not isinstance(value, str):
+        value = json.dumps(value)
+    
+    repo = CacheRepository()
+    repo.set(key, value, ttl_seconds=ttl, gameweek=gameweek)
+    
+    return jsonify({'success': True, 'key': key})
+
+
+@app.route('/api/db/cache/<key>', methods=['DELETE'])
+def db_delete_cache(key: str):
+    """Delete a cached value."""
+    repo = CacheRepository()
+    repo.delete(key)
+    return jsonify({'success': True, 'key': key})
+
+
+@app.route('/api/db/predictions/<int:gameweek>', methods=['GET'])
+def db_get_predictions(gameweek: int):
+    """Get cached predictions for a gameweek."""
+    repo = CacheRepository()
+    cache_key = f'predictions_gw{gameweek}'
+    value = repo.get(cache_key)
+    
+    if value is None:
+        return jsonify({
+            'gameweek': gameweek,
+            'cached': False,
+            'predictions': None
+        })
+    
+    try:
+        predictions = json.loads(value)
+        return jsonify({
+            'gameweek': gameweek,
+            'cached': True,
+            'predictions': predictions
+        })
+    except:
+        return jsonify({
+            'gameweek': gameweek,
+            'cached': True,
+            'predictions': value
+        })
+
+
+@app.route('/api/db/predictions/<int:gameweek>/compute', methods=['POST'])
+def db_compute_predictions(gameweek: int):
+    """Compute and cache predictions for a gameweek."""
+    # For now, return a placeholder - this would integrate with the prediction engine
+    # The actual implementation would use the existing prediction logic
+    
+    predictions = {
+        'gameweek': gameweek,
+        'computed_at': datetime.now().isoformat(),
+        'message': 'Prediction computation not yet fully implemented in DB layer'
+    }
+    
+    # Cache the result
+    repo = CacheRepository()
+    cache_key = f'predictions_gw{gameweek}'
+    repo.set(cache_key, json.dumps(predictions), ttl_seconds=3600, gameweek=gameweek)
+    
+    return jsonify({
+        'success': True,
+        'gameweek': gameweek,
+        'predictions': predictions
+    })
 
 
 # ==============================================================================

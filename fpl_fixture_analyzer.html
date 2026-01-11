@@ -1721,6 +1721,99 @@
             color: var(--text-primary);
             font-size: 1rem;
         }
+        
+        /* Form and Position Badges */
+        .form-badge {
+            display: inline-block;
+            padding: 0.15rem 0.4rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .form-badge.form-hot {
+            background: rgba(16, 185, 129, 0.2);
+            color: var(--accent-emerald);
+            border: 1px solid var(--accent-emerald);
+        }
+        
+        .form-badge.form-cold {
+            background: rgba(244, 63, 94, 0.2);
+            color: var(--accent-rose);
+            border: 1px solid var(--accent-rose);
+        }
+        
+        .form-badge.form-stable {
+            background: rgba(148, 163, 184, 0.2);
+            color: var(--text-secondary);
+            border: 1px solid var(--border-color);
+        }
+        
+        .pos-badge {
+            display: inline-block;
+            padding: 0.15rem 0.35rem;
+            border-radius: 4px;
+            font-size: 0.7rem;
+            font-weight: 600;
+        }
+        
+        .pos-badge.pos-GK { background: rgba(245, 158, 11, 0.2); color: var(--accent-amber); }
+        .pos-badge.pos-DEF { background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald); }
+        .pos-badge.pos-MID { background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan); }
+        .pos-badge.pos-FWD { background: rgba(244, 63, 94, 0.2); color: var(--accent-rose); }
+        
+        /* Modal Styles */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.7);
+            justify-content: center;
+            align-items: center;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border: 1px solid var(--border-color);
+            border-radius: 16px;
+            padding: 1.5rem;
+            max-width: 90%;
+            max-height: 90%;
+            overflow-y: auto;
+            position: relative;
+            animation: modalSlideIn 0.2s ease-out;
+        }
+        
+        @keyframes modalSlideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .close-modal {
+            position: absolute;
+            right: 1rem;
+            top: 0.75rem;
+            font-size: 1.5rem;
+            color: var(--text-muted);
+            cursor: pointer;
+            line-height: 1;
+        }
+        
+        .close-modal:hover {
+            color: var(--text-primary);
+        }
     </style>
 </head>
 <body>
@@ -1741,12 +1834,13 @@
             <button class="tab" onclick="showTab('mockdraft')">🎯 Mock Draft</button>
             <button class="tab" onclick="showTab('players')">⭐ Players Manager</button>
             <button class="tab" onclick="showTab('mysquad')">🏟️ My Squad Analysis</button>
+            <button class="tab" onclick="showTab('freeagents')">🆓 Free Agents</button>
         </div>
 
         <!-- Fixture Grid Tab -->
         <div id="fixtures" class="tab-content">
             <div class="section">
-                <h2 class="section-title">Fixture Difficulty Rating (GW20-38)</h2>
+                <h2 class="section-title">Fixture Difficulty Rating (GW21-38)</h2>
                 
                 <!-- FDR Weight Control -->
                 <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; border: 1px solid var(--border-color);">
@@ -1852,16 +1946,16 @@
                     </div>
                     <div class="control-group">
                         <label>From GW</label>
-                        <input type="number" id="paramFromGW" min="20" max="38" value="20" onchange="updateGWRange()">
+                        <input type="number" id="paramFromGW" min="21" max="38" value="21" onchange="updateGWRange()">
                     </div>
                     <div class="control-group">
                         <label>To GW</label>
-                        <input type="number" id="paramToGW" min="20" max="38" value="38" onchange="updateGWRange()">
+                        <input type="number" id="paramToGW" min="21" max="38" value="38" onchange="updateGWRange()">
                     </div>
                     <button onclick="runSimulation()">🔍 Find Best Combinations</button>
                 </div>
                 <div id="gwRangeInfo" style="font-size: 0.8rem; color: var(--accent-cyan); margin-bottom: 0.5rem;">
-                    📅 Analyzing GW20 to GW38 (19 gameweeks)
+                    📅 Analyzing GW21 to GW38 (18 gameweeks)
                 </div>
                 
                 <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 10px; margin-bottom: 1rem; font-size: 0.85rem;">
@@ -2532,6 +2626,135 @@
             </div>
         </div>
 
+        <!-- Free Agents Tab -->
+        <div id="freeagents" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">🆓 Free Agents Analyzer</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Find the best available players with advanced score distributions and form analysis.
+                </p>
+                
+                <div class="controls" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div class="control-group">
+                        <label>Gameweek</label>
+                        <select id="faGameweek" onchange="loadFreeAgents()">
+                            <!-- Populated dynamically -->
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Position Filter</label>
+                        <select id="faPosition" onchange="loadFreeAgents()">
+                            <option value="">All Positions</option>
+                            <option value="GK">Goalkeepers</option>
+                            <option value="DEF">Defenders</option>
+                            <option value="MID">Midfielders</option>
+                            <option value="FWD">Forwards</option>
+                        </select>
+                    </div>
+                    <div class="control-group">
+                        <label>Sort By</label>
+                        <select id="faSortBy" onchange="sortFreeAgents()">
+                            <option value="expected">Expected Points</option>
+                            <option value="upside">Upside (90th %)</option>
+                            <option value="floor">Floor (10th %)</option>
+                            <option value="form">Form (EWMA)</option>
+                        </select>
+                    </div>
+                    <button onclick="loadFreeAgents()" style="align-self: flex-end;">🔄 Refresh</button>
+                </div>
+                
+                <!-- Quick Position Cards -->
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                    <div class="stat-card" style="border-left: 3px solid var(--accent-amber); cursor: pointer;" onclick="document.getElementById('faPosition').value='GK'; loadFreeAgents();">
+                        <h4 style="color: var(--accent-amber); margin-bottom: 0.5rem;">🧤 Best GK</h4>
+                        <div id="faBestGK" style="font-size: 0.9rem;">-</div>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--accent-emerald); cursor: pointer;" onclick="document.getElementById('faPosition').value='DEF'; loadFreeAgents();">
+                        <h4 style="color: var(--accent-emerald); margin-bottom: 0.5rem;">🛡️ Best DEF</h4>
+                        <div id="faBestDEF" style="font-size: 0.9rem;">-</div>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--accent-cyan); cursor: pointer;" onclick="document.getElementById('faPosition').value='MID'; loadFreeAgents();">
+                        <h4 style="color: var(--accent-cyan); margin-bottom: 0.5rem;">⚡ Best MID</h4>
+                        <div id="faBestMID" style="font-size: 0.9rem;">-</div>
+                    </div>
+                    <div class="stat-card" style="border-left: 3px solid var(--accent-rose); cursor: pointer;" onclick="document.getElementById('faPosition').value='FWD'; loadFreeAgents();">
+                        <h4 style="color: var(--accent-rose); margin-bottom: 0.5rem;">⚽ Best FWD</h4>
+                        <div id="faBestFWD" style="font-size: 0.9rem;">-</div>
+                    </div>
+                </div>
+                
+                <!-- Differentials Section -->
+                <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
+                    <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">🚀 High-Upside Differentials</h3>
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                        Players with high ceiling potential (sorted by 90th percentile score)
+                    </p>
+                    <div id="faDifferentials" style="overflow-x: auto;"></div>
+                </div>
+                
+                <!-- Main Free Agents Table -->
+                <div class="stat-card">
+                    <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">📋 All Free Agents</h3>
+                    <div id="faLoading" class="loading" style="display: none;">Loading free agents...</div>
+                    <div id="faTable" style="overflow-x: auto;"></div>
+                </div>
+                
+                <!-- Player Distribution Modal -->
+                <div id="playerDistModal" class="modal" style="display: none;">
+                    <div class="modal-content" style="max-width: 800px;">
+                        <span class="close-modal" onclick="closeDistModal()">&times;</span>
+                        <h3 id="distModalTitle" style="margin-bottom: 1rem;">Score Distribution</h3>
+                        <div id="distModalContent">
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1.5rem;">
+                                <div class="stat-card">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">Expected Points</div>
+                                    <div id="distExpected" style="font-size: 1.5rem; font-weight: 600; color: var(--accent-cyan);">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div style="font-size: 0.8rem; color: var(--text-secondary);">80% Range</div>
+                                    <div id="distCI80" style="font-size: 1.5rem; font-weight: 600; color: var(--accent-emerald);">-</div>
+                                </div>
+                            </div>
+                            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+                                <div class="stat-card">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Floor (15%)</div>
+                                    <div id="distFloor" style="font-size: 1.2rem; color: var(--accent-rose);">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Median</div>
+                                    <div id="distMedian" style="font-size: 1.2rem; color: var(--text-primary);">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Upside (85%)</div>
+                                    <div id="distUpside" style="font-size: 1.2rem; color: var(--accent-emerald);">-</div>
+                                </div>
+                                <div class="stat-card">
+                                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Games</div>
+                                    <div id="distGames" style="font-size: 1.2rem; color: var(--text-secondary);">-</div>
+                                </div>
+                            </div>
+                            
+                            <h4 style="margin-bottom: 0.75rem; color: var(--text-secondary);">Score Probability Distribution</h4>
+                            <div style="height: 220px; position: relative; margin-bottom: 1.5rem;">
+                                <canvas id="distChartCanvas"></canvas>
+                            </div>
+                            
+                            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem;">
+                                <div>
+                                    <h4 style="margin-bottom: 0.75rem; color: var(--text-secondary);">Form Analysis</h4>
+                                    <div id="distForm" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem;"></div>
+                                </div>
+                                <div>
+                                    <h4 style="margin-bottom: 0.75rem; color: var(--text-secondary);">Recent Scores</h4>
+                                    <div id="distRecentScores" style="display: flex; gap: 0.5rem; flex-wrap: wrap;"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- League Import Tab (Default) -->
         <div id="leagueimport" class="tab-content active">
             <div class="section">
@@ -2846,6 +3069,32 @@
                             <div id="playerBreakdownTable" style="overflow-x: auto;"></div>
                         </div>
                         
+                        <!-- Monte Carlo Lineup Optimizer -->
+                        <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-emerald);">
+                            <h3 style="color: var(--accent-emerald); margin-bottom: 1rem;">🎲 Monte Carlo Lineup Optimizer</h3>
+                            <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                                Simulate lineups to find the optimal starting XI based on score distributions
+                            </p>
+                            <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
+                                <select id="mcTeamSelect" style="padding: 0.5rem 1rem; min-width: 200px;"></select>
+                                <select id="mcSimCount" style="padding: 0.5rem 1rem;">
+                                    <option value="1">1 (Single Game)</option>
+                                    <option value="100">100</option>
+                                    <option value="500">500</option>
+                                    <option value="1000" selected>1,000</option>
+                                    <option value="5000">5,000</option>
+                                </select>
+                                <button onclick="runMCSimulation()" class="btn-primary" style="padding: 0.5rem 1rem;">
+                                    🎲 Run Simulation
+                                </button>
+                                <button onclick="runMCSimulation(1)" class="btn-secondary" style="padding: 0.5rem 1rem;">
+                                    ⚡ Quick (1 Game)
+                                </button>
+                            </div>
+                            <div id="mcLoading" class="loading" style="display: none;">Running simulation...</div>
+                            <div id="mcResults"></div>
+                        </div>
+                        
                         <!-- Fixture Difficulty Heatmap -->
                         <div class="stat-card" style="border: 2px solid var(--accent-cyan);">
                             <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">📅 Fixture Difficulty Heatmap</h3>
@@ -2965,8 +3214,13 @@
         </div>
     </div>
 
+    <!-- Database Client -->
+    <script src="/static/js/db.js"></script>
+    <!-- Data Service (cache → DB → sync) -->
+    <script src="/static/js/dataService.js"></script>
+    
     <script>
-        // Teams with their EASY GAME gameweeks (GW20-38)
+        // Teams with their EASY GAME gameweeks (GW21-38)
         // Data provided by user - these are the gameweeks where each team has favorable fixtures
         const teams = [
             'Arsenal', 'Villa', 'Bournemouth', 'Brentford', 'Brighton',
@@ -3000,7 +3254,7 @@
         };
         
         // OFFICIAL FDR DATA: From pre-season difficulty ratings (FDR 2 = easy)
-        // GW20-38 FDR scores for each team
+        // GW21-38 FDR scores for each team (GW20 data kept for reference but not displayed)
         const officialFDR = {
             'City': {
                 scores: {20:3, 21:3, 22:3, 23:2, 24:3, 25:4, 26:2, 27:3, 28:3, 29:2, 30:2, 31:3, 32:3, 33:4, 34:2, 35:3, 36:3, 37:3, 38:3},
@@ -3120,9 +3374,9 @@
         // Weight for combining analyses (0 = only your analysis, 1 = only official FDR)
         let fdrWeight = 0.5; // Default: 50% each
         
-        // Gameweeks 20-38 (19 total)
-        const gameweeks = Array.from({length: 19}, (_, i) => `GW${i + 20}`);
-        const gwStart = 20;
+        // Gameweeks 21-38 (18 total)
+        const gameweeks = Array.from({length: 18}, (_, i) => `GW${i + 21}`);
+        const gwStart = 21;
         const gwEnd = 38;
         
         // Create weighted fixture data combining both sources
@@ -3481,10 +3735,10 @@
             const K = parseInt(document.getElementById('paramK').value); // Min players with easy game per GW for success
             const D = parseInt(document.getElementById('paramD').value); // Max players from same team
             const minSuccess = parseInt(document.getElementById('paramMinEasy').value); // Min success GWs required
-            const fromGW = parseInt(document.getElementById('paramFromGW').value) || 20; // Start GW
+            const fromGW = parseInt(document.getElementById('paramFromGW').value) || 21; // Start GW
             const toGW = parseInt(document.getElementById('paramToGW').value) || 38; // End GW
             
-            // Calculate GW indices relative to gwStart (20)
+            // Calculate GW indices relative to gwStart (21)
             const gwStartIdx = fromGW - gwStart;
             const gwEndIdx = toGW - gwStart;
             const selectedGWs = gameweeks.slice(gwStartIdx, gwEndIdx + 1);
@@ -4205,7 +4459,7 @@
         }
         
         // Tab switching
-        function showTab(tabId) {
+        async function showTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
             document.querySelectorAll('.tab').forEach(el => el.classList.remove('active'));
             
@@ -4224,7 +4478,12 @@
             
             // Initialize league import when tab is shown
             if (tabId === 'leagueimport') {
-                initLeagueImport();
+                await initLeagueImport();
+            }
+            
+            // Initialize free agents when tab is shown
+            if (tabId === 'freeagents') {
+                initFreeAgents();
             }
         }
         
@@ -4481,9 +4740,9 @@
         }
         
         // Initialize
-        document.addEventListener('DOMContentLoaded', () => {
+        document.addEventListener('DOMContentLoaded', async () => {
             // Initialize League Analyzer tab first (default tab)
-            initLeagueImport();
+            await initLeagueImport();
             
             // Apply manual overrides on load
             fixtureData = createWeightedFixtureData();
@@ -5736,7 +5995,7 @@
             const uncoveredGWs = [];
             for (let gw = 0; gw < gameweeks.length; gw++) {
                 if (!myTeams.some(team => fixtureData[team] && fixtureData[team][gw] <= 2)) {
-                    uncoveredGWs.push(`GW${gw + 20}`);
+                    uncoveredGWs.push(`GW${gw + gwStart}`);
                 }
             }
             
@@ -5749,7 +6008,7 @@
                 // Suggest teams that cover these GWs
                 const coveringTeams = teams.filter(team => {
                     return uncoveredGWs.some(gw => {
-                        const gwIdx = parseInt(gw.replace('GW', '')) - 20;
+                        const gwIdx = parseInt(gw.replace('GW', '')) - gwStart;
                         return fixtureData[team] && fixtureData[team][gwIdx] <= 2;
                     });
                 }).slice(0, 3);
@@ -7449,18 +7708,37 @@
         }
         
         // Player detail modal
-        function showPlayerDetail(playerId) {
-            const player = getPlayerById(playerId);
-            const bootstrap = importedBootstrap?.elements?.find(e => e.id === playerId);
-            const details = importedPlayerDetails?.[playerId];
+        async function showPlayerDetail(playerId) {
+            // Try to get data via DataService (cache → DB → local)
+            let bs = {};
+            let history = [];
             
-            if (!player && !bootstrap) {
+            if (typeof DataService !== 'undefined') {
+                try {
+                    const player = await DataService.getPlayer(playerId, true);
+                    if (player && player.id) {
+                        bs = player;
+                        history = player.history || [];
+                        console.log('[PlayerDetail] Loaded via DataService:', player.web_name);
+                    }
+                } catch (e) {
+                    console.warn('[PlayerDetail] DataService fetch failed:', e);
+                }
+            }
+            
+            // Fall back to local data if DataService didn't work
+            if (!bs.id) {
+                const player = getPlayerById(playerId);
+                const bootstrap = importedBootstrap?.elements?.find(e => e.id === playerId);
+                const details = importedPlayerDetails?.[playerId];
+                bs = bootstrap || {};
+                history = details?.history || [];
+            }
+            
+            if (!bs.id && !bs.web_name) {
                 alert('Player data not found');
                 return;
             }
-            
-            const bs = bootstrap || {};
-            const history = details?.history || [];
             
             // Create modal
             const modal = document.createElement('div');
@@ -7468,7 +7746,8 @@
             modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.9);z-index:99999;overflow-y:auto;padding:2rem;';
             
             const posColors = { GK: '#f59e0b', DEF: '#10b981', MID: '#22d3ee', FWD: '#f43f5e' };
-            const pos = player?.position || fplPositionMap[bs.element_type] || 'MID';
+            const positionMap = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+            const pos = positionMap[bs.position] || fplPositionMap[bs.element_type] || 'MID';
             
             let historyHtml = '';
             if (history.length > 0) {
@@ -7478,14 +7757,16 @@
                 
                 history.slice().reverse().forEach(gw => {
                     const dc = (gw.clearances_blocks_interceptions || 0) + (gw.tackles || 0);
-                    const oppTeam = fplTeamIdMap[gw.opponent_team] || gw.opponent_team;
-                    const gwNum = gw.round || gw.event || '?';
-                    const ptsColor = gw.total_points >= 10 ? '#10b981' : gw.total_points >= 5 ? '#f59e0b' : '#f1f5f9';
+                    // Handle both DB format (opponent_name, gameweek) and local format (opponent_team, event/round)
+                    const oppTeam = gw.opponent_name || fplTeamIdMap[gw.opponent_id] || fplTeamIdMap[gw.opponent_team] || gw.opponent_team || '?';
+                    const gwNum = gw.gameweek || gw.round || gw.event || '?';
+                    const pts = gw.total_points || 0;
+                    const ptsColor = pts >= 10 ? '#10b981' : pts >= 5 ? '#f59e0b' : '#f1f5f9';
                     historyHtml += '<tr style="background:#111827;">' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">GW' + gwNum + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + (gw.was_home ? '' : '@') + oppTeam + '</td>' +
-                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:' + ptsColor + ';font-weight:700;">' + gw.total_points + '</td>' +
-                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + gw.minutes + '</td>' +
+                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:' + ptsColor + ';font-weight:700;">' + pts + '</td>' +
+                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + (gw.minutes || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#10b981;">' + (gw.goals_scored || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#8b5cf6;">' + (gw.assists || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#10b981;">' + (gw.clean_sheets || 0) + '</td>' +
@@ -7504,7 +7785,7 @@
                             <div style="color:#94a3b8;">${bs.first_name || ''} ${bs.second_name || ''}</div>
                             <div style="margin-top:0.5rem;">
                                 <span style="background:${posColors[pos]};color:#000;padding:0.25rem 0.75rem;border-radius:4px;font-weight:600;font-size:0.85rem;">${pos}</span>
-                                <span style="margin-left:0.5rem;color:#94a3b8;">${player?.team || fplTeamIdMap[bs.team] || 'Unknown'}</span>
+                                <span style="margin-left:0.5rem;color:#94a3b8;">${bs.team_name || fplTeamIdMap[bs.team_id] || fplTeamIdMap[bs.team] || 'Unknown'}</span>
                             </div>
                         </div>
                         <button onclick="document.getElementById('playerModal').remove()" style="background:#334155;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;color:#fff;font-size:1.2rem;">✕</button>
@@ -7578,17 +7859,43 @@
             });
         }
         
-        function initLeagueImport() {
+        async function initLeagueImport() {
             generateBookmarklet();
             setupDropZone();
             
             // Load saved football-data.org API key
             loadFootballDataApiKey();
             
+            // If data is ALREADY loaded in globals, just re-render (tab switching case)
+            if (importedLeagueData?.league && importedBootstrap?.elements?.length > 0) {
+                console.log('[Init] Data already in globals, re-rendering...');
+                renderLeagueAnalysis();
+                return;
+            }
+            
+            // Initialize DataService (cache → DB → sync)
+            if (typeof DataService !== 'undefined') {
+                const dbStatus = await DataService.init();
+                console.log('[Init] DataService status:', dbStatus);
+                
+                // If DB has data, load it and render
+                if (dbStatus.hasData) {
+                    showDbDataStatus(dbStatus);
+                    
+                    // Load data from DB into global variables
+                    const loaded = await loadDataFromDb();
+                    if (loaded && importedLeagueData?.league) {
+                        console.log('[Init] Auto-rendering from DB data');
+                        renderLeagueAnalysis();
+                        return; // Skip localStorage loading since we have DB data
+                    }
+                }
+            }
+            
             // Check for server data files first
             checkServerDataFiles();
             
-            // Try to load saved data
+            // Try to load saved data from localStorage
             const savedData = loadSavedData();
             if (savedData) {
                 importedLeagueData = savedData.league;
@@ -7629,6 +7936,9 @@
                             </span>
                         </div>
                         <div style="display: flex; gap: 0.5rem;">
+                            <button onclick="syncUpdates()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); font-size: 0.85rem; font-weight: 600;">
+                                🔄 Sync Updates
+                            </button>
                             <button onclick="tryAutoImportFromClipboard()" style="padding: 0.5rem 1rem; background: var(--accent-violet); font-size: 0.85rem;">
                                 📋 Import from Clipboard
                             </button>
@@ -7657,6 +7967,452 @@
                     tryAutoImportFromClipboard(true); // silent mode
                 }
             });
+        }
+        
+        // Show database data status
+        function showDbDataStatus(dbStatus) {
+            const statusDiv = document.getElementById('savedDataStatus');
+            statusDiv.style.display = 'block';
+            
+            const tables = dbStatus.tables || {};
+            statusDiv.innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem;">
+                    <div>
+                        <span style="color: var(--accent-cyan); font-weight: 600;">🗄️ Database Ready</span>
+                        <span style="color: var(--text-muted); font-size: 0.85rem; margin-left: 0.5rem;">
+                            ${tables.pl_players || 0} players • ${tables.fpl_squads || 0} squad slots • ${tables.player_gameweeks || 0} GW records
+                        </span>
+                    </div>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button onclick="syncUpdates()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); font-size: 0.85rem; font-weight: 600;">
+                            🔄 Sync Updates
+                        </button>
+                        <button onclick="renderLeagueAnalysis()" style="padding: 0.5rem 1rem; background: var(--accent-emerald); font-size: 0.85rem;">
+                            📊 Show Analysis
+                        </button>
+                        <button onclick="showDebugPanel()" style="padding: 0.5rem 1rem; background: var(--accent-amber); font-size: 0.85rem;">
+                            🔍 Debug
+                        </button>
+                        <button onclick="DataService.clearCache(); showNotification('Cache cleared', 'info');" style="padding: 0.5rem 1rem; background: var(--bg-tertiary); border: 1px solid var(--border-color); font-size: 0.85rem;">
+                            🔃 Clear Cache
+                        </button>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Debug panel to show loaded data state
+        function showDebugPanel() {
+            const debugData = {
+                importedLeagueData: {
+                    hasLeague: !!importedLeagueData?.league,
+                    leagueName: importedLeagueData?.league?.name || 'N/A',
+                    leagueEntries: importedLeagueData?.league_entries?.length || 0,
+                    squadsCount: Object.keys(importedLeagueData?.squads || {}).length,
+                    matchesCount: Array.isArray(importedLeagueData?.matches) ? importedLeagueData.matches.length : 0,
+                    transactionsCount: importedLeagueData?.transactions?.transactions?.length || 0,
+                    sampleSquadKeys: Object.keys(importedLeagueData?.squads || {}).slice(0, 3),
+                    sampleSquad: null
+                },
+                importedBootstrap: {
+                    elementsCount: importedBootstrap?.elements?.length || 0,
+                    teamsCount: importedBootstrap?.teams?.length || 0,
+                    fixturesGWs: Object.keys(importedBootstrap?.fixtures || {}),
+                    samplePlayer: importedBootstrap?.elements?.[0] ? {
+                        id: importedBootstrap.elements[0].id,
+                        web_name: importedBootstrap.elements[0].web_name,
+                        element_type: importedBootstrap.elements[0].element_type,
+                        team: importedBootstrap.elements[0].team
+                    } : null
+                },
+                importedPlayerDetails: {
+                    playerCount: Object.keys(importedPlayerDetails || {}).length,
+                    samplePlayerIds: Object.keys(importedPlayerDetails || {}).slice(0, 5),
+                    sampleHistory: null
+                },
+                maps: {
+                    elementMapSize: Object.keys(elementMap || {}).length,
+                    fplTeamIdMapSize: Object.keys(fplTeamIdMap || {}).length
+                }
+            };
+            
+            // Get sample squad
+            const firstSquadKey = Object.keys(importedLeagueData?.squads || {})[0];
+            if (firstSquadKey && importedLeagueData.squads[firstSquadKey]) {
+                debugData.importedLeagueData.sampleSquad = {
+                    key: firstSquadKey,
+                    picks: importedLeagueData.squads[firstSquadKey].picks?.slice(0, 2) || 'NO PICKS'
+                };
+            }
+            
+            // Get sample player history
+            const firstDetailKey = Object.keys(importedPlayerDetails || {})[0];
+            if (firstDetailKey && importedPlayerDetails[firstDetailKey]) {
+                debugData.importedPlayerDetails.sampleHistory = {
+                    playerId: firstDetailKey,
+                    historyLength: importedPlayerDetails[firstDetailKey].history?.length || 0,
+                    firstGame: importedPlayerDetails[firstDetailKey].history?.[0] || 'NO HISTORY'
+                };
+            }
+            
+            console.log('[DEBUG] Full data state:', debugData);
+            
+            // Create modal
+            const modal = document.createElement('div');
+            modal.id = 'debugModal';
+            modal.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.95);z-index:99999;overflow-y:auto;padding:2rem;';
+            modal.innerHTML = `
+                <div style="max-width:900px;margin:0 auto;background:#0f172a;border-radius:16px;padding:2rem;border:2px solid var(--accent-cyan);font-family:monospace;">
+                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1.5rem;">
+                        <h2 style="color:var(--accent-cyan);margin:0;">🔍 Data Debug Panel</h2>
+                        <button onclick="document.getElementById('debugModal').remove()" style="background:#334155;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;color:#fff;">✕ Close</button>
+                    </div>
+                    
+                    <div style="display:grid;gap:1rem;">
+                        <div style="background:#1e293b;padding:1rem;border-radius:8px;">
+                            <h3 style="color:#f59e0b;margin:0 0 0.5rem;">importedLeagueData</h3>
+                            <div style="font-size:0.85rem;color:#94a3b8;">
+                                <div>League: <span style="color:${debugData.importedLeagueData.hasLeague ? '#10b981' : '#ef4444'}">${debugData.importedLeagueData.leagueName}</span></div>
+                                <div>Entries: <span style="color:#22d3ee">${debugData.importedLeagueData.leagueEntries}</span></div>
+                                <div>Squads: <span style="color:#22d3ee">${debugData.importedLeagueData.squadsCount}</span> (keys: ${debugData.importedLeagueData.sampleSquadKeys.join(', ') || 'none'})</div>
+                                <div>Matches: <span style="color:#22d3ee">${debugData.importedLeagueData.matchesCount}</span></div>
+                                <div>Transactions: <span style="color:#22d3ee">${debugData.importedLeagueData.transactionsCount}</span></div>
+                                <div style="margin-top:0.5rem;padding:0.5rem;background:#111827;border-radius:4px;overflow-x:auto;">Sample Squad: <pre style="margin:0;white-space:pre-wrap;">${JSON.stringify(debugData.importedLeagueData.sampleSquad, null, 2)}</pre></div>
+                            </div>
+                        </div>
+                        
+                        <div style="background:#1e293b;padding:1rem;border-radius:8px;">
+                            <h3 style="color:#8b5cf6;margin:0 0 0.5rem;">importedBootstrap</h3>
+                            <div style="font-size:0.85rem;color:#94a3b8;">
+                                <div>Players: <span style="color:#22d3ee">${debugData.importedBootstrap.elementsCount}</span></div>
+                                <div>Teams: <span style="color:#22d3ee">${debugData.importedBootstrap.teamsCount}</span></div>
+                                <div>Fixtures GWs: <span style="color:#22d3ee">${debugData.importedBootstrap.fixturesGWs.join(', ') || 'none'}</span></div>
+                                <div style="margin-top:0.5rem;padding:0.5rem;background:#111827;border-radius:4px;">Sample Player: <pre style="margin:0;white-space:pre-wrap;">${JSON.stringify(debugData.importedBootstrap.samplePlayer, null, 2)}</pre></div>
+                            </div>
+                        </div>
+                        
+                        <div style="background:#1e293b;padding:1rem;border-radius:8px;">
+                            <h3 style="color:#10b981;margin:0 0 0.5rem;">importedPlayerDetails</h3>
+                            <div style="font-size:0.85rem;color:#94a3b8;">
+                                <div>Players with history: <span style="color:#22d3ee">${debugData.importedPlayerDetails.playerCount}</span></div>
+                                <div>Sample IDs: <span style="color:#22d3ee">${debugData.importedPlayerDetails.samplePlayerIds.join(', ') || 'none'}</span></div>
+                                <div style="margin-top:0.5rem;padding:0.5rem;background:#111827;border-radius:4px;overflow-x:auto;">Sample History: <pre style="margin:0;white-space:pre-wrap;">${JSON.stringify(debugData.importedPlayerDetails.sampleHistory, null, 2)}</pre></div>
+                            </div>
+                        </div>
+                        
+                        <div style="background:#1e293b;padding:1rem;border-radius:8px;">
+                            <h3 style="color:#f43f5e;margin:0 0 0.5rem;">Maps & Caches</h3>
+                            <div style="font-size:0.85rem;color:#94a3b8;">
+                                <div>elementMap size: <span style="color:#22d3ee">${debugData.maps.elementMapSize}</span></div>
+                                <div>fplTeamIdMap size: <span style="color:#22d3ee">${debugData.maps.fplTeamIdMapSize}</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div style="margin-top:1rem;text-align:center;">
+                        <button onclick="console.log('Full debug:', {importedLeagueData, importedBootstrap, importedPlayerDetails, elementMap, fplTeamIdMap})" style="padding:0.5rem 1rem;background:#334155;border:1px solid #475569;border-radius:8px;cursor:pointer;color:#fff;margin-right:0.5rem;">
+                            📋 Log Full Data to Console
+                        </button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(modal);
+            modal.addEventListener('click', (e) => { if (e.target === modal) modal.remove(); });
+        }
+        
+        // Load data from database into global variables for rendering
+        async function loadDataFromDb() {
+            console.log('[Init] Loading data from database...');
+            
+            try {
+                // Load league info first
+                let league = null;
+                try {
+                    const leagueRes = await fetch('/api/db/league');
+                    if (leagueRes.ok) {
+                        league = await leagueRes.json();
+                        console.log('[Init] Loaded league:', league?.name);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load league:', e);
+                }
+                
+                // Load entries
+                let entries = [];
+                try {
+                    const entriesRes = await fetch('/api/db/entries');
+                    if (entriesRes.ok) {
+                        entries = await entriesRes.json();
+                        console.log('[Init] Loaded entries:', entries.length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load entries:', e);
+                }
+                
+                // Load squads
+                let transformedSquads = {};
+                try {
+                    const squadsRes = await fetch('/api/db/squads');
+                    if (squadsRes.ok) {
+                        const squadsData = await squadsRes.json();
+                        for (const [entryId, picks] of Object.entries(squadsData.squads || {})) {
+                            transformedSquads[entryId] = {
+                                picks: picks.map(p => ({
+                                    element: p.player_id,
+                                    position: p.squad_position,
+                                    is_captain: p.is_captain,
+                                    is_vice_captain: p.is_vice_captain
+                                }))
+                            };
+                        }
+                        console.log('[Init] Loaded squads:', Object.keys(transformedSquads).length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load squads:', e);
+                }
+                
+                // Load matches
+                let matches = [];
+                try {
+                    const matchesRes = await fetch('/api/db/matches');
+                    if (matchesRes.ok) {
+                        matches = await matchesRes.json();
+                        console.log('[Init] Loaded matches:', matches.length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load matches:', e);
+                }
+                
+                // Load transactions
+                let transactions = [];
+                try {
+                    const transRes = await fetch('/api/db/transactions');
+                    if (transRes.ok) {
+                        transactions = await transRes.json();
+                        console.log('[Init] Loaded transactions:', transactions.length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load transactions:', e);
+                }
+                
+                // Calculate standings from matches
+                const standingsMap = {};
+                matches.forEach(m => {
+                    if (!m.finished) return;
+                    
+                    // Initialize entries if needed
+                    [m.league_entry_1, m.league_entry_2].forEach(entryId => {
+                        if (!standingsMap[entryId]) {
+                            standingsMap[entryId] = {
+                                league_entry: entryId,
+                                matches_played: 0, matches_won: 0, matches_lost: 0, matches_drawn: 0,
+                                points_for: 0, points_against: 0, total: 0
+                            };
+                        }
+                    });
+                    
+                    const s1 = standingsMap[m.league_entry_1];
+                    const s2 = standingsMap[m.league_entry_2];
+                    const p1 = m.entry_1_points || 0;
+                    const p2 = m.entry_2_points || 0;
+                    
+                    s1.matches_played++;
+                    s2.matches_played++;
+                    s1.points_for += p1;
+                    s1.points_against += p2;
+                    s2.points_for += p2;
+                    s2.points_against += p1;
+                    
+                    if (p1 > p2) {
+                        s1.matches_won++;
+                        s1.total += 3;
+                        s2.matches_lost++;
+                    } else if (p2 > p1) {
+                        s2.matches_won++;
+                        s2.total += 3;
+                        s1.matches_lost++;
+                    } else {
+                        s1.matches_drawn++;
+                        s2.matches_drawn++;
+                        s1.total += 1;
+                        s2.total += 1;
+                    }
+                });
+                
+                // Convert to array and sort by total points
+                const standings = Object.values(standingsMap).sort((a, b) => b.total - a.total || (b.points_for - b.points_against) - (a.points_for - a.points_against));
+                standings.forEach((s, i) => s.rank = i + 1);
+                console.log('[Init] Calculated standings from', matches.filter(m => m.finished).length, 'finished matches');
+                
+                // Construct importedLeagueData if we have league info
+                // Note: league_entries must be at TOP level for rendering functions
+                if (league && league.id) {
+                    importedLeagueData = {
+                        league: league,
+                        league_entries: entries,  // TOP level, not inside league!
+                        squads: transformedSquads,
+                        matches: matches,  // Direct array, not wrapped!
+                        transactions: { transactions: transactions },  // Wrapped for compatibility
+                        standings: standings  // Calculated from matches!
+                    };
+                    console.log('[Init] Built importedLeagueData with', entries.length, 'teams');
+                }
+                
+                // Load bootstrap (players + teams)
+                let players = [];
+                let teams = [];
+                try {
+                    const playersRes = await fetch('/api/db/players?limit=1000');
+                    if (playersRes.ok) {
+                        players = await playersRes.json();
+                        console.log('[Init] Loaded players:', players.length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load players:', e);
+                }
+                
+                try {
+                    const teamsRes = await fetch('/api/db/teams');
+                    if (teamsRes.ok) {
+                        teams = await teamsRes.json();
+                        console.log('[Init] Loaded teams:', teams.length);
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load teams:', e);
+                }
+                
+                // Load fixtures
+                let fixtures = {};
+                try {
+                    const fixturesRes = await fetch('/api/db/fixtures');
+                    if (fixturesRes.ok) {
+                        const fixturesList = await fixturesRes.json();
+                        // Group fixtures by gameweek (format expected by frontend)
+                        for (const f of fixturesList) {
+                            const gw = String(f.gameweek);
+                            if (!fixtures[gw]) fixtures[gw] = [];
+                            fixtures[gw].push({
+                                id: f.id,
+                                team_h: f.home_team_id,
+                                team_a: f.away_team_id,
+                                team_h_score: f.home_score,
+                                team_a_score: f.away_score,
+                                team_h_difficulty: f.home_fdr,
+                                team_a_difficulty: f.away_fdr,
+                                finished: f.finished,
+                                kickoff_time: f.kickoff_time,
+                                event: f.gameweek
+                            });
+                        }
+                        console.log('[Init] Loaded fixtures for GWs:', Object.keys(fixtures).sort().join(', '));
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load fixtures:', e);
+                }
+                
+                if (players.length > 0) {
+                    // Transform players to have element_type from position
+                    const transformedPlayers = players.map(p => ({
+                        ...p,
+                        element_type: p.position,
+                        team: p.team_id
+                    }));
+                    
+                    importedBootstrap = {
+                        elements: transformedPlayers,
+                        teams: teams.map(t => ({
+                            ...t,
+                            short_name: t.short_name || t.name?.substring(0, 3).toUpperCase()
+                        })),
+                        fixtures: fixtures  // Add fixtures!
+                    };
+                    
+                    console.log('[Init] Built importedBootstrap with', players.length, 'players,', teams.length, 'teams,', Object.keys(fixtures).length, 'GWs of fixtures');
+                    
+                    // Build maps
+                    buildFplTeamIdMap();
+                    buildElementMap();
+                }
+                
+                // Load element status (optional, don't fail if it errors)
+                try {
+                    const statusRes = await fetch('/api/db/element-status');
+                    if (statusRes.ok) {
+                        const statusData = await statusRes.json();
+                        if (!statusData.error) {
+                            importedElementStatus = statusData;
+                            console.log('[Init] Loaded element status');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load element status:', e);
+                }
+                
+                // Load player details (gameweek history) - CRITICAL for predictions!
+                try {
+                    const detailsRes = await fetch('/api/db/player-details');
+                    if (detailsRes.ok) {
+                        const playerDetails = await detailsRes.json();
+                        if (!playerDetails.error) {
+                            importedPlayerDetails = playerDetails;
+                            console.log('[Init] Loaded player details for', Object.keys(playerDetails).length, 'players');
+                        }
+                    }
+                } catch (e) {
+                    console.warn('[Init] Failed to load player details:', e);
+                }
+                
+                // Debug summary
+                console.log('[Init] ========== DB LOAD SUMMARY ==========');
+                console.log('[Init] league:', league?.id ? `✅ ${league.name}` : '❌ Missing');
+                console.log('[Init] entries:', entries.length > 0 ? `✅ ${entries.length}` : '❌ Empty');
+                console.log('[Init] squads:', Object.keys(transformedSquads).length > 0 ? `✅ ${Object.keys(transformedSquads).length} teams` : '❌ Empty');
+                console.log('[Init] matches:', matches.length > 0 ? `✅ ${matches.length}` : '❌ Empty');
+                console.log('[Init] transactions:', transactions.length > 0 ? `✅ ${transactions.length}` : '❌ Empty');
+                console.log('[Init] players:', players.length > 0 ? `✅ ${players.length}` : '❌ Empty');
+                console.log('[Init] teams:', teams.length > 0 ? `✅ ${teams.length}` : '❌ Empty');
+                console.log('[Init] fixtures:', Object.keys(fixtures).length > 0 ? `✅ GWs: ${Object.keys(fixtures).join(',')}` : '❌ Empty');
+                console.log('[Init] playerDetails:', Object.keys(importedPlayerDetails || {}).length > 0 ? `✅ ${Object.keys(importedPlayerDetails).length} players` : '❌ Empty');
+                console.log('[Init] =======================================');
+                
+                const success = league && league.id && players.length > 0;
+                console.log('[Init] loadDataFromDb returning:', success);
+                return success;
+            } catch (e) {
+                console.error('[Init] Failed to load from DB:', e);
+                return false;
+            }
+        }
+        
+        // Sync updates from newest JSON file
+        async function syncUpdates() {
+            showNotification('🔄 Syncing updates from newest file...', 'info');
+            
+            if (typeof DataService === 'undefined') {
+                showNotification('❌ DataService not available', 'error');
+                return;
+            }
+            
+            const result = await DataService.syncFromFile();
+            
+            if (result.success) {
+                const imported = result.imported;
+                showNotification(
+                    `✅ Synced from ${result.filename}: ${imported.players} players, ${imported.squads} squad slots, ${imported.gameweeks} GW records`,
+                    'success'
+                );
+                
+                // Refresh the DB status display
+                const dbStatus = await DataService.checkDbStatus();
+                showDbDataStatus(dbStatus);
+                
+                // Render analysis if we have league data
+                if (importedLeagueData?.league) {
+                    renderLeagueAnalysis();
+                }
+            } else {
+                showNotification(`❌ Sync failed: ${result.error}`, 'error');
+            }
         }
         
         // Check for available server data files
@@ -7780,6 +8536,17 @@
                 }
                 
                 console.log('[Server] Data loaded - Squads:', Object.keys(importedLeagueData?.squads || {}).length);
+                
+                // Import into DuckDB database for proper ownership tracking
+                if (typeof FPLDB !== 'undefined') {
+                    try {
+                        console.log('[Server] Importing data into database...');
+                        const dbResult = await FPLDB.importData(data);
+                        console.log('[Server] Database import result:', dbResult);
+                    } catch (dbError) {
+                        console.warn('[Server] Database import failed:', dbError);
+                    }
+                }
                 
                 // Save to localStorage for persistence
                 saveLeagueData();
@@ -8428,6 +9195,25 @@
                 if (saved) {
                     statusHtml += '<div style="margin-top: 0.75rem; color: var(--accent-cyan); font-size: 0.85rem;">💾 Data saved locally - will auto-load next time!</div>';
                 }
+                
+                // Import into DuckDB database for proper ownership tracking
+                if (typeof FPLDB !== 'undefined') {
+                    const leagueInputVal = document.getElementById('leagueDataInput').value.trim();
+                    if (leagueInputVal) {
+                        try {
+                            const parsed = JSON.parse(leagueInputVal);
+                            console.log('[Import] Importing data into database...');
+                            FPLDB.importData(parsed).then(dbResult => {
+                                console.log('[Import] Database import result:', dbResult);
+                                statusHtml += '<div style="margin-top: 0.5rem; color: var(--accent-violet); font-size: 0.85rem;">🗄️ Database updated for fast queries!</div>';
+                            }).catch(dbError => {
+                                console.warn('[Import] Database import failed:', dbError);
+                            });
+                        } catch(e) {
+                            console.warn('[Import] Failed to parse for DB import:', e);
+                        }
+                    }
+                }
             }
             
             statusContent.innerHTML = statusHtml;
@@ -8603,30 +9389,29 @@
                 let description = '';
                 
                 // Determine transaction type
+                // Use player_in_name from API if available, otherwise lookup by player_in/element_in
+                const getTransPlayerIn = () => trans.player_in_name || getPlayerName(trans.player_in || trans.element_in);
+                const getTransPlayerOut = () => trans.player_out_name || getPlayerName(trans.player_out || trans.element_out);
+                
                 if (trans.kind === 't' || trans.kind === 'trade') {
                     icon = '🤝';
                     typeLabel = 'Trade';
-                    const playerIn = getPlayerName(trans.element_in);
-                    const playerOut = getPlayerName(trans.element_out);
-                    description = `<span style="color: var(--accent-emerald);">+${playerIn}</span> / <span style="color: var(--accent-rose);">-${playerOut}</span>`;
+                    description = `<span style="color: var(--accent-emerald);">+${getTransPlayerIn()}</span> / <span style="color: var(--accent-rose);">-${getTransPlayerOut()}</span>`;
                 } else if (trans.kind === 'w' || trans.kind === 'waiver') {
                     icon = '🔄';
                     typeLabel = 'Waiver';
-                    const playerIn = getPlayerName(trans.element_in);
-                    const playerOut = getPlayerName(trans.element_out);
-                    description = `<span style="color: var(--accent-emerald);">+${playerIn}</span> / <span style="color: var(--accent-rose);">-${playerOut}</span>`;
+                    description = `<span style="color: var(--accent-emerald);">+${getTransPlayerIn()}</span> / <span style="color: var(--accent-rose);">-${getTransPlayerOut()}</span>`;
                 } else if (trans.kind === 'f' || trans.kind === 'free') {
                     icon = '🆓';
                     typeLabel = 'Free Agent';
-                    const playerIn = getPlayerName(trans.element_in);
-                    const playerOut = trans.element_out ? getPlayerName(trans.element_out) : null;
-                    description = `<span style="color: var(--accent-emerald);">+${playerIn}</span>`;
+                    const playerOut = (trans.player_out || trans.element_out) ? getTransPlayerOut() : null;
+                    description = `<span style="color: var(--accent-emerald);">+${getTransPlayerIn()}</span>`;
                     if (playerOut) description += ` / <span style="color: var(--accent-rose);">-${playerOut}</span>`;
                 } else {
                     description = `Type: ${trans.kind || 'unknown'}`;
                 }
                 
-                const teamName = getTeamName(trans.entry);
+                const teamName = trans.entry_name || getTeamName(trans.entry_id || trans.entry);
                 const status = trans.result === 'a' ? '✅' : (trans.result === 'di' ? '❌' : '⏳');
                 
                 html += `
@@ -9102,29 +9887,44 @@
                 if (lastFinished) return Math.min(lastFinished.id + 1, 38);
             }
             
-            // Second priority: check league matches to find first unstarted match
+            // Second priority: check fixtures to find first unfinished gameweek
+            if (importedBootstrap?.fixtures) {
+                const fixtures = importedBootstrap.fixtures;
+                // Check each gameweek starting from 21
+                for (let gw = 21; gw <= 38; gw++) {
+                    const gwFixtures = fixtures[String(gw)] || [];
+                    // If this GW has unfinished fixtures, it's the next GW
+                    const hasUnfinished = gwFixtures.some(f => !f.finished);
+                    if (hasUnfinished) {
+                        console.log('[GW Detection] Found next GW from fixtures:', gw);
+                        return gw;
+                    }
+                }
+            }
+            
+            // Third priority: check league matches to find first unstarted match
             if (importedLeagueData?.matches && Array.isArray(importedLeagueData.matches)) {
                 const matches = importedLeagueData.matches;
                 // Find first match that hasn't started
                 const unstartedMatch = matches.find(m => !m.started);
-                if (unstartedMatch) return unstartedMatch.event;
+                if (unstartedMatch) return unstartedMatch.event || unstartedMatch.gameweek;
                 
                 // Find last finished match
                 const finishedMatches = matches.filter(m => m.finished);
                 if (finishedMatches.length > 0) {
-                    const lastFinished = finishedMatches.reduce((max, m) => m.event > max.event ? m : max);
-                    return Math.min(lastFinished.event + 1, 38);
+                    const lastFinished = finishedMatches.reduce((max, m) => 
+                        (m.event || m.gameweek) > (max.event || max.gameweek) ? m : max);
+                    return Math.min((lastFinished.event || lastFinished.gameweek) + 1, 38);
                 }
             }
             
-            // Third priority: use currentEvent from data fetch (but NOT for analysis starting point)
-            // This is only a fallback when bootstrap events are unavailable
+            // Fourth priority: use currentEvent from data fetch
             if (importedLeagueData?.currentEvent && importedLeagueData.currentEvent > 20) {
                 return importedLeagueData.currentEvent;
             }
             
-            // Ultimate fallback - assume we're at GW22 (Jan 2026)
-            return 22;
+            // Ultimate fallback - assume we're at GW21 (next upcoming)
+            return 21;
         }
         
         // Apply accepted transactions to squad data
@@ -9350,29 +10150,70 @@
         }
         
         function renderFreeAgents() {
-            if (!importedElementStatus || !importedElementStatus.element_status) {
-                document.getElementById('freeAgentsList').innerHTML = `
+            const container = document.getElementById('freeAgentsList');
+            if (!container) return;
+            
+            // Get owned player IDs from squads
+            const ownedIds = getAllOwnedPlayerIds();
+            
+            if (!importedBootstrap?.elements) {
+                container.innerHTML = `
                     <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
-                        Element status data not available.
+                        Player data not loaded. Import league data first.
                     </div>
                 `;
                 return;
             }
             
-            // Get free agents (owner = null)
-            const freeAgents = importedElementStatus.element_status
-                .filter(es => es.owner === null && es.status === 'a')
-                .map(es => {
-                    const player = getPlayerById(es.element);
-                    const wishlistPlayer = wishlistPlayers.find(p => p.fplId === es.element || p.name === player.name);
+            if (ownedIds.size === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                        Squad data not available - cannot determine ownership.
+                    </div>
+                `;
+                return;
+            }
+            
+            // Get free agents (not owned, available, not left the league)
+            const freeAgents = importedBootstrap.elements
+                .filter(p => {
+                    // Not owned
+                    if (ownedIds.has(p.id)) return false;
+                    
+                    // Must be available (status 'a'), not injured/suspended/unavailable
+                    if (p.status === 'u' || p.status === 'i' || p.status === 's') return false;
+                    
+                    // Filter out players who left the PL (minutes = 0 all season, no recent games)
+                    if (p.minutes === 0 && p.total_points === 0) return false;
+                    
+                    // Check if player has any recent activity
+                    const details = importedPlayerDetails?.[p.id];
+                    if (details?.history) {
+                        const recentGames = details.history.slice(-5);
+                        const hasPlayedRecently = recentGames.some(g => g.minutes > 0);
+                        if (!hasPlayedRecently && details.history.length > 5) {
+                            return false; // Player hasn't played in last 5 GWs
+                        }
+                    }
+                    
+                    return true;
+                })
+                .map(p => {
+                    const wishlistPlayer = wishlistPlayers.find(wp => wp.fplId === p.id || wp.name === p.web_name);
+                    const posName = fplPositionMap[p.element_type] || '?';
                     return {
-                        ...player,
-                        elementId: es.element,
+                        ...p,
+                        name: p.web_name,
+                        position: posName,
+                        team: fplTeamIdMap[p.team] || p.team_name || '?',
+                        elementId: p.id,
                         wishlistRank: wishlistPlayer?.rank || 999,
                         wishlistScore: wishlistPlayer?.score || 0
                     };
                 })
-                .sort((a, b) => a.wishlistRank - b.wishlistRank);
+                .sort((a, b) => a.wishlistRank - b.wishlistRank || b.total_points - a.total_points);
+            
+            console.log('[FreeAgents] Found', freeAgents.length, 'available free agents');
             
             window.allFreeAgents = freeAgents;
             filterFreeAgents();
@@ -11590,6 +12431,12 @@
             const player = importedBootstrap?.elements?.find(e => e.id === parseInt(playerId));
             
             if (!pStats || !player) {
+                // Debug first few missing predictions
+                if (!window._predictDebugCount) window._predictDebugCount = 0;
+                if (window._predictDebugCount < 3) {
+                    console.warn(`[Predict] Player ${playerId}: pStats=${!!pStats}, player=${!!player}, cacheSize=${Object.keys(batchAnalysisCache.playerStats || {}).length}`);
+                    window._predictDebugCount++;
+                }
                 return { predicted: 0, breakdown: {}, confidence: 'none' };
             }
             
@@ -11833,15 +12680,16 @@
                 await initBatchAnalysis();
             }
             
-            // Populate GW selector
+            // Populate GW selector (starting from next upcoming GW, minimum 21)
             const gwSelect = document.getElementById('predictionGW');
             if (gwSelect && gwSelect.options.length === 0) {
                 const currentGW = getCurrentGameweek();
-                for (let gw = currentGW; gw <= 38; gw++) {
+                const startGW = Math.max(21, currentGW); // Always start from GW21 or later
+                for (let gw = startGW; gw <= 38; gw++) {
                     const option = document.createElement('option');
                     option.value = gw;
                     option.textContent = `GW${gw}`;
-                    if (gw === currentGW) option.selected = true;
+                    if (gw === startGW) option.selected = true;
                     gwSelect.appendChild(option);
                 }
             }
@@ -11862,7 +12710,9 @@
         
         // Main prediction calculator for a gameweek (BATCH-BASED)
         async function calculateGWPredictions(gameweek) {
-            if (!importedLeagueData || !importedBootstrap) return [];
+            if (!importedLeagueData || !importedBootstrap) {
+                return [];
+            }
             
             // Initialize batch analysis if not done
             if (!batchAnalysisCache.lastComputed) {
@@ -12276,6 +13126,11 @@
             renderH2HMatchupPredictions(predictions, selectedGW);
             renderFixtureHeatmap(selectedGW);
             renderPlayerBreakdown();
+            
+            // Populate Monte Carlo team selector
+            if (typeof populateMCTeamSelect === 'function') {
+                populateMCTeamSelect();
+            }
         }
         
         // Render team rankings with bar chart
@@ -13328,6 +14183,1252 @@
             </div>`;
             
             document.getElementById('simulationResults').innerHTML = html;
+        }
+        
+        // ============================================
+        // FREE AGENTS & SCORE DISTRIBUTION SYSTEM
+        // ============================================
+        
+        let freeAgentsData = [];
+        let freeAgentsByPosition = {};
+        
+        function initFreeAgents() {
+            // Populate gameweek dropdown
+            const gwSelect = document.getElementById('faGameweek');
+            if (gwSelect && gwSelect.options.length === 0) {
+                const currentGW = getCurrentGameweek();
+                for (let gw = currentGW; gw <= 38; gw++) {
+                    const opt = document.createElement('option');
+                    opt.value = gw;
+                    opt.textContent = `GW${gw}`;
+                    if (gw === currentGW + 1) opt.selected = true;
+                    gwSelect.appendChild(opt);
+                }
+            }
+            
+            // Load free agents data
+            loadFreeAgents();
+        }
+        
+        async function loadFreeAgents() {
+            const loading = document.getElementById('faLoading');
+            const tableEl = document.getElementById('faTable');
+            
+            if (loading) loading.style.display = 'block';
+            if (tableEl) tableEl.innerHTML = '';
+            
+            const gameweek = parseInt(document.getElementById('faGameweek')?.value) || (getCurrentGameweek() + 1);
+            const positionStr = document.getElementById('faPosition')?.value || '';
+            const positionMap = { 'GK': 1, 'DEF': 2, 'MID': 3, 'FWD': 4 };
+            const position = positionStr ? positionMap[positionStr] : null;
+            
+            // Try DataService (cache → DB) first
+            if (typeof DataService !== 'undefined') {
+                try {
+                    console.log('[Free Agents] Trying DataService (cache → DB)...');
+                    const players = await DataService.getFreeAgents(gameweek, position, 50);
+                    
+                    if (players && players.length > 0) {
+                        console.log(`[Free Agents] Got ${players.length} free agents from DataService`);
+                        
+                        // Convert to display format
+                        freeAgentsData = players.map(p => ({
+                            player_id: p.id,
+                            name: p.web_name,
+                            team: p.team_name || 'Unknown',
+                            position: { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' }[p.position] || 'MID',
+                            expected: p.recent_form || p.points_per_game || 0,
+                            upside: (p.recent_form || p.points_per_game || 0) * 1.5,
+                            floor: Math.max(1, (p.recent_form || p.points_per_game || 0) * 0.5),
+                            ci_80: [
+                                Math.max(1, Math.round((p.recent_form || 3) - (p.std_points || 3))),
+                                Math.round((p.recent_form || 3) + (p.std_points || 5))
+                            ],
+                            form_trend: (p.recent_form || 0) > (p.points_per_game || 0) ? 'hot' : 
+                                        (p.recent_form || 0) < (p.points_per_game || 0) ? 'cold' : 'stable',
+                            form_ewma: p.recent_form || p.form || 0,
+                            games_played: p.games_played || 0,
+                            status: p.status
+                        }));
+                        
+                        renderFreeAgentsTable();
+                        
+                        // Try to get by-position data
+                        try {
+                            const response = await fetch(`/api/db/free-agents/by-position?gameweek=${gameweek}&per_position=3`);
+                            const byPosData = await response.json();
+                            if (byPosData.by_position) {
+                                freeAgentsByPosition = {};
+                                for (const [pos, posPlayers] of Object.entries(byPosData.by_position)) {
+                                    freeAgentsByPosition[pos] = posPlayers.map(p => ({
+                                        name: p.web_name,
+                                        team: p.team_name || 'Unknown',
+                                        expected: p.recent_form || p.points_per_game || 0,
+                                        ci_80: [1, 10]
+                                    }));
+                                }
+                                updateBestByPositionCards();
+                            }
+                        } catch (e) {
+                            console.warn('[Free Agents] By-position fetch failed:', e);
+                        }
+                        
+                        calculateLocalDifferentials(gameweek);
+                        
+                        if (loading) loading.style.display = 'none';
+                        return;
+                    }
+                } catch (e) {
+                    console.warn('[Free Agents] DataService error:', e);
+                }
+            }
+            
+            // Fallback to local calculation
+            console.log('[Free Agents] Falling back to local calculation');
+            calculateLocalFreeAgents(gameweek, positionStr);
+            calculateLocalBestByPosition(gameweek);
+            calculateLocalDifferentials(gameweek);
+            
+            if (loading) loading.style.display = 'none';
+        }
+        
+        async function loadFreeAgentsByPosition(gameweek) {
+            try {
+                const response = await fetch(`/api/free-agents/by-position?gameweek=${gameweek}&per_position=3`);
+                if (response.ok) {
+                    const data = await response.json();
+                    freeAgentsByPosition = data.by_position || {};
+                    updateBestByPositionCards();
+                }
+            } catch (e) {
+                console.warn('Failed to load by-position data:', e);
+            }
+        }
+        
+        async function loadDifferentials(gameweek) {
+            try {
+                const response = await fetch(`/api/free-agents/differentials?gameweek=${gameweek}&top_n=5`);
+                if (response.ok) {
+                    const data = await response.json();
+                    renderDifferentials(data.differentials || []);
+                }
+            } catch (e) {
+                console.warn('Failed to load differentials:', e);
+            }
+        }
+        
+        function updateBestByPositionCards() {
+            for (const pos of ['GK', 'DEF', 'MID', 'FWD']) {
+                const el = document.getElementById(`faBest${pos}`);
+                const players = freeAgentsByPosition[pos] || [];
+                
+                if (el && players.length > 0) {
+                    const best = players[0];
+                    el.innerHTML = `
+                        <div style="font-weight: 600; color: var(--text-primary);">${best.name}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-secondary);">${best.team}</div>
+                        <div style="margin-top: 0.25rem;">
+                            <span style="color: var(--accent-cyan);">${best.expected.toFixed(1)} pts</span>
+                            <span style="color: var(--text-muted); margin-left: 0.5rem; font-size: 0.75rem;">
+                                (${best.ci_80[0]}-${best.ci_80[1]})
+                            </span>
+                        </div>
+                    `;
+                }
+            }
+        }
+        
+        function renderDifferentials(differentials) {
+            const el = document.getElementById('faDifferentials');
+            if (!el || differentials.length === 0) return;
+            
+            const html = `
+                <table class="standings-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>Player</th>
+                            <th>Team</th>
+                            <th>Pos</th>
+                            <th>Expected</th>
+                            <th>Upside</th>
+                            <th>Floor</th>
+                            <th>Form</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${differentials.map(p => `
+                            <tr onclick="showPlayerDistribution(${p.player_id})" style="cursor: pointer;">
+                                <td style="font-weight: 500;">${p.name}</td>
+                                <td>${p.team}</td>
+                                <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
+                                <td>${p.expected.toFixed(1)}</td>
+                                <td style="color: var(--accent-emerald); font-weight: 600;">${p.upside.toFixed(1)}</td>
+                                <td style="color: var(--text-muted);">${p.floor.toFixed(1)}</td>
+                                <td>
+                                    <span class="form-badge form-${p.form_trend || 'stable'}">${p.form_trend || 'stable'}</span>
+                                    <span style="margin-left: 0.25rem; font-size: 0.8rem;">${(p.form_ewma || 0).toFixed(1)}</span>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            el.innerHTML = html;
+        }
+        
+        function renderFreeAgentsTable() {
+            const tableEl = document.getElementById('faTable');
+            if (!tableEl) return;
+            
+            if (freeAgentsData.length === 0) {
+                tableEl.innerHTML = '<p style="color: var(--text-muted);">No free agents found. Make sure league data is loaded.</p>';
+                return;
+            }
+            
+            const html = `
+                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                    Found ${freeAgentsData.length} available free agents (filtered out injured/unavailable players)
+                </p>
+                <table class="standings-table" style="width: 100%;">
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            <th>Player</th>
+                            <th>Team</th>
+                            <th>Pos</th>
+                            <th>Expected</th>
+                            <th>80% Range</th>
+                            <th>Games</th>
+                            <th>Form</th>
+                            <th>📊</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${freeAgentsData.map((p, i) => `
+                            <tr>
+                                <td style="color: var(--text-muted);">${i + 1}</td>
+                                <td style="font-weight: 500;">
+                                    ${p.name}
+                                    ${p.chance !== null && p.chance < 100 ? `<span style="color: var(--accent-amber); font-size: 0.7rem;"> (${p.chance}%)</span>` : ''}
+                                </td>
+                                <td>${p.team}</td>
+                                <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
+                                <td style="color: var(--accent-cyan); font-weight: 600;">${p.expected.toFixed(1)}</td>
+                                <td>${p.ci_80[0].toFixed(0)}-${p.ci_80[1].toFixed(0)}</td>
+                                <td style="color: ${p.games_played >= 10 ? 'var(--accent-emerald)' : p.games_played >= 5 ? 'var(--text-secondary)' : 'var(--accent-rose)'};">
+                                    ${p.games_played}
+                                </td>
+                                <td>
+                                    <span class="form-badge form-${p.form_trend || 'stable'}">${p.form_trend || 'stable'}</span>
+                                    <span style="margin-left: 0.25rem; font-size: 0.8rem;">${(p.form_ewma || 0).toFixed(1)}</span>
+                                </td>
+                                <td>
+                                    <button onclick="showPlayerDistribution(${p.player_id})" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
+                                        View
+                                    </button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `;
+            tableEl.innerHTML = html;
+        }
+        
+        function sortFreeAgents() {
+            const sortBy = document.getElementById('faSortBy')?.value || 'expected';
+            
+            freeAgentsData.sort((a, b) => {
+                switch (sortBy) {
+                    case 'upside': return b.upside - a.upside;
+                    case 'floor': return b.floor - a.floor;
+                    case 'form': return b.form_ewma - a.form_ewma;
+                    default: return b.expected - a.expected;
+                }
+            });
+            
+            renderFreeAgentsTable();
+        }
+        
+        // Get all owned player IDs from all squads in the FPL Draft league
+        function getAllOwnedPlayerIds() {
+            const ownedIds = new Set();
+            
+            // Check multiple possible locations for squad data
+            const squads = importedLeagueData?.squads || {};
+            
+            console.log('[Free Agents] Squads object:', squads);
+            console.log('[Free Agents] Squad keys:', Object.keys(squads));
+            
+            // Iterate through all squads (keyed by entry_id)
+            Object.entries(squads).forEach(([entryId, squad]) => {
+                console.log(`[Free Agents] Processing squad ${entryId}:`, squad);
+                
+                // Handle different possible structures
+                let picks = [];
+                
+                if (Array.isArray(squad?.picks)) {
+                    picks = squad.picks;
+                } else if (Array.isArray(squad)) {
+                    picks = squad;
+                } else if (squad?.squad && Array.isArray(squad.squad)) {
+                    picks = squad.squad;
+                }
+                
+                picks.forEach(pick => {
+                    const playerId = pick.element || pick.player_id || pick.id;
+                    if (playerId) {
+                        ownedIds.add(playerId);
+                    }
+                });
+                
+                console.log(`[Free Agents] Squad ${entryId} has ${picks.length} picks`);
+            });
+            
+            // Also check if squads data is in a different location
+            // Sometimes it might be under league_entries directly
+            if (importedLeagueData?.league_entries) {
+                importedLeagueData.league_entries.forEach(entry => {
+                    const entryId = entry.entry_id;
+                    // Check if there's squad data attached to the entry
+                    if (entry.squad && Array.isArray(entry.squad)) {
+                        entry.squad.forEach(pick => {
+                            const playerId = pick.element || pick.player_id || pick.id;
+                            if (playerId) ownedIds.add(playerId);
+                        });
+                    }
+                });
+            }
+            
+            console.log(`[Free Agents] Total owned players: ${ownedIds.size}`);
+            console.log('[Free Agents] Sample owned IDs:', [...ownedIds].slice(0, 10));
+            
+            return ownedIds;
+        }
+        
+        // Check if a player is available (not injured, suspended, etc.)
+        function isPlayerAvailable(player) {
+            // Status: 'a' = available, 'u' = unavailable, 'i' = injured, 'd' = doubtful, 's' = suspended
+            if (player.status === 'u' || player.status === 'i' || player.status === 's') {
+                return false;
+            }
+            
+            // Check chance of playing
+            if (player.chance_of_playing !== null && player.chance_of_playing < 25) {
+                return false;
+            }
+            
+            // Player left PL entirely (0 minutes all season)
+            if (player.minutes === 0 && player.total_points === 0) {
+                return false;
+            }
+            
+            // Check if player has played recently (at least 1 game in last 5 GWs)
+            const details = importedPlayerDetails?.[player.id] || {};
+            const history = details.history || [];
+            if (history.length > 0) {
+                const recentGames = history.slice(-5);
+                const hasPlayedRecently = recentGames.some(g => g.minutes > 0);
+                // If player has history but hasn't played recently, they likely left
+                if (!hasPlayedRecently && history.length >= 5) {
+                    return false;
+                }
+            }
+            
+            return true;
+        }
+        
+        // Calculate tighter, more reliable confidence intervals
+        function calculateTightDistribution(scores) {
+            if (scores.length < 3) {
+                const avg = scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : 3;
+                return {
+                    expected: avg,
+                    floor: Math.max(1, avg - 2),
+                    upside: avg + 3,
+                    ci_80: [Math.max(1, avg - 2), avg + 3],
+                    probabilities: {}
+                };
+            }
+            
+            const sorted = [...scores].sort((a, b) => a - b);
+            const n = sorted.length;
+            
+            // Use IQR-based robust statistics
+            const q1Idx = Math.floor(n * 0.25);
+            const q3Idx = Math.floor(n * 0.75);
+            const q1 = sorted[q1Idx];
+            const q3 = sorted[q3Idx];
+            const iqr = q3 - q1;
+            
+            // Trimmed mean (exclude outliers)
+            const trimLow = q1 - 1.5 * iqr;
+            const trimHigh = q3 + 1.5 * iqr;
+            const trimmed = sorted.filter(s => s >= trimLow && s <= trimHigh);
+            const avg = trimmed.length > 0 
+                ? trimmed.reduce((a, b) => a + b, 0) / trimmed.length 
+                : sorted.reduce((a, b) => a + b, 0) / n;
+            
+            // Tighter 80% CI using actual percentiles
+            const ci80Low = sorted[Math.floor(n * 0.10)] || sorted[0];
+            const ci80High = sorted[Math.floor(n * 0.90)] || sorted[n - 1];
+            
+            // Even tighter floor/upside
+            const floor = sorted[Math.floor(n * 0.15)] || sorted[0];
+            const upside = sorted[Math.floor(n * 0.85)] || sorted[n - 1];
+            
+            // Build probability distribution
+            const probabilities = {};
+            const countMap = {};
+            scores.forEach(s => {
+                const rounded = Math.round(s);
+                countMap[rounded] = (countMap[rounded] || 0) + 1;
+            });
+            Object.entries(countMap).forEach(([score, count]) => {
+                probabilities[score] = count / scores.length;
+            });
+            
+            return {
+                expected: avg,
+                floor: floor,
+                upside: upside,
+                ci_80: [ci80Low, ci80High],
+                probabilities: probabilities
+            };
+        }
+        
+        // Local calculation fallback when API is not available
+        function calculateLocalFreeAgents(gameweek, position) {
+            if (!importedBootstrap?.elements) {
+                document.getElementById('faTable').innerHTML = '<p style="color: var(--text-muted);">Load league data first to see free agents.</p>';
+                return;
+            }
+            
+            // Get owned player IDs
+            const ownedIds = getAllOwnedPlayerIds();
+            
+            if (ownedIds.size === 0) {
+                document.getElementById('faTable').innerHTML = '<p style="color: var(--accent-rose);">⚠️ No squad data found. Make sure to import league data with squads.</p>';
+                return;
+            }
+            
+            // Get all players and filter to free agents only
+            let players = importedBootstrap.elements.filter(p => {
+                // Must not be owned
+                if (ownedIds.has(p.id)) return false;
+                
+                // Must be available (not injured/suspended)
+                if (!isPlayerAvailable(p)) return false;
+                
+                return true;
+            });
+            
+            console.log(`[Free Agents] Found ${players.length} available free agents out of ${importedBootstrap.elements.length} total players`);
+            
+            // Filter by position
+            if (position) {
+                const posMap = { 'GK': 1, 'DEF': 2, 'MID': 3, 'FWD': 4 };
+                players = players.filter(p => p.element_type === posMap[position]);
+            }
+            
+            // Calculate predictions with tighter distributions
+            freeAgentsData = players.map(p => {
+                const details = importedPlayerDetails?.[p.id] || {};
+                const history = details.history || [];
+                
+                // Get scores from games where player actually played
+                const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+                
+                // Calculate distribution
+                const dist = calculateTightDistribution(scores);
+                
+                // Calculate form trend based on recent vs older games
+                let formTrend = 'stable';
+                let formEwma = p.form || dist.expected;
+                
+                if (scores.length >= 5) {
+                    const recent3 = scores.slice(-3);
+                    const prev5 = scores.slice(-8, -3);
+                    const recent3Avg = recent3.reduce((a, b) => a + b, 0) / recent3.length;
+                    const prev5Avg = prev5.length > 0 ? prev5.reduce((a, b) => a + b, 0) / prev5.length : dist.expected;
+                    
+                    formEwma = recent3Avg;
+                    
+                    if (recent3Avg > prev5Avg * 1.2) formTrend = 'hot';
+                    else if (recent3Avg < prev5Avg * 0.8) formTrend = 'cold';
+                }
+                
+                return {
+                    player_id: p.id,
+                    name: p.web_name,
+                    team: fplTeamIdMap[p.team] || 'Unknown',
+                    position: fplPositionMap[p.element_type] || '?',
+                    expected: dist.expected,
+                    upside: dist.upside,
+                    floor: dist.floor,
+                    ci_80: dist.ci_80,
+                    form_trend: formTrend,
+                    form_ewma: formEwma,
+                    games_played: scores.length,
+                    probabilities: dist.probabilities,
+                    status: p.status,
+                    chance: p.chance_of_playing_next_round
+                };
+            });
+            
+            // Sort by expected points
+            freeAgentsData.sort((a, b) => b.expected - a.expected);
+            
+            // Take top 50
+            freeAgentsData = freeAgentsData.slice(0, 50);
+            
+            renderFreeAgentsTable();
+        }
+        
+        // Calculate best free agents by position locally
+        function calculateLocalBestByPosition(gameweek) {
+            if (!importedBootstrap?.elements) return;
+            
+            const ownedIds = getAllOwnedPlayerIds();
+            const posMap = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+            
+            // Get all free agents
+            const freeAgents = importedBootstrap.elements.filter(p => {
+                if (ownedIds.has(p.id)) return false;
+                if (!isPlayerAvailable(p)) return false;
+                return true;
+            });
+            
+            // Group by position and calculate scores
+            const byPosition = { GK: [], DEF: [], MID: [], FWD: [] };
+            
+            freeAgents.forEach(p => {
+                const pos = posMap[p.element_type];
+                if (!pos) return;
+                
+                const details = importedPlayerDetails?.[p.id] || {};
+                const history = details.history || [];
+                const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+                const dist = calculateTightDistribution(scores);
+                
+                byPosition[pos].push({
+                    name: p.web_name,
+                    team: fplTeamIdMap[p.team] || 'Unknown',
+                    expected: dist.expected,
+                    ci_80: dist.ci_80
+                });
+            });
+            
+            // Sort each position by expected and take top 3
+            for (const pos of ['GK', 'DEF', 'MID', 'FWD']) {
+                byPosition[pos].sort((a, b) => b.expected - a.expected);
+                byPosition[pos] = byPosition[pos].slice(0, 3);
+            }
+            
+            freeAgentsByPosition = byPosition;
+            updateBestByPositionCards();
+        }
+        
+        // Calculate high-upside differentials locally
+        function calculateLocalDifferentials(gameweek) {
+            if (!importedBootstrap?.elements) return;
+            
+            const ownedIds = getAllOwnedPlayerIds();
+            
+            // Get all free agents
+            const freeAgents = importedBootstrap.elements.filter(p => {
+                if (ownedIds.has(p.id)) return false;
+                if (!isPlayerAvailable(p)) return false;
+                return true;
+            });
+            
+            // Calculate scores with upside emphasis
+            const withScores = freeAgents.map(p => {
+                const details = importedPlayerDetails?.[p.id] || {};
+                const history = details.history || [];
+                const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+                const dist = calculateTightDistribution(scores);
+                
+                // Calculate form
+                let formTrend = 'stable';
+                let formEwma = p.form || dist.expected;
+                
+                if (scores.length >= 5) {
+                    const recent3 = scores.slice(-3);
+                    const prev5 = scores.slice(-8, -3);
+                    const recent3Avg = recent3.reduce((a, b) => a + b, 0) / recent3.length;
+                    const prev5Avg = prev5.length > 0 ? prev5.reduce((a, b) => a + b, 0) / prev5.length : dist.expected;
+                    
+                    formEwma = recent3Avg;
+                    
+                    if (recent3Avg > prev5Avg * 1.2) formTrend = 'hot';
+                    else if (recent3Avg < prev5Avg * 0.8) formTrend = 'cold';
+                }
+                
+                return {
+                    name: p.web_name,
+                    team: fplTeamIdMap[p.team] || 'Unknown',
+                    position: fplPositionMap[p.element_type] || '?',
+                    expected: dist.expected,
+                    upside: dist.upside,
+                    floor: dist.floor,
+                    form_trend: formTrend,
+                    form_ewma: formEwma
+                };
+            });
+            
+            // Sort by upside (90th percentile) and take top 5
+            withScores.sort((a, b) => b.upside - a.upside);
+            const differentials = withScores.slice(0, 5);
+            
+            renderDifferentials(differentials);
+        }
+        
+        // ============================================
+        // SCORE DISTRIBUTION MODAL
+        // ============================================
+        
+        async function showPlayerDistribution(playerId) {
+            const modal = document.getElementById('playerDistModal');
+            if (!modal) return;
+            
+            modal.style.display = 'flex';
+            
+            // Find player info
+            const player = importedBootstrap?.elements?.find(e => e.id === playerId);
+            const playerName = player?.web_name || `Player ${playerId}`;
+            const teamName = fplTeamIdMap[player?.team] || '';
+            
+            document.getElementById('distModalTitle').textContent = `${playerName} - ${teamName}`;
+            
+            try {
+                const gameweek = document.getElementById('faGameweek')?.value || (getCurrentGameweek() + 1);
+                const response = await fetch(`/api/player-distribution/${playerId}?gameweek=${gameweek}`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    renderDistributionModal(data);
+                } else {
+                    renderLocalDistribution(playerId);
+                }
+            } catch (e) {
+                console.warn('API not available, using local calculation:', e);
+                renderLocalDistribution(playerId);
+            }
+        }
+        
+        function renderDistributionModal(data) {
+            const dist = data.distribution || {};
+            const form = data.form || {};
+            
+            document.getElementById('distExpected').textContent = dist.expected?.toFixed(1) || '-';
+            document.getElementById('distCI80').textContent = dist.ci_80 ? `${dist.ci_80[0]}-${dist.ci_80[1]}` : '-';
+            document.getElementById('distFloor').textContent = dist.ci_80?.[0]?.toFixed(0) || '-';
+            document.getElementById('distMedian').textContent = dist.median?.toFixed(0) || '-';
+            document.getElementById('distUpside').textContent = dist.ci_80?.[1]?.toFixed(0) || '-';
+            document.getElementById('distGames').textContent = dist.sample_size || '-';
+            
+            // Render probability chart using Chart.js
+            const probs = dist.probabilities || {};
+            if (Object.keys(probs).length > 0) {
+                // Convert string keys to numbers
+                const numericProbs = {};
+                Object.entries(probs).forEach(([k, v]) => {
+                    numericProbs[parseInt(k)] = v;
+                });
+                renderDistributionChart(numericProbs);
+            }
+            
+            // Render recent scores placeholder
+            const recentScoresEl = document.getElementById('distRecentScores');
+            recentScoresEl.innerHTML = form.recent_scores ? 
+                form.recent_scores.map(s => `<span style="display: inline-block; padding: 0.25rem 0.5rem; background: var(--bg-tertiary); border-radius: 4px;">${s}</span>`).join('') :
+                '<span style="color: var(--text-muted);">-</span>';
+            
+            // Render form analysis
+            const formEl = document.getElementById('distForm');
+            const consistency = form.consistency ? (form.consistency > 0.7 ? 'High' : form.consistency > 0.4 ? 'Medium' : 'Low') : '-';
+            formEl.innerHTML = `
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Form (EWMA)</div>
+                    <div style="font-size: 1rem; font-weight: 600;">${form.ewma?.toFixed(1) || '-'}</div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Season Avg</div>
+                    <div style="font-size: 1rem; font-weight: 600;">${form.season_avg?.toFixed(1) || '-'}</div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Trend</div>
+                    <div style="font-size: 1rem; font-weight: 600;">
+                        <span class="form-badge form-${form.trend || 'stable'}">${form.trend || 'stable'}</span>
+                    </div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Consistency</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: ${consistency === 'High' ? 'var(--accent-emerald)' : consistency === 'Low' ? 'var(--accent-rose)' : 'var(--text-secondary)'};">${consistency}</div>
+                </div>
+            `;
+        }
+        
+        let distChart = null;
+        
+        function renderLocalDistribution(playerId) {
+            const player = importedBootstrap?.elements?.find(e => e.id === playerId);
+            const details = importedPlayerDetails?.[playerId] || {};
+            const history = details.history || [];
+            
+            const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+            
+            if (scores.length === 0) {
+                document.getElementById('distExpected').textContent = (player?.form || 3).toFixed(1);
+                document.getElementById('distGames').textContent = '0';
+                document.getElementById('distRecentScores').innerHTML = '<span style="color: var(--text-muted);">No game data</span>';
+                return;
+            }
+            
+            // Use tighter distribution calculation
+            const dist = calculateTightDistribution(scores);
+            const sorted = [...scores].sort((a, b) => a - b);
+            const n = scores.length;
+            
+            document.getElementById('distExpected').textContent = dist.expected.toFixed(1);
+            document.getElementById('distCI80').textContent = `${dist.ci_80[0].toFixed(0)}-${dist.ci_80[1].toFixed(0)}`;
+            document.getElementById('distFloor').textContent = dist.floor.toFixed(0);
+            document.getElementById('distMedian').textContent = sorted[Math.floor(n * 0.5)]?.toFixed(0) || '-';
+            document.getElementById('distUpside').textContent = dist.upside.toFixed(0);
+            document.getElementById('distGames').textContent = n;
+            
+            // Render recent scores
+            const recentScoresEl = document.getElementById('distRecentScores');
+            const recentScores = scores.slice(-10);
+            recentScoresEl.innerHTML = recentScores.map((s, i) => {
+                const isRecent = i >= recentScores.length - 3;
+                const color = s >= dist.upside ? 'var(--accent-emerald)' : s <= dist.floor ? 'var(--accent-rose)' : 'var(--text-secondary)';
+                return `<span style="display: inline-block; padding: 0.25rem 0.5rem; background: var(--bg-tertiary); border-radius: 4px; color: ${color}; font-weight: ${isRecent ? '600' : '400'}; ${isRecent ? 'border: 1px solid var(--accent-cyan);' : ''}">${s}</span>`;
+            }).join('');
+            
+            // Build probability chart with Chart.js
+            renderDistributionChart(dist.probabilities);
+            
+            // Form analysis
+            let formTrend = 'stable';
+            let recentAvg = dist.expected;
+            let seasonAvg = dist.expected;
+            
+            if (scores.length >= 5) {
+                const recent3 = scores.slice(-3);
+                const prev5 = scores.slice(-8, -3);
+                recentAvg = recent3.reduce((a, b) => a + b, 0) / recent3.length;
+                const prev5Avg = prev5.length > 0 ? prev5.reduce((a, b) => a + b, 0) / prev5.length : dist.expected;
+                seasonAvg = scores.reduce((a, b) => a + b, 0) / scores.length;
+                
+                if (recentAvg > prev5Avg * 1.2) formTrend = 'hot';
+                else if (recentAvg < prev5Avg * 0.8) formTrend = 'cold';
+            }
+            
+            // Calculate consistency (std dev)
+            const variance = scores.reduce((sum, s) => sum + Math.pow(s - dist.expected, 2), 0) / n;
+            const stdDev = Math.sqrt(variance);
+            const consistency = stdDev < 2 ? 'High' : stdDev < 4 ? 'Medium' : 'Low';
+            
+            const formEl = document.getElementById('distForm');
+            formEl.innerHTML = `
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Recent (3 games)</div>
+                    <div style="font-size: 1rem; font-weight: 600;">${recentAvg.toFixed(1)}</div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Season Avg</div>
+                    <div style="font-size: 1rem; font-weight: 600;">${seasonAvg.toFixed(1)}</div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Trend</div>
+                    <div style="font-size: 1rem; font-weight: 600;">
+                        <span class="form-badge form-${formTrend}">${formTrend}</span>
+                    </div>
+                </div>
+                <div style="padding: 0.5rem; background: var(--bg-tertiary); border-radius: 6px;">
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">Consistency</div>
+                    <div style="font-size: 1rem; font-weight: 600; color: ${consistency === 'High' ? 'var(--accent-emerald)' : consistency === 'Low' ? 'var(--accent-rose)' : 'var(--text-secondary)'};">${consistency}</div>
+                </div>
+            `;
+        }
+        
+        function renderDistributionChart(probabilities) {
+            const canvas = document.getElementById('distChartCanvas');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Destroy existing chart
+            if (distChart) {
+                distChart.destroy();
+            }
+            
+            // Prepare data
+            const labels = [];
+            const data = [];
+            const backgroundColors = [];
+            
+            // Get all scores from 0 to max
+            const allScores = Object.keys(probabilities).map(Number);
+            const minScore = Math.max(0, Math.min(...allScores) - 1);
+            const maxScore = Math.max(...allScores) + 1;
+            
+            for (let score = minScore; score <= maxScore; score++) {
+                labels.push(score.toString());
+                const prob = probabilities[score] || 0;
+                data.push((prob * 100).toFixed(1));
+                
+                // Color gradient based on score
+                if (prob > 0.15) {
+                    backgroundColors.push('rgba(34, 211, 238, 0.9)'); // Cyan for high prob
+                } else if (prob > 0.05) {
+                    backgroundColors.push('rgba(34, 211, 238, 0.6)');
+                } else {
+                    backgroundColors.push('rgba(34, 211, 238, 0.3)');
+                }
+            }
+            
+            distChart = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: 'Probability %',
+                        data: data,
+                        backgroundColor: backgroundColors,
+                        borderColor: 'rgba(34, 211, 238, 1)',
+                        borderWidth: 1,
+                        borderRadius: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: (context) => `${context.raw}% chance`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: {
+                            title: {
+                                display: true,
+                                text: 'Points',
+                                color: '#94a3b8'
+                            },
+                            grid: {
+                                display: false
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: 'Probability %',
+                                color: '#94a3b8'
+                            },
+                            grid: {
+                                color: 'rgba(148, 163, 184, 0.1)'
+                            },
+                            ticks: {
+                                color: '#94a3b8'
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        
+        function closeDistModal() {
+            const modal = document.getElementById('playerDistModal');
+            if (modal) modal.style.display = 'none';
+        }
+        
+        // Close modal on outside click
+        window.addEventListener('click', (e) => {
+            const modal = document.getElementById('playerDistModal');
+            if (e.target === modal) {
+                modal.style.display = 'none';
+            }
+        });
+        
+        // ============================================
+        // MONTE CARLO LINEUP SIMULATOR
+        // ============================================
+        
+        async function runLineupSimulation(entryId, gameweek, numSims = 1000) {
+            try {
+                const response = await fetch('/api/simulate-lineup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        entry_id: entryId,
+                        gameweek: gameweek,
+                        simulations: numSims
+                    })
+                });
+                
+                if (response.ok) {
+                    return await response.json();
+                }
+            } catch (e) {
+                console.warn('Lineup simulation API error:', e);
+            }
+            
+            return null;
+        }
+        
+        // Populate MC team selector
+        function populateMCTeamSelect() {
+            const select = document.getElementById('mcTeamSelect');
+            if (!select || !importedLeagueData?.league_entries) return;
+            
+            select.innerHTML = '<option value="">Select a team...</option>';
+            importedLeagueData.league_entries.forEach(entry => {
+                const opt = document.createElement('option');
+                opt.value = entry.entry_id;
+                opt.textContent = entry.entry_name || `Team ${entry.entry_id}`;
+                select.appendChild(opt);
+            });
+        }
+        
+        // Run Monte Carlo simulation
+        async function runMCSimulation(forceSimCount = null) {
+            const teamSelect = document.getElementById('mcTeamSelect');
+            const simCount = document.getElementById('mcSimCount');
+            const loading = document.getElementById('mcLoading');
+            const results = document.getElementById('mcResults');
+            
+            if (!teamSelect?.value) {
+                results.innerHTML = '<p style="color: var(--accent-rose);">Please select a team.</p>';
+                return;
+            }
+            
+            const entryId = parseInt(teamSelect.value);
+            const numSims = forceSimCount || parseInt(simCount?.value || '1000');
+            const gameweek = parseInt(document.getElementById('predictionGW')?.value || getCurrentGameweek() + 1);
+            
+            loading.style.display = 'block';
+            loading.textContent = numSims === 1 ? 'Simulating single game...' : `Running ${numSims.toLocaleString()} simulations...`;
+            results.innerHTML = '';
+            
+            // Use local simulation (Draft FPL - no captain)
+            setTimeout(() => {
+                runLocalMCSimulation(entryId, gameweek, numSims);
+                loading.style.display = 'none';
+            }, 10);
+        }
+        
+        // Local Monte Carlo simulation (Draft FPL - NO captain doubling)
+        function runLocalMCSimulation(entryId, gameweek, numSims) {
+            const squads = importedLeagueData?.squads || {};
+            const squadData = squads[String(entryId)] || squads[entryId];
+            
+            if (!squadData?.picks) {
+                document.getElementById('mcResults').innerHTML = '<p style="color: var(--accent-rose);">No squad data found for this team.</p>';
+                return;
+            }
+            
+            const players = squadData.picks.map(pick => {
+                const player = importedBootstrap?.elements?.find(e => e.id === pick.element);
+                const details = importedPlayerDetails?.[pick.element] || {};
+                const history = details.history || [];
+                const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+                
+                // Check availability
+                const isAvailable = player && (player.status === 'a' || player.status === 'd');
+                const chanceOfPlaying = player?.chance_of_playing_next_round;
+                
+                return {
+                    id: pick.element,
+                    name: player?.web_name || `Player ${pick.element}`,
+                    position: player?.element_type || 3,
+                    team: player?.team,
+                    scores: scores,
+                    avgScore: scores.length > 0 ? scores.reduce((a, b) => a + b, 0) / scores.length : (player?.form || 3),
+                    isAvailable: isAvailable,
+                    chanceOfPlaying: chanceOfPlaying
+                };
+            });
+            
+            // Run simulations
+            const selectionCounts = {};
+            const totalPointsList = [];
+            const singleGameResults = []; // For single game mode
+            
+            players.forEach(p => {
+                selectionCounts[p.id] = 0;
+            });
+            
+            for (let sim = 0; sim < numSims; sim++) {
+                // Sample scores
+                const sampledScores = players.map(p => {
+                    // Check if player plays (based on availability)
+                    let playsGame = p.isAvailable;
+                    if (p.chanceOfPlaying !== null && p.chanceOfPlaying < 100) {
+                        playsGame = Math.random() * 100 < p.chanceOfPlaying;
+                    }
+                    
+                    return {
+                        ...p,
+                        sampledScore: playsGame ? sampleScore(p.scores, p.avgScore) : 0,
+                        didPlay: playsGame
+                    };
+                });
+                
+                // Select best 11
+                const lineup = selectBestLineup(sampledScores);
+                
+                lineup.forEach(p => selectionCounts[p.id]++);
+                
+                // Total points (NO captain doubling in Draft FPL)
+                const total = lineup.reduce((sum, p) => sum + p.sampledScore, 0);
+                totalPointsList.push(total);
+                
+                // Store single game details
+                if (numSims === 1) {
+                    singleGameResults.push(...sampledScores.map(p => ({
+                        ...p,
+                        inLineup: lineup.some(l => l.id === p.id)
+                    })));
+                }
+            }
+            
+            // Build result object
+            const playerResults = players.map(p => ({
+                player_id: p.id,
+                name: p.name,
+                position: fplPositionMap[p.position] || '?',
+                team: fplTeamIdMap[p.team] || '?',
+                selection_rate: selectionCounts[p.id] / numSims,
+                expected: p.avgScore,
+                games_played: p.scores.length,
+                isAvailable: p.isAvailable
+            })).sort((a, b) => b.selection_rate - a.selection_rate);
+            
+            const avgTotal = totalPointsList.reduce((a, b) => a + b, 0) / numSims;
+            const variance = totalPointsList.reduce((sum, p) => sum + Math.pow(p - avgTotal, 2), 0) / numSims;
+            const stdDev = Math.sqrt(variance);
+            
+            totalPointsList.sort((a, b) => a - b);
+            const ci80Low = numSims > 1 ? totalPointsList[Math.floor(numSims * 0.1)] : totalPointsList[0];
+            const ci80High = numSims > 1 ? totalPointsList[Math.floor(numSims * 0.9)] : totalPointsList[0];
+            
+            const result = {
+                entry_name: importedLeagueData.league_entries.find(e => e.entry_id === entryId)?.entry_name || `Team ${entryId}`,
+                gameweek: gameweek,
+                isSingleGame: numSims === 1,
+                singleGameResults: singleGameResults,
+                recommendation: {
+                    players: playerResults,
+                    expected_points: avgTotal,
+                    std_dev: stdDev,
+                    ci_80: [ci80Low, ci80High],
+                    simulations: numSims
+                }
+            };
+            
+            renderMCResults(result);
+        }
+        
+        function sampleScore(scores, avgScore) {
+            if (scores.length === 0) {
+                // Random around average
+                return Math.max(0, Math.round(avgScore + (Math.random() - 0.5) * 4));
+            }
+            
+            // Sample from historical scores with some noise
+            const baseScore = scores[Math.floor(Math.random() * scores.length)];
+            const noise = (Math.random() - 0.5) * 2;
+            return Math.max(0, Math.round(baseScore + noise));
+        }
+        
+        function selectBestLineup(players) {
+            // Group by position
+            const byPos = { 1: [], 2: [], 3: [], 4: [] };
+            players.forEach(p => {
+                if (byPos[p.position]) byPos[p.position].push(p);
+            });
+            
+            // Sort each position by sampled score
+            Object.keys(byPos).forEach(pos => {
+                byPos[pos].sort((a, b) => b.sampledScore - a.sampledScore);
+            });
+            
+            // Build lineup (simple: 1 GK, 3-5 DEF, 2-5 MID, 1-3 FWD)
+            const lineup = [];
+            
+            // 1 GK
+            if (byPos[1].length > 0) lineup.push(byPos[1][0]);
+            
+            // At least 3 DEF
+            lineup.push(...byPos[2].slice(0, 3));
+            
+            // At least 2 MID
+            lineup.push(...byPos[3].slice(0, 2));
+            
+            // At least 1 FWD
+            lineup.push(...byPos[4].slice(0, 1));
+            
+            // Fill remaining with best available
+            const remaining = 11 - lineup.length;
+            const pool = [
+                ...byPos[2].slice(3, 5),
+                ...byPos[3].slice(2, 5),
+                ...byPos[4].slice(1, 3)
+            ].filter(p => !lineup.includes(p));
+            
+            pool.sort((a, b) => b.sampledScore - a.sampledScore);
+            lineup.push(...pool.slice(0, remaining));
+            
+            return lineup.slice(0, 11);
+        }
+        
+        function renderMCResults(result) {
+            const rec = result.recommendation || {};
+            const players = rec.players || [];
+            const isSingleGame = result.isSingleGame;
+            
+            let html = '';
+            
+            if (isSingleGame) {
+                // Single game mode - show actual sampled scores
+                const singleResults = result.singleGameResults || [];
+                const lineup = singleResults.filter(p => p.inLineup);
+                const bench = singleResults.filter(p => !p.inLineup);
+                const totalPts = lineup.reduce((sum, p) => sum + p.sampledScore, 0);
+                
+                html = `
+                    <div style="background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(34, 211, 238, 0.1)); border: 2px solid var(--accent-emerald); border-radius: 12px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                        <div style="text-align: center;">
+                            <div style="font-size: 0.9rem; color: var(--text-secondary);">Single Game Simulation</div>
+                            <div style="font-size: 2.5rem; font-weight: 700; color: var(--accent-emerald);">${totalPts} pts</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">GW${result.gameweek} • ${result.entry_name}</div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 0.75rem; color: var(--accent-emerald);">⭐ Starting XI</h4>
+                    <table class="standings-table" style="width: 100%; margin-bottom: 1.5rem;">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>Sampled Score</th>
+                                <th>Played?</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${lineup.sort((a, b) => b.sampledScore - a.sampledScore).map(p => `
+                                <tr style="background: rgba(16, 185, 129, 0.1);">
+                                    <td style="font-weight: 600;">${p.name}</td>
+                                    <td><span class="pos-badge pos-${fplPositionMap[p.position]}">${fplPositionMap[p.position]}</span></td>
+                                    <td>${fplTeamIdMap[p.team] || '?'}</td>
+                                    <td style="font-size: 1.2rem; font-weight: 600; color: var(--accent-cyan);">${p.sampledScore}</td>
+                                    <td>${p.didPlay ? '✅' : '❌'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <h4 style="margin-bottom: 0.75rem; color: var(--text-muted);">📋 Bench</h4>
+                    <table class="standings-table" style="width: 100%;">
+                        <tbody>
+                            ${bench.sort((a, b) => b.sampledScore - a.sampledScore).map(p => `
+                                <tr style="opacity: 0.7;">
+                                    <td>${p.name}</td>
+                                    <td><span class="pos-badge pos-${fplPositionMap[p.position]}">${fplPositionMap[p.position]}</span></td>
+                                    <td>${fplTeamIdMap[p.team] || '?'}</td>
+                                    <td style="color: var(--text-muted);">${p.sampledScore}</td>
+                                    <td>${p.didPlay ? '✅' : '❌'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                    
+                    <div style="margin-top: 1rem; padding: 0.75rem; background: var(--bg-tertiary); border-radius: 8px; font-size: 0.85rem; color: var(--text-secondary);">
+                        💡 <strong>Tip:</strong> Run multiple simulations to see which players consistently make the optimal lineup.
+                    </div>
+                `;
+            } else {
+                // Multi-simulation mode
+                html = `
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                        <div class="stat-card">
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Expected Points</div>
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--accent-cyan);">${rec.expected_points?.toFixed(1) || '-'}</div>
+                        </div>
+                        <div class="stat-card">
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">80% Range</div>
+                            <div style="font-size: 1.8rem; font-weight: 600; color: var(--accent-emerald);">
+                                ${rec.ci_80 ? `${rec.ci_80[0]?.toFixed(0)}-${rec.ci_80[1]?.toFixed(0)}` : '-'}
+                            </div>
+                        </div>
+                        <div class="stat-card">
+                            <div style="font-size: 0.8rem; color: var(--text-secondary);">Simulations</div>
+                            <div style="font-size: 1.8rem; font-weight: 600;">${rec.simulations?.toLocaleString() || '-'}</div>
+                        </div>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 0.75rem; color: var(--text-secondary);">Recommended Starting XI (by selection frequency)</h4>
+                    <table class="standings-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th>Player</th>
+                                <th>Pos</th>
+                                <th>Team</th>
+                                <th>Selection %</th>
+                                <th>Avg Pts</th>
+                                <th>Games</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${players.slice(0, 15).map((p, i) => `
+                                <tr style="${i < 11 ? 'background: rgba(16, 185, 129, 0.1);' : ''}${!p.isAvailable ? 'opacity: 0.5;' : ''}">
+                                    <td style="font-weight: ${i < 11 ? '600' : '400'};">
+                                        ${i < 11 ? '⭐ ' : ''}${p.name}
+                                        ${!p.isAvailable ? ' ⚠️' : ''}
+                                    </td>
+                                    <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
+                                    <td>${p.team}</td>
+                                    <td>
+                                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                            <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                                <div style="width: ${(p.selection_rate * 100).toFixed(0)}%; height: 100%; background: var(--accent-cyan);"></div>
+                                            </div>
+                                            <span style="min-width: 45px; text-align: right;">${(p.selection_rate * 100).toFixed(1)}%</span>
+                                        </div>
+                                    </td>
+                                    <td>${p.expected?.toFixed(1) || '-'}</td>
+                                    <td style="color: var(--text-muted);">${p.games_played || '-'}</td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+            }
+            
+            document.getElementById('mcResults').innerHTML = html;
+        }
+        
+        // Initialize MC team selector when predictions tab loads
+        const originalRenderPredictionsTab = typeof renderPredictionsTab === 'function' ? renderPredictionsTab : null;
+        if (originalRenderPredictionsTab) {
+            const wrappedRenderPredictionsTab = async function() {
+                await originalRenderPredictionsTab.apply(this, arguments);
+                populateMCTeamSelect();
+            };
+            // Note: We're not reassigning here to avoid infinite loop, 
+            // populateMCTeamSelect will be called separately
         }
     </script>
 </body>

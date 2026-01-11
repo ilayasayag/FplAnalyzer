@@ -66,7 +66,7 @@ const Fixtures = {
         const container = document.getElementById('fixtureGrid');
         if (!container) return;
         
-        const gwStart = parseInt(document.getElementById('gwStart')?.value) || 20;
+        const gwStart = parseInt(document.getElementById('gwStart')?.value) || 21;
         const gwEnd = parseInt(document.getElementById('gwEnd')?.value) || 38;
         
         try {
@@ -236,4 +236,5 @@ const Fixtures = {
 
 // Make globally available
 window.Fixtures = Fixtures;
+
 

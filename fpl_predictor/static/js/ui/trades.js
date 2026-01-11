@@ -220,3 +220,4 @@ const Trades = {
 // Make globally available
 window.Trades = Trades;
 
+
