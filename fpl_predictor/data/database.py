@@ -344,6 +344,44 @@ def _init_schema_internal(con: duckdb.DuckDBPyConnection):
         )
     """)
     
+    # Predicted Lineups (from web scraping)
+    # Drop and recreate to handle schema changes during development
+    con.execute("DROP TABLE IF EXISTS predicted_lineups")
+    con.execute("""
+        CREATE TABLE predicted_lineups (
+            player_id INTEGER NOT NULL,
+            team_id INTEGER NOT NULL,
+            gameweek INTEGER NOT NULL,
+            fixture_id INTEGER,
+            start_probability FLOAT NOT NULL,
+            bench_probability FLOAT,
+            injured BOOLEAN DEFAULT FALSE,
+            injury_details TEXT,
+            suspended BOOLEAN DEFAULT FALSE,
+            doubtful BOOLEAN DEFAULT FALSE,
+            sources_count INTEGER,
+            sources_data TEXT,
+            validation_note TEXT,
+            last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            PRIMARY KEY(player_id, gameweek)
+        )
+    """)
+    
+    # Unmatched Players (for future matching attempts)
+    con.execute("""
+        CREATE TABLE IF NOT EXISTS unmatched_players (
+            id INTEGER PRIMARY KEY,
+            scraped_name VARCHAR NOT NULL,
+            team_code VARCHAR(3),
+            position_code VARCHAR(3),
+            first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            occurrences INTEGER DEFAULT 1,
+            sources TEXT,
+            UNIQUE(scraped_name, team_code)
+        )
+    """)
+    
     # Create indexes for performance
     _create_indexes(con)
     
@@ -366,6 +404,9 @@ def _create_indexes(con: duckdb.DuckDBPyConnection):
         ("idx_fixture_difficulty_gw", "fixture_difficulty", "gameweek"),
         ("idx_pl_fixtures_gw", "pl_fixtures", "gameweek"),
         ("idx_fpl_matches_gw", "fpl_matches", "gameweek"),
+        ("idx_predicted_lineups_gw", "predicted_lineups", "gameweek"),
+        ("idx_predicted_lineups_player", "predicted_lineups", "player_id"),
+        ("idx_predicted_lineups_team", "predicted_lineups", "team_id"),
     ]
     
     for idx_name, table, column in indexes:
@@ -390,7 +431,7 @@ def get_db_stats(con: Optional[duckdb.DuckDBPyConnection] = None) -> dict:
         'pl_teams', 'pl_players', 'player_gameweeks', 'pl_fixtures',
         'fpl_league', 'fpl_entries', 'fpl_squads', 'fpl_matches',
         'fpl_transactions', 'element_status', 'fixture_difficulty',
-        'wishlist_players', 'cache'
+        'wishlist_players', 'cache', 'predicted_lineups'
     ]
     
     stats = {
@@ -418,9 +459,9 @@ def reset_database():
     con = get_connection()
     
     tables = [
-        'cache', 'user_preferences', 'wishlist_players', 'fixture_difficulty',
-        'element_status', 'fpl_transactions', 'fpl_matches', 'fpl_squads',
-        'fpl_entries', 'fpl_league', 'pl_fixtures', 'player_gameweeks',
+        'predicted_lineups', 'cache', 'user_preferences', 'wishlist_players', 
+        'fixture_difficulty', 'element_status', 'fpl_transactions', 'fpl_matches', 
+        'fpl_squads', 'fpl_entries', 'fpl_league', 'pl_fixtures', 'player_gameweeks',
         'pl_players', 'pl_teams'
     ]
     

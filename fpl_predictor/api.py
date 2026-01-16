@@ -1481,7 +1481,7 @@ def get_differential_picks():
 from .data.database import get_connection, get_db_stats, init_schema
 from .data.repository import (
     PlayerRepository, TeamRepository, SquadRepository,
-    LeagueRepository, FixtureRepository, CacheRepository
+    LeagueRepository, FixtureRepository, CacheRepository, PredictedLineupRepository
 )
 from .data.importer import DataImporter, import_from_dict
 
@@ -2061,6 +2061,197 @@ def db_compute_predictions(gameweek: int):
         'gameweek': gameweek,
         'predictions': predictions
     })
+
+
+# ==============================================================================
+# Predicted Lineups API Routes
+# ==============================================================================
+
+@app.route('/api/predicted-lineups/<int:gameweek>', methods=['GET'])
+def get_predicted_lineups(gameweek):
+    """
+    Get predicted lineups for a gameweek with unmatched players.
+    
+    Returns:
+        JSON with predicted lineups grouped by team, plus unmatched players
+    """
+    try:
+        repo = PredictedLineupRepository()
+        predictions = repo.get_predictions_for_gameweek(gameweek)
+        
+        # Get unmatched players from recent scrapings
+        unmatched = repo.get_unmatched_players(min_occurrences=1)
+        
+        if not predictions and not unmatched:
+            return jsonify({
+                'gameweek': gameweek,
+                'last_updated': None,
+                'predictions': [],  # Add empty predictions list
+                'unmatched_players': [],
+                'teams': {},
+                'total_predictions': 0,
+                'message': 'No lineup predictions available for this gameweek'
+            })
+        
+        # Group by team
+        from collections import defaultdict
+        by_team = defaultdict(list)
+        last_updated = None
+        
+        for pred in predictions:
+            team_name = pred.get('team_name', 'Unknown')
+            by_team[team_name].append(_clean_nan(pred))
+            if not last_updated or pred.get('last_updated'):
+                last_updated = pred.get('last_updated')
+        
+        # Clean predictions for frontend
+        cleaned_predictions = [_clean_nan(p) for p in predictions]
+        cleaned_unmatched = [_clean_nan(u) for u in unmatched]
+        
+        return jsonify({
+            'gameweek': gameweek,
+            'last_updated': last_updated,
+            'predictions': cleaned_predictions,  # Matched players
+            'unmatched_players': cleaned_unmatched,  # Unmatched players
+            'teams': dict(by_team),  # Keep grouped format for backward compatibility
+            'total_predictions': len(predictions),
+            'total_unmatched': len(unmatched)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'gameweek': gameweek
+        }), 500
+
+
+@app.route('/api/predicted-lineups/refresh/<int:gameweek>', methods=['POST'])
+def refresh_predicted_lineups(gameweek):
+    """
+    Manual refresh of predicted lineups for a gameweek.
+    
+    Triggers immediate scraping and aggregation.
+    """
+    try:
+        from .scheduler import run_immediate_update
+        
+        # Run update in background
+        import threading
+        thread = threading.Thread(target=run_immediate_update, args=(gameweek,))
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Lineup refresh started for GW{gameweek}',
+            'gameweek': gameweek
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'success': False,
+            'error': str(e),
+            'gameweek': gameweek
+        }), 500
+
+
+@app.route('/api/predicted-lineups/player/<int:player_id>/<int:gameweek>', methods=['GET'])
+def get_player_lineup_status(player_id, gameweek):
+    """
+    Get a specific player's predicted lineup status.
+    
+    Returns:
+        JSON with player's starting probability and status
+    """
+    try:
+        repo = PredictedLineupRepository()
+        
+        # Get all predictions for gameweek and find this player
+        predictions = repo.get_predictions_for_gameweek(gameweek)
+        player_data = next((p for p in predictions if p['player_id'] == player_id), None)
+        
+        if player_data:
+            return jsonify(_clean_nan(player_data))
+        else:
+            return jsonify({
+                'player_id': player_id,
+                'gameweek': gameweek,
+                'start_probability': None,
+                'message': 'No lineup prediction available for this player'
+            }), 404
+    
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'player_id': player_id,
+            'gameweek': gameweek
+        }), 500
+
+
+@app.route('/api/predicted-lineups/team/<int:team_id>/<int:gameweek>', methods=['GET'])
+def get_team_lineup(team_id, gameweek):
+    """
+    Get predicted lineup for a specific team.
+    
+    Returns:
+        JSON with team's predicted starting XI and bench
+    """
+    try:
+        repo = PredictedLineupRepository()
+        lineup = repo.get_team_lineup(team_id, gameweek)
+        
+        if not lineup:
+            return jsonify({
+                'team_id': team_id,
+                'gameweek': gameweek,
+                'lineup': [],
+                'message': 'No lineup prediction available for this team'
+            })
+        
+        # Separate starters, doubtful, and unavailable
+        starters = [p for p in lineup if p['start_probability'] >= 0.6]
+        doubtful = [p for p in lineup if 0.3 <= p['start_probability'] < 0.6]
+        unlikely = [p for p in lineup if p['start_probability'] < 0.3]
+        
+        return jsonify({
+            'team_id': team_id,
+            'gameweek': gameweek,
+            'starters': [_clean_nan(p) for p in starters],
+            'doubtful': [_clean_nan(p) for p in doubtful],
+            'unlikely': [_clean_nan(p) for p in unlikely],
+            'total': len(lineup)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'team_id': team_id,
+            'gameweek': gameweek
+        }), 500
+
+
+@app.route('/api/predicted-lineups/unavailable/<int:gameweek>', methods=['GET'])
+def get_unavailable_players(gameweek):
+    """
+    Get players who are injured, suspended, or doubtful for a gameweek.
+    
+    Returns:
+        JSON with list of unavailable players
+    """
+    try:
+        repo = PredictedLineupRepository()
+        unavailable = repo.get_unavailable_players(gameweek)
+        
+        return jsonify({
+            'gameweek': gameweek,
+            'unavailable_players': [_clean_nan(p) for p in unavailable],
+            'count': len(unavailable)
+        })
+    
+    except Exception as e:
+        return jsonify({
+            'error': str(e),
+            'gameweek': gameweek
+        }), 500
 
 
 # ==============================================================================

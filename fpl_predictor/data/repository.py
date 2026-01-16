@@ -574,6 +574,179 @@ class FixtureRepository:
         """, [team_id, gw_start, gw_end]).fetchdf().to_dict('records')
 
 
+class PredictedLineupRepository:
+    """Repository for predicted lineups data."""
+    
+    def __init__(self, con: Optional[duckdb.DuckDBPyConnection] = None):
+        self.con = con or get_connection()
+    
+    def upsert_predictions(self, predictions: List[dict]):
+        """Insert or update predicted lineups for a gameweek."""
+        cursor = self.con.cursor()
+        
+        for pred in predictions:
+            # Skip predictions without player_id (unmatched)
+            if pred.get('player_id') is None:
+                continue
+            
+            # Handle fixture_id: use None if not present (for compatibility)
+            fixture_id = pred.get('fixture_id')
+            
+            cursor.execute("""
+                INSERT INTO predicted_lineups 
+                (player_id, team_id, gameweek, fixture_id, start_probability, 
+                 bench_probability, injured, injury_details, suspended, doubtful,
+                 sources_count, sources_data, validation_note, last_updated)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW())
+                ON CONFLICT(player_id, gameweek) 
+                DO UPDATE SET
+                    team_id = excluded.team_id,
+                    fixture_id = excluded.fixture_id,
+                    start_probability = excluded.start_probability,
+                    bench_probability = excluded.bench_probability,
+                    injured = excluded.injured,
+                    injury_details = excluded.injury_details,
+                    suspended = excluded.suspended,
+                    doubtful = excluded.doubtful,
+                    sources_count = excluded.sources_count,
+                    sources_data = excluded.sources_data,
+                    validation_note = excluded.validation_note,
+                    last_updated = NOW()
+            """, (
+                pred.get('player_id'), pred.get('team_id'), pred['gameweek'],
+                fixture_id, pred['start_probability'],
+                pred.get('bench_probability'), pred.get('injured', False),
+                pred.get('injury_details'), pred.get('suspended', False),
+                pred.get('doubtful', False), pred['sources_count'],
+                pred['sources_data'], pred.get('validation_note')
+            ))
+        
+        self.con.commit()
+        return len(predictions)
+    
+    def get_predictions_for_gameweek(self, gameweek: int) -> List[dict]:
+        """Get all predicted lineups for a gameweek with FPL ownership info."""
+        result = self.con.execute("""
+            SELECT 
+                pl.*,
+                p.web_name,
+                p.first_name,
+                p.second_name,
+                t.short_name as team_name,
+                p.position,
+                CASE p.position
+                    WHEN 1 THEN 'GK'
+                    WHEN 2 THEN 'DEF'
+                    WHEN 3 THEN 'MID'
+                    WHEN 4 THEN 'FWD'
+                    ELSE 'UNKNOWN'
+                END as position_name,
+                es.owner_entry_id,
+                fe.short_name as fpl_club,
+                fe.entry_name as fpl_club_name
+            FROM predicted_lineups pl
+            JOIN pl_players p ON pl.player_id = p.id
+            LEFT JOIN pl_teams t ON pl.team_id = t.id
+            LEFT JOIN element_status es ON p.id = es.element_id
+            LEFT JOIN fpl_entries fe ON es.owner_entry_id = fe.entry_id
+            WHERE pl.gameweek = ?
+            ORDER BY t.short_name, pl.start_probability DESC
+        """, [gameweek])
+        
+        return result.fetchdf().to_dict('records')
+    
+    def get_player_lineup_probability(self, player_id: int, gameweek: int) -> Optional[float]:
+        """Get a specific player's starting probability."""
+        result = self.con.execute("""
+            SELECT start_probability, injured, suspended, doubtful
+            FROM predicted_lineups
+            WHERE player_id = ? AND gameweek = ?
+        """, [player_id, gameweek]).fetchone()
+        
+        if not result:
+            return None
+        
+        start_prob, injured, suspended, doubtful = result
+        
+        # Return None if player is unavailable
+        if injured or suspended:
+            return 0.0
+        
+        return start_prob
+    
+    def get_team_lineup(self, team_id: int, gameweek: int) -> List[dict]:
+        """Get predicted lineup for a specific team."""
+        result = self.con.execute("""
+            SELECT 
+                pl.*,
+                p.web_name,
+                p.position,
+                CASE p.position
+                    WHEN 1 THEN 'GK'
+                    WHEN 2 THEN 'DEF'
+                    WHEN 3 THEN 'MID'
+                    WHEN 4 THEN 'FWD'
+                    ELSE 'UNKNOWN'
+                END as position_name
+            FROM predicted_lineups pl
+            JOIN pl_players p ON pl.player_id = p.id
+            WHERE pl.team_id = ? AND pl.gameweek = ?
+            ORDER BY pl.start_probability DESC
+        """, [team_id, gameweek])
+        
+        return result.fetchdf().to_dict('records')
+    
+    def get_unavailable_players(self, gameweek: int) -> List[dict]:
+        """Get players who are injured, suspended, or doubtful."""
+        result = self.con.execute("""
+            SELECT 
+                pl.*,
+                p.web_name,
+                t.short_name as team_name,
+                p.position
+            FROM predicted_lineups pl
+            JOIN pl_players p ON pl.player_id = p.id
+            LEFT JOIN pl_teams t ON pl.team_id = t.id
+            WHERE pl.gameweek = ?
+              AND (pl.injured = TRUE OR pl.suspended = TRUE OR pl.doubtful = TRUE)
+            ORDER BY pl.start_probability DESC
+        """, [gameweek])
+        
+        return result.fetchdf().to_dict('records')
+    
+    def delete_predictions_for_gameweek(self, gameweek: int):
+        """Delete all predictions for a gameweek (for re-scraping)."""
+        self.con.execute("DELETE FROM predicted_lineups WHERE gameweek = ?", [gameweek])
+        self.con.commit()
+    
+    def upsert_unmatched_player(self, scraped_name: str, team_code: str, 
+                                 position_code: str = None, source: str = None):
+        """Track an unmatched player for future matching attempts."""
+        self.con.execute("""
+            INSERT INTO unmatched_players (scraped_name, team_code, position_code, sources, occurrences)
+            VALUES (?, ?, ?, ?, 1)
+            ON CONFLICT(scraped_name, team_code) 
+            DO UPDATE SET
+                last_seen = CURRENT_TIMESTAMP,
+                occurrences = unmatched_players.occurrences + 1,
+                sources = CASE 
+                    WHEN unmatched_players.sources LIKE '%' || ? || '%' 
+                    THEN unmatched_players.sources 
+                    ELSE unmatched_players.sources || ', ' || ?
+                END
+        """, [scraped_name, team_code, position_code, source or 'unknown', source or 'unknown', source or 'unknown'])
+        self.con.commit()
+    
+    def get_unmatched_players(self, min_occurrences: int = 1) -> List[dict]:
+        """Get list of players that couldn't be matched."""
+        result = self.con.execute("""
+            SELECT * FROM unmatched_players 
+            WHERE occurrences >= ?
+            ORDER BY occurrences DESC, last_seen DESC
+        """, [min_occurrences])
+        return result.fetchdf().to_dict('records')
+
+
 class CacheRepository:
     """Repository for caching computed results."""
     
@@ -633,5 +806,6 @@ def get_repositories(con: Optional[duckdb.DuckDBPyConnection] = None) -> Dict[st
         'squads': SquadRepository(con),
         'league': LeagueRepository(con),
         'fixtures': FixtureRepository(con),
-        'cache': CacheRepository(con)
+        'cache': CacheRepository(con),
+        'predicted_lineups': PredictedLineupRepository(con)
     }

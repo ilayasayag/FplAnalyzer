@@ -353,6 +353,19 @@
             background: var(--bg-tertiary);
         }
         
+        .player-link {
+            cursor: pointer;
+            text-decoration: underline;
+            text-decoration-style: dotted;
+            text-underline-offset: 3px;
+            transition: color 0.15s;
+        }
+        
+        .player-link:hover {
+            color: var(--accent-cyan);
+            text-decoration-style: solid;
+        }
+        
         .stat-cell {
             text-align: center;
             font-family: 'JetBrains Mono', monospace;
@@ -1814,6 +1827,256 @@
         .close-modal:hover {
             color: var(--text-primary);
         }
+        
+        /* Player Comparison Dashboard Styles */
+        .compare-slot {
+            flex: 1;
+            min-width: 200px;
+        }
+        
+        @media (max-width: 900px) {
+            #compareSearchSection > div {
+                grid-template-columns: repeat(2, 1fr) !important;
+            }
+        }
+        
+        @media (max-width: 500px) {
+            #compareSearchSection > div {
+                grid-template-columns: 1fr !important;
+            }
+        }
+        
+        .compare-search-container {
+            position: relative;
+        }
+        
+        .compare-dropdown {
+            position: absolute;
+            top: 100%;
+            left: 0;
+            right: 0;
+            background: var(--bg-tertiary);
+            border: 1px solid var(--border-color);
+            border-radius: 0 0 8px 8px;
+            max-height: 300px;
+            overflow-y: auto;
+            z-index: 100;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+        }
+        
+        .compare-dropdown-item {
+            padding: 0.75rem 1rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+            transition: background 0.15s;
+        }
+        
+        .compare-dropdown-item:hover {
+            background: var(--bg-secondary);
+        }
+        
+        .compare-dropdown-item:last-child {
+            border-bottom: none;
+        }
+        
+        .compare-player-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1rem;
+            margin-top: 0.5rem;
+            border: 2px solid var(--border-color);
+            position: relative;
+        }
+        
+        .compare-player-card.selected {
+            border-color: var(--accent-cyan);
+        }
+        
+        .compare-remove-btn {
+            position: absolute;
+            top: 0.5rem;
+            right: 0.5rem;
+            background: var(--accent-rose);
+            border: none;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            cursor: pointer;
+            color: white;
+            font-size: 0.8rem;
+            line-height: 1;
+        }
+        
+        .compare-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+            gap: 1.5rem;
+        }
+        
+        /* Horizontal comparison table styles */
+        #compareGrid table {
+            border-collapse: collapse;
+            width: 100%;
+        }
+        
+        #compareGrid th, #compareGrid td {
+            padding: 0.6rem 0.75rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        #compareGrid tr.section-header td {
+            font-size: 0.9rem;
+            border-bottom: none;
+        }
+        
+        #compareGrid tbody tr:hover {
+            background: var(--bg-tertiary);
+        }
+        
+        .compare-card {
+            background: var(--bg-tertiary);
+            border-radius: 12px;
+            padding: 1.25rem;
+            border: 2px solid var(--border-color);
+        }
+        
+        .compare-card-header {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .compare-pos-badge {
+            padding: 0.25rem 0.5rem;
+            border-radius: 4px;
+            font-size: 0.75rem;
+            font-weight: 700;
+        }
+        
+        .compare-section {
+            margin-bottom: 1rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .compare-section:last-child {
+            margin-bottom: 0;
+            padding-bottom: 0;
+            border-bottom: none;
+        }
+        
+        .compare-section-title {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            margin-bottom: 0.5rem;
+        }
+        
+        .compare-stat-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.5rem;
+        }
+        
+        .compare-stat {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 0.35rem 0.5rem;
+            background: var(--bg-secondary);
+            border-radius: 6px;
+            font-size: 0.85rem;
+        }
+        
+        .compare-stat-label {
+            color: var(--text-muted);
+        }
+        
+        .compare-stat-value {
+            font-weight: 600;
+        }
+        
+        .compare-stat-value.better {
+            color: var(--accent-emerald);
+        }
+        
+        .compare-stat-value.worse {
+            color: var(--accent-rose);
+        }
+        
+        .compare-recent-scores {
+            display: flex;
+            gap: 0.35rem;
+            flex-wrap: wrap;
+        }
+        
+        .compare-score-badge {
+            width: 28px;
+            height: 28px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            font-weight: 600;
+        }
+        
+        .compare-mini-chart {
+            height: 100px;
+            margin-top: 0.5rem;
+        }
+        
+        .compare-history-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.8rem;
+        }
+        
+        .compare-history-table th,
+        .compare-history-table td {
+            padding: 0.5rem;
+            border: 1px solid var(--border-color);
+            text-align: center;
+        }
+        
+        .compare-history-table th {
+            background: var(--bg-tertiary);
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+        
+        .compare-history-table .player-col {
+            min-width: 150px;
+            text-align: left;
+        }
+        
+        /* Loading Animations */
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+                transform: scale(1);
+            }
+            50% {
+                opacity: 0.6;
+                transform: scale(1.1);
+            }
+        }
+        
+        @keyframes bounce {
+            0%, 80%, 100% {
+                transform: translateY(0);
+            }
+            40% {
+                transform: translateY(-10px);
+            }
+        }
     </style>
 </head>
 <body>
@@ -1830,6 +2093,7 @@
             <button class="tab" onclick="showTab('overlap')">🔄 Team Overlaps</button>
             <button class="tab" onclick="showTab('simulation')">🎲 N-K-D Simulation</button>
             <button class="tab" onclick="showTab('charts')">📊 Visualizations</button>
+            <button class="tab" onclick="showTab('lineups')">📋 Predicted Lineups</button>
             <button class="tab" onclick="showTab('squad')">👥 Squad Builder</button>
             <button class="tab" onclick="showTab('mockdraft')">🎯 Mock Draft</button>
             <button class="tab" onclick="showTab('players')">⭐ Players Manager</button>
@@ -2006,6 +2270,46 @@
                 <h2 class="section-title">Team Correlation Analysis</h2>
                 <div class="chart-container">
                     <canvas id="correlationChart"></canvas>
+                </div>
+            </div>
+        </div>
+
+        <!-- Predicted Lineups Tab -->
+        <div id="lineups" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">📋 Predicted Starting Lineups</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    View predicted starting lineups with probabilities and injury status for each gameweek.
+                </p>
+                
+                <div class="controls">
+                    <div style="display: flex; gap: 1rem; align-items: center;">
+                        <label style="color: var(--text-secondary);">Gameweek:</label>
+                        <select id="lineupsGwSelect" onchange="loadPredictedLineups()" style="padding: 0.5rem; background: var(--bg-secondary); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 8px;">
+                            <option value="22">GW22 (Next)</option>
+                            <option value="23">GW23</option>
+                            <option value="24">GW24</option>
+                            <option value="25">GW25</option>
+                            <option value="26">GW26</option>
+                        </select>
+                        <button class="btn-primary" onclick="loadPredictedLineups()">
+                            Load Predictions
+                        </button>
+                        <button class="btn-secondary" onclick="refreshPredictedLineups()">
+                            🔄 Refresh Data
+                        </button>
+                    </div>
+                </div>
+                
+                <div id="lineupsStatus" style="margin-top: 1rem;"></div>
+                
+                <div id="lineupsGrid" style="margin-top: 2rem; display: grid; grid-template-columns: repeat(auto-fill, minmax(350px, 1fr)); gap: 1.5rem;">
+                    <!-- Lineups will be populated here -->
+                    <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                        <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">No lineup predictions loaded</div>
+                        <div>Select a gameweek to see predicted starting lineups with probabilities</div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -2629,10 +2933,17 @@
         <!-- Free Agents Tab -->
         <div id="freeagents" class="tab-content">
             <div class="section">
-                <h2 class="section-title">🆓 Free Agents Analyzer</h2>
-                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                    Find the best available players with advanced score distributions and form analysis.
-                </p>
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
+                    <div>
+                        <h2 class="section-title" style="margin-bottom: 0.5rem;">🆓 Free Agents Analyzer</h2>
+                        <p style="color: var(--text-secondary);">
+                            Find the best available players with advanced score distributions and form analysis.
+                        </p>
+                    </div>
+                    <button onclick="openCompareModal()" style="padding: 0.6rem 1rem; background: linear-gradient(135deg, var(--accent-violet), var(--accent-cyan)); border: none; border-radius: 8px; cursor: pointer; color: white; font-weight: 600; white-space: nowrap;">
+                        📊 Open Player Comparison
+                    </button>
+                </div>
                 
                 <div class="controls" style="flex-wrap: wrap; gap: 1rem; margin-bottom: 1.5rem;">
                     <div class="control-group">
@@ -2660,7 +2971,15 @@
                             <option value="form">Form (EWMA)</option>
                         </select>
                     </div>
+                    <div class="control-group">
+                        <label>View Mode</label>
+                        <select id="faViewMode" onchange="renderFreeAgentsTable()">
+                            <option value="cards">📊 Detailed Cards</option>
+                            <option value="table">📋 Compact Table</option>
+                        </select>
+                    </div>
                     <button onclick="loadFreeAgents()" style="align-self: flex-end;">🔄 Refresh</button>
+                    <button onclick="showOwnershipDebug()" style="align-self: flex-end; background: var(--accent-amber);">🔍 Ownership Debug</button>
                 </div>
                 
                 <!-- Quick Position Cards -->
@@ -2752,6 +3071,7 @@
                         </div>
                     </div>
                 </div>
+                
             </div>
         </div>
 
@@ -3058,7 +3378,12 @@
                         
                         <!-- Player Breakdown by Team -->
                         <div class="stat-card" style="margin-bottom: 2rem; border: 2px solid var(--accent-violet);">
-                            <h3 style="color: var(--accent-violet); margin-bottom: 1rem;">📋 Player Points Breakdown</h3>
+                            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                                <h3 style="color: var(--accent-violet); margin: 0;">📋 Player Points Breakdown</h3>
+                                <button onclick="openCompareModal()" style="padding: 0.4rem 0.75rem; background: var(--accent-violet); border: none; border-radius: 6px; cursor: pointer; color: white; font-size: 0.8rem;">
+                                    📊 Compare Players
+                                </button>
+                            </div>
                             <div style="display: flex; gap: 1rem; margin-bottom: 1rem; flex-wrap: wrap; align-items: center;">
                                 <select id="breakdownTeamSelect" onchange="renderPlayerBreakdown()" style="padding: 0.5rem 1rem; min-width: 200px;"></select>
                                 <label style="display: flex; align-items: center; gap: 0.5rem; color: var(--text-secondary); font-size: 0.85rem;">
@@ -4484,6 +4809,11 @@
             // Initialize free agents when tab is shown
             if (tabId === 'freeagents') {
                 initFreeAgents();
+            }
+            
+            // Auto-load predicted lineups when tab is shown
+            if (tabId === 'lineups') {
+                loadPredictedLineups();
             }
         }
         
@@ -7707,7 +8037,7 @@
             });
         }
         
-        // Player detail modal
+        // Player detail modal - UNIFIED COMPREHENSIVE VIEW
         async function showPlayerDetail(playerId) {
             // Try to get data via DataService (cache → DB → local)
             let bs = {};
@@ -7740,6 +8070,9 @@
                 return;
             }
             
+            // Remove existing modal if any
+            document.getElementById('playerModal')?.remove();
+            
             // Create modal
             const modal = document.createElement('div');
             modal.id = 'playerModal';
@@ -7748,106 +8081,243 @@
             const posColors = { GK: '#f59e0b', DEF: '#10b981', MID: '#22d3ee', FWD: '#f43f5e' };
             const positionMap = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
             const pos = positionMap[bs.position] || fplPositionMap[bs.element_type] || 'MID';
+            const teamName = bs.team_name || fplTeamIdMap[bs.team_id] || fplTeamIdMap[bs.team] || 'Unknown';
             
+            // Calculate distribution from history
+            const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+            const dist = calculateTightDistribution(scores);
+            
+            // Calculate form analysis
+            let formTrend = 'STABLE';
+            let recentAvg = 0;
+            let seasonAvg = dist.expected || 0;
+            
+            if (scores.length >= 3) {
+                const recent3 = scores.slice(-3);
+                recentAvg = recent3.reduce((a, b) => a + b, 0) / recent3.length;
+                
+                if (scores.length >= 5) {
+                    const prev5 = scores.slice(-8, -3);
+                    const prev5Avg = prev5.length > 0 ? prev5.reduce((a, b) => a + b, 0) / prev5.length : seasonAvg;
+                    if (recentAvg > prev5Avg * 1.2) formTrend = 'HOT';
+                    else if (recentAvg < prev5Avg * 0.8) formTrend = 'COLD';
+                }
+            }
+            
+            // Get score color function
+            const scoreColor = (pts) => {
+                if (pts >= 10) return '#10b981';
+                if (pts >= 6) return '#22d3ee';
+                if (pts >= 3) return '#f1f5f9';
+                if (pts > 0) return '#f59e0b';
+                return '#f43f5e';
+            };
+            
+            const trendIcons = { HOT: '🔥', COLD: '❄️', STABLE: '➖' };
+            const trendColors = { HOT: '#10b981', COLD: '#f43f5e', STABLE: '#94a3b8' };
+            
+            // Build history table
             let historyHtml = '';
             if (history.length > 0) {
-                historyHtml = '<h4 style="color:#22d3ee;margin:1.5rem 0 1rem;">📊 Gameweek History</h4>';
-                historyHtml += '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
-                historyHtml += '<tr style="background:#1e293b;"><th style="padding:0.5rem;border:1px solid #334155;">GW</th><th style="padding:0.5rem;border:1px solid #334155;">Opp</th><th style="padding:0.5rem;border:1px solid #334155;">Pts</th><th style="padding:0.5rem;border:1px solid #334155;">Min</th><th style="padding:0.5rem;border:1px solid #334155;">G</th><th style="padding:0.5rem;border:1px solid #334155;">A</th><th style="padding:0.5rem;border:1px solid #334155;">CS</th><th style="padding:0.5rem;border:1px solid #334155;">DC</th><th style="padding:0.5rem;border:1px solid #334155;">Bonus</th></tr>';
+                historyHtml = '<div style="overflow-x:auto;"><table style="width:100%;border-collapse:collapse;font-size:0.8rem;">';
+                historyHtml += '<tr style="background:#1e293b;"><th style="padding:0.5rem;border:1px solid #334155;">GW</th><th style="padding:0.5rem;border:1px solid #334155;">Opp</th><th style="padding:0.5rem;border:1px solid #334155;">Pts</th><th style="padding:0.5rem;border:1px solid #334155;">Min</th><th style="padding:0.5rem;border:1px solid #334155;">G</th><th style="padding:0.5rem;border:1px solid #334155;">A</th><th style="padding:0.5rem;border:1px solid #334155;">CS</th><th style="padding:0.5rem;border:1px solid #334155;">Bonus</th></tr>';
                 
                 history.slice().reverse().forEach(gw => {
-                    const dc = (gw.clearances_blocks_interceptions || 0) + (gw.tackles || 0);
-                    // Handle both DB format (opponent_name, gameweek) and local format (opponent_team, event/round)
                     const oppTeam = gw.opponent_name || fplTeamIdMap[gw.opponent_id] || fplTeamIdMap[gw.opponent_team] || gw.opponent_team || '?';
                     const gwNum = gw.gameweek || gw.round || gw.event || '?';
                     const pts = gw.total_points || 0;
-                    const ptsColor = pts >= 10 ? '#10b981' : pts >= 5 ? '#f59e0b' : '#f1f5f9';
                     historyHtml += '<tr style="background:#111827;">' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">GW' + gwNum + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + (gw.was_home ? '' : '@') + oppTeam + '</td>' +
-                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:' + ptsColor + ';font-weight:700;">' + pts + '</td>' +
+                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:' + scoreColor(pts) + ';font-weight:700;">' + pts + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + (gw.minutes || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#10b981;">' + (gw.goals_scored || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#8b5cf6;">' + (gw.assists || 0) + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#10b981;">' + (gw.clean_sheets || 0) + '</td>' +
-                        '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;color:#f59e0b;">' + dc + '</td>' +
                         '<td style="padding:0.5rem;border:1px solid #334155;text-align:center;">' + (gw.bonus || 0) + '</td>' +
                     '</tr>';
                 });
                 historyHtml += '</table></div>';
             }
             
+            // Build recent scores badges
+            const recentScoresHtml = scores.slice(-10).reverse().map(pts => 
+                `<span style="display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:6px;font-weight:600;background:${scoreColor(pts)}20;color:${scoreColor(pts)};border:1px solid ${scoreColor(pts)}50;">${pts}</span>`
+            ).join('');
+            
             modal.innerHTML = `
-                <div style="max-width:800px;margin:0 auto;background:#111827;border-radius:16px;padding:2rem;border:2px solid ${posColors[pos]};">
-                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;">
+                <div style="max-width:950px;margin:0 auto;background:#111827;border-radius:16px;padding:2rem;border:2px solid ${posColors[pos]};">
+                    <!-- Header -->
+                    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px solid #334155;">
                         <div>
-                            <div style="font-size:2rem;font-weight:700;">${bs.web_name || player?.name || 'Unknown'}</div>
+                            <div style="font-size:2rem;font-weight:700;">${bs.web_name || 'Unknown'}</div>
                             <div style="color:#94a3b8;">${bs.first_name || ''} ${bs.second_name || ''}</div>
-                            <div style="margin-top:0.5rem;">
+                            <div style="margin-top:0.5rem;display:flex;align-items:center;gap:0.5rem;">
                                 <span style="background:${posColors[pos]};color:#000;padding:0.25rem 0.75rem;border-radius:4px;font-weight:600;font-size:0.85rem;">${pos}</span>
-                                <span style="margin-left:0.5rem;color:#94a3b8;">${bs.team_name || fplTeamIdMap[bs.team_id] || fplTeamIdMap[bs.team] || 'Unknown'}</span>
+                                <span style="color:#94a3b8;">${teamName}</span>
+                                ${bs.news ? '<span style="color:#f59e0b;font-size:0.8rem;">⚠️ ' + (bs.chance_of_playing_next_round !== null ? bs.chance_of_playing_next_round + '%' : 'Doubt') + '</span>' : ''}
                             </div>
                         </div>
-                        <button onclick="document.getElementById('playerModal').remove()" style="background:#334155;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;color:#fff;font-size:1.2rem;">✕</button>
-                    </div>
-                    
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(120px, 1fr));gap:1rem;margin-bottom:1.5rem;">
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#22d3ee;">${bs.total_points || 0}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Total Points</div>
-                        </div>
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#10b981;">${bs.goals_scored || 0}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Goals</div>
-                        </div>
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#8b5cf6;">${bs.assists || 0}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Assists</div>
-                        </div>
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#10b981;">${bs.clean_sheets || 0}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Clean Sheets</div>
-                        </div>
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;">${bs.minutes || 0}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Minutes</div>
-                        </div>
-                        <div style="background:#1e293b;padding:1rem;border-radius:8px;text-align:center;">
-                            <div style="font-size:1.5rem;font-weight:700;color:#f59e0b;">${parseFloat(bs.form || 0).toFixed(1)}</div>
-                            <div style="font-size:0.75rem;color:#64748b;">Form</div>
+                        <div style="display:flex;gap:0.5rem;">
+                            <button onclick="document.getElementById('playerModal').remove(); quickCompare(${bs.id || playerId})" style="background:#8b5cf6;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;color:#fff;font-size:0.85rem;">⚖️ Compare</button>
+                            <button onclick="document.getElementById('playerModal').remove()" style="background:#334155;border:none;padding:0.5rem 1rem;border-radius:8px;cursor:pointer;color:#fff;font-size:1.2rem;">✕</button>
                         </div>
                     </div>
                     
-                    <div style="display:grid;grid-template-columns:repeat(auto-fit, minmax(100px, 1fr));gap:0.75rem;margin-bottom:1.5rem;">
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.bonus || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">Bonus</div>
+                    <!-- Two Column Layout -->
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.5rem;">
+                        
+                        <!-- Left: Distribution Dashboard -->
+                        <div style="background:#1e293b;border-radius:12px;padding:1.25rem;">
+                            <h4 style="color:#22d3ee;margin:0 0 1rem 0;font-size:1rem;">📊 Score Distribution</h4>
+                            
+                            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem;">
+                                <div>
+                                    <div style="font-size:0.7rem;color:#64748b;">Expected Points</div>
+                                    <div style="font-size:2rem;font-weight:700;color:#22d3ee;">${dist.expected.toFixed(1)}</div>
+                                </div>
+                                <div>
+                                    <div style="font-size:0.7rem;color:#64748b;">80% Range</div>
+                                    <div style="font-size:2rem;font-weight:700;color:#10b981;">${dist.ci_80[0]}-${dist.ci_80[1]}</div>
+                                </div>
+                            </div>
+                            
+                            <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.5rem;margin-bottom:1rem;">
+                                <div style="text-align:center;padding:0.5rem;background:#0f172a;border-radius:6px;">
+                                    <div style="font-size:0.65rem;color:#64748b;">Floor (15%)</div>
+                                    <div style="font-size:1.1rem;font-weight:600;color:#f43f5e;">${dist.floor.toFixed(0)}</div>
+                                </div>
+                                <div style="text-align:center;padding:0.5rem;background:#0f172a;border-radius:6px;">
+                                    <div style="font-size:0.65rem;color:#64748b;">Median</div>
+                                    <div style="font-size:1.1rem;font-weight:600;">${Math.round(dist.expected)}</div>
+                                </div>
+                                <div style="text-align:center;padding:0.5rem;background:#0f172a;border-radius:6px;">
+                                    <div style="font-size:0.65rem;color:#64748b;">Upside (85%)</div>
+                                    <div style="font-size:1.1rem;font-weight:600;color:#10b981;">${dist.upside.toFixed(0)}</div>
+                                </div>
+                                <div style="text-align:center;padding:0.5rem;background:#0f172a;border-radius:6px;">
+                                    <div style="font-size:0.65rem;color:#64748b;">Games</div>
+                                    <div style="font-size:1.1rem;font-weight:600;">${scores.length}</div>
+                                </div>
+                            </div>
+                            
+                            <!-- Distribution Chart -->
+                            <div style="height:150px;background:#0f172a;border-radius:8px;display:flex;align-items:flex-end;justify-content:center;gap:3px;padding:1rem 0.5rem;">
+                                ${(() => {
+                                    const probs = dist.probabilities || {};
+                                    const entries = Object.entries(probs).sort((a, b) => parseInt(a[0]) - parseInt(b[0]));
+                                    const maxProb = Math.max(...Object.values(probs), 0.01);
+                                    const maxHeight = 120; // px
+                                    
+                                    // Fill in missing scores from 0 to max score
+                                    const minScore = Math.min(...entries.map(e => parseInt(e[0])), 0);
+                                    const maxScore = Math.max(...entries.map(e => parseInt(e[0])), 15);
+                                    
+                                    let html = '';
+                                    for (let s = minScore; s <= Math.min(maxScore, 18); s++) {
+                                        const prob = probs[s] || 0;
+                                        const height = prob > 0 ? Math.max(4, (prob / maxProb) * maxHeight) : 2;
+                                        const color = prob > 0 ? '#22d3ee' : '#334155';
+                                        html += '<div style="display:flex;flex-direction:column;align-items:center;gap:2px;">' +
+                                            '<div style="width:20px;height:' + height + 'px;background:' + color + ';border-radius:3px 3px 0 0;" title="' + s + ' pts: ' + (prob * 100).toFixed(1) + '%"></div>' +
+                                            '<div style="font-size:0.6rem;color:#64748b;">' + s + '</div>' +
+                                        '</div>';
+                                    }
+                                    return html;
+                                })()}
+                            </div>
+                            <div style="text-align:center;font-size:0.7rem;color:#64748b;margin-top:0.25rem;">Score Probability Distribution (Points)</div>
                         </div>
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.bps || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">BPS</div>
-                        </div>
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.yellow_cards || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">Yellow</div>
-                        </div>
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.red_cards || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">Red</div>
-                        </div>
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.saves || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">Saves</div>
-                        </div>
-                        <div style="background:#1e293b;padding:0.75rem;border-radius:8px;text-align:center;">
-                            <div style="font-weight:600;">${bs.penalties_saved || 0}</div>
-                            <div style="font-size:0.65rem;color:#64748b;">Pen Saved</div>
+                        
+                        <!-- Right: Form & Season Stats -->
+                        <div>
+                            <!-- Form Analysis -->
+                            <div style="background:#1e293b;border-radius:12px;padding:1.25rem;margin-bottom:1rem;">
+                                <h4 style="color:#10b981;margin:0 0 1rem 0;font-size:1rem;">🔥 Form Analysis</h4>
+                                
+                                <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;margin-bottom:1rem;">
+                                    <div style="background:#0f172a;padding:0.75rem;border-radius:8px;">
+                                        <div style="font-size:0.65rem;color:#64748b;">Recent (3 games)</div>
+                                        <div style="font-size:1.5rem;font-weight:700;color:#22d3ee;">${recentAvg.toFixed(1)}</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.75rem;border-radius:8px;">
+                                        <div style="font-size:0.65rem;color:#64748b;">Season Avg</div>
+                                        <div style="font-size:1.5rem;font-weight:700;">${seasonAvg.toFixed(1)}</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.75rem;border-radius:8px;">
+                                        <div style="font-size:0.65rem;color:#64748b;">Trend</div>
+                                        <div style="font-size:1rem;font-weight:600;color:${trendColors[formTrend]};">${trendIcons[formTrend]} ${formTrend}</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.75rem;border-radius:8px;">
+                                        <div style="font-size:0.65rem;color:#64748b;">Consistency</div>
+                                        <div style="font-size:1rem;font-weight:600;color:${dist.std <= 3 ? '#10b981' : dist.std <= 5 ? '#f59e0b' : '#f43f5e'};">${dist.std <= 3 ? 'High' : dist.std <= 5 ? 'Medium' : 'Low'}</div>
+                                    </div>
+                                </div>
+                                
+                                <div style="font-size:0.7rem;color:#64748b;margin-bottom:0.5rem;">Recent Scores</div>
+                                <div style="display:flex;gap:0.25rem;flex-wrap:wrap;">
+                                    ${recentScoresHtml || '<span style="color:#64748b;">No recent scores</span>'}
+                                </div>
+                            </div>
+                            
+                            <!-- Season Stats -->
+                            <div style="background:#1e293b;border-radius:12px;padding:1.25rem;">
+                                <h4 style="color:#f59e0b;margin:0 0 1rem 0;font-size:1rem;">📋 Season Stats</h4>
+                                <div style="display:grid;grid-template-columns:repeat(3, 1fr);gap:0.5rem;">
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;color:#22d3ee;">${bs.total_points || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">Total Pts</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;color:#10b981;">${bs.goals_scored || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">Goals</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;color:#8b5cf6;">${bs.assists || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">Assists</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;color:#10b981;">${bs.clean_sheets || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">CS</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;">${bs.minutes || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">Minutes</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.5rem;border-radius:6px;text-align:center;">
+                                        <div style="font-size:1.3rem;font-weight:700;color:#f59e0b;">${bs.bonus || 0}</div>
+                                        <div style="font-size:0.6rem;color:#64748b;">Bonus</div>
+                                    </div>
+                                </div>
+                                <div style="display:grid;grid-template-columns:repeat(4, 1fr);gap:0.5rem;margin-top:0.5rem;">
+                                    <div style="background:#0f172a;padding:0.35rem;border-radius:4px;text-align:center;">
+                                        <div style="font-size:0.9rem;font-weight:600;">${bs.bps || 0}</div>
+                                        <div style="font-size:0.55rem;color:#64748b;">BPS</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.35rem;border-radius:4px;text-align:center;">
+                                        <div style="font-size:0.9rem;font-weight:600;color:#f59e0b;">${bs.yellow_cards || 0}</div>
+                                        <div style="font-size:0.55rem;color:#64748b;">YC</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.35rem;border-radius:4px;text-align:center;">
+                                        <div style="font-size:0.9rem;font-weight:600;color:#f43f5e;">${bs.red_cards || 0}</div>
+                                        <div style="font-size:0.55rem;color:#64748b;">RC</div>
+                                    </div>
+                                    <div style="background:#0f172a;padding:0.35rem;border-radius:4px;text-align:center;">
+                                        <div style="font-size:0.9rem;font-weight:600;">${bs.saves || 0}</div>
+                                        <div style="font-size:0.55rem;color:#64748b;">Saves</div>
+                                    </div>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
                     ${bs.news ? '<div style="background:rgba(245,158,11,0.1);border:1px solid #f59e0b;padding:0.75rem;border-radius:8px;margin-bottom:1rem;"><span style="color:#f59e0b;">⚠️ News:</span> ' + bs.news + '</div>' : ''}
                     
-                    ${historyHtml || '<div style="color:#64748b;text-align:center;padding:2rem;">No gameweek history available</div>'}
+                    <!-- Gameweek History -->
+                    <div style="background:#1e293b;border-radius:12px;padding:1.25rem;">
+                        <h4 style="color:#22d3ee;margin:0 0 1rem 0;font-size:1rem;">📊 Gameweek History</h4>
+                        ${historyHtml || '<div style="color:#64748b;text-align:center;padding:2rem;">No gameweek history available</div>'}
+                    </div>
                 </div>
             `;
             
@@ -7886,6 +8356,10 @@
                     const loaded = await loadDataFromDb();
                     if (loaded && importedLeagueData?.league) {
                         console.log('[Init] Auto-rendering from DB data');
+                        
+                        // Rebuild ownership map from loaded data
+                        rebuildOwnershipMap();
+                        
                         renderLeagueAnalysis();
                         return; // Skip localStorage loading since we have DB data
                     }
@@ -8377,6 +8851,12 @@
                 
                 const success = league && league.id && players.length > 0;
                 console.log('[Init] loadDataFromDb returning:', success);
+                
+                // Rebuild ownership map after successful load
+                if (success) {
+                    rebuildOwnershipMap();
+                }
+                
                 return success;
             } catch (e) {
                 console.error('[Init] Failed to load from DB:', e);
@@ -8405,6 +8885,9 @@
                 // Refresh the DB status display
                 const dbStatus = await DataService.checkDbStatus();
                 showDbDataStatus(dbStatus);
+                
+                // Rebuild ownership map after sync
+                rebuildOwnershipMap();
                 
                 // Render analysis if we have league data
                 if (importedLeagueData?.league) {
@@ -10257,13 +10740,18 @@
                 }[player.position] || 'var(--text-muted)';
                 
                 html += `
-                    <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: 8px; border-left: 3px solid ${posColor}; cursor: pointer; transition: transform 0.2s;" onclick="showPlayerDetail(${player.elementId})" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
-                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--accent-cyan);">${player.name || 'Unknown'}</div>
+                    <div style="background: var(--bg-tertiary); padding: 0.75rem; border-radius: 8px; border-left: 3px solid ${posColor}; transition: transform 0.2s; position: relative;" onmouseover="this.style.transform='scale(1.02)'" onmouseout="this.style.transform='scale(1)'">
+                        <div style="font-weight: 600; font-size: 0.9rem; color: var(--accent-cyan); cursor: pointer;" onclick="showPlayerDetail(${player.elementId})">${player.name || 'Unknown'}</div>
                         <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem;">
                             ${player.team || 'Unknown'} · <span style="color: ${posColor};">${player.position || '?'}</span>
                         </div>
-                        <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">
-                            Rank: ${player.wishlistRank < 999 ? '#' + player.wishlistRank : 'N/A'} · Score: ${player.wishlistScore || 'N/A'}
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 0.35rem;">
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">
+                                Rank: ${player.wishlistRank < 999 ? '#' + player.wishlistRank : 'N/A'}
+                            </div>
+                            <button onclick="event.stopPropagation(); quickCompare(${player.elementId})" style="font-size: 0.65rem; padding: 0.2rem 0.4rem; background: var(--accent-violet); border: none; border-radius: 4px; cursor: pointer; color: white;">
+                                📊 Compare
+                            </button>
                         </div>
                     </div>
                 `;
@@ -13302,6 +13790,7 @@
                         <th class="stat-cell" title="Defensive Contribution bonus (2pts)">DC</th>
                         <th class="stat-cell">Cards</th>
                         <th class="stat-cell">Predicted</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>`;
@@ -13320,7 +13809,7 @@
                 
                 html += `
                 <tr style="${rowStyle}">
-                    <td style="font-weight: 500;">${p.name} ${inOptimal ? '⭐' : ''} ${confBadge(p.confidence)}</td>
+                    <td style="font-weight: 500;"><span class="player-link" onclick="showPlayerDetail(${p.playerId})">${p.name}</span> ${inOptimal ? '⭐' : ''} ${confBadge(p.confidence)}</td>
                     <td>${p.pos}</td>
                     <td>${p.team}</td>
                     <td>${p.isHome ? '🏠' : '✈️'} ${p.opponent}</td>
@@ -13335,6 +13824,7 @@
                     <td class="stat-cell ${p.breakdown?.dcBonus > 0 ? 'highlight' : ''}" title="Expected DC: ${p.expectedDC || 0}">${(p.breakdown?.dcBonus || 0).toFixed(1)}</td>
                     <td class="stat-cell" style="color: ${(p.breakdown?.cards || 0) < 0 ? 'var(--accent-red)' : 'var(--text-muted)'}">${(p.breakdown?.cards || 0).toFixed(1)}</td>
                     <td class="stat-cell" style="font-weight: 700; color: var(--accent-cyan);">${p.predicted.toFixed(1)}</td>
+                    <td><button onclick="quickCompare(${p.playerId})" style="font-size: 0.65rem; padding: 0.2rem 0.4rem; background: var(--accent-violet); border: none; border-radius: 4px; cursor: pointer; color: white;">📊</button></td>
                 </tr>`;
             });
             
@@ -14172,7 +14662,7 @@
                             <div style="font-size: 0.85rem;">
                                 ${team.optimal11.slice(0, 5).map((p, i) => `
                                     <div style="display: flex; justify-content: space-between; padding: 0.35rem 0; border-bottom: 1px solid var(--border-color);">
-                                        <span>${i + 1}. ${p.name} <span style="color: var(--text-muted);">(${p.pos})</span></span>
+                                        <span>${i + 1}. <span class="player-link" onclick="showPlayerDetail(${p.playerId})">${p.name}</span> <span style="color: var(--text-muted);">(${p.pos})</span></span>
                                         <span style="font-weight: 600; color: var(--accent-emerald);">${p.predicted.toFixed(1)}</span>
                                     </div>
                                 `).join('')}
@@ -14231,25 +14721,43 @@
                     if (players && players.length > 0) {
                         console.log(`[Free Agents] Got ${players.length} free agents from DataService`);
                         
+                        // Double-check ownership locally as a safeguard
+                        const ownedIds = getAllOwnedPlayerIds();
+                        console.log(`[Free Agents] Local ownership check: ${ownedIds.size} owned players`);
+                        
+                        // Filter out any owned players (safety check)
+                        const trulyFree = players.filter(p => !ownedIds.has(p.id));
+                        if (trulyFree.length < players.length) {
+                            console.warn(`[Free Agents] ⚠️ Filtered out ${players.length - trulyFree.length} owned players that DB returned`);
+                        }
+                        
                         // Convert to display format
-                        freeAgentsData = players.map(p => ({
-                            player_id: p.id,
-                            name: p.web_name,
-                            team: p.team_name || 'Unknown',
-                            position: { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' }[p.position] || 'MID',
-                            expected: p.recent_form || p.points_per_game || 0,
-                            upside: (p.recent_form || p.points_per_game || 0) * 1.5,
-                            floor: Math.max(1, (p.recent_form || p.points_per_game || 0) * 0.5),
-                            ci_80: [
-                                Math.max(1, Math.round((p.recent_form || 3) - (p.std_points || 3))),
-                                Math.round((p.recent_form || 3) + (p.std_points || 5))
-                            ],
-                            form_trend: (p.recent_form || 0) > (p.points_per_game || 0) ? 'hot' : 
-                                        (p.recent_form || 0) < (p.points_per_game || 0) ? 'cold' : 'stable',
-                            form_ewma: p.recent_form || p.form || 0,
-                            games_played: p.games_played || 0,
-                            status: p.status
-                        }));
+                        freeAgentsData = trulyFree.map(p => {
+                            // Get recent scores from player details if available
+                            const details = importedPlayerDetails?.[p.id] || {};
+                            const history = details.history || [];
+                            const recent_scores = history.filter(h => h.minutes >= 10).map(h => h.total_points).slice(-10);
+                            
+                            return {
+                                player_id: p.id,
+                                name: p.web_name,
+                                team: p.team_name || 'Unknown',
+                                position: { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' }[p.position] || 'MID',
+                                expected: p.recent_form || p.points_per_game || 0,
+                                upside: (p.recent_form || p.points_per_game || 0) * 1.5,
+                                floor: Math.max(1, (p.recent_form || p.points_per_game || 0) * 0.5),
+                                ci_80: [
+                                    Math.max(1, Math.round((p.recent_form || 3) - (p.std_points || 3))),
+                                    Math.round((p.recent_form || 3) + (p.std_points || 5))
+                                ],
+                                form_trend: (p.recent_form || 0) > (p.points_per_game || 0) ? 'HOT' : 
+                                            (p.recent_form || 0) < (p.points_per_game || 0) ? 'COLD' : 'STABLE',
+                                form_ewma: p.recent_form || p.form || 0,
+                                games_played: p.games_played || 0,
+                                recent_scores: recent_scores,
+                                status: p.status
+                            };
+                        });
                         
                         renderFreeAgentsTable();
                         
@@ -14385,54 +14893,154 @@
                 return;
             }
             
-            const html = `
-                <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
-                    Found ${freeAgentsData.length} available free agents (filtered out injured/unavailable players)
-                </p>
-                <table class="standings-table" style="width: 100%;">
-                    <thead>
-                        <tr>
-                            <th>#</th>
-                            <th>Player</th>
-                            <th>Team</th>
-                            <th>Pos</th>
-                            <th>Expected</th>
-                            <th>80% Range</th>
-                            <th>Games</th>
-                            <th>Form</th>
-                            <th>📊</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        ${freeAgentsData.map((p, i) => `
+            // View mode from dropdown (default: cards)
+            const viewMode = document.getElementById('faViewMode')?.value || 'cards';
+            
+            // Score color helper
+            const scoreColor = (pts) => {
+                if (pts >= 10) return 'var(--accent-emerald)';
+                if (pts >= 6) return 'var(--accent-cyan)';
+                if (pts >= 3) return 'var(--text-primary)';
+                if (pts > 0) return 'var(--accent-amber)';
+                return 'var(--accent-rose)';
+            };
+            
+            const posColors = { GK: '#f59e0b', DEF: '#10b981', MID: '#22d3ee', FWD: '#f43f5e' };
+            const trendIcons = { HOT: '🔥', COLD: '❄️', STABLE: '➖' };
+            
+            if (viewMode === 'table') {
+                // Compact table view
+                const html = `
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                        Found ${freeAgentsData.length} available free agents
+                    </p>
+                    <table class="standings-table" style="width: 100%;">
+                        <thead>
                             <tr>
-                                <td style="color: var(--text-muted);">${i + 1}</td>
-                                <td style="font-weight: 500;">
-                                    ${p.name}
-                                    ${p.chance !== null && p.chance < 100 ? `<span style="color: var(--accent-amber); font-size: 0.7rem;"> (${p.chance}%)</span>` : ''}
-                                </td>
-                                <td>${p.team}</td>
-                                <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
-                                <td style="color: var(--accent-cyan); font-weight: 600;">${p.expected.toFixed(1)}</td>
-                                <td>${p.ci_80[0].toFixed(0)}-${p.ci_80[1].toFixed(0)}</td>
-                                <td style="color: ${p.games_played >= 10 ? 'var(--accent-emerald)' : p.games_played >= 5 ? 'var(--text-secondary)' : 'var(--accent-rose)'};">
-                                    ${p.games_played}
-                                </td>
-                                <td>
-                                    <span class="form-badge form-${p.form_trend || 'stable'}">${p.form_trend || 'stable'}</span>
-                                    <span style="margin-left: 0.25rem; font-size: 0.8rem;">${(p.form_ewma || 0).toFixed(1)}</span>
-                                </td>
-                                <td>
-                                    <button onclick="showPlayerDistribution(${p.player_id})" style="padding: 0.25rem 0.5rem; font-size: 0.75rem;">
-                                        View
-                                    </button>
-                                </td>
+                                <th>#</th>
+                                <th>Player</th>
+                                <th>Team</th>
+                                <th>Pos</th>
+                                <th>Expected</th>
+                                <th>80% Range</th>
+                                <th>Recent</th>
+                                <th>Form</th>
+                                <th>Actions</th>
                             </tr>
+                        </thead>
+                        <tbody>
+                            ${freeAgentsData.map((p, i) => `
+                                <tr>
+                                    <td style="color: var(--text-muted);">${i + 1}</td>
+                                    <td style="font-weight: 500;">
+                                        <span class="player-link" onclick="showPlayerDetail(${p.player_id})">${p.name}</span>
+                                        ${p.chance !== null && p.chance < 100 ? `<span style="color: var(--accent-amber); font-size: 0.7rem;"> (${p.chance}%)</span>` : ''}
+                                    </td>
+                                    <td>${p.team}</td>
+                                    <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
+                                    <td style="color: var(--accent-cyan); font-weight: 600;">${p.expected.toFixed(1)}</td>
+                                    <td>${p.ci_80[0].toFixed(0)}-${p.ci_80[1].toFixed(0)}</td>
+                                    <td>
+                                        <div style="display: flex; gap: 2px;">
+                                            ${(p.recent_scores || []).slice(-5).map(pts => `<span style="display: inline-block; width: 18px; height: 18px; line-height: 18px; text-align: center; font-size: 0.65rem; border-radius: 3px; background: ${scoreColor(pts)}20; color: ${scoreColor(pts)};">${pts}</span>`).join('')}
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span style="color: ${p.form_trend === 'HOT' ? 'var(--accent-emerald)' : p.form_trend === 'COLD' ? 'var(--accent-rose)' : 'var(--text-muted)'};">
+                                            ${trendIcons[p.form_trend] || '➖'} ${(p.form_ewma || 0).toFixed(1)}
+                                        </span>
+                                    </td>
+                                    <td>
+                                        <button onclick="showPlayerDistribution(${p.player_id})" style="padding: 0.2rem 0.4rem; font-size: 0.7rem; margin-right: 0.25rem;">📊</button>
+                                        <button onclick="quickCompare(${p.player_id})" style="padding: 0.2rem 0.4rem; font-size: 0.7rem;">⚖️</button>
+                                    </td>
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                `;
+                tableEl.innerHTML = html;
+            } else {
+                // Detailed cards view (like the modal)
+                const html = `
+                    <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                        Found ${freeAgentsData.length} available free agents - showing top predictions
+                    </p>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 1rem;">
+                        ${freeAgentsData.slice(0, 20).map((p, i) => `
+                            <div class="stat-card" style="padding: 1rem; border-left: 4px solid ${posColors[p.position]};">
+                                <!-- Header -->
+                                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="background: ${posColors[p.position]}; color: #000; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 600;">${p.position}</span>
+                                        <div>
+                                            <div class="player-link" onclick="showPlayerDetail(${p.player_id})" style="font-weight: 700; color: var(--text-primary);">${p.name}</div>
+                                            <div style="font-size: 0.8rem; color: var(--text-muted);">${p.team}</div>
+                                        </div>
+                                    </div>
+                                    <div style="text-align: right;">
+                                        <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-cyan);">${p.expected.toFixed(1)}</div>
+                                        <div style="font-size: 0.7rem; color: var(--text-muted);">Expected</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Distribution Stats -->
+                                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.75rem; background: var(--bg-tertiary); padding: 0.5rem; border-radius: 6px;">
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 0.65rem; color: var(--text-muted);">80% Range</div>
+                                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-emerald);">${p.ci_80[0].toFixed(0)}-${p.ci_80[1].toFixed(0)}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 0.65rem; color: var(--text-muted);">Floor</div>
+                                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-rose);">${p.floor?.toFixed(0) || '?'}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 0.65rem; color: var(--text-muted);">Upside</div>
+                                        <div style="font-size: 0.9rem; font-weight: 600; color: var(--accent-emerald);">${p.upside?.toFixed(0) || '?'}</div>
+                                    </div>
+                                    <div style="text-align: center;">
+                                        <div style="font-size: 0.65rem; color: var(--text-muted);">Games</div>
+                                        <div style="font-size: 0.9rem; font-weight: 600;">${p.games_played}</div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Form -->
+                                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                        <span style="color: ${p.form_trend === 'HOT' ? 'var(--accent-emerald)' : p.form_trend === 'COLD' ? 'var(--accent-rose)' : 'var(--text-muted)'}; font-weight: 600;">
+                                            ${trendIcons[p.form_trend] || '➖'} ${p.form_trend || 'STABLE'}
+                                        </span>
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">Form: ${(p.form_ewma || 0).toFixed(1)}</span>
+                                    </div>
+                                    ${p.chance !== null && p.chance < 100 ? `<span style="color: var(--accent-amber); font-size: 0.75rem;">⚠️ ${p.chance}% fit</span>` : ''}
+                                </div>
+                                
+                                <!-- Recent Scores -->
+                                <div style="margin-bottom: 0.75rem;">
+                                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-bottom: 0.3rem;">Recent Scores</div>
+                                    <div style="display: flex; gap: 0.25rem; flex-wrap: wrap;">
+                                        ${(p.recent_scores || []).slice(-10).reverse().map(pts => `
+                                            <span style="display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; background: ${scoreColor(pts)}20; color: ${scoreColor(pts)}; border: 1px solid ${scoreColor(pts)}50;">${pts}</span>
+                                        `).join('')}
+                                    </div>
+                                </div>
+                                
+                                <!-- Actions -->
+                                <div style="display: flex; gap: 0.5rem;">
+                                    <button onclick="showPlayerDistribution(${p.player_id})" style="flex: 1; padding: 0.5rem; font-size: 0.8rem; background: var(--accent-violet); border: none; border-radius: 6px; cursor: pointer;">
+                                        📊 Distribution
+                                    </button>
+                                    <button onclick="quickCompare(${p.player_id})" style="flex: 1; padding: 0.5rem; font-size: 0.8rem; background: var(--accent-cyan); border: none; border-radius: 6px; cursor: pointer;">
+                                        ⚖️ Compare
+                                    </button>
+                                </div>
+                            </div>
                         `).join('')}
-                    </tbody>
-                </table>
-            `;
-            tableEl.innerHTML = html;
+                    </div>
+                    ${freeAgentsData.length > 20 ? `<p style="color: var(--text-muted); text-align: center; margin-top: 1rem;">Showing top 20 of ${freeAgentsData.length} free agents. Use table view to see all.</p>` : ''}
+                `;
+                tableEl.innerHTML = html;
+            }
         }
         
         function sortFreeAgents() {
@@ -14450,23 +15058,31 @@
             renderFreeAgentsTable();
         }
         
-        // Get all owned player IDs from all squads in the FPL Draft league
-        function getAllOwnedPlayerIds() {
-            const ownedIds = new Set();
+        // ============================================
+        // OWNERSHIP TRACKING SYSTEM
+        // ============================================
+        
+        // Global ownership mapping: playerId -> { entryId, entryName, since }
+        let playerOwnershipMap = {};
+        
+        // Rebuild ownership mapping from squads and transactions
+        function rebuildOwnershipMap() {
+            console.log('[Ownership] Starting ownership rebuild...');
+            playerOwnershipMap = {};
             
-            // Check multiple possible locations for squad data
             const squads = importedLeagueData?.squads || {};
+            const entries = importedLeagueData?.league_entries || [];
+            const transactions = importedLeagueData?.transactions?.transactions || [];
             
-            console.log('[Free Agents] Squads object:', squads);
-            console.log('[Free Agents] Squad keys:', Object.keys(squads));
+            // Step 1: Process squads to get current ownership
+            console.log('[Ownership] Step 1: Processing squads...');
+            let totalPlayers = 0;
             
-            // Iterate through all squads (keyed by entry_id)
             Object.entries(squads).forEach(([entryId, squad]) => {
-                console.log(`[Free Agents] Processing squad ${entryId}:`, squad);
+                const entry = entries.find(e => String(e.entry_id) === String(entryId) || String(e.id) === String(entryId));
+                const entryName = entry?.entry_name || entry?.name || `Team ${entryId}`;
                 
-                // Handle different possible structures
                 let picks = [];
-                
                 if (Array.isArray(squad?.picks)) {
                     picks = squad.picks;
                 } else if (Array.isArray(squad)) {
@@ -14478,32 +15094,181 @@
                 picks.forEach(pick => {
                     const playerId = pick.element || pick.player_id || pick.id;
                     if (playerId) {
-                        ownedIds.add(playerId);
+                        playerOwnershipMap[playerId] = {
+                            entryId: parseInt(entryId),
+                            entryName: entryName,
+                            since: 'initial'
+                        };
+                        totalPlayers++;
                     }
                 });
                 
-                console.log(`[Free Agents] Squad ${entryId} has ${picks.length} picks`);
+                console.log(`[Ownership] Squad ${entryName}: ${picks.length} players`);
             });
             
-            // Also check if squads data is in a different location
-            // Sometimes it might be under league_entries directly
-            if (importedLeagueData?.league_entries) {
-                importedLeagueData.league_entries.forEach(entry => {
-                    const entryId = entry.entry_id;
-                    // Check if there's squad data attached to the entry
-                    if (entry.squad && Array.isArray(entry.squad)) {
-                        entry.squad.forEach(pick => {
-                            const playerId = pick.element || pick.player_id || pick.id;
-                            if (playerId) ownedIds.add(playerId);
-                        });
+            console.log(`[Ownership] Initial ownership: ${totalPlayers} players owned by ${Object.keys(squads).length} teams`);
+            
+            // Step 2: Process transactions in chronological order
+            console.log('[Ownership] Step 2: Processing transactions...');
+            const sortedTransactions = [...transactions].sort((a, b) => {
+                const gwA = a.gameweek || a.event || 0;
+                const gwB = b.gameweek || b.event || 0;
+                if (gwA !== gwB) return gwA - gwB;
+                return new Date(a.added || 0) - new Date(b.added || 0);
+            });
+            
+            let transCount = 0;
+            sortedTransactions.forEach(trans => {
+                const entryId = trans.entry_id || trans.entry;
+                const playerIn = trans.player_in || trans.element_in;
+                const playerOut = trans.player_out || trans.element_out;
+                const entry = entries.find(e => String(e.entry_id) === String(entryId) || String(e.id) === String(entryId));
+                const entryName = entry?.entry_name || trans.entry_name || `Team ${entryId}`;
+                const gw = trans.gameweek || trans.event || '?';
+                
+                if (playerOut) {
+                    // Remove ownership
+                    if (playerOwnershipMap[playerOut]) {
+                        delete playerOwnershipMap[playerOut];
+                        transCount++;
                     }
-                });
+                }
+                
+                if (playerIn) {
+                    // Add ownership
+                    playerOwnershipMap[playerIn] = {
+                        entryId: entryId,
+                        entryName: entryName,
+                        since: `GW${gw}`
+                    };
+                    transCount++;
+                }
+            });
+            
+            console.log(`[Ownership] Processed ${sortedTransactions.length} transactions (${transCount} ownership changes)`);
+            console.log(`[Ownership] Final ownership: ${Object.keys(playerOwnershipMap).length} players owned`);
+            console.log('[Ownership] Sample ownership:', Object.entries(playerOwnershipMap).slice(0, 5).map(([id, owner]) => ({
+                playerId: id,
+                owner: owner.entryName
+            })));
+            
+            // Store timestamp
+            window.lastOwnershipUpdate = Date.now();
+            
+            return playerOwnershipMap;
+        }
+        
+        // Get all owned player IDs (uses ownership map)
+        function getAllOwnedPlayerIds() {
+            // Rebuild if not initialized or stale (>5 minutes)
+            if (!window.lastOwnershipUpdate || Date.now() - window.lastOwnershipUpdate > 300000) {
+                rebuildOwnershipMap();
             }
             
-            console.log(`[Free Agents] Total owned players: ${ownedIds.size}`);
-            console.log('[Free Agents] Sample owned IDs:', [...ownedIds].slice(0, 10));
+            return new Set(Object.keys(playerOwnershipMap).map(id => parseInt(id)));
+        }
+        
+        // Get owner of a specific player
+        function getPlayerOwner(playerId) {
+            if (!window.lastOwnershipUpdate) {
+                rebuildOwnershipMap();
+            }
+            return playerOwnershipMap[playerId] || null;
+        }
+        
+        // Debug modal to show ownership mapping
+        function showOwnershipDebug() {
+            rebuildOwnershipMap(); // Refresh first
             
-            return ownedIds;
+            const entries = importedLeagueData?.league_entries || [];
+            const ownedIds = new Set(Object.keys(playerOwnershipMap).map(id => parseInt(id)));
+            
+            // Group players by owner
+            const byOwner = {};
+            entries.forEach(entry => {
+                byOwner[entry.entry_id] = {
+                    name: entry.entry_name,
+                    players: []
+                };
+            });
+            
+            Object.entries(playerOwnershipMap).forEach(([playerId, owner]) => {
+                const player = importedBootstrap?.elements?.find(p => p.id === parseInt(playerId));
+                if (byOwner[owner.entryId]) {
+                    byOwner[owner.entryId].players.push({
+                        id: playerId,
+                        name: player?.web_name || `Player ${playerId}`,
+                        team: fplTeamIdMap[player?.team] || '?',
+                        pos: fplPositionMap[player?.element_type] || '?'
+                    });
+                }
+            });
+            
+            let html = `
+                <div style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.9); z-index: 99999; overflow-y: auto; padding: 2rem;">
+                    <div style="max-width: 1200px; margin: 0 auto; background: var(--bg-primary); padding: 2rem; border-radius: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+                            <h2 style="color: var(--accent-cyan); margin: 0;">🔍 Ownership Debug</h2>
+                            <button onclick="this.parentElement.parentElement.parentElement.remove()" style="font-size: 1.5rem; background: none; border: none; cursor: pointer; color: var(--text-muted);">×</button>
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2rem;">
+                            <div class="stat-card">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Total Players</div>
+                                <div style="font-size: 1.8rem; font-weight: 600; color: var(--accent-cyan);">${importedBootstrap?.elements?.length || 0}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Owned Players</div>
+                                <div style="font-size: 1.8rem; font-weight: 600; color: var(--accent-rose);">${ownedIds.size}</div>
+                            </div>
+                            <div class="stat-card">
+                                <div style="font-size: 0.8rem; color: var(--text-secondary);">Free Agents</div>
+                                <div style="font-size: 1.8rem; font-weight: 600; color: var(--accent-emerald);">${(importedBootstrap?.elements?.length || 0) - ownedIds.size}</div>
+                            </div>
+                        </div>
+                        
+                        <h3 style="color: var(--accent-amber); margin-bottom: 1rem;">Squads Breakdown</h3>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+            `;
+            
+            Object.entries(byOwner).forEach(([entryId, data]) => {
+                const posCounts = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+                data.players.forEach(p => posCounts[p.pos]++);
+                
+                html += `
+                    <div style="background: var(--bg-tertiary); padding: 1rem; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">
+                        <div style="font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">${data.name}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 0.75rem;">
+                            Total: ${data.players.length} players | 
+                            🧤 ${posCounts.GK} | 
+                            🛡️ ${posCounts.DEF} | 
+                            ⚡ ${posCounts.MID} | 
+                            ⚽ ${posCounts.FWD}
+                        </div>
+                        <details style="font-size: 0.8rem;">
+                            <summary style="cursor: pointer; color: var(--accent-cyan);">Show Players</summary>
+                            <div style="margin-top: 0.5rem; max-height: 200px; overflow-y: auto;">
+                                ${data.players.map(p => `
+                                    <div style="padding: 0.25rem 0; border-bottom: 1px solid var(--border-color);">
+                                        <span style="color: var(--text-muted);">${p.pos}</span> ${p.name} 
+                                        <span style="color: var(--text-muted);">(${p.team})</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            });
+            
+            html += `
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            const modal = document.createElement('div');
+            modal.innerHTML = html;
+            document.body.appendChild(modal);
         }
         
         // Check if a player is available (not injured, suspended, etc.)
@@ -14547,7 +15312,8 @@
                     floor: Math.max(1, avg - 2),
                     upside: avg + 3,
                     ci_80: [Math.max(1, avg - 2), avg + 3],
-                    probabilities: {}
+                    probabilities: {},
+                    std: 4 // Default high variance for low sample
                 };
             }
             
@@ -14588,12 +15354,19 @@
                 probabilities[score] = count / scores.length;
             });
             
+            // Calculate standard deviation
+            const variance = trimmed.length > 1 
+                ? trimmed.reduce((sum, s) => sum + Math.pow(s - avg, 2), 0) / (trimmed.length - 1)
+                : 0;
+            const std = Math.sqrt(variance);
+            
             return {
                 expected: avg,
                 floor: floor,
                 upside: upside,
                 ci_80: [ci80Low, ci80High],
-                probabilities: probabilities
+                probabilities: probabilities,
+                std: std
             };
         }
         
@@ -14643,7 +15416,7 @@
                 const dist = calculateTightDistribution(scores);
                 
                 // Calculate form trend based on recent vs older games
-                let formTrend = 'stable';
+                let formTrend = 'STABLE';
                 let formEwma = p.form || dist.expected;
                 
                 if (scores.length >= 5) {
@@ -14654,8 +15427,8 @@
                     
                     formEwma = recent3Avg;
                     
-                    if (recent3Avg > prev5Avg * 1.2) formTrend = 'hot';
-                    else if (recent3Avg < prev5Avg * 0.8) formTrend = 'cold';
+                    if (recent3Avg > prev5Avg * 1.2) formTrend = 'HOT';
+                    else if (recent3Avg < prev5Avg * 0.8) formTrend = 'COLD';
                 }
                 
                 return {
@@ -14670,6 +15443,7 @@
                     form_trend: formTrend,
                     form_ewma: formEwma,
                     games_played: scores.length,
+                    recent_scores: scores.slice(-10), // Last 10 scores
                     probabilities: dist.probabilities,
                     status: p.status,
                     chance: p.chance_of_playing_next_round
@@ -15059,7 +15833,600 @@
             if (e.target === modal) {
                 modal.style.display = 'none';
             }
+            const compareModal = document.getElementById('playerCompareModal');
+            if (e.target === compareModal) {
+                compareModal.style.display = 'none';
+            }
+            
+            // Close compare dropdowns when clicking outside
+            if (!e.target.closest('.compare-search-container')) {
+                document.querySelectorAll('.compare-dropdown').forEach(d => d.style.display = 'none');
+            }
         });
+        
+        // ============================================
+        // PLAYER COMPARISON DASHBOARD
+        // ============================================
+        
+        // Store comparison state
+        const compareState = {
+            players: [null, null, null, null], // Up to 4 players
+            gameweek: null,
+            chartInstances: {},
+            playerColors: ['var(--accent-cyan)', 'var(--accent-rose)', 'var(--accent-emerald)', 'var(--accent-amber)']
+        };
+        
+        // Open comparison modal
+        function openCompareModal(initialPlayerId = null) {
+            const modal = document.getElementById('playerCompareModal');
+            modal.style.display = 'flex';
+            
+            // Populate GW selector
+            const gwSelect = document.getElementById('compareGW');
+            if (gwSelect.options.length === 0) {
+                const currentGW = getCurrentGameweek();
+                for (let gw = currentGW; gw <= 38; gw++) {
+                    const option = document.createElement('option');
+                    option.value = gw;
+                    option.textContent = `GW${gw}`;
+                    if (gw === currentGW) option.selected = true;
+                    gwSelect.appendChild(option);
+                }
+            }
+            compareState.gameweek = parseInt(gwSelect.value);
+            
+            // If initial player provided, add to slot 1
+            if (initialPlayerId) {
+                selectPlayerForCompare(1, initialPlayerId);
+            }
+            
+            updateCompareUI();
+        }
+        
+        // Close comparison modal
+        function closeCompareModal() {
+            document.getElementById('playerCompareModal').style.display = 'none';
+            // Clear chart instances
+            Object.values(compareState.chartInstances).forEach(chart => chart.destroy());
+            compareState.chartInstances = {};
+        }
+        
+        // Filter player search dropdown
+        function filterCompareSearch(slot) {
+            const input = document.getElementById(`compareSearch${slot}`);
+            const dropdown = document.getElementById(`compareDropdown${slot}`);
+            const query = input.value.toLowerCase().trim();
+            
+            if (query.length < 2) {
+                dropdown.style.display = 'none';
+                return;
+            }
+            
+            const players = importedBootstrap?.elements || [];
+            const matches = players
+                .filter(p => 
+                    p.web_name?.toLowerCase().includes(query) ||
+                    (p.first_name + ' ' + p.second_name)?.toLowerCase().includes(query)
+                )
+                .slice(0, 15);
+            
+            if (matches.length === 0) {
+                dropdown.innerHTML = '<div class="compare-dropdown-item" style="color: var(--text-muted);">No players found</div>';
+            } else {
+                const posColors = { 1: '#f59e0b', 2: '#10b981', 3: '#22d3ee', 4: '#f43f5e' };
+                const posNames = { 1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD' };
+                
+                dropdown.innerHTML = matches.map(p => `
+                    <div class="compare-dropdown-item" onclick="selectPlayerForCompare(${slot}, ${p.id})">
+                        <span class="compare-pos-badge" style="background: ${posColors[p.element_type] || posColors[3]}; color: #000;">
+                            ${posNames[p.element_type] || 'MID'}
+                        </span>
+                        <span style="font-weight: 600;">${p.web_name}</span>
+                        <span style="color: var(--text-muted); font-size: 0.8rem;">${fplTeamIdMap[p.team] || '?'}</span>
+                    </div>
+                `).join('');
+            }
+            
+            dropdown.style.display = 'block';
+        }
+        
+        // Show dropdown on focus
+        function showCompareDropdown(slot) {
+            const input = document.getElementById(`compareSearch${slot}`);
+            if (input.value.length >= 2) {
+                filterCompareSearch(slot);
+            }
+        }
+        
+        // Select a player for comparison
+        async function selectPlayerForCompare(slot, playerId) {
+            const idx = slot - 1;
+            
+            // Hide dropdown
+            document.getElementById(`compareDropdown${slot}`).style.display = 'none';
+            document.getElementById(`compareSearch${slot}`).value = '';
+            
+            // Show loading state
+            const playerCard = document.getElementById(`comparePlayer${slot}`);
+            const searchContainer = document.querySelector(`#compareSlot${slot} .compare-search-container`);
+            searchContainer.style.display = 'none';
+            playerCard.style.display = 'block';
+            playerCard.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--text-muted);">Loading...</div>';
+            
+            // Load player data
+            const playerData = await loadPlayerCompareData(playerId);
+            if (!playerData) {
+                playerCard.innerHTML = '<div style="text-align: center; padding: 1rem; color: var(--accent-rose);">Failed to load</div>';
+                setTimeout(() => {
+                    searchContainer.style.display = 'block';
+                    playerCard.style.display = 'none';
+                }, 1500);
+                return;
+            }
+            
+            compareState.players[idx] = playerData;
+            updateCompareUI();
+        }
+        
+        // Load all data needed for comparison
+        async function loadPlayerCompareData(playerId) {
+            const bootstrap = importedBootstrap?.elements?.find(e => e.id === playerId);
+            if (!bootstrap) return null;
+            
+            // Ensure batch analysis is initialized for predictions
+            if (!batchAnalysisCache.lastComputed && importedPlayerDetails && importedBootstrap) {
+                console.log('[Compare] Initializing batch analysis...');
+                await initBatchAnalysis();
+            }
+            
+            // Get player details (history)
+            let history = [];
+            const details = importedPlayerDetails?.[playerId];
+            if (details?.history) {
+                history = details.history;
+            }
+            
+            // Calculate distribution
+            const scores = history.filter(h => h.minutes >= 10).map(h => h.total_points);
+            const dist = calculateTightDistribution(scores);
+            
+            // Calculate form
+            const recentGames = history.slice(-5);
+            const recentAvg = recentGames.length > 0 
+                ? recentGames.reduce((s, g) => s + g.total_points, 0) / recentGames.length 
+                : 0;
+            const seasonAvg = history.length > 0 
+                ? history.reduce((s, g) => s + g.total_points, 0) / history.length 
+                : 0;
+            
+            // Determine trend
+            let trend = 'STABLE';
+            if (recentGames.length >= 3) {
+                const diff = recentAvg - seasonAvg;
+                if (diff > 1.5) trend = 'HOT';
+                else if (diff < -1.5) trend = 'COLD';
+            }
+            
+            // Get GW prediction
+            const gw = compareState.gameweek || getCurrentGameweek();
+            const fixtures = importedBootstrap?.fixtures?.[String(gw)] || [];
+            const teamFixtureMap = {};
+            fixtures.forEach(f => {
+                teamFixtureMap[f.team_h] = { opponent: f.team_a, isHome: true };
+                teamFixtureMap[f.team_a] = { opponent: f.team_h, isHome: false };
+            });
+            
+            let prediction = null;
+            const fixture = teamFixtureMap[bootstrap.team];
+            if (fixture && batchAnalysisCache.playerStats?.[playerId]) {
+                prediction = predictPlayerPointsBatch(playerId, fixture.opponent, fixture.isHome, gw);
+            }
+            
+            return {
+                id: playerId,
+                name: bootstrap.web_name,
+                fullName: `${bootstrap.first_name || ''} ${bootstrap.second_name || ''}`.trim(),
+                position: fplPositionMap[bootstrap.element_type] || 'MID',
+                positionId: bootstrap.element_type,
+                team: fplTeamIdMap[bootstrap.team] || '?',
+                teamId: bootstrap.team,
+                totalPoints: bootstrap.total_points || 0,
+                goals: bootstrap.goals_scored || 0,
+                assists: bootstrap.assists || 0,
+                cleanSheets: bootstrap.clean_sheets || 0,
+                bonus: bootstrap.bonus || 0,
+                bps: bootstrap.bps || 0,
+                minutes: bootstrap.minutes || 0,
+                yellowCards: bootstrap.yellow_cards || 0,
+                redCards: bootstrap.red_cards || 0,
+                saves: bootstrap.saves || 0,
+                form: parseFloat(bootstrap.form) || 0,
+                history: history,
+                distribution: dist,
+                recentAvg: recentAvg,
+                seasonAvg: seasonAvg,
+                trend: trend,
+                prediction: prediction,
+                gamesPlayed: history.filter(h => h.minutes > 0).length
+            };
+        }
+        
+        // Add another player slot
+        function addPlayerToCompare() {
+            // For now, we support 2 players max
+            // Could extend to 4 by adding more slots
+            alert('Currently supports comparing 2 players. Clear a slot to add a different player.');
+        }
+        
+        // Remove player from comparison
+        function removePlayerFromCompare(slot) {
+            const idx = slot - 1;
+            compareState.players[idx] = null;
+            
+            // Destroy chart if exists
+            if (compareState.chartInstances[`chart${slot}`]) {
+                compareState.chartInstances[`chart${slot}`].destroy();
+                delete compareState.chartInstances[`chart${slot}`];
+            }
+            
+            updateCompareUI();
+        }
+        
+        // Refresh comparison when GW changes
+        async function refreshComparison() {
+            const gwSelect = document.getElementById('compareGW');
+            compareState.gameweek = parseInt(gwSelect.value);
+            
+            // Reload predictions for each player
+            for (let i = 0; i < compareState.players.length; i++) {
+                if (compareState.players[i]) {
+                    const newData = await loadPlayerCompareData(compareState.players[i].id);
+                    if (newData) {
+                        compareState.players[i] = newData;
+                    }
+                }
+            }
+            
+            updateCompareUI();
+        }
+        
+        // Update the comparison UI
+        function updateCompareUI() {
+            const hasPlayers = compareState.players.some(p => p !== null);
+            
+            document.getElementById('compareContent').style.display = hasPlayers ? 'block' : 'none';
+            document.getElementById('compareEmptyState').style.display = hasPlayers ? 'none' : 'block';
+            
+            // Update search sections visibility
+            compareState.players.forEach((player, idx) => {
+                const slot = idx + 1;
+                const searchContainer = document.querySelector(`#compareSlot${slot} .compare-search-container`);
+                const playerCard = document.getElementById(`comparePlayer${slot}`);
+                
+                if (player) {
+                    searchContainer.style.display = 'none';
+                    playerCard.style.display = 'block';
+                    renderComparePlayerCard(slot, player);
+                } else {
+                    searchContainer.style.display = 'block';
+                    playerCard.style.display = 'none';
+                }
+            });
+            
+            // Render main comparison grid
+            if (hasPlayers) {
+                renderCompareGrid();
+                renderCompareHistory();
+            }
+        }
+        
+        // Render small player card in search section
+        function renderComparePlayerCard(slot, player) {
+            const posColors = { GK: '#f59e0b', DEF: '#10b981', MID: '#22d3ee', FWD: '#f43f5e' };
+            const slotColor = compareState.playerColors[slot - 1];
+            const card = document.getElementById(`comparePlayer${slot}`);
+            
+            card.innerHTML = `
+                <button class="compare-remove-btn" onclick="removePlayerFromCompare(${slot})">×</button>
+                <div style="display: flex; align-items: center; gap: 0.75rem;">
+                    <span class="compare-pos-badge" style="background: ${posColors[player.position]}; color: #000;">
+                        ${player.position}
+                    </span>
+                    <div>
+                        <div style="font-weight: 600; color: ${slotColor};">${player.name}</div>
+                        <div style="font-size: 0.8rem; color: var(--text-muted);">${player.team} · ${player.totalPoints} pts</div>
+                    </div>
+                </div>
+            `;
+            card.classList.add('selected');
+            card.style.borderColor = slotColor;
+        }
+        
+        // Render main comparison grid - HORIZONTAL TABLE LAYOUT
+        function renderCompareGrid() {
+            const grid = document.getElementById('compareGrid');
+            const players = compareState.players.filter(p => p !== null);
+            const gw = compareState.gameweek;
+            const colors = compareState.playerColors;
+            
+            if (players.length === 0) {
+                grid.innerHTML = '';
+                return;
+            }
+            
+            // Find best values for highlighting (higher = better for most stats)
+            const getBest = (stat) => {
+                const vals = players.map(p => p[stat] || 0);
+                return { max: Math.max(...vals), min: Math.min(...vals) };
+            };
+            
+            // Helper to highlight best value
+            const highlightBest = (val, stat, higherIsBetter = true) => {
+                const best = getBest(stat);
+                if (players.length <= 1) return '';
+                if (higherIsBetter && val >= best.max && best.max > 0) return 'background: rgba(16, 185, 129, 0.25); color: var(--accent-emerald); font-weight: 700;';
+                if (!higherIsBetter && val <= best.min && best.min >= 0) return 'background: rgba(16, 185, 129, 0.25); color: var(--accent-emerald); font-weight: 700;';
+                return '';
+            };
+            
+            const scoreColor = (pts) => {
+                if (pts >= 10) return 'var(--accent-emerald)';
+                if (pts >= 6) return 'var(--accent-cyan)';
+                if (pts >= 3) return 'var(--text-primary)';
+                if (pts > 0) return 'var(--accent-amber)';
+                return 'var(--accent-rose)';
+            };
+            
+            const trendIcons = { HOT: '🔥', COLD: '❄️', STABLE: '➖' };
+            const posColors = { GK: '#f59e0b', DEF: '#10b981', MID: '#22d3ee', FWD: '#f43f5e' };
+            
+            // Create column headers (player names)
+            const headerCols = players.map((p, i) => `
+                <th style="text-align: center; padding: 0.75rem; background: ${colors[i]}20; border-bottom: 3px solid ${colors[i]};">
+                    <div style="display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                        <span style="background: ${posColors[p.position]}; color: #000; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem;">${p.position}</span>
+                        <div>
+                            <div style="font-weight: 700; color: ${colors[i]};">${p.name}</div>
+                            <div style="font-size: 0.7rem; color: var(--text-muted);">${p.team}</div>
+                        </div>
+                    </div>
+                </th>
+            `).join('');
+            
+            // Build stat rows
+            const statRows = [];
+            
+            // --- GW Prediction Section ---
+            statRows.push(`<tr class="section-header"><td colspan="${players.length + 1}" style="background: var(--accent-cyan); color: #000; font-weight: 700; padding: 0.5rem;">📊 GW${gw} Prediction</td></tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Expected Points</td>
+                ${players.map((p, i) => {
+                    const pred = p.prediction;
+                    return `<td style="text-align: center; ${highlightBest(pred?.predicted || 0, 'predPts')}">
+                        <span style="font-size: 1.5rem; font-weight: 700; color: ${colors[i]};">${pred?.predicted?.toFixed(1) || '-'}</span>
+                    </td>`;
+                }).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Opponent</td>
+                ${players.map(p => {
+                    const pred = p.prediction;
+                    return `<td style="text-align: center;">
+                        ${pred ? `<span style="color: ${pred.isHome ? 'var(--accent-emerald)' : 'var(--accent-amber)'};">
+                            ${pred.isHome ? '🏠' : '✈️'} ${pred.opponent}
+                        </span>` : '<span style="color: var(--text-muted);">No fixture</span>'}
+                    </td>`;
+                }).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">⚽ Goals Exp</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.prediction?.breakdown?.goals || 0, 'goalsPred')}">${p.prediction?.breakdown?.goals?.toFixed(2) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">🅰️ Assists Exp</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.prediction?.breakdown?.assists || 0, 'assistsPred')}">${p.prediction?.breakdown?.assists?.toFixed(2) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">🛡️ CS Exp</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.prediction?.breakdown?.cs || 0, 'csPred')}">${p.prediction?.breakdown?.cs?.toFixed(2) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">⭐ Bonus Exp</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.prediction?.breakdown?.bonus || 0, 'bonusPred')}">${p.prediction?.breakdown?.bonus?.toFixed(2) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            // --- Distribution Section ---
+            statRows.push(`<tr class="section-header"><td colspan="${players.length + 1}" style="background: var(--accent-violet); color: white; font-weight: 700; padding: 0.5rem;">📈 Score Distribution</td></tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">80% Range</td>
+                ${players.map((p, i) => `<td style="text-align: center;"><span style="color: ${colors[i]}; font-weight: 600;">${p.distribution?.ci_80?.[0] || '?'} - ${p.distribution?.ci_80?.[1] || '?'}</span></td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Floor (15%)</td>
+                ${players.map(p => `<td style="text-align: center; color: var(--accent-rose);">${p.distribution?.floor?.toFixed(0) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Upside (85%)</td>
+                ${players.map(p => `<td style="text-align: center; color: var(--accent-emerald);">${p.distribution?.upside?.toFixed(0) || '-'}</td>`).join('')}
+            </tr>`);
+            
+            // --- Form Section ---
+            statRows.push(`<tr class="section-header"><td colspan="${players.length + 1}" style="background: var(--accent-emerald); color: #000; font-weight: 700; padding: 0.5rem;">🔥 Form Analysis</td></tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Recent Avg (5)</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.recentAvg, 'recentAvg')}"><span style="font-size: 1.2rem; font-weight: 600;">${p.recentAvg.toFixed(1)}</span></td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Season Avg</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.seasonAvg, 'seasonAvg')}">${p.seasonAvg.toFixed(1)}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Trend</td>
+                ${players.map(p => `<td style="text-align: center;"><span style="color: ${p.trend === 'HOT' ? 'var(--accent-emerald)' : p.trend === 'COLD' ? 'var(--accent-rose)' : 'var(--text-muted)'};">${trendIcons[p.trend]} ${p.trend}</span></td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Recent Scores</td>
+                ${players.map(p => `<td style="text-align: center;">
+                    <div style="display: flex; gap: 0.2rem; flex-wrap: wrap; justify-content: center;">
+                        ${p.history.slice(-8).reverse().map(h => `<span style="display: inline-block; width: 22px; height: 22px; line-height: 22px; text-align: center; border-radius: 4px; font-size: 0.7rem; background: ${scoreColor(h.total_points)}20; color: ${scoreColor(h.total_points)}; border: 1px solid ${scoreColor(h.total_points)}40;">${h.total_points}</span>`).join('')}
+                    </div>
+                </td>`).join('')}
+            </tr>`);
+            
+            // --- Season Stats Section ---
+            statRows.push(`<tr class="section-header"><td colspan="${players.length + 1}" style="background: var(--accent-amber); color: #000; font-weight: 700; padding: 0.5rem;">📋 Season Stats</td></tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Total Points</td>
+                ${players.map((p, i) => `<td style="text-align: center; ${highlightBest(p.totalPoints, 'totalPoints')}"><span style="font-size: 1.3rem; font-weight: 700; color: ${colors[i]};">${p.totalPoints}</span></td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">⚽ Goals</td>
+                ${players.map(p => `<td style="text-align: center; ${highlightBest(p.goals, 'goals')}">${p.goals}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">🅰️ Assists</td>
+                ${players.map(p => `<td style="text-align: center; ${highlightBest(p.assists, 'assists')}">${p.assists}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">🛡️ Clean Sheets</td>
+                ${players.map(p => `<td style="text-align: center; ${highlightBest(p.cleanSheets, 'cleanSheets')}">${p.cleanSheets}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">⭐ Bonus</td>
+                ${players.map(p => `<td style="text-align: center; ${highlightBest(p.bonus, 'bonus')}">${p.bonus}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">⏱️ Minutes</td>
+                ${players.map(p => `<td style="text-align: center;">${p.minutes}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">Games Played</td>
+                ${players.map(p => `<td style="text-align: center;">${p.gamesPlayed}</td>`).join('')}
+            </tr>`);
+            
+            statRows.push(`<tr>
+                <td style="font-weight: 500;">🟨/🟥 Cards</td>
+                ${players.map(p => `<td style="text-align: center;">${p.yellowCards} / ${p.redCards}</td>`).join('')}
+            </tr>`);
+            
+            grid.innerHTML = `
+                <table class="standings-table" style="width: 100%; border-collapse: collapse;">
+                    <thead>
+                        <tr>
+                            <th style="text-align: left; padding: 0.75rem; min-width: 140px;">Stat</th>
+                            ${headerCols}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${statRows.join('')}
+                    </tbody>
+                </table>
+            `;
+        }
+        
+        // Render side-by-side history table
+        function renderCompareHistory() {
+            const table = document.getElementById('compareHistoryTable');
+            const players = compareState.players.filter(p => p !== null);
+            
+            if (players.length === 0) {
+                table.innerHTML = '';
+                return;
+            }
+            
+            // Get all unique GWs from all players
+            const allGWs = new Set();
+            players.forEach(p => {
+                p.history.forEach(h => allGWs.add(h.round || h.event || h.gameweek));
+            });
+            const sortedGWs = [...allGWs].sort((a, b) => b - a).slice(0, 10); // Last 10 GWs
+            
+            const scoreColor = (pts) => {
+                if (pts >= 10) return 'var(--accent-emerald)';
+                if (pts >= 6) return 'var(--accent-cyan)';
+                if (pts >= 3) return 'var(--text-primary)';
+                if (pts > 0) return 'var(--accent-amber)';
+                return 'var(--accent-rose)';
+            };
+            
+            let html = '<table class="compare-history-table"><thead><tr><th>GW</th>';
+            players.forEach(p => {
+                html += `<th class="player-col">${p.name} (${p.team})</th>`;
+            });
+            html += '</tr></thead><tbody>';
+            
+            sortedGWs.forEach(gw => {
+                html += `<tr><td style="font-weight: 600;">GW${gw}</td>`;
+                players.forEach(p => {
+                    const game = p.history.find(h => (h.round || h.event || h.gameweek) === gw);
+                    if (game) {
+                        const isHome = game.was_home;
+                        const opp = fplTeamIdMap[game.opponent_team] || '?';
+                        html += `<td>
+                            <div style="display: flex; align-items: center; justify-content: space-between;">
+                                <span style="color: var(--text-muted); font-size: 0.75rem;">${isHome ? '' : '@'}${opp}</span>
+                                <span style="color: ${scoreColor(game.total_points)}; font-weight: 600;">${game.total_points}</span>
+                                <span style="color: var(--text-muted); font-size: 0.7rem;">${game.minutes}'</span>
+                            </div>
+                        </td>`;
+                    } else {
+                        html += '<td style="color: var(--text-muted);">-</td>';
+                    }
+                });
+                html += '</tr>';
+            });
+            
+            html += '</tbody></table>';
+            table.innerHTML = html;
+        }
+        
+        // Quick compare - add player to existing comparison or open new
+        function quickCompare(playerId) {
+            const modal = document.getElementById('playerCompareModal');
+            
+            if (modal.style.display === 'flex') {
+                // Modal already open - add to first empty slot or replace last slot
+                const emptySlot = compareState.players.findIndex(p => p === null);
+                if (emptySlot !== -1) {
+                    selectPlayerForCompare(emptySlot + 1, playerId);
+                } else {
+                    // All 4 slots filled - replace slot 4
+                    removePlayerFromCompare(4);
+                    selectPlayerForCompare(4, playerId);
+                }
+            } else {
+                // Open modal with this player in slot 1
+                openCompareModal(playerId);
+            }
+        }
+        
+        // Open compare with two specific players
+        function compareTwo(playerId1, playerId2) {
+            openCompareModal(playerId1);
+            setTimeout(() => {
+                selectPlayerForCompare(2, playerId2);
+            }, 100);
+        }
         
         // ============================================
         // MONTE CARLO LINEUP SIMULATOR
@@ -15330,7 +16697,7 @@
                         <tbody>
                             ${lineup.sort((a, b) => b.sampledScore - a.sampledScore).map(p => `
                                 <tr style="background: rgba(16, 185, 129, 0.1);">
-                                    <td style="font-weight: 600;">${p.name}</td>
+                                    <td style="font-weight: 600;"><span class="player-link" onclick="showPlayerDetail(${p.id})">${p.name}</span></td>
                                     <td><span class="pos-badge pos-${fplPositionMap[p.position]}">${fplPositionMap[p.position]}</span></td>
                                     <td>${fplTeamIdMap[p.team] || '?'}</td>
                                     <td style="font-size: 1.2rem; font-weight: 600; color: var(--accent-cyan);">${p.sampledScore}</td>
@@ -15345,7 +16712,7 @@
                         <tbody>
                             ${bench.sort((a, b) => b.sampledScore - a.sampledScore).map(p => `
                                 <tr style="opacity: 0.7;">
-                                    <td>${p.name}</td>
+                                    <td><span class="player-link" onclick="showPlayerDetail(${p.id})">${p.name}</span></td>
                                     <td><span class="pos-badge pos-${fplPositionMap[p.position]}">${fplPositionMap[p.position]}</span></td>
                                     <td>${fplTeamIdMap[p.team] || '?'}</td>
                                     <td style="color: var(--text-muted);">${p.sampledScore}</td>
@@ -15395,7 +16762,7 @@
                             ${players.slice(0, 15).map((p, i) => `
                                 <tr style="${i < 11 ? 'background: rgba(16, 185, 129, 0.1);' : ''}${!p.isAvailable ? 'opacity: 0.5;' : ''}">
                                     <td style="font-weight: ${i < 11 ? '600' : '400'};">
-                                        ${i < 11 ? '⭐ ' : ''}${p.name}
+                                        ${i < 11 ? '⭐ ' : ''}<span class="player-link" onclick="showPlayerDetail(${p.id})">${p.name}</span>
                                         ${!p.isAvailable ? ' ⚠️' : ''}
                                     </td>
                                     <td><span class="pos-badge pos-${p.position}">${p.position}</span></td>
@@ -15430,7 +16797,531 @@
             // Note: We're not reassigning here to avoid infinite loop, 
             // populateMCTeamSelect will be called separately
         }
+
+        // ========================================
+        // PREDICTED LINEUPS FUNCTIONS
+        // ========================================
+
+        async function loadPredictedLineups() {
+            const select = document.getElementById('lineupsGwSelect');
+            const gameweek = parseInt(select.value);
+            
+            if (!gameweek) {
+                showLineupsStatus('Please select a gameweek', 'warning');
+                return;
+            }
+            
+            showLineupsStatus(`⏳ Loading predictions for GW${gameweek}...`, 'info');
+            
+            try {
+                const response = await fetch(`http://localhost:5000/api/predicted-lineups/${gameweek}`);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (!data.predictions || data.predictions.length === 0) {
+                    showLineupsStatus(
+                        `⚠️ No predictions available for GW${gameweek}.<br>` +
+                        `<span style="font-size: 0.9rem;">Click "🔄 Refresh Data" to fetch the latest lineups (takes ~45 seconds)</span>`, 
+                        'warning'
+                    );
+                    renderEmptyLineups();
+                    return;
+                }
+                
+                const lastUpdated = data.last_updated ? 
+                    ` (Updated: ${new Date(data.last_updated).toLocaleString()})` : '';
+                
+                // Calculate unique sources
+                const sourcesSet = new Set();
+                data.predictions.forEach(p => {
+                    if (p.sources_data) {
+                        try {
+                            const sources = JSON.parse(p.sources_data);
+                            sources.forEach(s => sourcesSet.add(s.name));
+                        } catch (e) {}
+                    }
+                });
+                const sourceCount = sourcesSet.size;
+                const sourceInfo = sourceCount > 0 ? ` from ${sourceCount} source${sourceCount !== 1 ? 's' : ''}` : '';
+                const unmatchedInfo = data.total_unmatched > 0 ? ` (${data.total_unmatched} unmatched)` : '';
+                
+                showLineupsStatus(
+                    `✅ Loaded ${data.predictions.length} player predictions for GW${gameweek}${sourceInfo}${unmatchedInfo}${lastUpdated}`,
+                    'success'
+                );
+                
+                renderLineups(data, gameweek);
+                
+            } catch (error) {
+                console.error('Error loading lineup predictions:', error);
+                showLineupsStatus(`❌ Error loading predictions: ${error.message}`, 'error');
+                renderEmptyLineups();
+            }
+        }
+
+        async function refreshPredictedLineups() {
+            const select = document.getElementById('lineupsGwSelect');
+            const gameweek = parseInt(select.value);
+            
+            if (!gameweek) {
+                showLineupsStatus('Please select a gameweek', 'warning');
+                return;
+            }
+            
+            // Show loading state with animation
+            const loadingDots = ['⚽', '⚽⚽', '⚽⚽⚽'];
+            let dotIndex = 0;
+            showLineupsStatus(`🔄 Fetching predicted lineups for GW${gameweek}... ${loadingDots[0]}`, 'info');
+            renderLoadingLineups();
+            
+            // Animate loading dots
+            const loadingInterval = setInterval(() => {
+                dotIndex = (dotIndex + 1) % loadingDots.length;
+                showLineupsStatus(
+                    `🔄 Fetching lineups from RotoWire... ${loadingDots[dotIndex]}<br>` +
+                    `<span style="font-size: 0.9rem; opacity: 0.8;">This takes 40-50 seconds. Please wait...</span>`,
+                    'info'
+                );
+            }, 1000);
+            
+            try {
+                // Trigger the refresh (starts background scraping)
+                const response = await fetch(`http://localhost:5000/api/predicted-lineups/refresh/${gameweek}`, {
+                    method: 'POST'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                // Poll every 3 seconds to check if data is ready
+                let attempts = 0;
+                const maxAttempts = 25; // 75 seconds max
+                let lastCount = 0;
+                
+                const checkData = async () => {
+                    attempts++;
+                    
+                    try {
+                        const dataResponse = await fetch(`http://localhost:5000/api/predicted-lineups/${gameweek}`);
+                        const data = await dataResponse.json();
+                        
+                        if (data.predictions && data.predictions.length > lastCount) {
+                            // New data available!
+                            clearInterval(loadingInterval);
+                            lastCount = data.predictions.length;
+                            
+                            // Calculate unique sources
+                            const sourcesSet = new Set();
+                            data.predictions.forEach(p => {
+                                if (p.sources_data) {
+                                    try {
+                                        const sources = JSON.parse(p.sources_data);
+                                        sources.forEach(s => sourcesSet.add(s.name));
+                                    } catch (e) {}
+                                }
+                            });
+                            const sourceCount = sourcesSet.size;
+                            const sourceInfo = sourceCount > 0 ? ` from ${sourceCount} source${sourceCount !== 1 ? 's' : ''}` : '';
+                            const unmatchedInfo = data.total_unmatched > 0 ? ` (${data.total_unmatched} unmatched)` : '';
+                            
+                            showLineupsStatus(
+                                `✅ Successfully loaded ${data.predictions.length} player predictions for GW${gameweek}${sourceInfo}${unmatchedInfo}!`,
+                                'success'
+                            );
+                            
+                            renderLineups(data, gameweek);
+                            return true;
+                        }
+                        
+                        if (attempts < maxAttempts) {
+                            // Keep polling
+                            setTimeout(checkData, 3000);
+                        } else {
+                            // Timeout
+                            clearInterval(loadingInterval);
+                            showLineupsStatus(
+                                `⏱️ Request took longer than expected. Click "Load Predictions" to check if data is ready.`,
+                                'warning'
+                            );
+                            renderEmptyLineups();
+                        }
+                    } catch (error) {
+                        console.error('Error checking data:', error);
+                        if (attempts < maxAttempts) {
+                            setTimeout(checkData, 3000);
+                        }
+                    }
+                };
+                
+                // Start polling after 5 seconds (give scraping time to start)
+                setTimeout(checkData, 5000);
+                
+            } catch (error) {
+                clearInterval(loadingInterval);
+                console.error('Error refreshing predictions:', error);
+                showLineupsStatus(`❌ Error refreshing: ${error.message}`, 'error');
+                renderEmptyLineups();
+            }
+        }
+        
+        function renderLoadingLineups() {
+            const grid = document.getElementById('lineupsGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem;">
+                    <div style="font-size: 4rem; margin-bottom: 1rem; animation: pulse 2s ease-in-out infinite;">⚽</div>
+                    <div style="font-size: 1.3rem; font-weight: 600; margin-bottom: 0.5rem; color: var(--accent-cyan);">Fetching Lineup Predictions...</div>
+                    <div style="color: var(--text-secondary); margin-bottom: 1rem;">Scraping RotoWire for the latest lineups</div>
+                    <div style="display: flex; justify-content: center; gap: 0.5rem; margin-top: 1rem;">
+                        <div style="width: 12px; height: 12px; background: var(--accent-cyan); border-radius: 50%; animation: bounce 1.4s ease-in-out infinite;"></div>
+                        <div style="width: 12px; height: 12px; background: var(--accent-emerald); border-radius: 50%; animation: bounce 1.4s ease-in-out 0.2s infinite;"></div>
+                        <div style="width: 12px; height: 12px; background: var(--accent-violet); border-radius: 50%; animation: bounce 1.4s ease-in-out 0.4s infinite;"></div>
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderLineups(data, gameweek) {
+            const predictions = data.predictions || data;  // Handle both array and object response
+            const unmatchedPlayers = data.unmatched_players || [];
+            
+            console.log('[Lineups] Rendering', predictions.length, 'predictions + ', unmatchedPlayers.length, 'unmatched for GW', gameweek);
+            
+            const grid = document.getElementById('lineupsGrid');
+            if (!grid) {
+                console.error('[Lineups] Grid element not found!');
+                return;
+            }
+            
+            if (!predictions || predictions.length === 0) {
+                console.warn('[Lineups] No predictions to render');
+                renderEmptyLineups();
+                return;
+            }
+            
+            // Group predictions by team
+            const teamGroups = {};
+            predictions.forEach(pred => {
+                const teamId = pred.team_id;
+                if (!teamGroups[teamId]) {
+                    teamGroups[teamId] = {matched: [], unmatched: []};
+                }
+                teamGroups[teamId].matched.push(pred);
+            });
+            
+            // Group unmatched players by team code
+            unmatchedPlayers.forEach(player => {
+                // Find team by code - we need to match team_code to team_id
+                // For now, add to a special "unmatched" group per team code
+                const teamCode = player.team_code || 'UNK';
+                // Try to find the team ID from matched players
+                let foundTeamId = null;
+                for (const [teamId, group] of Object.entries(teamGroups)) {
+                    if (group.matched.length > 0 && group.matched[0].team_name === teamCode) {
+                        foundTeamId = teamId;
+                        break;
+                    }
+                }
+                if (foundTeamId) {
+                    if (!teamGroups[foundTeamId].unmatched) {
+                        teamGroups[foundTeamId].unmatched = [];
+                    }
+                    teamGroups[foundTeamId].unmatched.push(player);
+                }
+            });
+            
+            console.log('[Lineups] Grouped into', Object.keys(teamGroups).length, 'teams');
+            
+            // Sort teams by ID
+            const sortedTeams = Object.keys(teamGroups).sort((a, b) => parseInt(a) - parseInt(b));
+            
+            // Render team cards
+            try {
+                const html = sortedTeams.map(teamId => renderTeamCard(teamId, teamGroups[teamId].matched, teamGroups[teamId].unmatched || [])).join('');
+                grid.innerHTML = html;
+                console.log('[Lineups] ✅ Rendered successfully!');
+            } catch (error) {
+                console.error('[Lineups] Render error:', error);
+                showLineupsStatus(`❌ Error rendering lineups: ${error.message}`, 'error');
+            }
+        }
+
+        function renderTeamCard(teamId, matchedPlayers, unmatchedPlayers = []) {
+            // Get team name from first player (all players in group have same team)
+            const firstPlayer = matchedPlayers[0];
+            const teamCode = firstPlayer?.team_name || 'TBD';
+            const teamName = teamCode; // Use short name as display name
+            
+            // Sort matched players by start probability
+            matchedPlayers.sort((a, b) => b.start_probability - a.start_probability);
+            
+            // Categorize matched players
+            const starters = matchedPlayers.filter(p => p.start_probability >= 0.7 && !p.injured && !p.suspended);
+            const doubtful = matchedPlayers.filter(p => 
+                (p.start_probability >= 0.3 && p.start_probability < 0.7) || p.doubtful
+            );
+            const out = matchedPlayers.filter(p => p.injured || p.suspended || p.start_probability < 0.3);
+            
+            // Lineup validation
+            const totalStarters = starters.length;
+            const totalWithUnmatched = totalStarters + unmatchedPlayers.length;
+            let validationWarning = '';
+            
+            if (totalWithUnmatched < 11) {
+                validationWarning = `<div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--accent-amber); padding: 0.75rem; margin-bottom: 1rem; border-radius: 6px;">
+                    <div style="font-weight: 600; color: var(--accent-amber); margin-bottom: 0.25rem;">⚠️ Incomplete Lineup</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary);">Only ${totalWithUnmatched}/11 starters predicted${unmatchedPlayers.length > 0 ? ` (${unmatchedPlayers.length} unmatched)` : ''}</div>
+                </div>`;
+            } else if (totalWithUnmatched > 11) {
+                validationWarning = `<div style="background: rgba(245, 158, 11, 0.1); border-left: 3px solid var(--accent-amber); padding: 0.75rem; margin-bottom: 1rem; border-radius: 6px;">
+                    <div style="font-weight: 600; color: var(--accent-amber); margin-bottom: 0.25rem;">⚠️ Position Conflict</div>
+                    <div style="font-size: 0.85rem; color: var(--text-secondary)">${totalWithUnmatched} players predicted to start - check probabilities for rotations</div>
+                </div>`;
+            }
+            
+            return `
+                <div style="background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden;">
+                    <div style="background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); padding: 1rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem; font-weight: 600; font-size: 1.1rem;">
+                                <span style="background: rgba(255, 255, 255, 0.2); padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.85rem; font-weight: 700;">${teamCode}</span>
+                                <span>${teamName}</span>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+                                ${starters.length > 0 ? `<span style="padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: rgba(16, 185, 129, 0.3);">${starters.length} Starting</span>` : ''}
+                                ${doubtful.length > 0 ? `<span style="padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: rgba(245, 158, 11, 0.3);">${doubtful.length} Doubtful</span>` : ''}
+                                ${out.length > 0 ? `<span style="padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: rgba(244, 67, 54, 0.3);">${out.length} Out</span>` : ''}
+                                ${unmatchedPlayers.length > 0 ? `<span style="padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600; background: rgba(148, 163, 184, 0.3);">${unmatchedPlayers.length} Unknown</span>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div style="padding: 1rem;">
+                        ${validationWarning}
+                        ${starters.length > 0 ? `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">✅ Expected Starters</div>
+                                ${starters.map(p => renderPlayerRow(p, false)).join('')}
+                            </div>
+                        ` : ''}
+                        ${doubtful.length > 0 ? `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">⚠️ Doubtful</div>
+                                ${doubtful.map(p => renderPlayerRow(p, false)).join('')}
+                            </div>
+                        ` : ''}
+                        ${unmatchedPlayers.length > 0 ? `
+                            <div style="margin-bottom: 1rem;">
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">❓ Unmatched Players (Not in DB)</div>
+                                ${unmatchedPlayers.map(p => renderPlayerRow(p, true)).join('')}
+                            </div>
+                        ` : ''}
+                        ${out.length > 0 ? `
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.5rem; padding-bottom: 0.5rem; border-bottom: 1px solid var(--border-color);">❌ Unlikely / Injured</div>
+                                ${out.map(p => renderPlayerRow(p, false)).join('')}
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            `;
+        }
+
+        function renderPlayerRow(player, isUnmatched = false) {
+            const probability = isUnmatched ? 0 : Math.round(player.start_probability * 100);
+            const statusBadge = getStatusBadge(player);
+            const barColor = probability >= 80 ? '#10b981' : probability >= 50 ? '#f59e0b' : '#ef4444';
+            
+            // Player name - show scraped name for unmatched, web_name for matched
+            const playerName = isUnmatched ? 
+                player.scraped_name || player.player_name || 'Unknown' : 
+                player.web_name || `Player ${player.player_id}`;
+            
+            // Validation note (if present)
+            const validationNote = player.validation_note || '';
+            const noteTooltip = validationNote ? ` title="${validationNote}"` : '';
+            
+            // Source count badge
+            const sourceCount = player.sources_count || player.occurrences || 0;
+            const sourceBadge = sourceCount > 0 ? 
+                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan);" title="${sourceCount} source${sourceCount !== 1 ? 's' : ''}">📊 ${sourceCount}</span>` : '';
+            
+            // FPL Club ownership badge
+            const fplClub = player.fpl_club || null;
+            const fplBadge = fplClub ? 
+                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 700; background: rgba(139, 92, 246, 0.2); color: var(--accent-violet); text-transform: uppercase;" title="Owned by ${player.fpl_club_name || fplClub}">${fplClub}</span>` :
+                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(16, 185, 129, 0.2); color: var(--accent-emerald);" title="Available">FREE</span>`;
+            
+            // Unmatched player styling
+            const unmatchedStyle = isUnmatched ? 
+                'opacity: 0.5; background: rgba(100, 116, 139, 0.1);' : '';
+            const unmatchedBadge = isUnmatched ? 
+                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(148, 163, 184, 0.2); color: var(--text-muted);" title="Not found in FPL database">❓ Unknown</span>` : '';
+            
+            // Validation warning badge for rotation risk
+            const rotationBadge = validationNote && (validationNote.includes('rotation') || validationNote.includes('competing')) ? 
+                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(245, 158, 11, 0.2); color: var(--accent-amber);" title="${validationNote}">🔄 Rotation</span>` : '';
+            
+            return `
+                <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 0.5rem; border-bottom: 1px solid rgba(255,255,255,0.05); ${unmatchedStyle}"${noteTooltip}>
+                    <div style="display: flex; align-items: center; gap: 0.5rem; flex: 1;">
+                        <span style="font-weight: 500; color: var(--text-primary);">${playerName}</span>
+                        ${fplBadge}
+                        ${sourceBadge}
+                        ${statusBadge}
+                        ${rotationBadge}
+                        ${unmatchedBadge}
+                    </div>
+                    ${!isUnmatched ? `
+                        <div style="display: flex; align-items: center; gap: 0.75rem; min-width: 140px;">
+                            <div style="flex: 1; height: 8px; background: var(--bg-tertiary); border-radius: 4px; overflow: hidden;">
+                                <div style="height: 100%; width: ${probability}%; background: linear-gradient(90deg, ${barColor}, ${barColor}dd); border-radius: 4px; transition: width 0.5s ease;"></div>
+                            </div>
+                            <span style="font-weight: 600; font-size: 0.85rem; color: var(--text-secondary); min-width: 35px; text-align: right;">${probability}%</span>
+                        </div>
+                    ` : `
+                        <span style="font-size: 0.75rem; color: var(--text-muted); font-style: italic;">Needs matching</span>
+                    `}
+                </div>
+            `;
+        }
+
+        function getStatusBadge(player) {
+            if (player.injured) {
+                return `<span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(244, 67, 54, 0.2); color: #f87171;" title="${player.injury_details || 'Injured'}">🔴 Injured</span>`;
+            }
+            if (player.suspended) {
+                return `<span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(244, 67, 54, 0.2); color: #f87171;">🔴 Suspended</span>`;
+            }
+            if (player.doubtful) {
+                return `<span style="padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.7rem; font-weight: 600; background: rgba(245, 158, 11, 0.2); color: #fbbf24;" title="${player.injury_details || 'Doubtful'}">🟡 Doubtful</span>`;
+            }
+            return '';
+        }
+
+        function renderEmptyLineups() {
+            const grid = document.getElementById('lineupsGrid');
+            if (!grid) return;
+            
+            grid.innerHTML = `
+                <div style="grid-column: 1 / -1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">📋</div>
+                    <div style="font-size: 1.2rem; font-weight: 600; margin-bottom: 0.5rem;">No lineup predictions available</div>
+                    <div>Click "Refresh Data" to fetch the latest predicted lineups</div>
+                </div>
+            `;
+        }
+
+        function showLineupsStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('lineupsStatus');
+            if (!statusDiv) return;
+            
+            const colors = {
+                'info': 'var(--accent-cyan)',
+                'success': 'var(--accent-emerald)',
+                'warning': 'var(--accent-amber)',
+                'error': 'var(--accent-rose)'
+            };
+            
+            const color = colors[type] || colors.info;
+            
+            statusDiv.innerHTML = `
+                <div style="padding: 1rem; background: ${color}22; border-left: 3px solid ${color}; border-radius: 8px; color: var(--text-primary);">
+                    ${message}
+                </div>
+            `;
+            
+            // Auto-hide success messages after 5 seconds
+            if (type === 'success') {
+                setTimeout(() => {
+                    statusDiv.innerHTML = '';
+                }, 5000);
+            }
+        }
+
     </script>
+    
+    <!-- Player Comparison Modal (Global - outside tabs) -->
+    <div id="playerCompareModal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 1400px; max-height: 90vh; overflow-y: auto;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; position: sticky; top: 0; background: var(--bg-secondary); padding: 1rem; margin: -1.5rem -1.5rem 1.5rem -1.5rem; border-bottom: 1px solid var(--border-color); z-index: 10;">
+                <h3 style="color: var(--accent-cyan); margin: 0;">🔍 Player Comparison (up to 4)</h3>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <select id="compareGW" onchange="refreshComparison()" style="padding: 0.4rem 0.75rem; font-size: 0.85rem;">
+                        <!-- Populated dynamically -->
+                    </select>
+                    <span class="close-modal" onclick="closeCompareModal()" style="font-size: 1.5rem; cursor: pointer;">&times;</span>
+                </div>
+            </div>
+            
+            <!-- Player Search Section - 4 slots -->
+            <div id="compareSearchSection" style="margin-bottom: 1.5rem;">
+                <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem;">
+                    <div id="compareSlot1" class="compare-slot">
+                        <div class="compare-search-container">
+                            <input type="text" id="compareSearch1" placeholder="Player 1..." 
+                                   oninput="filterCompareSearch(1)" onfocus="showCompareDropdown(1)"
+                                   style="width: 100%; padding: 0.6rem; background: var(--bg-tertiary); border: 2px solid var(--accent-cyan); border-radius: 8px; color: var(--text-primary); font-size: 0.85rem;">
+                            <div id="compareDropdown1" class="compare-dropdown" style="display: none;"></div>
+                        </div>
+                        <div id="comparePlayer1" class="compare-player-card" style="display: none;"></div>
+                    </div>
+                    <div id="compareSlot2" class="compare-slot">
+                        <div class="compare-search-container">
+                            <input type="text" id="compareSearch2" placeholder="Player 2..." 
+                                   oninput="filterCompareSearch(2)" onfocus="showCompareDropdown(2)"
+                                   style="width: 100%; padding: 0.6rem; background: var(--bg-tertiary); border: 2px solid var(--accent-rose); border-radius: 8px; color: var(--text-primary); font-size: 0.85rem;">
+                            <div id="compareDropdown2" class="compare-dropdown" style="display: none;"></div>
+                        </div>
+                        <div id="comparePlayer2" class="compare-player-card" style="display: none;"></div>
+                    </div>
+                    <div id="compareSlot3" class="compare-slot">
+                        <div class="compare-search-container">
+                            <input type="text" id="compareSearch3" placeholder="Player 3..." 
+                                   oninput="filterCompareSearch(3)" onfocus="showCompareDropdown(3)"
+                                   style="width: 100%; padding: 0.6rem; background: var(--bg-tertiary); border: 2px solid var(--accent-emerald); border-radius: 8px; color: var(--text-primary); font-size: 0.85rem;">
+                            <div id="compareDropdown3" class="compare-dropdown" style="display: none;"></div>
+                        </div>
+                        <div id="comparePlayer3" class="compare-player-card" style="display: none;"></div>
+                    </div>
+                    <div id="compareSlot4" class="compare-slot">
+                        <div class="compare-search-container">
+                            <input type="text" id="compareSearch4" placeholder="Player 4..." 
+                                   oninput="filterCompareSearch(4)" onfocus="showCompareDropdown(4)"
+                                   style="width: 100%; padding: 0.6rem; background: var(--bg-tertiary); border: 2px solid var(--accent-amber); border-radius: 8px; color: var(--text-primary); font-size: 0.85rem;">
+                            <div id="compareDropdown4" class="compare-dropdown" style="display: none;"></div>
+                        </div>
+                        <div id="comparePlayer4" class="compare-player-card" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Comparison Content -->
+            <div id="compareContent" style="display: none;">
+                <!-- Horizontal stat-by-stat comparison table -->
+                <div id="compareGrid" style="overflow-x: auto;">
+                    <!-- Table rendered here -->
+                </div>
+                
+                <!-- Side-by-side history -->
+                <div id="compareHistory" class="stat-card" style="margin-top: 1.5rem;">
+                    <h4 style="color: var(--accent-cyan); margin-bottom: 1rem;">📊 Gameweek History Comparison</h4>
+                    <div id="compareHistoryTable" style="overflow-x: auto;"></div>
+                </div>
+            </div>
+            
+            <!-- Empty state -->
+            <div id="compareEmptyState" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                <div style="font-size: 3rem; margin-bottom: 1rem;">👥</div>
+                <p>Search and select players above to compare their stats</p>
+            </div>
+        </div>
+    </div>
 </body>
 </html>
 
