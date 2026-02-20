@@ -213,6 +213,155 @@ class FPLClient:
         return data.get("trades", [])
 
     # ------------------------------------------------------------------
+    # Main FPL site (richer stats: xG, xA, per_90, ep_next, etc.)
+    # ------------------------------------------------------------------
+
+    def get_main_bootstrap(self) -> Dict:
+        """Main FPL bootstrap with richer stats than draft version."""
+        return self._get(f"{FPL_BASE}/bootstrap-static/", ttl=600)
+
+    def get_main_players(self) -> List[Dict]:
+        return self.get_main_bootstrap()["elements"]
+
+    def get_main_player_map(self) -> Dict[int, Dict]:
+        return {p["id"]: p for p in self.get_main_players()}
+
+    def get_main_teams(self) -> List[Dict]:
+        return self.get_main_bootstrap()["teams"]
+
+    def get_main_team_map(self) -> Dict[int, Dict]:
+        return {t["id"]: t for t in self.get_main_teams()}
+
+    def get_player_history(self, player_id: int) -> Dict:
+        """
+        Per-GW history + upcoming fixtures for a single player.
+        Returns {history: [...], fixtures: [...], history_past: [...]}.
+        Cached for 30 minutes (data only changes post-match).
+        """
+        return self._get(f"{FPL_BASE}/element-summary/{player_id}/", ttl=1800)
+
+    def get_player_gw_history(self, player_id: int) -> List[Dict]:
+        """Per-gameweek stats for a player this season."""
+        return self.get_player_history(player_id).get("history", [])
+
+    def get_player_upcoming(self, player_id: int) -> List[Dict]:
+        """Upcoming fixtures with difficulty for a player."""
+        return self.get_player_history(player_id).get("fixtures", [])
+
+    def get_gw_live(self, gw: int) -> List[Dict]:
+        """Live stats for all players in a specific gameweek."""
+        data = self._get(f"{FPL_BASE}/event/{gw}/live/", ttl=120)
+        return data.get("elements", [])
+
+    # ------------------------------------------------------------------
+    # Team form from fixture results
+    # ------------------------------------------------------------------
+
+    def get_team_season_stats(self) -> Dict[int, Dict]:
+        """
+        Compute per-team season stats from finished fixtures.
+        Returns {team_id: {played, wins, draws, losses, gf, ga, cs, home_gf, ...}}
+        """
+        fixtures = self.get_fixtures()
+        stats: Dict[int, Dict] = {}
+
+        for t in self.get_teams():
+            stats[t["id"]] = {
+                "team_id": t["id"], "name": t["name"], "short_name": t["short_name"],
+                "played": 0, "wins": 0, "draws": 0, "losses": 0,
+                "gf": 0, "ga": 0, "cs": 0, "cs_against": 0,
+                "home_played": 0, "home_gf": 0, "home_ga": 0, "home_cs": 0,
+                "away_played": 0, "away_gf": 0, "away_ga": 0, "away_cs": 0,
+            }
+
+        for f in fixtures:
+            if not f.get("finished"):
+                continue
+            h, a = f["team_h"], f["team_a"]
+            hs = f.get("team_h_score") or 0
+            as_ = f.get("team_a_score") or 0
+            if h not in stats or a not in stats:
+                continue
+
+            for tid, gf, ga, venue in [(h, hs, as_, "home"), (a, as_, hs, "away")]:
+                s = stats[tid]
+                s["played"] += 1
+                s["gf"] += gf
+                s["ga"] += ga
+                s[f"{venue}_played"] += 1
+                s[f"{venue}_gf"] += gf
+                s[f"{venue}_ga"] += ga
+                if ga == 0:
+                    s["cs"] += 1
+                    s[f"{venue}_cs"] += 1
+                if gf == 0:
+                    s["cs_against"] += 1
+                if gf > ga:
+                    s["wins"] += 1
+                elif gf == ga:
+                    s["draws"] += 1
+                else:
+                    s["losses"] += 1
+
+        for s in stats.values():
+            p = max(s["played"], 1)
+            s["gf_per_game"] = round(s["gf"] / p, 2)
+            s["ga_per_game"] = round(s["ga"] / p, 2)
+            s["cs_rate"] = round(s["cs"] / p, 2)
+            s["points"] = s["wins"] * 3 + s["draws"]
+            hp = max(s["home_played"], 1)
+            ap = max(s["away_played"], 1)
+            s["home_gf_per_game"] = round(s["home_gf"] / hp, 2)
+            s["home_ga_per_game"] = round(s["home_ga"] / hp, 2)
+            s["away_gf_per_game"] = round(s["away_gf"] / ap, 2)
+            s["away_ga_per_game"] = round(s["away_ga"] / ap, 2)
+            s["home_cs_rate"] = round(s["home_cs"] / hp, 2)
+            s["away_cs_rate"] = round(s["away_cs"] / ap, 2)
+
+        return stats
+
+    def get_pl_standings(self) -> List[Dict]:
+        """PL table sorted by points."""
+        stats = self.get_team_season_stats()
+        ranked = sorted(stats.values(), key=lambda s: (-s["points"], -(s["gf"] - s["ga"]), -s["gf"]))
+        for i, s in enumerate(ranked, 1):
+            s["position"] = i
+        return ranked
+
+    def get_team_batch_map(self) -> Dict[int, int]:
+        """Map team_id -> batch (1-5) based on league position."""
+        standings = self.get_pl_standings()
+        batch_map = {}
+        for s in standings:
+            pos = s["position"]
+            if pos <= 4:
+                batch = 1
+            elif pos <= 8:
+                batch = 2
+            elif pos <= 14:
+                batch = 3
+            elif pos <= 17:
+                batch = 4
+            else:
+                batch = 5
+            batch_map[s["team_id"]] = batch
+        return batch_map
+
+    # ------------------------------------------------------------------
+    # Bulk player history fetching (for squad players)
+    # ------------------------------------------------------------------
+
+    def get_bulk_player_histories(self, player_ids: List[int]) -> Dict[int, List[Dict]]:
+        """Fetch GW history for multiple players. Uses cache aggressively."""
+        result = {}
+        for pid in player_ids:
+            try:
+                result[pid] = self.get_player_gw_history(pid)
+            except Exception:
+                result[pid] = []
+        return result
+
+    # ------------------------------------------------------------------
     # Enriched data helpers
     # ------------------------------------------------------------------
 

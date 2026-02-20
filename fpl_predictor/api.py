@@ -12,6 +12,10 @@ from flask_cors import CORS
 
 from .data.fpl_api import FPLClient
 from .engine.analysis import SquadAnalyzer, POSITION_NAMES
+from .engine.predictor import PlayerPredictor
+from .engine.team_form import TeamFormAnalyzer
+from .engine.ndk import NDKSimulator
+from .engine.lineup_predictor import LineupPredictor
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 PROJECT_ROOT = os.path.dirname(BASE_DIR)
@@ -20,6 +24,10 @@ app = Flask(__name__)
 CORS(app)
 
 fpl = FPLClient()
+predictor = PlayerPredictor(fpl)
+team_form_analyzer = TeamFormAnalyzer(fpl)
+ndk_sim = NDKSimulator(fpl)
+lineup_pred = LineupPredictor(fpl)
 
 
 def _clean(obj):
@@ -345,6 +353,148 @@ def simulate_replacements():
         replacement_overrides=replacements_int,
     )
     return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Player Predictions (xPts)
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/predict/player/<int:player_id>")
+def predict_player(player_id):
+    """Full prediction for a single player across GW range."""
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    result = predictor.predict_player(player_id, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+@app.route("/api/predict/squad/<int:entry_id>")
+def predict_squad(entry_id):
+    """Predict all players in a squad with suggested lineups."""
+    lid = _get_league_id()
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    result = predictor.predict_squad(lid, entry_id, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+@app.route("/api/predict/h2h")
+def predict_h2h():
+    """Compare two FPL squads for a GW."""
+    lid = _get_league_id()
+    e1 = request.args.get("entry1", type=int)
+    e2 = request.args.get("entry2", type=int)
+    gw = request.args.get("gw", type=int) or fpl.get_next_gw()
+    if not e1 or not e2:
+        return jsonify({"error": "entry1 and entry2 required"}), 400
+    result = predictor.predict_h2h(lid, e1, e2, gw)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Team Form & PL Standings
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/pl/standings")
+def pl_standings():
+    return jsonify(_clean(fpl.get_pl_standings()))
+
+
+@app.route("/api/pl/team-stats")
+def pl_team_stats():
+    return jsonify(_clean(fpl.get_team_season_stats()))
+
+
+@app.route("/api/pl/form")
+def pl_form():
+    """Full team form report: standings, batch cross, recent form."""
+    result = team_form_analyzer.get_full_form_report()
+    return jsonify(_clean(result))
+
+
+@app.route("/api/pl/match-predict")
+def pl_match_predict():
+    """Predict xG for a specific match."""
+    home = request.args.get("home", type=int)
+    away = request.args.get("away", type=int)
+    if not home or not away:
+        return jsonify({"error": "home and away team IDs required"}), 400
+    result = team_form_analyzer.predict_match_goals(home, away)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# N-D-K Scoring
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/ndk/<int:entry_id>")
+def ndk_score(entry_id):
+    lid = _get_league_id()
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    result = ndk_sim.score_team(lid, entry_id, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+@app.route("/api/ndk/all")
+def ndk_all():
+    lid = _get_league_id()
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    result = ndk_sim.score_all_teams(lid, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+@app.route("/api/ndk/compare")
+def ndk_compare():
+    lid = _get_league_id()
+    e1 = request.args.get("entry1", type=int)
+    e2 = request.args.get("entry2", type=int)
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    if not e1 or not e2:
+        return jsonify({"error": "entry1 and entry2 required"}), 400
+    result = ndk_sim.compare_teams(lid, e1, e2, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Predicted Lineups
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/lineups/team/<int:team_id>")
+def predicted_lineup(team_id):
+    return jsonify(_clean(lineup_pred.predict_team_lineup(team_id)))
+
+
+@app.route("/api/lineups/all")
+def predicted_lineups_all():
+    return jsonify(_clean(lineup_pred.predict_all_teams()))
+
+
+@app.route("/api/lineups/availability")
+def player_availability():
+    lid = _get_league_id()
+    result = lineup_pred.get_player_availability(lid)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Player detail with history
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/player/<int:player_id>/history")
+def player_history(player_id):
+    """Per-GW history for a player."""
+    history = fpl.get_player_gw_history(player_id)
+    return jsonify(_clean(history))
+
+
+@app.route("/api/player/<int:player_id>/upcoming")
+def player_upcoming(player_id):
+    """Upcoming fixtures with difficulty."""
+    upcoming = fpl.get_player_upcoming(player_id)
+    return jsonify(_clean(upcoming))
 
 
 # ──────────────────────────────────────────────────────────────────────

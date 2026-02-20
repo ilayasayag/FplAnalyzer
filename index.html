@@ -18,6 +18,7 @@
   --medium: #ebbb00;
   --hard: #ff4655;
   --blue: #38a1f3;
+  --purple: #b388ff;
   --radius: 8px;
   --shadow: 0 2px 8px rgba(0,0,0,.3);
 }
@@ -53,7 +54,6 @@ input, select {
 }
 input:focus, select:focus { border-color: var(--accent); }
 
-/* Header */
 header {
   background: var(--surface);
   border-bottom: 1px solid var(--border);
@@ -71,7 +71,6 @@ header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
 #leagueInput { width: 120px; }
 #gwInfo { font-size: 13px; color: var(--text2); }
 
-/* Tabs */
 .tabs {
   display: flex;
   background: var(--surface);
@@ -81,7 +80,7 @@ header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
 }
 .tab {
   padding: 10px 18px;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 500;
   color: var(--text2);
   cursor: pointer;
@@ -92,11 +91,9 @@ header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
 .tab:hover { color: var(--text); }
 .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
 
-/* Tab content */
-.tab-content { display: none; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.tab-content { display: none; padding: 20px 24px; max-width: 1500px; margin: 0 auto; }
 .tab-content.active { display: block; }
 
-/* Cards */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -106,68 +103,53 @@ header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
 }
 .card h3 { font-size: 15px; margin-bottom: 12px; color: var(--text); }
 
-/* Grid */
 .grid { display: grid; gap: 12px; }
 .grid-2 { grid-template-columns: repeat(2, 1fr); }
 .grid-3 { grid-template-columns: repeat(3, 1fr); }
 .grid-4 { grid-template-columns: repeat(4, 1fr); }
-@media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+.grid-5 { grid-template-columns: repeat(5, 1fr); }
+@media (max-width: 900px) { .grid-2,.grid-3,.grid-4,.grid-5 { grid-template-columns: 1fr; } }
 
-/* Stat box */
 .stat { text-align: center; }
 .stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
 .stat-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+.stat-sm .stat-value { font-size: 22px; }
 
-/* Table */
 table { width: 100%; border-collapse: collapse; font-size: 13px; }
-th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); z-index:2; }
 td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
 tr:hover td { background: rgba(255,255,255,.03); }
 
-/* FDR colors */
 .fdr-1 { background: #257d5a; color: #fff; }
 .fdr-2 { background: #00ff87; color: #111; }
 .fdr-3 { background: #ebbb00; color: #111; }
 .fdr-4 { background: #ff4655; color: #fff; }
 .fdr-5 { background: #920947; color: #fff; }
 
-/* Tier badges */
 .tier { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
 .tier-easy { background: var(--easy); color: #111; }
 .tier-medium { background: var(--medium); color: #111; }
 .tier-hard { background: var(--hard); color: #fff; }
 
-/* Position badges */
 .pos { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
 .pos-GK { background: #f0a500; color: #111; }
 .pos-DEF { background: #4fc3f7; color: #111; }
 .pos-MID { background: #66bb6a; color: #111; }
 .pos-FWD { background: #ef5350; color: #fff; }
 
-/* Fixture grid */
 .fixture-grid { overflow-x: auto; }
 .fixture-grid table { min-width: 800px; }
 .fixture-cell {
-  width: 62px;
-  min-width: 62px;
-  text-align: center;
-  font-size: 11px;
-  font-weight: 600;
-  padding: 4px 2px;
+  width: 62px; min-width: 62px; text-align: center;
+  font-size: 11px; font-weight: 600; padding: 4px 2px;
 }
 .fixture-cell.current-gw { box-shadow: inset 0 0 0 2px var(--accent); }
 
-/* Player cards */
 .player-card {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 12px;
-  background: var(--surface2);
-  border-radius: var(--radius);
-  cursor: pointer;
-  transition: all .15s;
-  border: 1px solid transparent;
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; background: var(--surface2);
+  border-radius: var(--radius); cursor: pointer;
+  transition: all .15s; border: 1px solid transparent;
 }
 .player-card:hover { border-color: var(--accent); }
 .player-card.replaced { border-color: var(--accent); background: rgba(0,255,135,.07); }
@@ -175,41 +157,26 @@ tr:hover td { background: rgba(255,255,255,.03); }
 .player-card .meta { font-size: 12px; color: var(--text2); }
 .player-card .pts { font-weight: 700; color: var(--accent); }
 
-/* Heatmap */
 .heatmap { overflow-x: auto; }
 .heatmap table { min-width: 600px; }
 .heatmap td, .heatmap th { text-align: center; padding: 6px 8px; }
 .heatmap .score-cell { font-weight: 600; border-radius: 4px; }
 
-/* Modal */
 .modal-overlay {
-  display: none;
-  position: fixed;
-  inset: 0;
-  background: rgba(0,0,0,.6);
-  z-index: 200;
-  justify-content: center;
-  align-items: flex-start;
-  padding-top: 60px;
+  display: none; position: fixed; inset: 0;
+  background: rgba(0,0,0,.6); z-index: 200;
+  justify-content: center; align-items: flex-start; padding-top: 60px;
 }
 .modal-overlay.active { display: flex; }
 .modal {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  width: 90%;
-  max-width: 600px;
-  max-height: 75vh;
-  display: flex;
-  flex-direction: column;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 12px; width: 90%; max-width: 700px;
+  max-height: 80vh; display: flex; flex-direction: column;
   box-shadow: 0 8px 32px rgba(0,0,0,.5);
 }
 .modal-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  padding: 14px 18px;
-  border-bottom: 1px solid var(--border);
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px 18px; border-bottom: 1px solid var(--border);
 }
 .modal-header h3 { font-size: 16px; }
 .modal-close { background: none; color: var(--text2); font-size: 20px; padding: 4px 8px; }
@@ -219,20 +186,12 @@ tr:hover td { background: rgba(255,255,255,.03); }
 .modal-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; }
 .modal-tab.active { background: var(--accent); color: #111; }
 
-/* Replacement summary */
 .replacement-summary {
-  background: rgba(0,255,135,.08);
-  border: 1px solid rgba(0,255,135,.2);
-  border-radius: var(--radius);
-  padding: 12px 16px;
-  margin-bottom: 16px;
+  background: rgba(0,255,135,.08); border: 1px solid rgba(0,255,135,.2);
+  border-radius: var(--radius); padding: 12px 16px; margin-bottom: 16px;
 }
 .replacement-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 4px 0;
-  font-size: 13px;
+  display: flex; align-items: center; gap: 8px; padding: 4px 0; font-size: 13px;
 }
 .replacement-item .arrow { color: var(--accent); font-weight: 700; }
 .replacement-item .impact { font-weight: 600; }
@@ -240,16 +199,44 @@ tr:hover td { background: rgba(255,255,255,.03); }
 .replacement-item .impact.negative { color: var(--hard); }
 .undo-btn { color: var(--hard); font-size: 12px; cursor: pointer; background: none; border: none; text-decoration: underline; }
 
-/* Loader */
 .loader { text-align: center; padding: 40px; color: var(--text2); }
 .spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+
+/* xPts bar */
+.xpts-bar { display: flex; align-items: center; gap: 4px; font-size: 12px; }
+.xpts-bar .bar-bg { flex:1; height:8px; background:var(--surface2); border-radius:4px; overflow:hidden; min-width:60px; }
+.xpts-bar .bar-fill { height:100%; border-radius:4px; transition: width .3s; }
+
+/* NDK meter */
+.ndk-meter { display:flex; align-items:center; gap:6px; }
+.ndk-bar { width:80px; height:10px; background:var(--surface2); border-radius:5px; overflow:hidden; }
+.ndk-fill { height:100%; border-radius:5px; }
+
+/* Pitch layout */
+.pitch { background: linear-gradient(180deg, #1a5c2f 0%, #1a7a38 50%, #1a5c2f 100%); border-radius:12px; padding:20px; min-height:300px; position:relative; }
+.pitch-row { display:flex; justify-content:center; gap:12px; margin:8px 0; }
+.pitch-player {
+  background:rgba(0,0,0,.5); border-radius:8px; padding:6px 10px;
+  text-align:center; min-width:70px; font-size:12px; border:1px solid rgba(255,255,255,.15);
+}
+.pitch-player .pp-name { font-weight:600; color:#fff; }
+.pitch-player .pp-xpts { color:var(--accent); font-weight:700; font-size:14px; }
+.pitch-player .pp-team { color:rgba(255,255,255,.5); font-size:10px; }
+
+/* Form string */
+.form-char { display:inline-block; width:18px; height:18px; line-height:18px; text-align:center; border-radius:3px; font-size:10px; font-weight:700; margin:0 1px; }
+.form-W { background:var(--easy); color:#111; }
+.form-D { background:var(--medium); color:#111; }
+.form-L { background:var(--hard); color:#fff; }
+
+/* Batch cross cell */
+.batch-cell { text-align:center; padding:6px 10px; border-radius:4px; font-weight:600; font-size:13px; }
 </style>
 </head>
 <body>
@@ -268,16 +255,20 @@ tr:hover td { background: rgba(255,255,255,.03); }
   <div class="tab active" data-tab="dashboard" onclick="showTab('dashboard')">Dashboard</div>
   <div class="tab" data-tab="fixtures" onclick="showTab('fixtures')">Fixture Grid</div>
   <div class="tab" data-tab="analysis" onclick="showTab('analysis')">Squad Analysis</div>
+  <div class="tab" data-tab="predictions" onclick="showTab('predictions')">Predictions</div>
+  <div class="tab" data-tab="plteams" onclick="showTab('plteams')">PL Teams</div>
+  <div class="tab" data-tab="ndk" onclick="showTab('ndk')">N-D-K</div>
+  <div class="tab" data-tab="h2h" onclick="showTab('h2h')">H2H Compare</div>
   <div class="tab" data-tab="freeagents" onclick="showTab('freeagents')">Free Agents</div>
   <div class="tab" data-tab="transactions" onclick="showTab('transactions')">Transactions</div>
 </div>
 
-<!-- Dashboard Tab -->
+<!-- Dashboard -->
 <div class="tab-content active" id="tab-dashboard">
   <div id="dashboardContent"><div class="loader"><div class="spinner"></div><p>Loading league data...</p></div></div>
 </div>
 
-<!-- Fixture Grid Tab -->
+<!-- Fixture Grid -->
 <div class="tab-content" id="tab-fixtures">
   <div class="card">
     <h3>Fixture Difficulty Grid</h3>
@@ -285,7 +276,7 @@ tr:hover td { background: rgba(255,255,255,.03); }
   </div>
 </div>
 
-<!-- Squad Analysis Tab -->
+<!-- Squad Analysis -->
 <div class="tab-content" id="tab-analysis">
   <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
     <div>
@@ -306,7 +297,81 @@ tr:hover td { background: rgba(255,255,255,.03); }
   <div id="analysisResults"></div>
 </div>
 
-<!-- Free Agents Tab -->
+<!-- Predictions -->
+<div class="tab-content" id="tab-predictions">
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Manager</label>
+      <select id="predManager" style="min-width:180px"></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW Start</label>
+      <input type="number" id="predGwStart" style="width:80px">
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW End</label>
+      <input type="number" id="predGwEnd" style="width:80px">
+    </div>
+    <button class="btn-primary" onclick="loadPredictions()">Predict</button>
+  </div>
+  <div id="predResults"></div>
+</div>
+
+<!-- PL Teams -->
+<div class="tab-content" id="tab-plteams">
+  <div class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <button class="btn-primary" onclick="loadPLTeams()">Load PL Data</button>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Match Predict: Home</label>
+      <select id="matchHome" style="min-width:140px"></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Away</label>
+      <select id="matchAway" style="min-width:140px"></select>
+    </div>
+    <button class="btn-secondary" onclick="predictMatch()">Predict Match</button>
+  </div>
+  <div id="matchPredResult"></div>
+  <div id="plTeamsContent"></div>
+</div>
+
+<!-- N-D-K -->
+<div class="tab-content" id="tab-ndk">
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW Start</label>
+      <input type="number" id="ndkGwStart" style="width:80px">
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW End</label>
+      <input type="number" id="ndkGwEnd" style="width:80px">
+    </div>
+    <button class="btn-primary" onclick="loadNDK()">Calculate N-D-K</button>
+  </div>
+  <div id="ndkResults"></div>
+</div>
+
+<!-- H2H Compare -->
+<div class="tab-content" id="tab-h2h">
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Team 1</label>
+      <select id="h2hTeam1" style="min-width:180px"></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Team 2</label>
+      <select id="h2hTeam2" style="min-width:180px"></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW</label>
+      <input type="number" id="h2hGw" style="width:80px">
+    </div>
+    <button class="btn-primary" onclick="loadH2H()">Compare</button>
+  </div>
+  <div id="h2hResults"></div>
+</div>
+
+<!-- Free Agents -->
 <div class="tab-content" id="tab-freeagents">
   <div class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
     <div>
@@ -331,7 +396,7 @@ tr:hover td { background: rgba(255,255,255,.03); }
   <div id="freeAgentsContent"></div>
 </div>
 
-<!-- Transactions Tab -->
+<!-- Transactions -->
 <div class="tab-content" id="tab-transactions">
   <div id="transactionsContent"><div class="loader"><div class="spinner"></div></div></div>
 </div>
@@ -353,21 +418,34 @@ tr:hover td { background: rgba(255,255,255,.03); }
   </div>
 </div>
 
+<!-- Player Detail Modal -->
+<div class="modal-overlay" id="playerModal">
+  <div class="modal" style="max-width:800px">
+    <div class="modal-header">
+      <h3 id="playerModalTitle">Player Detail</h3>
+      <button class="modal-close" onclick="document.getElementById('playerModal').classList.remove('active')">&times;</button>
+    </div>
+    <div class="modal-body" id="playerModalBody"></div>
+  </div>
+</div>
+
 <script>
-// ─── State ──────────────────────────────────────────────────────────
 const API = '';
 let state = {
   leagueId: 201560,
   currentGw: 26,
+  nextGw: 27,
   entries: [],
   standings: [],
   replacements: new Map(),
   starPlayers: JSON.parse(localStorage.getItem('starPlayers') || '[]'),
   replTarget: null,
   replTab: 'free',
+  plTeams: null,
 };
 
-// ─── API Helpers ────────────────────────────────────────────────────
+const POS = {1:'GK',2:'DEF',3:'MID',4:'FWD'};
+
 async function api(path, opts) {
   const sep = path.includes('?') ? '&' : '?';
   const url = `${API}${path}${sep}league_id=${state.leagueId}`;
@@ -376,7 +454,7 @@ async function api(path, opts) {
   return resp.json();
 }
 
-// ─── Init ───────────────────────────────────────────────────────────
+// ─── Init ────────────────────────────────────────────────────────
 async function init() {
   state.leagueId = parseInt(document.getElementById('leagueInput').value) || 201560;
   localStorage.setItem('leagueId', state.leagueId);
@@ -389,45 +467,53 @@ async function init() {
       api('/api/league/standings'),
     ]);
     state.currentGw = health.current_gw;
+    state.nextGw = state.currentGw + 1;
     state.entries = leagueData.entries || [];
     state.standings = standings;
 
     document.getElementById('gwInfo').textContent = `GW ${state.currentGw}`;
+    const nxt = Math.min(state.nextGw, 38);
+    const nxtEnd = Math.min(nxt + 5, 38);
+
     document.getElementById('analysisGwStart').value = state.currentGw;
     document.getElementById('analysisGwEnd').value = Math.min(state.currentGw + 5, 38);
+    document.getElementById('predGwStart').value = nxt;
+    document.getElementById('predGwEnd').value = nxtEnd;
+    document.getElementById('ndkGwStart').value = nxt;
+    document.getElementById('ndkGwEnd').value = nxtEnd;
+    document.getElementById('h2hGw').value = nxt;
 
-    populateManagerSelect();
+    populateManagerSelects();
     renderDashboard();
   } catch (e) {
     document.getElementById('dashboardContent').innerHTML = `<div class="card" style="color:var(--hard)">Failed to load: ${e.message}</div>`;
   }
 }
 
-function populateManagerSelect() {
-  const sel = document.getElementById('analysisManager');
-  sel.innerHTML = '';
-  state.entries.forEach(e => {
-    const opt = document.createElement('option');
-    opt.value = e.entry_id;
-    opt.textContent = `${e.entry_name} (${e.player_first_name || ''})`;
-    sel.appendChild(opt);
+function populateManagerSelects() {
+  ['analysisManager','predManager','h2hTeam1','h2hTeam2'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    state.entries.forEach(e => {
+      const opt = document.createElement('option');
+      opt.value = e.entry_id;
+      opt.textContent = `${e.entry_name} (${e.player_first_name || ''})`;
+      sel.appendChild(opt);
+    });
   });
 }
 
-// ─── Tabs ───────────────────────────────────────────────────────────
 function showTab(id) {
   document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
   document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + id));
-
   if (id === 'fixtures') loadFixtureGrid();
   if (id === 'freeagents') loadFreeAgents();
   if (id === 'transactions') loadTransactions();
 }
 
-// ─── Dashboard ──────────────────────────────────────────────────────
+// ─── Dashboard ───────────────────────────────────────────────────
 function renderDashboard() {
   const s = state.standings;
-  const league = state.entries;
   let html = `
     <div class="card">
       <h3>League Standings - GW ${state.currentGw}</h3>
@@ -438,28 +524,25 @@ function renderDashboard() {
             <td><b>${r.rank}</b></td>
             <td>${r.entry_name}</td>
             <td style="color:var(--text2)">${r.player_name}</td>
-            <td>${r.wins}</td>
-            <td>${r.draws}</td>
-            <td>${r.losses}</td>
-            <td>${r.points_for}</td>
-            <td>${r.points_against}</td>
+            <td>${r.wins}</td><td>${r.draws}</td><td>${r.losses}</td>
+            <td>${r.points_for}</td><td>${r.points_against}</td>
             <td><b style="color:var(--accent)">${r.league_points}</b></td>
-          </tr>
-        `).join('')}
+          </tr>`).join('')}
       </table>
     </div>
     <div class="card">
-      <h3>Quick Actions</h3>
-      <div class="grid grid-3">
-        <button class="btn-secondary" onclick="showTab('fixtures')" style="padding:16px;font-size:14px">View Fixture Grid</button>
-        <button class="btn-secondary" onclick="showTab('analysis')" style="padding:16px;font-size:14px">Squad Analysis</button>
-        <button class="btn-secondary" onclick="showTab('freeagents')" style="padding:16px;font-size:14px">Free Agent Picks</button>
+      <h3>Quick Navigation</h3>
+      <div class="grid grid-4">
+        <button class="btn-secondary" onclick="showTab('predictions')" style="padding:16px">Predicted Points</button>
+        <button class="btn-secondary" onclick="showTab('ndk')" style="padding:16px">N-D-K Scores</button>
+        <button class="btn-secondary" onclick="showTab('plteams')" style="padding:16px">PL Team Form</button>
+        <button class="btn-secondary" onclick="showTab('h2h')" style="padding:16px">H2H Compare</button>
       </div>
     </div>`;
   document.getElementById('dashboardContent').innerHTML = html;
 }
 
-// ─── Fixture Grid ───────────────────────────────────────────────────
+// ─── Fixture Grid ────────────────────────────────────────────────
 let fixtureGridLoaded = false;
 async function loadFixtureGrid() {
   if (fixtureGridLoaded) return;
@@ -476,16 +559,13 @@ async function loadFixtureGrid() {
     let html = '<table><tr><th style="min-width:100px">Team</th>';
     gws.forEach(g => html += `<th class="fixture-cell${g === gw ? ' current-gw' : ''}">${g}</th>`);
     html += '</tr>';
-
     teams.forEach(t => {
       html += `<tr><td><b>${t.team_short}</b> <span style="color:var(--text2);font-size:11px">${t.team_name}</span></td>`;
       gws.forEach(g => {
         const f = t.fixtures[String(g)];
-        if (f) {
-          html += `<td class="fixture-cell fdr-${f.fdr}${g === gw ? ' current-gw' : ''}">${f.display}</td>`;
-        } else {
-          html += `<td class="fixture-cell" style="color:var(--text2)">-</td>`;
-        }
+        html += f
+          ? `<td class="fixture-cell fdr-${f.fdr}${g === gw ? ' current-gw' : ''}">${f.display}</td>`
+          : `<td class="fixture-cell" style="color:var(--text2)">-</td>`;
       });
       html += '</tr>';
     });
@@ -497,7 +577,7 @@ async function loadFixtureGrid() {
   }
 }
 
-// ─── Squad Analysis ─────────────────────────────────────────────────
+// ─── Squad Analysis ──────────────────────────────────────────────
 let currentAnalysis = null;
 
 async function runAnalysis() {
@@ -506,7 +586,6 @@ async function runAnalysis() {
   const gwStart = parseInt(document.getElementById('analysisGwStart').value);
   const gwEnd = parseInt(document.getElementById('analysisGwEnd').value);
   if (!entryId) return;
-
   el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
 
   try {
@@ -518,19 +597,12 @@ async function runAnalysis() {
       result = await api('/api/analysis/simulate', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({
-          entry_id: parseInt(entryId),
-          gw_start: gwStart,
-          gw_end: gwEnd,
-          star_players: state.starPlayers,
-          replacements: replacementsObj,
-        }),
+        body: JSON.stringify({ entry_id: parseInt(entryId), gw_start: gwStart, gw_end: gwEnd, star_players: state.starPlayers, replacements: replacementsObj }),
       });
     } else {
       const stars = state.starPlayers.length ? `&star_players=${state.starPlayers.join(',')}` : '';
       result = await api(`/api/analysis/${entryId}?gw_start=${gwStart}&gw_end=${gwEnd}${stars}`);
     }
-
     currentAnalysis = result;
     renderAnalysis(result, gwStart, gwEnd);
   } catch (e) {
@@ -541,38 +613,24 @@ async function runAnalysis() {
 function renderAnalysis(a, gwStart, gwEnd) {
   const el = document.getElementById('analysisResults');
   let html = '';
-
-  // Replacement summary
   if (state.replacements.size > 0) {
     html += '<div class="replacement-summary"><b>Simulation Changes:</b>';
     state.replacements.forEach((v, oldId) => {
-      const impactClass = v.impact >= 0 ? 'positive' : 'negative';
-      const impactSign = v.impact >= 0 ? '+' : '';
-      html += `<div class="replacement-item">
-        <span style="text-decoration:line-through;color:var(--text2)">${v.oldName}</span>
-        <span class="arrow">&rarr;</span>
-        <span style="color:var(--accent)">${v.newName}</span>
-        <span class="impact ${impactClass}">${impactSign}${v.impact.toFixed(1)}</span>
-        <button class="undo-btn" onclick="undoReplacement(${oldId})">undo</button>
-      </div>`;
+      const cls = v.impact >= 0 ? 'positive' : 'negative';
+      html += `<div class="replacement-item"><span style="text-decoration:line-through;color:var(--text2)">${v.oldName}</span><span class="arrow">&rarr;</span><span style="color:var(--accent)">${v.newName}</span><span class="impact ${cls}">${v.impact >= 0 ? '+' : ''}${v.impact.toFixed(1)}</span><button class="undo-btn" onclick="undoReplacement(${oldId})">undo</button></div>`;
     });
     html += '</div>';
   }
-
-  // Summary stats
   html += `<div class="grid grid-4" style="margin-bottom:16px">
     <div class="card stat"><div class="stat-value">${a.total_score}</div><div class="stat-label">Total Score</div></div>
     <div class="card stat"><div class="stat-value">${a.success_rate}%</div><div class="stat-label">Easy GW Rate</div></div>
     <div class="card stat"><div class="stat-value">${a.success_count}/${a.total_gameweeks}</div><div class="stat-label">Easy Gameweeks</div></div>
     <div class="card stat"><div class="stat-value" style="color:var(--hard)">${a.weakest_position || 'None'}</div><div class="stat-label">Weakest Position</div></div>
   </div>`;
-
-  // Position heatmap
   html += '<div class="card"><h3>Position Heatmap</h3><div class="heatmap"><table><tr><th>Pos</th>';
   for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
   html += '<th>Avg</th></tr>';
-
-  ['GK', 'DEF', 'MID', 'FWD'].forEach(pos => {
+  ['GK','DEF','MID','FWD'].forEach(pos => {
     html += `<tr><td><span class="pos pos-${pos}">${pos}</span></td>`;
     let sum = 0, count = 0;
     a.by_gameweek.forEach(gw => {
@@ -581,66 +639,44 @@ function renderAnalysis(a, gwStart, gwEnd) {
       const bg = d.tier === 'easy' ? 'var(--easy)' : d.tier === 'medium' ? 'var(--medium)' : 'var(--hard)';
       const fg = d.tier === 'hard' ? '#fff' : '#111';
       html += `<td class="score-cell" style="background:${bg};color:${fg}">${d.score}</td>`;
-      sum += d.score;
-      count++;
+      sum += d.score; count++;
     });
-    const avg = count ? (sum / count).toFixed(1) : '-';
-    html += `<td style="font-weight:700">${avg}</td></tr>`;
+    html += `<td style="font-weight:700">${count ? (sum/count).toFixed(1) : '-'}</td></tr>`;
   });
   html += '</table></div></div>';
-
-  // Squad
   html += '<div class="card"><h3>Your Squad (click to replace)</h3><div class="grid grid-3">';
-  const posGroups = {1: [], 2: [], 3: [], 4: []};
-  (a.full_squad || []).forEach(p => posGroups[p.position]?.push(p));
-
-  [1, 2, 3, 4].forEach(posId => {
-    const posName = {1:'GK',2:'DEF',3:'MID',4:'FWD'}[posId];
-    const players = posGroups[posId] || [];
-    players.forEach(p => {
-      const isReplaced = state.replacements.has(p.replaced_player_id || -1) || p.is_replacement;
+  const pg = {1:[],2:[],3:[],4:[]};
+  (a.full_squad || []).forEach(p => pg[p.position]?.push(p));
+  [1,2,3,4].forEach(posId => {
+    (pg[posId]||[]).forEach(p => {
+      const isR = state.replacements.has(p.replaced_player_id || -1) || p.is_replacement;
       const isStar = state.starPlayers.includes(p.player_id);
-      const avgScore = Object.values(p.gw_scores || {}).reduce((a,b) => a + b, 0) / Math.max(Object.keys(p.gw_scores || {}).length, 1);
-      html += `<div class="player-card${isReplaced ? ' replaced' : ''}" onclick="openReplModal(${p.replaced_player_id || p.player_id}, '${p.web_name}', ${p.position})">
-        <span class="pos pos-${posName}">${posName}</span>
-        <div>
-          <div class="name">${p.web_name}${isStar ? ' ★' : ''}${p.is_replacement ? ' <span style="color:var(--accent);font-size:11px">NEW</span>' : ''}</div>
-          <div class="meta">${p.team_short} · ${p.total_points} pts · Avg: ${avgScore.toFixed(1)}</div>
-        </div>
+      const avg = Object.values(p.gw_scores || {}).reduce((a,b) => a+b, 0) / Math.max(Object.keys(p.gw_scores || {}).length, 1);
+      html += `<div class="player-card${isR ? ' replaced' : ''}" onclick="openReplModal(${p.replaced_player_id || p.player_id}, '${p.web_name.replace(/'/g,"\\'")}', ${p.position})">
+        <span class="pos pos-${POS[posId]}">${POS[posId]}</span>
+        <div><div class="name">${p.web_name}${isStar ? ' *' : ''}${p.is_replacement ? ' <span style="color:var(--accent);font-size:11px">NEW</span>' : ''}</div><div class="meta">${p.team_short} | ${p.total_points} pts | Avg: ${avg.toFixed(1)}</div></div>
         <div class="pts">${p.total_points}</div>
       </div>`;
     });
   });
   html += '</div></div>';
-
   el.innerHTML = html;
 }
 
-function resetSimulation() {
-  state.replacements.clear();
-  runAnalysis();
-}
+function resetSimulation() { state.replacements.clear(); runAnalysis(); }
+function undoReplacement(id) { state.replacements.delete(id); runAnalysis(); }
 
-function undoReplacement(oldPlayerId) {
-  state.replacements.delete(oldPlayerId);
-  runAnalysis();
-}
-
-// ─── Replacement Modal ──────────────────────────────────────────────
+// ─── Replacement Modal ───────────────────────────────────────────
 function openReplModal(playerId, playerName, position) {
   state.replTarget = { playerId, playerName, position };
   document.getElementById('replTitle').textContent = `Replace ${playerName}`;
   document.getElementById('replModal').classList.add('active');
   setReplTab('free');
 }
-
-function closeReplModal() {
-  document.getElementById('replModal').classList.remove('active');
-}
-
+function closeReplModal() { document.getElementById('replModal').classList.remove('active'); }
 function setReplTab(tab) {
   state.replTab = tab;
-  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.textContent.toLowerCase().includes(tab)));
+  document.querySelectorAll('#replModal .modal-tab').forEach(t => t.classList.toggle('active', t.textContent.toLowerCase().includes(tab)));
   loadReplacements();
 }
 
@@ -649,46 +685,22 @@ async function loadReplacements() {
   body.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
   const t = state.replTarget;
   if (!t) return;
-
   const entryId = document.getElementById('analysisManager').value;
   const gwStart = parseInt(document.getElementById('analysisGwStart').value);
   const gwEnd = parseInt(document.getElementById('analysisGwEnd').value);
-
   try {
     const data = await api('/api/analysis/replacements', {
       method: 'POST',
       headers: {'Content-Type': 'application/json'},
-      body: JSON.stringify({
-        entry_id: parseInt(entryId),
-        player_id: t.playerId,
-        gw_start: gwStart,
-        gw_end: gwEnd,
-        star_players: state.starPlayers,
-        include_owned: state.replTab === 'all',
-      }),
+      body: JSON.stringify({ entry_id: parseInt(entryId), player_id: t.playerId, gw_start: gwStart, gw_end: gwEnd, star_players: state.starPlayers, include_owned: state.replTab === 'all' }),
     });
-
-    if (!data.length) {
-      body.innerHTML = '<p style="color:var(--text2);padding:16px">No candidates found.</p>';
-      return;
-    }
-
+    if (!data.length) { body.innerHTML = '<p style="color:var(--text2);padding:16px">No candidates found.</p>'; return; }
     let html = '<table><tr><th>Player</th><th>Team</th><th>Pts</th><th>Form</th><th>Impact</th><th>FA</th><th></th></tr>';
     data.forEach(c => {
-      const impactColor = c.impact > 0 ? 'var(--easy)' : c.impact < 0 ? 'var(--hard)' : 'var(--text2)';
-      const sign = c.impact > 0 ? '+' : '';
-      html += `<tr>
-        <td><b>${c.name}</b></td>
-        <td>${c.team}</td>
-        <td>${c.total_points}</td>
-        <td>${c.form}</td>
-        <td style="color:${impactColor};font-weight:700">${sign}${c.impact}</td>
-        <td>${c.is_free_agent ? '<span style="color:var(--easy)">Yes</span>' : '<span style="color:var(--text2)">No</span>'}</td>
-        <td><button class="btn-primary btn-sm" onclick="applyReplacement(${t.playerId}, '${t.playerName}', ${c.player_id}, '${c.name}', ${c.impact})">Pick</button></td>
-      </tr>`;
+      const ic = c.impact > 0 ? 'var(--easy)' : c.impact < 0 ? 'var(--hard)' : 'var(--text2)';
+      html += `<tr><td><b>${c.name}</b></td><td>${c.team}</td><td>${c.total_points}</td><td>${c.form}</td><td style="color:${ic};font-weight:700">${c.impact > 0 ? '+' : ''}${c.impact}</td><td>${c.is_free_agent ? '<span style="color:var(--easy)">Yes</span>' : 'No'}</td><td><button class="btn-primary btn-sm" onclick="applyReplacement(${t.playerId}, '${t.playerName.replace(/'/g,"\\'")}', ${c.player_id}, '${c.name.replace(/'/g,"\\'")}', ${c.impact})">Pick</button></td></tr>`;
     });
-    html += '</table>';
-    body.innerHTML = html;
+    body.innerHTML = html + '</table>';
   } catch (e) {
     body.innerHTML = `<div style="color:var(--hard);padding:16px">Error: ${e.message}</div>`;
   }
@@ -700,108 +712,497 @@ function applyReplacement(oldId, oldName, newId, newName, impact) {
   runAnalysis();
 }
 
-// ─── Free Agents ────────────────────────────────────────────────────
-async function loadFreeAgents() {
-  const el = document.getElementById('freeAgentsContent');
-  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
-
-  const pos = document.getElementById('faPosition').value;
-  const sort = document.getElementById('faSort').value;
-  const posParam = pos ? `&position=${pos}` : '';
+// ─── Predictions ─────────────────────────────────────────────────
+async function loadPredictions() {
+  const el = document.getElementById('predResults');
+  const entryId = document.getElementById('predManager').value;
+  const gwStart = parseInt(document.getElementById('predGwStart').value);
+  const gwEnd = parseInt(document.getElementById('predGwEnd').value);
+  if (!entryId) return;
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Calculating predicted points (fetching player histories)...</p></div>';
 
   try {
-    const data = await api(`/api/free-agents?sort=${sort}&limit=100${posParam}`);
-    const posNames = {1:'GK',2:'DEF',3:'MID',4:'FWD'};
-    let html = '<div class="card"><table><tr><th>#</th><th>Player</th><th>Pos</th><th>Team</th><th>Pts</th><th>Form</th><th>Min</th><th>G</th><th>A</th><th>CS</th></tr>';
-    data.forEach((p, i) => {
-      const pn = posNames[p.position] || '?';
-      html += `<tr>
-        <td>${i + 1}</td>
-        <td><b>${p.web_name}</b></td>
-        <td><span class="pos pos-${pn}">${pn}</span></td>
-        <td>${p.team_short}</td>
-        <td><b>${p.total_points}</b></td>
-        <td>${p.form}</td>
-        <td>${p.minutes}</td>
-        <td>${p.goals_scored}</td>
-        <td>${p.assists}</td>
-        <td>${p.clean_sheets}</td>
-      </tr>`;
-    });
-    html += '</table></div>';
-    el.innerHTML = html;
+    const data = await api(`/api/predict/squad/${entryId}?gw_start=${gwStart}&gw_end=${gwEnd}`);
+    renderPredictions(data, gwStart, gwEnd);
   } catch (e) {
     el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
   }
 }
 
-// ─── Transactions ───────────────────────────────────────────────────
-async function loadTransactions() {
-  const el = document.getElementById('transactionsContent');
-  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+function renderPredictions(data, gwStart, gwEnd) {
+  const el = document.getElementById('predResults');
+  const players = data.players || [];
+  const lineups = data.suggested_lineups || [];
+  let html = '';
+
+  // Suggested Lineups
+  if (lineups.length) {
+    html += '<div class="card"><h3>Suggested Lineups</h3><div style="overflow-x:auto;display:flex;gap:16px">';
+    lineups.forEach(lu => {
+      const lineup = lu.lineup || [];
+      const gkRow = lineup.filter(p => p.position === 1);
+      const defRow = lineup.filter(p => p.position === 2);
+      const midRow = lineup.filter(p => p.position === 3);
+      const fwdRow = lineup.filter(p => p.position === 4);
+
+      html += `<div style="min-width:320px"><div style="text-align:center;margin-bottom:8px"><b>GW${lu.gw}</b> | ${lu.formation} | <span style="color:var(--accent)">${lu.total_xpts} xPts</span> <span style="color:var(--text2);font-size:11px">(${lu.total_floor}-${lu.total_ceiling})</span></div>`;
+      html += '<div class="pitch">';
+      [gkRow, defRow, midRow, fwdRow].forEach(row => {
+        html += '<div class="pitch-row">';
+        row.forEach(p => {
+          html += `<div class="pitch-player" onclick="openPlayerDetail(${p.player_id})"><div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts}</div><div class="pp-team">${p.team_short}</div></div>`;
+        });
+        html += '</div>';
+      });
+      const bench = lu.bench || [];
+      if (bench.length) {
+        html += `<div style="text-align:center;color:rgba(255,255,255,.4);font-size:10px;margin-top:8px">BENCH</div><div class="pitch-row">`;
+        bench.forEach(p => {
+          html += `<div class="pitch-player" style="opacity:.5"><div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts.toFixed(1)}</div></div>`;
+        });
+        html += '</div>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  }
+
+  // Full player xPts table
+  html += '<div class="card"><h3>Player Predicted Points</h3><div style="overflow-x:auto"><table><tr><th>Player</th><th>Pos</th><th>Team</th><th>Form</th><th>Lineup%</th>';
+  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
+  html += '<th>Avg xPts</th></tr>';
+
+  const sorted = [...players].sort((a,b) => b.avg_xpts - a.avg_xpts);
+  sorted.forEach(p => {
+    const pn = POS[p.position] || '?';
+    html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td><b>${p.web_name}</b></td><td><span class="pos pos-${pn}">${pn}</span></td><td>${p.team_short}</td><td>${p.form}</td><td>${Math.round(p.lineup_prob*100)}%</td>`;
+    (p.predictions || []).forEach(pr => {
+      if (pr.no_fixture) { html += '<td style="color:var(--text2)">-</td>'; return; }
+      const bg = xptsColor(pr.expected);
+      html += `<td style="background:${bg};color:#111;text-align:center;font-weight:600;border-radius:4px" title="${pr.opponent} | Floor:${pr.floor} Ceil:${pr.ceiling}">${pr.expected}</td>`;
+    });
+    html += `<td style="font-weight:700;color:var(--accent)">${p.avg_xpts}</td></tr>`;
+  });
+  html += '</table></div></div>';
+
+  // Breakdown for top player
+  if (sorted.length && sorted[0].predictions?.length) {
+    const top = sorted[0];
+    const pr = top.predictions[0];
+    if (pr && pr.breakdown) {
+      html += `<div class="card"><h3>Breakdown: ${top.web_name} (GW${pr.gw} vs ${pr.opponent})</h3>`;
+      html += renderBreakdown(pr);
+      html += '</div>';
+    }
+  }
+
+  el.innerHTML = html;
+}
+
+function xptsColor(xpts) {
+  if (xpts >= 6) return 'var(--easy)';
+  if (xpts >= 4) return '#7ddf90';
+  if (xpts >= 3) return 'var(--medium)';
+  if (xpts >= 2) return '#e8a040';
+  return 'var(--hard)';
+}
+
+function renderBreakdown(pr) {
+  const bd = pr.breakdown || {};
+  const items = [
+    ['Playing time', bd.playing],
+    ['Goals', bd.goals],
+    ['Assists', bd.assists],
+    ['Clean sheet', bd.clean_sheet],
+    ['Saves', bd.saves],
+    ['Bonus', bd.bonus],
+    ['Cards', bd.cards],
+    ['Goals conceded', bd.goals_conceded],
+  ].filter(x => x[1] !== 0);
+
+  let html = '<div class="grid grid-4">';
+  html += `<div class="stat stat-sm"><div class="stat-value">${pr.expected}</div><div class="stat-label">Expected</div></div>`;
+  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--text2)">${pr.floor}</div><div class="stat-label">Floor</div></div>`;
+  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${pr.ceiling}</div><div class="stat-label">Ceiling</div></div>`;
+  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(pr.lineup_prob*100)}%</div><div class="stat-label">Lineup</div></div>`;
+  html += '</div>';
+
+  html += '<div style="margin-top:12px">';
+  items.forEach(([label, val]) => {
+    const color = val >= 0 ? 'var(--easy)' : 'var(--hard)';
+    const pct = Math.min(Math.abs(val) / 3 * 100, 100);
+    html += `<div class="xpts-bar" style="margin:4px 0"><span style="width:120px;color:var(--text2)">${label}</span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span style="color:${color};font-weight:600">${val >= 0 ? '+' : ''}${val.toFixed(2)}</span></div>`;
+  });
+  html += '</div>';
+
+  html += `<div style="margin-top:8px;font-size:12px;color:var(--text2)">xG: ${pr.xg} | xA: ${pr.xa} | CS prob: ${Math.round(pr.cs_prob*100)}%</div>`;
+  return html;
+}
+
+// ─── Player Detail Modal ─────────────────────────────────────────
+async function openPlayerDetail(playerId) {
+  const modal = document.getElementById('playerModal');
+  const body = document.getElementById('playerModalBody');
+  const title = document.getElementById('playerModalTitle');
+  modal.classList.add('active');
+  body.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
 
   try {
-    const [txns, trades, players] = await Promise.all([
-      api('/api/league/transactions'),
-      api('/api/league/trades'),
-      api('/api/players'),
+    const nxt = Math.min(state.nextGw, 38);
+    const [pred, history] = await Promise.all([
+      api(`/api/predict/player/${playerId}?gw_start=${nxt}&gw_end=${Math.min(nxt+5,38)}`),
+      api(`/api/player/${playerId}/history`),
     ]);
 
-    const playerMap = {};
-    players.forEach(p => playerMap[p.id] = p.web_name);
-    const entryMap = {};
-    state.entries.forEach(e => entryMap[e.entry_id] = e.entry_name);
+    title.textContent = `${pred.web_name} (${POS[pred.position]}) - ${pred.team_short}`;
 
     let html = '';
+    const sr = pred.season_rates || {};
+    const fr = pred.form_rates || {};
 
-    // Trades
-    if (trades.length) {
-      html += '<div class="card"><h3>Manager Trades</h3><table><tr><th>GW</th><th>Offered By</th><th>Received By</th><th>Players Exchanged</th><th>Status</th></tr>';
-      trades.forEach(t => {
-        const items = (t.tradeitem_set || []).map(i =>
-          `${playerMap[i.element_in] || i.element_in} ↔ ${playerMap[i.element_out] || i.element_out}`
-        ).join(', ');
-        const status = t.state === 'a' ? '<span style="color:var(--easy)">Accepted</span>' :
-                       t.state === 'p' ? '<span style="color:var(--medium)">Pending</span>' :
-                       '<span style="color:var(--hard)">Rejected</span>';
-        html += `<tr><td>GW${t.event}</td><td>${entryMap[t.offered_entry] || t.offered_entry}</td><td>${entryMap[t.received_entry] || t.received_entry}</td><td>${items}</td><td>${status}</td></tr>`;
+    html += '<div class="grid grid-5" style="margin-bottom:16px">';
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.total_points}</div><div class="stat-label">Total Pts</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.form}</div><div class="stat-label">Form</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.avg_xpts}</div><div class="stat-label">Avg xPts</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(pred.lineup_prob*100)}%</div><div class="stat-label">Lineup</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${sr.defcon_p90 || 0}</div><div class="stat-label">DefCon/90</div></div>`;
+    html += '</div>';
+
+    // Season vs Form comparison
+    html += '<div class="card"><h3>Season vs Recent Form (per 90 / per game)</h3><table><tr><th>Stat</th><th>Season</th><th>Form (L5)</th></tr>';
+    [['Goals/90', 'goals_p90'], ['Assists/90', 'assists_p90'], ['xG/90', 'xg_p90'], ['xA/90', 'xa_p90'],
+     ['CS rate', 'cs_rate'], ['Bonus/g', 'bonus_pg'], ['Cards/g', 'yellow_pg'], ['DefCon/90', 'defcon_p90']
+    ].forEach(([label, key]) => {
+      const sv = sr[key] ?? '-', fv = fr[key] ?? '-';
+      const diff = (typeof fv === 'number' && typeof sv === 'number') ? fv - sv : 0;
+      const dc = diff > 0.05 ? 'var(--easy)' : diff < -0.05 ? 'var(--hard)' : 'var(--text)';
+      html += `<tr><td>${label}</td><td>${typeof sv === 'number' ? sv.toFixed(3) : sv}</td><td style="color:${dc}">${typeof fv === 'number' ? fv.toFixed(3) : fv}</td></tr>`;
+    });
+    html += '</table></div>';
+
+    // Upcoming predictions
+    html += '<div class="card"><h3>Upcoming GW Predictions</h3><table><tr><th>GW</th><th>Opp</th><th>FDR</th><th>Floor</th><th>Expected</th><th>Ceiling</th><th>Lineup%</th></tr>';
+    (pred.predictions || []).forEach(pr => {
+      if (pr.no_fixture) return;
+      html += `<tr><td>GW${pr.gw}</td><td>${pr.opponent}</td><td><span class="fdr-${pr.fdr}" style="padding:2px 6px;border-radius:4px">${pr.fdr}</span></td><td>${pr.floor}</td><td style="font-weight:700;color:var(--accent)">${pr.expected}</td><td>${pr.ceiling}</td><td>${Math.round(pr.lineup_prob*100)}%</td></tr>`;
+      if (pr.breakdown) {
+        const bd = pr.breakdown;
+        html += `<tr><td colspan="7" style="font-size:11px;color:var(--text2);padding:2px 10px 8px">Playing:${bd.playing} | Goals:${bd.goals} | Assists:${bd.assists} | CS:${bd.clean_sheet} | Saves:${bd.saves} | Bonus:${bd.bonus} | Cards:${bd.cards} | GC:${bd.goals_conceded}</td></tr>`;
+      }
+    });
+    html += '</table></div>';
+
+    // Batch-level stats (defcon, goals, etc. by opponent quality)
+    const bs = pred.batch_stats || {};
+    if (Object.keys(bs).length) {
+      html += '<div class="card"><h3>Performance by Opponent Quality (DefCon, Goals, etc.)</h3><table><tr><th>Opponent Batch</th><th>Games</th><th>Pts/G</th><th>Goals/90</th><th>Assists/90</th><th>xG/90</th><th>CS Rate</th><th>DefCon/90</th><th>GC/90</th><th>Bonus/G</th></tr>';
+      Object.entries(bs).forEach(([batch, s]) => {
+        html += `<tr><td><b>${batch}</b></td><td>${s.games}</td><td style="font-weight:700;color:var(--accent)">${s.pts_pg}</td><td>${s.goals_p90}</td><td>${s.assists_p90}</td><td>${s.xg_p90}</td><td>${(s.cs_rate*100).toFixed(0)}%</td><td style="color:var(--blue)">${s.defcon_p90}</td><td>${s.gc_p90}</td><td>${s.bonus_pg}</td></tr>`;
       });
       html += '</table></div>';
     }
 
-    // Waivers & Free Agent picks
-    const kindNames = {w: 'Waiver', f: 'Free Agent', a: 'Admin'};
-    const resultNames = {a: 'Approved', di: 'Rejected', r: 'Rejected'};
-    html += '<div class="card"><h3>Waivers & Free Agent Picks</h3><table><tr><th>GW</th><th>Manager</th><th>Type</th><th>In</th><th>Out</th><th>Result</th></tr>';
-    txns.sort((a, b) => new Date(b.added) - new Date(a.added));
-    txns.slice(0, 100).forEach(t => {
-      const resColor = t.result === 'a' ? 'var(--easy)' : 'var(--hard)';
-      html += `<tr>
-        <td>GW${t.event}</td>
-        <td>${entryMap[t.entry] || t.entry}</td>
-        <td>${kindNames[t.kind] || t.kind}</td>
-        <td style="color:var(--easy)">${playerMap[t.element_in] || t.element_in}</td>
-        <td style="color:var(--hard)">${playerMap[t.element_out] || t.element_out}</td>
-        <td style="color:${resColor}">${resultNames[t.result] || t.result}</td>
-      </tr>`;
+    // Season history chart
+    html += '<div class="card"><h3>Season History</h3><div style="overflow-x:auto"><table><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>CS</th><th>Bonus</th><th>xG</th><th>xA</th><th>DefCon</th></tr>';
+    (history || []).slice().reverse().forEach(h => {
+      html += `<tr><td>${h.round}</td><td>${h.was_home ? 'H' : 'A'} vs T${h.opponent_team}</td><td style="font-weight:700;color:var(--accent)">${h.total_points}</td><td>${h.minutes}</td><td>${h.goals_scored}</td><td>${h.assists}</td><td>${h.clean_sheets}</td><td>${h.bonus}</td><td>${h.expected_goals}</td><td>${h.expected_assists}</td><td>${h.defensive_contribution}</td></tr>`;
+    });
+    html += '</table></div></div>';
+
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── PL Teams ────────────────────────────────────────────────────
+async function loadPLTeams() {
+  const el = document.getElementById('plTeamsContent');
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Loading PL team data...</p></div>';
+
+  try {
+    const data = await api('/api/pl/form');
+    state.plTeams = data;
+    populateMatchSelects(data.standings || []);
+    renderPLTeams(data);
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function populateMatchSelects(standings) {
+  ['matchHome','matchAway'].forEach(id => {
+    const sel = document.getElementById(id);
+    sel.innerHTML = '';
+    standings.forEach(t => {
+      const opt = document.createElement('option');
+      opt.value = t.team_id;
+      opt.textContent = `${t.short_name} - ${t.name}`;
+      sel.appendChild(opt);
+    });
+  });
+}
+
+function renderPLTeams(data) {
+  const el = document.getElementById('plTeamsContent');
+  let html = '';
+
+  // PL Standings
+  const standings = data.standings || [];
+  html += '<div class="card"><h3>Premier League Table</h3><div style="overflow-x:auto"><table><tr><th>#</th><th>Team</th><th>P</th><th>W</th><th>D</th><th>L</th><th>GF</th><th>GA</th><th>GD</th><th>Pts</th><th>GF/G</th><th>GA/G</th><th>CS%</th></tr>';
+  standings.forEach(t => {
+    const gd = t.gf - t.ga;
+    html += `<tr><td><b>${t.position}</b></td><td><b>${t.short_name}</b> ${t.name}</td><td>${t.played}</td><td>${t.wins}</td><td>${t.draws}</td><td>${t.losses}</td><td>${t.gf}</td><td>${t.ga}</td><td style="color:${gd>0?'var(--easy)':'var(--hard)'}">${gd>0?'+':''}${gd}</td><td><b>${t.points}</b></td><td>${t.gf_per_game}</td><td>${t.ga_per_game}</td><td>${Math.round(t.cs_rate*100)}%</td></tr>`;
+  });
+  html += '</table></div></div>';
+
+  // Recent Form
+  const form = data.recent_form || [];
+  html += '<div class="card"><h3>Recent Form (Last 6)</h3><div style="overflow-x:auto"><table><tr><th>Team</th><th>Form</th><th>W</th><th>D</th><th>L</th><th>GF/G</th><th>GA/G</th><th>CS%</th></tr>';
+  form.forEach(t => {
+    const formHtml = t.form_string.split('').map(c => `<span class="form-char form-${c}">${c}</span>`).join('');
+    html += `<tr><td><b>${t.team_short}</b></td><td>${formHtml}</td><td>${t.wins}</td><td>${t.draws}</td><td>${t.losses}</td><td>${t.gf_per_game}</td><td>${t.ga_per_game}</td><td>${Math.round(t.cs_rate*100)}%</td></tr>`;
+  });
+  html += '</table></div></div>';
+
+  // Batch Cross Table
+  const cross = data.batch_cross || {};
+  const batches = [1,2,3,4,5];
+  const bn = data.batch_names || {};
+  html += '<div class="card"><h3>Batch Cross-Table: Average Goals Scored</h3><div style="overflow-x:auto"><table><tr><th>Atk \\ Def</th>';
+  batches.forEach(b => html += `<th>${bn[b] || b}</th>`);
+  html += '</tr>';
+  batches.forEach(ab => {
+    html += `<tr><td><b>${bn[ab] || ab}</b></td>`;
+    batches.forEach(db => {
+      const key = `${ab}_vs_${db}`;
+      const c = cross[key];
+      if (c) {
+        const v = c.avg_goals;
+        const bg = v >= 2 ? 'var(--easy)' : v >= 1.3 ? 'var(--medium)' : 'var(--hard)';
+        html += `<td class="batch-cell" style="background:${bg};color:#111" title="${c.games} games">${v}</td>`;
+      } else {
+        html += '<td class="batch-cell" style="color:var(--text2)">-</td>';
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</table></div>';
+
+  html += '<div style="margin-top:8px;overflow-x:auto"><h3 style="margin-bottom:8px">Clean Sheet Rate by Batch</h3><table><tr><th>Def \\ Atk</th>';
+  batches.forEach(b => html += `<th>${bn[b] || b}</th>`);
+  html += '</tr>';
+  batches.forEach(db => {
+    html += `<tr><td><b>${bn[db] || db}</b></td>`;
+    batches.forEach(ab => {
+      const key = `${ab}_vs_${db}`;
+      const c = cross[key];
+      if (c) {
+        const v = Math.round(c.cs_rate * 100);
+        const bg = v >= 40 ? 'var(--easy)' : v >= 25 ? 'var(--medium)' : 'var(--hard)';
+        html += `<td class="batch-cell" style="background:${bg};color:#111">${v}%</td>`;
+      } else {
+        html += '<td class="batch-cell" style="color:var(--text2)">-</td>';
+      }
+    });
+    html += '</tr>';
+  });
+  html += '</table></div></div>';
+
+  el.innerHTML = html;
+}
+
+async function predictMatch() {
+  const el = document.getElementById('matchPredResult');
+  const home = document.getElementById('matchHome').value;
+  const away = document.getElementById('matchAway').value;
+  if (!home || !away) return;
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  try {
+    const data = await api(`/api/pl/match-predict?home=${home}&away=${away}`);
+    const homeOpt = document.getElementById('matchHome').selectedOptions[0]?.textContent || '?';
+    const awayOpt = document.getElementById('matchAway').selectedOptions[0]?.textContent || '?';
+    el.innerHTML = `<div class="card" style="margin-top:12px"><h3>Match Prediction: ${homeOpt} vs ${awayOpt}</h3><div class="grid grid-5">
+      <div class="stat stat-sm"><div class="stat-value">${data.home_xg}</div><div class="stat-label">Home xG</div></div>
+      <div class="stat stat-sm"><div class="stat-value">${data.away_xg}</div><div class="stat-label">Away xG</div></div>
+      <div class="stat stat-sm"><div class="stat-value">${data.total_xg}</div><div class="stat-label">Total xG</div></div>
+      <div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${Math.round(data.home_cs_prob*100)}%</div><div class="stat-label">Home CS%</div></div>
+      <div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(data.away_cs_prob*100)}%</div><div class="stat-label">Away CS%</div></div>
+    </div></div>`;
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── N-D-K ───────────────────────────────────────────────────────
+async function loadNDK() {
+  const el = document.getElementById('ndkResults');
+  const gwStart = parseInt(document.getElementById('ndkGwStart').value);
+  const gwEnd = parseInt(document.getElementById('ndkGwEnd').value);
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Computing N-D-K scores...</p></div>';
+
+  try {
+    const data = await api(`/api/ndk/all?gw_start=${gwStart}&gw_end=${gwEnd}`);
+    renderNDK(data, gwStart, gwEnd);
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderNDK(data, gwStart, gwEnd) {
+  const el = document.getElementById('ndkResults');
+  let html = `<div class="card"><h3>N-D-K Scores (GW${gwStart}-GW${gwEnd})</h3>
+    <div style="margin-bottom:12px;font-size:12px;color:var(--text2)">
+      <b>N</b> = Nailedness (squad reliability) | <b>D</b> = Difficulty (fixture ease) | <b>K</b> = Klean (defensive/CS potential) | Composite = 0.3N + 0.4D + 0.3K
+    </div>`;
+
+  html += '<table><tr><th>#</th><th>Team</th><th>Manager</th><th>N</th><th>D</th><th>K</th><th>Composite</th><th>PL Teams</th></tr>';
+  data.forEach(t => {
+    const nColor = ndkColor(t.nailedness);
+    const dColor = ndkColor(t.difficulty);
+    const kColor = ndkColor(t.klean);
+    const cColor = ndkColor(t.composite);
+    const plTeams = Object.keys(t.pl_team_exposure || {}).join(', ');
+    html += `<tr>
+      <td><b>${t.rank}</b></td><td>${t.entry_name}</td><td style="color:var(--text2)">${t.player_name}</td>
+      <td><div class="ndk-meter">${ndkBar(t.nailedness, nColor)}<span style="color:${nColor};font-weight:700">${t.nailedness}</span></div></td>
+      <td><div class="ndk-meter">${ndkBar(t.difficulty, dColor)}<span style="color:${dColor};font-weight:700">${t.difficulty}</span></div></td>
+      <td><div class="ndk-meter">${ndkBar(t.klean, kColor)}<span style="color:${kColor};font-weight:700">${t.klean}</span></div></td>
+      <td style="font-weight:700;color:${cColor};font-size:16px">${t.composite}</td>
+      <td style="font-size:11px;color:var(--text2)">${plTeams}</td>
+    </tr>`;
+  });
+  html += '</table></div>';
+  el.innerHTML = html;
+}
+
+function ndkColor(val) {
+  if (val >= 7) return 'var(--easy)';
+  if (val >= 5) return 'var(--medium)';
+  return 'var(--hard)';
+}
+function ndkBar(val, color) {
+  const pct = Math.round(val / 10 * 100);
+  return `<div class="ndk-bar"><div class="ndk-fill" style="width:${pct}%;background:${color}"></div></div>`;
+}
+
+// ─── H2H Compare ─────────────────────────────────────────────────
+async function loadH2H() {
+  const el = document.getElementById('h2hResults');
+  const e1 = document.getElementById('h2hTeam1').value;
+  const e2 = document.getElementById('h2hTeam2').value;
+  const gw = parseInt(document.getElementById('h2hGw').value);
+  if (!e1 || !e2 || e1 === e2) { el.innerHTML = '<div class="card" style="color:var(--medium)">Select two different teams.</div>'; return; }
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Computing H2H comparison...</p></div>';
+
+  try {
+    const data = await api(`/api/predict/h2h?entry1=${e1}&entry2=${e2}&gw=${gw}`);
+    renderH2H(data);
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderH2H(data) {
+  const el = document.getElementById('h2hResults');
+  const e1 = data.entry_1 || {};
+  const e2 = data.entry_2 || {};
+  const s1 = e1.squad || {};
+  const s2 = e2.squad || {};
+  const p1 = s1.players || [];
+  const p2 = s2.players || [];
+
+  const n1 = state.entries.find(e => e.entry_id == e1.entry_id)?.entry_name || '?';
+  const n2 = state.entries.find(e => e.entry_id == e2.entry_id)?.entry_name || '?';
+  const adv = data.advantage;
+  const advText = adv === 1 ? n1 : adv === 2 ? n2 : 'Even';
+
+  let html = `<div class="card"><h3>GW${data.gw} Head-to-Head</h3>`;
+  html += `<div class="grid grid-3" style="margin-bottom:16px">
+    <div class="stat"><div class="stat-value" style="color:${adv===1?'var(--easy)':'var(--text2)'}">${e1.xpts}</div><div class="stat-label">${n1}</div></div>
+    <div class="stat"><div class="stat-value" style="color:var(--purple)">vs</div><div class="stat-label">Advantage: ${advText}</div></div>
+    <div class="stat"><div class="stat-value" style="color:${adv===2?'var(--easy)':'var(--text2)'}">${e2.xpts}</div><div class="stat-label">${n2}</div></div>
+  </div>`;
+
+  html += '<div class="grid grid-2">';
+  [
+    { players: p1, name: n1, xpts: e1.xpts, lineup: (s1.suggested_lineups || [])[0] },
+    { players: p2, name: n2, xpts: e2.xpts, lineup: (s2.suggested_lineups || [])[0] },
+  ].forEach(side => {
+    html += '<div>';
+    html += `<h3 style="margin-bottom:8px">${side.name} <span style="color:var(--accent)">${side.xpts} xPts</span></h3>`;
+    if (side.lineup) html += `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">${side.lineup.formation} | Floor: ${side.lineup.total_floor} | Ceil: ${side.lineup.total_ceiling}</div>`;
+    html += '<table><tr><th>Player</th><th>Pos</th><th>xPts</th></tr>';
+    const sorted = [...side.players].sort((a,b) => (b.predictions?.[0]?.expected || 0) - (a.predictions?.[0]?.expected || 0));
+    sorted.forEach(p => {
+      const pr = p.predictions?.[0] || {};
+      const pn = POS[p.position] || '?';
+      html += `<tr><td>${p.web_name}</td><td><span class="pos pos-${pn}">${pn}</span></td><td style="font-weight:700;color:var(--accent)">${pr.expected || 0}</td></tr>`;
     });
     html += '</table></div>';
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
+}
 
+// ─── Free Agents ─────────────────────────────────────────────────
+async function loadFreeAgents() {
+  const el = document.getElementById('freeAgentsContent');
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  const pos = document.getElementById('faPosition').value;
+  const sort = document.getElementById('faSort').value;
+  const posParam = pos ? `&position=${pos}` : '';
+  try {
+    const data = await api(`/api/free-agents?sort=${sort}&limit=100${posParam}`);
+    let html = '<div class="card"><table><tr><th>#</th><th>Player</th><th>Pos</th><th>Team</th><th>Pts</th><th>Form</th><th>Min</th><th>G</th><th>A</th><th>CS</th></tr>';
+    data.forEach((p, i) => {
+      const pn = POS[p.position] || '?';
+      html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td>${i+1}</td><td><b>${p.web_name}</b></td><td><span class="pos pos-${pn}">${pn}</span></td><td>${p.team_short}</td><td><b>${p.total_points}</b></td><td>${p.form}</td><td>${p.minutes}</td><td>${p.goals_scored}</td><td>${p.assists}</td><td>${p.clean_sheets}</td></tr>`;
+    });
+    html += '</table></div>';
     el.innerHTML = html;
   } catch (e) {
     el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
   }
 }
 
-// ─── Star Players (localStorage) ────────────────────────────────────
-function toggleStarPlayer(playerId) {
-  const idx = state.starPlayers.indexOf(playerId);
-  if (idx >= 0) state.starPlayers.splice(idx, 1);
-  else state.starPlayers.push(playerId);
-  localStorage.setItem('starPlayers', JSON.stringify(state.starPlayers));
+// ─── Transactions ────────────────────────────────────────────────
+async function loadTransactions() {
+  const el = document.getElementById('transactionsContent');
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  try {
+    const [txns, trades, players] = await Promise.all([
+      api('/api/league/transactions'), api('/api/league/trades'), api('/api/players'),
+    ]);
+    const pm = {}; players.forEach(p => pm[p.id] = p.web_name);
+    const em = {}; state.entries.forEach(e => em[e.entry_id] = e.entry_name);
+    let html = '';
+    if (trades.length) {
+      html += '<div class="card"><h3>Manager Trades</h3><table><tr><th>GW</th><th>From</th><th>To</th><th>Exchange</th><th>Status</th></tr>';
+      trades.forEach(t => {
+        const items = (t.tradeitem_set || []).map(i => `${pm[i.element_in]||i.element_in} / ${pm[i.element_out]||i.element_out}`).join(', ');
+        const st = t.state === 'a' ? '<span style="color:var(--easy)">Accepted</span>' : t.state === 'p' ? '<span style="color:var(--medium)">Pending</span>' : '<span style="color:var(--hard)">Rejected</span>';
+        html += `<tr><td>GW${t.event}</td><td>${em[t.offered_entry]||t.offered_entry}</td><td>${em[t.received_entry]||t.received_entry}</td><td>${items}</td><td>${st}</td></tr>`;
+      });
+      html += '</table></div>';
+    }
+    html += '<div class="card"><h3>Waivers & Free Agent Picks</h3><table><tr><th>GW</th><th>Manager</th><th>Type</th><th>In</th><th>Out</th><th>Result</th></tr>';
+    const kn = {w:'Waiver',f:'Free Agent',a:'Admin'};
+    const rn = {a:'Approved',di:'Rejected',r:'Rejected'};
+    txns.sort((a,b) => new Date(b.added) - new Date(a.added));
+    txns.slice(0,100).forEach(t => {
+      const rc = t.result === 'a' ? 'var(--easy)' : 'var(--hard)';
+      html += `<tr><td>GW${t.event}</td><td>${em[t.entry]||t.entry}</td><td>${kn[t.kind]||t.kind}</td><td style="color:var(--easy)">${pm[t.element_in]||t.element_in}</td><td style="color:var(--hard)">${pm[t.element_out]||t.element_out}</td><td style="color:${rc}">${rn[t.result]||t.result}</td></tr>`;
+    });
+    html += '</table></div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
 }
 
-// ─── Boot ───────────────────────────────────────────────────────────
+// ─── Boot ────────────────────────────────────────────────────────
 const savedLeague = localStorage.getItem('leagueId');
 if (savedLeague) document.getElementById('leagueInput').value = savedLeague;
 init();
