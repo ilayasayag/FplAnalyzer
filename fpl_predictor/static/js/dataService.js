@@ -93,44 +93,53 @@ const DataService = {
     
     /**
      * Sync database from newest JSON file
+     * 
+     * Calls the new /api/auto-load endpoint which:
+     * 1. Finds the newest fpl_league_data_*.json file
+     * 2. Imports it into DuckDB
+     * 3. Processes transactions to reconstruct current squads
+     * 4. Returns import statistics
      */
     async syncFromFile() {
-        console.log('[DataService] Starting sync from file...');
+        console.log('[DataService] Starting sync from newest file...');
         
         try {
-            // First, find available data files
-            const filesRes = await fetch('/api/data-files');
-            const filesData = await filesRes.json();
+            // Step 1: Load the newest JSON file
+            const loadResponse = await fetch('/api/auto-load', { 
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
             
-            if (!filesData.files || filesData.files.length === 0) {
-                return { success: false, error: 'No data files found' };
-            }
-            
-            console.log('[DataService] Found files:', filesData.files);
-            
-            // Auto-load will pick the newest file
-            const loadRes = await fetch('/api/auto-load', { method: 'POST' });
-            const loadData = await loadRes.json();
+            const loadData = await loadResponse.json();
             
             if (!loadData.success) {
-                return { success: false, error: loadData.error || 'Failed to load file' };
+                console.error('[DataService] Auto-load failed:', loadData.error);
+                return { 
+                    success: false, 
+                    error: loadData.error || 'Failed to load file' 
+                };
             }
             
-            console.log('[DataService] File loaded:', loadData.filename);
+            console.log('[DataService] Successfully loaded:', loadData.filename);
             
-            // Now import into database
-            const importRes = await fetch('/api/db/import', {
+            // Step 2: Import the data into DuckDB
+            const importResponse = await fetch('/api/db/import', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(loadData.data)
             });
-            const importData = await importRes.json();
             
-            if (!importData.success && importData.errors?.length > 0) {
-                console.warn('[DataService] Import had errors:', importData.errors);
+            const importResult = await importResponse.json();
+            
+            if (!importResult.success) {
+                console.error('[DataService] DB import failed:', importResult.error);
+                return {
+                    success: false,
+                    error: importResult.error || 'Failed to import into database'
+                };
             }
             
-            console.log('[DataService] Import result:', importData);
+            console.log('[DataService] Import stats:', importResult);
             
             // Clear cache to force fresh data
             this.clearCache();
@@ -140,12 +149,16 @@ const DataService = {
             return {
                 success: true,
                 filename: loadData.filename,
+                message: `Imported ${importResult.players_imported} players, ${importResult.teams_imported} teams`,
                 imported: {
-                    players: importData.players_imported,
-                    teams: importData.teams_imported,
-                    squads: importData.squads_imported,
-                    gameweeks: importData.gameweeks_imported
-                }
+                    players: importResult.players_imported,
+                    teams: importResult.teams_imported,
+                    squads: importResult.squads_imported,
+                    gameweeks: importResult.gameweeks_imported,
+                    entries: importResult.entries_imported,
+                    transactions: importResult.transactions_imported
+                },
+                predictor_initialized: loadData.predictor_initialized || false
             };
         } catch (e) {
             console.error('[DataService] Sync failed:', e);

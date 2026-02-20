@@ -11,9 +11,11 @@ from datetime import datetime
 from typing import Optional
 
 from fpl_predictor.scrapers.production_scraper import ProductionLineupScraper
+from fpl_predictor.scrapers.ffscout_text_scraper import FFScoutTextScraper
 from fpl_predictor.scrapers.aggregator import LineupAggregator
 from fpl_predictor.data.database import get_connection
 from fpl_predictor.data.repository import PredictedLineupRepository, PlayerRepository
+from fpl_predictor.config import get_enabled_sources, get_source_weights
 
 
 def get_next_gameweek() -> int:
@@ -30,7 +32,7 @@ def get_next_gameweek() -> int:
 
 def update_predicted_lineups(gameweek: Optional[int] = None):
     """
-    Scheduled job to update predicted lineups.
+    Scheduled job to update predicted lineups from multiple sources.
     
     Args:
         gameweek: Specific gameweek to scrape, or None to auto-detect next GW
@@ -40,25 +42,67 @@ def update_predicted_lineups(gameweek: Optional[int] = None):
     
     print(f"[{datetime.now()}] Starting predicted lineups update for GW{gameweek}")
     
-    scraper = None
+    rotowire_scraper = None
+    ffscout_scraper = None
+    
     try:
-        # Scrape all sources (RotoWire + Premier Injuries)
-        scraper = ProductionLineupScraper(headless=True)
-        result = scraper.scrape_all(gameweek)
+        # Get enabled sources and their weights
+        enabled_sources = get_enabled_sources()
+        source_weights = get_source_weights()
         
-        predictions_raw = result['predictions']
-        metadata = result['metadata']
+        print(f"[Scheduler] Enabled sources: {[s[0] for s in enabled_sources]}")
+        print(f"[Scheduler] Weights: {source_weights}")
         
-        # Aggregate predictions
+        # Dictionary to hold all source predictions
+        all_source_predictions = {}
+        all_metadata = {}
+        
+        # Scrape RotoWire (if enabled)
+        if 'rotowire_enhanced' in source_weights:
+            print(f"\n[Scheduler] === Scraping RotoWire + Premier Injuries ===")
+            rotowire_scraper = ProductionLineupScraper(headless=True)
+            roto_result = rotowire_scraper.scrape_all(gameweek)
+            
+            roto_predictions = roto_result['predictions']
+            all_metadata['rotowire_enhanced'] = roto_result['metadata']
+            
+            # Skip per-source validation for raw scraper data
+            # Validation will happen after matching to FPL players
+            print(f"[Scheduler] RotoWire: {len(roto_predictions)} raw predictions")
+            
+            all_source_predictions['rotowire_enhanced'] = roto_predictions
+        
+        # Scrape FF Scout (if enabled)
+        if 'ffscout' in source_weights:
+            print(f"\n[Scheduler] === Scraping Fantasy Football Scout (Text Extraction) ===")
+            ffscout_scraper = FFScoutTextScraper(headless=True)
+            ff_result = ffscout_scraper.scrape_all(gameweek)
+            
+            ff_predictions = ff_result['predictions']
+            all_metadata['ffscout'] = ff_result['metadata']
+            
+            # Skip per-source validation for raw scraper data
+            # Validation will happen after matching to FPL players
+            print(f"[Scheduler] FF Scout: {len(ff_predictions)} raw predictions")
+            
+            all_source_predictions['ffscout'] = ff_predictions
+        
+        # Check if we got any predictions
+        if not all_source_predictions:
+            print(f"[Scheduler] No predictions from any source for GW{gameweek}")
+            return
+        
+        # Aggregate predictions using weighted averaging
+        print(f"\n[Scheduler] === Aggregating Predictions with Weights ===")
         aggregator = LineupAggregator()
-        source_predictions = {'rotowire_enhanced': predictions_raw}
-        predictions = aggregator.aggregate_predictions(source_predictions, gameweek)
+        predictions = aggregator.aggregate_weighted(all_source_predictions, source_weights, gameweek)
         
         if not predictions:
-            print(f"[Scheduler] No predictions generated for GW{gameweek}")
+            print(f"[Scheduler] No predictions generated after aggregation for GW{gameweek}")
             return
         
         # Match to FPL player IDs
+        print(f"\n[Scheduler] === Matching to FPL Players ===")
         conn = get_connection()
         player_repo = PlayerRepository(conn)
         fpl_players = player_repo.get_all(limit=1000)
@@ -69,39 +113,85 @@ def update_predicted_lineups(gameweek: Optional[int] = None):
             fpl_players_formatted.append({
                 'id': p['id'],
                 'web_name': p['web_name'],
+                'first_name': p.get('first_name', ''),
+                'second_name': p.get('second_name', ''),
                 'team_id': p['team_id'],
                 'team_code': p.get('team_name', '')
             })
         
         matched_predictions = aggregator.match_to_fpl_players(predictions, fpl_players_formatted)
         
-        # Filter to only matched predictions
-        valid_predictions = [p for p in matched_predictions if p.get('matched')]
+        # Deduplicate predictions that have the same player_id but came from different sources
+        print(f"\n[Scheduler] === Deduplicating by Player ID ===")
+        matched_predictions = aggregator.deduplicate_by_player_id(matched_predictions, source_weights)
         
-        if not valid_predictions:
+        # Separate matched and unmatched
+        matched_only = [p for p in matched_predictions if p.get('matched')]
+        unmatched = [p for p in matched_predictions if not p.get('matched')]
+        
+        if not matched_only:
             print(f"[Scheduler] No predictions could be matched to FPL players")
             return
         
-        # Validate lineups - ensure exactly 11 players per team with smart position handling
+        # Final validation after aggregation
+        print(f"\n[Scheduler] === Final Lineup Validation ===")
         try:
             from fpl_predictor.engine.lineup_validator import validate_all_predictions
-            print(f"[Scheduler] Validating lineups...")
-            validated_predictions = validate_all_predictions(valid_predictions)
-            print(f"[Scheduler] ✓ Lineup validation complete")
+            validated_predictions = validate_all_predictions(matched_only)
+            print(f"[Scheduler] ✓ Validation complete: {len(validated_predictions)} predictions")
         except Exception as val_err:
             print(f"[Scheduler] ⚠️ Validation failed: {val_err}")
             import traceback
             traceback.print_exc()
-            validated_predictions = valid_predictions  # Use unvalidated if validation fails
+            validated_predictions = matched_only
+        validation_notes = {}
         
         # Store in database
+        print(f"\n[Scheduler] === Saving to Database ===")
         lineup_repo = PredictedLineupRepository(conn)
-        count = lineup_repo.upsert_predictions(validated_predictions)
         
-        print(f"[Scheduler] ✓ Updated {count} player lineup predictions for GW{gameweek}")
-        print(f"[Scheduler] Matched: {len(valid_predictions)}, Unmatched: {len(predictions) - len(valid_predictions)}")
-        print(f"[Scheduler] Injured: {metadata['injured']}, Doubtful: {metadata['doubtful']}, Suspended: {metadata['suspended']}")
-        print(f"[Scheduler] Enhanced with injury data: {metadata['enhanced_with_injury_data']}")
+        # Save matched predictions
+        count = lineup_repo.upsert_predictions(validated_predictions)
+        print(f"[Scheduler] ✓ Saved {count} matched predictions")
+        
+        # Save unmatched predictions to cache
+        if unmatched:
+            # Track individual unmatched players for statistics
+            for u in unmatched:
+                try:
+                    lineup_repo.upsert_unmatched_player(
+                        scraped_name=u['player_name'],
+                        team_code=u['team_code'],
+                        position_code=u.get('position_code'),
+                        source='multi_source'
+                    )
+                except Exception as e:
+                    pass  # Silently ignore errors in tracking
+            
+            # Save full unmatched predictions for this gameweek
+            lineup_repo.save_unmatched_predictions(gameweek, unmatched)
+            print(f"[Scheduler] ✓ Saved {len(unmatched)} unmatched predictions")
+        
+        # Save validation notes (skip - not needed)
+        # validation_notes is empty anyway
+        
+        # Explicitly commit all changes
+        conn.commit()
+        print(f"[Scheduler] ✓ Database transaction committed")
+        
+        # Print summary
+        print(f"\n{'='*80}")
+        print(f"PREDICTION UPDATE COMPLETE - GW{gameweek}")
+        print(f"{'='*80}")
+        print(f"Sources: {len(all_source_predictions)}")
+        for source_name, meta in all_metadata.items():
+            weight = source_weights.get(source_name, 0)
+            print(f"  - {source_name} (weight: {weight*100:.0f}%): {meta.get('total_predictions', 0)} raw predictions")
+        print(f"Aggregated: {len(predictions)} unique players")
+        print(f"Matched: {len(matched_only)} ({len(matched_only)/len(predictions)*100:.1f}%)")
+        print(f"Unmatched: {len(unmatched)}")
+        print(f"Saved to DB: {count} predictions")
+        print(f"{'='*80}\n")
         
     except Exception as e:
         print(f"[Scheduler] ✗ Failed to update predicted lineups: {e}")
@@ -109,9 +199,27 @@ def update_predicted_lineups(gameweek: Optional[int] = None):
         traceback.print_exc()
     
     finally:
-        if scraper:
+        # Close database connection and reset global connection
+        try:
+            if 'conn' in locals() and conn:
+                conn.close()
+                print("[Scheduler] Database connection closed")
+                # Reset global connection so next access gets fresh connection
+                from fpl_predictor.data.database import reset_connection
+                reset_connection()
+                print("[Scheduler] Global connection reset")
+        except Exception as e:
+            print(f"[Scheduler] Warning: Error closing connection: {e}")
+        
+        # Cleanup scrapers
+        if rotowire_scraper:
             try:
-                scraper.driver.quit()
+                rotowire_scraper.driver.quit()
+            except:
+                pass
+        if ffscout_scraper:
+            try:
+                ffscout_scraper.driver.quit()
             except:
                 pass
 

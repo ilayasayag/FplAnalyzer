@@ -48,6 +48,7 @@ class LineupAggregator:
             'brentford': 'BRE',
             'brighton': 'BHA',
             'brighton & hove albion': 'BHA',
+            'brighton and hove albion': 'BHA',
             'chelsea': 'CHE',
             'crystal palace': 'CRY',
             'palace': 'CRY',
@@ -73,6 +74,7 @@ class LineupAggregator:
             'west ham': 'WHU',
             'west ham united': 'WHU',
             'wolverhampton': 'WOL',
+            'wolverhampton wanderers': 'WOL',
             'wolves': 'WOL',
             'leicester': 'LEI',
             'leicester city': 'LEI',
@@ -146,6 +148,161 @@ class LineupAggregator:
             return PLAYER_NAME_ALIASES[normalized]
         
         return normalized
+    
+    def aggregate_weighted(self, source_predictions: Dict[str, List[dict]], 
+                          source_weights: Dict[str, float], gameweek: int) -> List[dict]:
+        """
+        Aggregate predictions from multiple sources using weighted averaging.
+        
+        This method combines predictions from different sources, giving each source
+        a different weight. For example:
+        - RotoWire (60% weight): Player at 100% → contributes 60%
+        - FF Scout (40% weight): Player at 50% → contributes 20%
+        - Final: 80% start probability
+        
+        Args:
+            source_predictions: Dict mapping source name to list of predictions
+            source_weights: Dict mapping source name to weight (0.0-1.0)
+            gameweek: Gameweek number
+            
+        Returns:
+            List of aggregated predictions with weighted probabilities
+        """
+        # Group predictions by (player_name, team)
+        player_predictions = defaultdict(lambda: {
+            'source_probabilities': {},  # {source_name: probability}
+            'sources': [],
+            'injured': False,
+            'injury_details': [],
+            'suspended': False,
+            'doubtful': False,
+            'team_code': None,
+            'raw_team_name': None
+        })
+        
+        # Normalize total weight (in case weights don't sum to 1.0)
+        total_weight = sum(source_weights.values())
+        
+        if total_weight == 0:
+            print("[Aggregator] Warning: Total source weight is 0")
+            return []
+        
+        print(f"[Aggregator] Weighted aggregation from {len(source_predictions)} sources for GW{gameweek}")
+        print(f"[Aggregator] Source weights: {source_weights}")
+        
+        # Process predictions from each source
+        for source_name, predictions in source_predictions.items():
+            if not predictions:
+                print(f"[Aggregator] Source '{source_name}' returned no predictions")
+                continue
+            
+            source_weight = source_weights.get(source_name, 0.0)
+            
+            print(f"[Aggregator] Processing {len(predictions)} predictions from '{source_name}' (weight: {source_weight})")
+            
+            for pred in predictions:
+                # Normalize names
+                player_name = self._normalize_player_name(pred.get('player_name', ''))
+                team_name = pred.get('team_name', '')
+                team_code = self._normalize_team_name(team_name)
+                
+                if not player_name or not team_code:
+                    continue  # Skip if can't identify player/team
+                
+                # Create key for this player
+                key = (player_name, team_code)
+                
+                # Extract or calculate start probability for this source
+                # Check if source already calculated a probability
+                if 'start_probability_raw' in pred:
+                    source_start_prob = pred['start_probability_raw']
+                elif pred.get('starting'):
+                    source_start_prob = 1.0
+                elif pred.get('bench'):
+                    source_start_prob = 0.0
+                else:
+                    source_start_prob = 0.0
+                
+                # Store this source's probability
+                player_predictions[key]['source_probabilities'][source_name] = source_start_prob
+                
+                # Store team info
+                if not player_predictions[key]['team_code']:
+                    player_predictions[key]['team_code'] = team_code
+                    player_predictions[key]['raw_team_name'] = team_name
+                
+                # Record source details
+                player_predictions[key]['sources'].append({
+                    'name': source_name,
+                    'weight': source_weight,
+                    'probability': source_start_prob,
+                    'status': pred.get('status'),
+                    'confidence': pred.get('confidence')
+                })
+                
+                # Aggregate injury/suspension data
+                if pred.get('injured'):
+                    player_predictions[key]['injured'] = True
+                    injury_detail = pred.get('injury_details') or pred.get('raw_status') or 'Injured'
+                    if injury_detail:
+                        player_predictions[key]['injury_details'].append(f"[{source_name}] {injury_detail}")
+                
+                if pred.get('suspended'):
+                    player_predictions[key]['suspended'] = True
+                
+                if pred.get('doubtful'):
+                    player_predictions[key]['doubtful'] = True
+        
+        # Calculate weighted probabilities and build final output
+        aggregated = []
+        
+        for (player_name, team_code), data in player_predictions.items():
+            # Calculate weighted average start probability
+            weighted_sum = 0.0
+            total_applicable_weight = 0.0
+            
+            for source_name, prob in data['source_probabilities'].items():
+                weight = source_weights.get(source_name, 0.0)
+                weighted_sum += prob * weight
+                total_applicable_weight += weight
+            
+            # Normalize by actual weights used
+            if total_applicable_weight > 0:
+                start_prob = weighted_sum / total_applicable_weight
+            else:
+                start_prob = 0.0
+            
+            # Apply injury/suspension penalties
+            if data['injured'] or data['suspended']:
+                start_prob = 0.0  # Override to 0% for injured/suspended
+            elif data['doubtful'] and start_prob > 0.5:
+                # Only reduce doubtful players if they have >50% probability
+                start_prob *= 0.7  # Moderate reduction for doubtful
+            
+            aggregated.append({
+                'player_name': player_name,
+                'team_code': team_code,
+                'team_name': data['raw_team_name'],
+                'gameweek': gameweek,
+                'start_probability': start_prob,
+                'bench_probability': 0.0,  # Not tracking bench in weighted mode
+                'sources_count': len(data['source_probabilities']),
+                'sources_data': json.dumps(data['sources']),
+                'injured': data['injured'],
+                'injury_details': ' | '.join(data['injury_details']) if data['injury_details'] else None,
+                'suspended': data['suspended'],
+                'doubtful': data['doubtful']
+            })
+        
+        # Sort by start probability (highest first)
+        aggregated.sort(key=lambda x: x['start_probability'], reverse=True)
+        
+        print(f"[Aggregator] Created {len(aggregated)} weighted predictions")
+        print(f"[Aggregator] High confidence starters (≥80%): {len([p for p in aggregated if p['start_probability'] >= 0.8])}")
+        print(f"[Aggregator] Moderate confidence (50-80%): {len([p for p in aggregated if 0.5 <= p['start_probability'] < 0.8])}")
+        print(f"[Aggregator] Doubtful (<50%): {len([p for p in aggregated if p['start_probability'] < 0.5])}")
+        
+        return aggregated
     
     def aggregate_predictions(self, raw_data: Dict[str, List[dict]], gameweek: int) -> List[dict]:
         """
@@ -366,3 +523,84 @@ class LineupAggregator:
                 print(f"[Aggregator] Warning: Could not save unmatched players: {e}")
         
         return matched
+    
+    def deduplicate_by_player_id(self, matched_predictions: List[dict], 
+                                 source_weights: Dict[str, float]) -> List[dict]:
+        """
+        Merge duplicate predictions for the same player_id from different sources.
+        
+        This handles cases where the same player was matched from multiple sources
+        but with different names (e.g., "Luke Shaw" vs "Shaw"), so they weren't
+        combined during initial aggregation.
+        
+        Args:
+            matched_predictions: Predictions that have been matched to player_id
+            source_weights: Weight for each source
+            
+        Returns:
+            Deduplicated list with one entry per player_id
+        """
+        # Group by player_id
+        by_player_id = defaultdict(list)
+        for pred in matched_predictions:
+            player_id = pred.get('player_id')
+            if player_id:
+                by_player_id[player_id].append(pred)
+        
+        # Merge duplicates
+        merged = []
+        duplicates_found = 0
+        
+        for player_id, preds in by_player_id.items():
+            if len(preds) == 1:
+                # No duplicates, keep as is
+                merged.append(preds[0])
+            else:
+                # Merge multiple predictions for same player
+                duplicates_found += 1
+                
+                # Collect all sources
+                all_sources = []
+                total_weighted_prob = 0.0
+                total_weight = 0.0
+                
+                for pred in preds:
+                    # Parse sources from sources_data
+                    sources_data = json.loads(pred.get('sources_data', '[]'))
+                    for src in sources_data:
+                        all_sources.append(src)
+                        weight = src.get('weight', 0.0)
+                        prob = src.get('probability', 0.0)
+                        total_weighted_prob += weight * prob
+                        total_weight += weight
+                
+                # Calculate weighted average probability
+                if total_weight > 0:
+                    final_prob = total_weighted_prob / total_weight
+                else:
+                    final_prob = max(p['start_probability'] for p in preds)
+                
+                # Use the prediction with the most complete data as base
+                base_pred = max(preds, key=lambda p: len(p.get('player_name', '')))
+                
+                # Update with merged data
+                base_pred['start_probability'] = final_prob
+                base_pred['sources_count'] = len(all_sources)
+                base_pred['sources_data'] = json.dumps(all_sources)
+                
+                # Merge injury/doubtful flags (OR logic)
+                base_pred['injured'] = any(p.get('injured', False) for p in preds)
+                base_pred['doubtful'] = any(p.get('doubtful', False) for p in preds)
+                base_pred['suspended'] = any(p.get('suspended', False) for p in preds)
+                
+                # Merge injury details
+                injury_details = [p.get('injury_details') for p in preds if p.get('injury_details')]
+                if injury_details:
+                    base_pred['injury_details'] = '; '.join(injury_details)
+                
+                merged.append(base_pred)
+        
+        if duplicates_found > 0:
+            print(f"[Aggregator] Merged {duplicates_found} duplicate player_ids into single entries")
+        
+        return merged

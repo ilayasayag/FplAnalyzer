@@ -127,6 +127,7 @@ class ProductionLineupScraper:
                                 predictions.append({
                                     'player_name': player_name,
                                     'team_name': team_abbr,
+                                    'team_code': team_abbr,  # ADD: Set team_code for aggregation
                                     'gameweek': gameweek,
                                     'starting': True,  # All listed are predicted starters
                                     'bench': False,

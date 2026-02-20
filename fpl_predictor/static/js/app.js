@@ -18,6 +18,9 @@ const App = {
         // Initialize state first
         await State.init();
         
+        // Check if database has data, auto-sync if needed
+        await this.checkAndAutoSync();
+        
         // Setup tab navigation
         this.setupTabs();
         
@@ -36,6 +39,63 @@ const App = {
         }
         
         console.log('FPL Analyzer ready!');
+    },
+    
+    /**
+     * Check database status and auto-sync if no data found
+     */
+    async checkAndAutoSync() {
+        console.log('[App] Checking database status...');
+        
+        try {
+            // Check if database has data
+            const response = await fetch('/api/auto-load', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' }
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                console.log(`[App] Auto-loaded: ${result.filename}`);
+                
+                // Show success message
+                const statusDiv = document.getElementById('dataStatus');
+                if (statusDiv) {
+                    statusDiv.textContent = `✅ Loaded ${result.filename}`;
+                    statusDiv.className = 'alert success';
+                    statusDiv.style.display = 'block';
+                    
+                    // Hide after 5 seconds
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 5000);
+                }
+                
+                // Update state
+                State.setInitialized(true);
+            } else {
+                console.warn('[App] Auto-load failed:', result.error);
+                
+                // Show warning
+                const statusDiv = document.getElementById('dataStatus');
+                if (statusDiv) {
+                    statusDiv.textContent = '⚠️ No FPL data found. Please import data manually.';
+                    statusDiv.className = 'alert warning';
+                    statusDiv.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error('[App] Auto-sync error:', error);
+            
+            // Show error
+            const statusDiv = document.getElementById('dataStatus');
+            if (statusDiv) {
+                statusDiv.textContent = '❌ Failed to load data. Please import manually.';
+                statusDiv.className = 'alert error';
+                statusDiv.style.display = 'block';
+            }
+        }
     },
     
     // ==========================================================================

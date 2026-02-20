@@ -16,6 +16,9 @@ from flask_cors import CORS
 from .config import DATA_DIR, DEFAULT_BATCHES, BATCH_NAMES, Position
 from .data.loader import DataLoader
 from .data.standings import StandingsFetcher
+from .data.repository import PlayerRepository, TeamRepository, SquadRepository, PredictedLineupRepository, CacheManager
+from .data.importer import import_from_file, import_from_dict
+from .data.database import get_connection
 from .engine.batch_analyzer import BatchAnalyzer, BatchStatistics
 from .engine.player_stats import PlayerStatsEngine
 from .engine.points_calculator import create_prediction_engine
@@ -27,6 +30,29 @@ STATIC_DIR = os.path.join(BASE_DIR, 'static')
 
 app = Flask(__name__, static_folder=STATIC_DIR)
 CORS(app)  # Enable CORS for all routes
+
+# Custom JSON encoder to handle NaN/inf values
+import math
+from flask.json.provider import DefaultJSONProvider
+
+class CustomJSONProvider(DefaultJSONProvider):
+    def default(self, obj):
+        if isinstance(obj, float):
+            if math.isnan(obj) or math.isinf(obj):
+                return None
+        return super().default(obj)
+
+app.json = CustomJSONProvider(app)
+
+# Add no-cache headers to all API responses to prevent browser caching issues
+@app.after_request
+def add_no_cache_headers(response):
+    """Add no-cache headers to API responses to prevent stale data."""
+    if request.path.startswith('/api/'):
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+    return response
 
 # Global predictor instance
 predictor = None
@@ -237,6 +263,86 @@ def load_data():
             abort(500, description="Failed to parse data")
     
     abort(400, description="Either 'file_path' or 'data' required")
+
+
+@app.route('/api/auto-load', methods=['POST'])
+def auto_load_newest():
+    """
+    Auto-load the newest fpl_league_data_*.json file from project root.
+    
+    This endpoint:
+    1. Finds all fpl_league_data_*.json files
+    2. Selects the newest by filename (date in name)
+    3. Loads JSON and returns it for client-side processing
+    
+    Note: Due to DuckDB's single-writer limitation, the actual DB import
+    should be done via /api/db/import endpoint separately.
+    
+    Returns:
+        {
+            success: bool,
+            filename: str,
+            data: JSON object
+        }
+    """
+    import glob
+    import json
+    from pathlib import Path
+    
+    # Find project root (parent of fpl_predictor)
+    project_root = Path(__file__).parent.parent
+    pattern = str(project_root / "fpl_league_data_*.json")
+    files = glob.glob(pattern)
+    
+    if not files:
+        return jsonify({
+            'success': False,
+            'error': 'No fpl_league_data_*.json files found in project root'
+        }), 404
+    
+    # Sort by filename (contains date) and get newest
+    newest = max(files, key=lambda f: Path(f).stem)
+    filename = Path(newest).name
+    
+    print(f"[API] Auto-loading newest file: {filename}")
+    
+    try:
+        # Load JSON file
+        with open(newest, 'r', encoding='utf-8') as f:
+            data = json.load(f)
+        
+        # Try to initialize the old predictor for backward compatibility
+        # (but don't fail if it doesn't work)
+        try:
+            pred = get_predictor()
+            pred.initialize_from_dict(data)
+            predictor_init = True
+        except Exception as pred_err:
+            print(f"[API] Warning: Could not initialize predictor: {pred_err}")
+            predictor_init = False
+        
+        return jsonify({
+            'success': True,
+            'filename': filename,
+            'data': data,
+            'predictor_initialized': predictor_init,
+            'message': f'Successfully loaded {filename}'
+        })
+        
+    except json.JSONDecodeError as e:
+        return jsonify({
+            'success': False,
+            'filename': filename,
+            'error': f'Invalid JSON: {str(e)}'
+        }), 400
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'filename': filename,
+            'error': str(e)
+        }), 500
 
 
 # ==============================================================================
@@ -1017,81 +1123,6 @@ def list_data_files():
     })
 
 
-@app.route('/api/auto-load', methods=['POST'])
-def auto_load_newest():
-    """
-    Auto-load the newest fpl_league_data_*.json file.
-    Returns the loaded data for client-side processing.
-    """
-    import json
-    
-    pattern = os.path.join(PROJECT_ROOT, 'fpl_league_data_*.json')
-    files = glob.glob(pattern)
-    
-    if not files:
-        return jsonify({
-            'success': False,
-            'error': 'No data files found',
-            'message': 'No fpl_league_data_*.json files found in project root'
-        }), 404
-    
-    # Find newest file by date in filename
-    date_pattern = re.compile(r'fpl_league_data_(\d{4}-\d{2}-\d{2})\.json$')
-    newest_file = None
-    newest_date = None
-    
-    for filepath in files:
-        filename = os.path.basename(filepath)
-        match = date_pattern.search(filename)
-        if match:
-            date_str = match.group(1)
-            try:
-                file_date = datetime.strptime(date_str, '%Y-%m-%d')
-                if newest_date is None or file_date > newest_date:
-                    newest_date = file_date
-                    newest_file = filepath
-            except ValueError:
-                pass
-    
-    if not newest_file:
-        return jsonify({
-            'success': False,
-            'error': 'No valid data files',
-            'message': 'No files matching fpl_league_data_YYYY-MM-DD.json pattern found'
-        }), 404
-    
-    try:
-        with open(newest_file, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        
-        filename = os.path.basename(newest_file)
-        
-        # Also initialize the predictor with this data
-        pred = get_predictor()
-        initialized = pred.initialize_from_dict(data)
-        
-        return jsonify({
-            'success': True,
-            'filename': filename,
-            'date': newest_date.strftime('%Y-%m-%d'),
-            'data': data,
-            'predictor_initialized': initialized
-        })
-        
-    except json.JSONDecodeError as e:
-        return jsonify({
-            'success': False,
-            'error': 'Invalid JSON',
-            'message': f'Failed to parse {os.path.basename(newest_file)}: {str(e)}'
-        }), 400
-    except Exception as e:
-        return jsonify({
-            'success': False,
-            'error': 'Load failed',
-            'message': str(e)
-        }), 500
-
-
 # ==============================================================================
 # API Routes - Score Distributions & Monte Carlo
 # ==============================================================================
@@ -1700,10 +1731,11 @@ def db_get_squads():
     gameweek = request.args.get('gameweek', type=int)
     
     if not gameweek:
-        # Try to get current gameweek from league
-        league_repo = LeagueRepository()
-        league = league_repo.get_league()
-        gameweek = league.get('start_event', 22) if league else 22
+        # Get the latest gameweek from squads table
+        from fpl_predictor.data.database import get_connection
+        con = get_connection()
+        result = con.execute("SELECT MAX(gameweek) FROM fpl_squads").fetchone()
+        gameweek = result[0] if result and result[0] else 22
     
     repo = SquadRepository()
     squads = repo.get_all_squads(gameweek)
@@ -1861,6 +1893,7 @@ def db_get_entries():
     """Get all league entries."""
     repo = LeagueRepository()
     entries = repo.get_entries()
+    entries = _clean_nan(entries)
     return jsonify(entries)
 
 
@@ -1941,11 +1974,19 @@ def db_get_fixture_grid():
     
     repo = FixtureRepository()
     grid = repo.get_fixture_grid(gw_start, gw_end)
-    return jsonify({
+    
+    # Clean NaN values for JSON serialization
+    grid = _clean_nan(grid)
+    
+    response = jsonify({
         'gw_start': gw_start,
         'gw_end': gw_end,
         'fixtures': grid
     })
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.route('/api/db/fixtures/team/<int:team_id>', methods=['GET'])
@@ -1956,12 +1997,20 @@ def db_get_team_fixtures(team_id: int):
     
     repo = FixtureRepository()
     fixtures = repo.get_team_fixtures(team_id, gw_start, gw_end)
-    return jsonify({
+    
+    # Clean NaN values for JSON serialization
+    fixtures = _clean_nan(fixtures)
+    
+    response = jsonify({
         'team_id': team_id,
         'gw_start': gw_start,
         'gw_end': gw_end,
         'fixtures': fixtures
     })
+    response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    response.headers["Pragma"] = "no-cache"
+    response.headers["Expires"] = "0"
+    return response
 
 
 @app.route('/api/db/cache/<key>', methods=['GET'])
@@ -2079,43 +2128,52 @@ def get_predicted_lineups(gameweek):
         repo = PredictedLineupRepository()
         predictions = repo.get_predictions_for_gameweek(gameweek)
         
-        # Get unmatched players from recent scrapings
-        unmatched = repo.get_unmatched_players(min_occurrences=1)
+        # Get unmatched predictions for this specific gameweek
+        unmatched_predictions = repo.get_unmatched_predictions(gameweek)
         
-        if not predictions and not unmatched:
+        if not predictions and not unmatched_predictions:
             return jsonify({
                 'gameweek': gameweek,
                 'last_updated': None,
-                'predictions': [],  # Add empty predictions list
-                'unmatched_players': [],
+                'predictions': [],
+                'unmatched_predictions': [],
                 'teams': {},
                 'total_predictions': 0,
                 'message': 'No lineup predictions available for this gameweek'
             })
         
-        # Group by team
+        # Group by team (include both matched and unmatched)
         from collections import defaultdict
         by_team = defaultdict(list)
         last_updated = None
         
+        # Add matched predictions
         for pred in predictions:
             team_name = pred.get('team_name', 'Unknown')
+            pred['is_matched'] = True
             by_team[team_name].append(_clean_nan(pred))
             if not last_updated or pred.get('last_updated'):
                 last_updated = pred.get('last_updated')
         
+        # Add unmatched predictions (mark them clearly)
+        for unmatched in unmatched_predictions:
+            team_name = unmatched.get('team_name') or unmatched.get('team_code', 'Unknown')
+            unmatched['is_matched'] = False
+            unmatched['player_id'] = None  # Ensure it's explicit
+            by_team[team_name].append(_clean_nan(unmatched))
+        
         # Clean predictions for frontend
         cleaned_predictions = [_clean_nan(p) for p in predictions]
-        cleaned_unmatched = [_clean_nan(u) for u in unmatched]
+        cleaned_unmatched = [_clean_nan(u) for u in unmatched_predictions]
         
         return jsonify({
             'gameweek': gameweek,
             'last_updated': last_updated,
             'predictions': cleaned_predictions,  # Matched players
-            'unmatched_players': cleaned_unmatched,  # Unmatched players
-            'teams': dict(by_team),  # Keep grouped format for backward compatibility
+            'unmatched_predictions': cleaned_unmatched,  # Unmatched players for this GW
+            'teams': dict(by_team),  # Includes both matched and unmatched
             'total_predictions': len(predictions),
-            'total_unmatched': len(unmatched)
+            'total_unmatched': len(unmatched_predictions)
         })
     
     except Exception as e:
@@ -2251,6 +2309,384 @@ def get_unavailable_players(gameweek):
         return jsonify({
             'error': str(e),
             'gameweek': gameweek
+        }), 500
+
+
+# ==============================================================================
+# FDR Data Population (Utility)
+# ==============================================================================
+
+@app.route('/api/admin/populate-fdr', methods=['POST'])
+def populate_fdr_data():
+    """
+    Populate the fixture_difficulty table with official FDR values.
+    This is a one-time operation to sync hardcoded FDR data to the database.
+    """
+    try:
+        con = get_connection()
+        
+        # Map team names to IDs
+        teams_result = con.execute("SELECT id, name, short_name FROM pl_teams").fetchall()
+        team_name_to_id = {}
+        for row in teams_result:
+            team_id, name, short_name = row
+            # Try to match by the keys in OFFICIAL_FDR dict
+            for fdr_key in OFFICIAL_FDR.keys():
+                if fdr_key.lower() in name.lower() or (short_name and fdr_key.lower() in short_name.lower()):
+                    team_name_to_id[fdr_key] = team_id
+                    break
+        
+        updated_count = 0
+        
+        # Update fixture_difficulty table with official FDR values
+        for team_name, fdr_by_gw in OFFICIAL_FDR.items():
+            if team_name not in team_name_to_id:
+                print(f"[FDR Populate] Warning: Could not find team ID for {team_name}")
+                continue
+                
+            team_id = team_name_to_id[team_name]
+            
+            for gw, fdr_value in fdr_by_gw.items():
+                # Update existing records
+                con.execute("""
+                    UPDATE fixture_difficulty 
+                    SET official_fdr = ?
+                    WHERE team_id = ? AND gameweek = ?
+                """, [fdr_value, team_id, gw])
+                updated_count += 1
+        
+        con.commit()
+        
+        return jsonify({
+            'success': True,
+            'message': f'Updated FDR data for {updated_count} team-gameweek combinations',
+            'teams_mapped': len(team_name_to_id),
+            'updated_count': updated_count
+        })
+        
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+# ==============================================================================
+# Squad Fixture Analysis API
+# ==============================================================================
+
+@app.route('/api/squad-fixture-analysis/<int:entry_id>', methods=['GET'])
+def analyze_squad_fixtures(entry_id):
+    """
+    Analyze squad fixture strength by position for upcoming gameweeks.
+    
+    Query params:
+        - gw_start: Start gameweek (default: next GW)
+        - gw_end: End gameweek (default: gw_start + 4)
+        - current_gw: Current gameweek for squad data (default: auto-detect)
+        - excluded_player_ids: Comma-separated player IDs to exclude (for what-if)
+    
+    Returns:
+        JSON with position-by-position analysis, scores, and recommendations
+    """
+    from fpl_predictor.engine.squad_fixture_analyzer import SquadFixtureAnalyzer
+    from fpl_predictor.data.repository import SquadAnalysisRepository
+    
+    try:
+        # Get query parameters
+        repo = SquadAnalysisRepository()
+        current_gw = request.args.get('current_gw', type=int)
+        
+        if not current_gw:
+            current_gw = repo.get_current_gameweek()
+        
+        gw_start = request.args.get('gw_start', type=int)
+        gw_end = request.args.get('gw_end', type=int)
+        
+        if not gw_start:
+            gw_start = current_gw + 1
+        if not gw_end:
+            gw_end = gw_start + 4
+        
+        # Parse excluded player IDs
+        excluded_str = request.args.get('excluded_player_ids', '')
+        excluded_player_ids = []
+        if excluded_str:
+            try:
+                excluded_player_ids = [int(x.strip()) for x in excluded_str.split(',') if x.strip()]
+            except ValueError:
+                return jsonify({
+                    'error': 'Invalid excluded_player_ids format. Use comma-separated integers.'
+                }), 400
+        
+        # Run analysis
+        analyzer = SquadFixtureAnalyzer(gw_start, gw_end)
+        analysis = analyzer.analyze_squad(entry_id, current_gw, excluded_player_ids)
+        
+        # Clean NaN values before JSON serialization
+        analysis = _clean_nan(analysis)
+        
+        return jsonify({
+            'success': True,
+            'analysis': analysis
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e),
+            'entry_id': entry_id
+        }), 500
+
+
+@app.route('/api/squad-fixture-analysis/all-managers', methods=['GET'])
+def analyze_all_managers():
+    """
+    Analyze all FPL managers and rank by fixture strength.
+    
+    Query params:
+        - gw_start: Start gameweek (default: next GW)
+        - gw_end: End gameweek (default: gw_start + 4)
+        - current_gw: Current gameweek for squad data (default: auto-detect)
+    
+    Returns:
+        JSON with rankings of all managers by fixture strength
+    """
+    from fpl_predictor.engine.squad_fixture_analyzer import SquadFixtureAnalyzer
+    from fpl_predictor.data.repository import SquadAnalysisRepository
+    
+    try:
+        # Get query parameters
+        repo = SquadAnalysisRepository()
+        current_gw = request.args.get('current_gw', type=int)
+        
+        if not current_gw:
+            current_gw = repo.get_current_gameweek()
+        
+        gw_start = request.args.get('gw_start', type=int)
+        gw_end = request.args.get('gw_end', type=int)
+        
+        if not gw_start:
+            gw_start = current_gw + 1
+        if not gw_end:
+            gw_end = gw_start + 4
+        
+        # Run analysis for all managers
+        analyzer = SquadFixtureAnalyzer(gw_start, gw_end)
+        rankings = analyzer.analyze_all_managers(current_gw)
+        
+        # Clean NaN values before JSON serialization
+        rankings = _clean_nan(rankings)
+        
+        return jsonify({
+            'success': True,
+            'gw_range': {'start': gw_start, 'end': gw_end},
+            'current_gw': current_gw,
+            'rankings': rankings
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/squad-fixture-analysis/recommendations', methods=['POST'])
+def get_transfer_recommendations():
+    """
+    Get personalized transfer recommendations to improve fixture coverage.
+    
+    Request body (JSON):
+        {
+            "entry_id": 822133,
+            "excluded_player_ids": [6, 21],  # Players marked for removal
+            "gw_start": 23,
+            "gw_end": 28,
+            "current_gw": 22,
+            "max_results": 50
+        }
+    
+    Returns:
+        JSON with recommended players ranked by combined score
+    """
+    from fpl_predictor.engine.squad_fixture_analyzer import SquadFixtureAnalyzer
+    from fpl_predictor.data.repository import SquadAnalysisRepository
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'entry_id' not in data:
+            return jsonify({
+                'error': 'Missing required field: entry_id'
+            }), 400
+        
+        entry_id = data['entry_id']
+        excluded_player_ids = data.get('excluded_player_ids', [])
+        max_results = data.get('max_results', 50)
+        
+        # Get gameweek parameters
+        repo = SquadAnalysisRepository()
+        current_gw = data.get('current_gw')
+        
+        if not current_gw:
+            current_gw = repo.get_current_gameweek()
+        
+        gw_start = data.get('gw_start', current_gw + 1)
+        gw_end = data.get('gw_end', gw_start + 4)
+        
+        # Run analysis
+        analyzer = SquadFixtureAnalyzer(gw_start, gw_end)
+        analysis = analyzer.analyze_squad(entry_id, current_gw, excluded_player_ids)
+        
+        # Clean NaN values and extract recommendations
+        recommendations = _clean_nan(analysis['recommendations'][:max_results])
+        
+        # Return only recommendations (full analysis already done in first endpoint)
+        return jsonify({
+            'success': True,
+            'entry_id': entry_id,
+            'gw_range': {'start': gw_start, 'end': gw_end},
+            'excluded_count': len(excluded_player_ids),
+            'recommendations': recommendations
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e)
+        }), 500
+
+
+@app.route('/api/squad-fixture-analysis/player-replacements', methods=['POST'])
+def get_player_replacements():
+    """
+    Get targeted recommendations for replacing specific players.
+    
+    Request body (JSON):
+        {
+            "entry_id": 822133,
+            "removed_player_ids": [5, 36],  # Players to replace
+            "gw_start": 23,
+            "gw_end": 28,
+            "current_gw": 22,
+            "filter_type": "free_agents",  # or "manager" or "all"
+            "filter_value": null  # manager entry_id if filter_type="manager"
+        }
+    
+    Returns:
+        JSON with top 10 replacements per removed player showing score impact
+    """
+    from fpl_predictor.engine.squad_fixture_analyzer import SquadFixtureAnalyzer
+    from fpl_predictor.data.repository import SquadAnalysisRepository, PlayerRepository
+    
+    try:
+        data = request.get_json()
+        
+        if not data or 'entry_id' not in data or 'removed_player_ids' not in data:
+            return jsonify({
+                'error': 'Missing required fields: entry_id, removed_player_ids'
+            }), 400
+        
+        entry_id = data['entry_id']
+        removed_player_ids = data['removed_player_ids']
+        filter_type = data.get('filter_type', 'free_agents')
+        filter_value = data.get('filter_value')
+        
+        # Get gameweek parameters
+        repo = SquadAnalysisRepository()
+        current_gw = data.get('current_gw')
+        
+        if not current_gw:
+            current_gw = repo.get_current_gameweek()
+        
+        gw_start = data.get('gw_start', current_gw + 1)
+        gw_end = data.get('gw_end', gw_start + 4)
+        
+        # Get baseline analysis (with players removed)
+        analyzer = SquadFixtureAnalyzer(gw_start, gw_end)
+        baseline_analysis = analyzer.analyze_squad(entry_id, current_gw, removed_player_ids)
+        baseline_score = baseline_analysis['total_score']
+        
+        # Get full squad to identify removed players' positions
+        full_squad = repo.get_squad_with_teams(entry_id, current_gw)
+        removed_players_info = {p['player_id']: p for p in full_squad if p['player_id'] in removed_player_ids}
+        
+        # Get candidate replacements based on filter
+        player_repo = PlayerRepository()
+        if filter_type == 'free_agents':
+            candidates = repo.get_free_agents_with_fixtures(current_gw, None, gw_start, gw_end, limit=100)
+        elif filter_type == 'manager' and filter_value:
+            # Get players from specific manager's squad
+            manager_squad = repo.get_squad_with_teams(filter_value, current_gw)
+            candidates = [{'id': p['player_id'], 'position': p['position'], 'web_name': p['web_name'], 
+                          'team_id': p['team_id'], 'total_points': p.get('total_points', 0)} 
+                         for p in manager_squad]
+        else:
+            # All players
+            candidates = player_repo.get_all(limit=500)
+        
+        # Generate recommendations for each removed player
+        replacements_by_player = {}
+        
+        for removed_id, removed_info in removed_players_info.items():
+            position_id = removed_info['position']
+            position_candidates = [c for c in candidates if c.get('position') == position_id]
+            
+            # Score each candidate
+            scored_candidates = []
+            for candidate in position_candidates[:50]:  # Top 50 candidates per position
+                # Calculate score with this candidate added
+                test_excluded = [pid for pid in removed_player_ids if pid != removed_id]
+                # TODO: Actually test with candidate added - for now just score candidate individually
+                
+                candidate_score = 0.0
+                for gw in range(gw_start, gw_end + 1):
+                    fdr = analyzer.get_fdr(candidate.get('team_id'), gw)
+                    if fdr:
+                        if fdr <= 2.5:
+                            tier = 'easy'
+                        elif fdr <= 3.5:
+                            tier = 'medium'
+                        else:
+                            tier = 'hard'
+                        is_star = False  # Candidates not in wishlist
+                        candidate_score += analyzer.POSITION_SCORING[position_id][is_star][tier]
+                
+                impact = candidate_score  # Simplified - shows candidate's score
+                
+                scored_candidates.append({
+                    'player_id': candidate.get('id'),
+                    'name': candidate.get('web_name'),
+                    'position': analyzer.POSITION_NAMES[position_id],
+                    'total_points': candidate.get('total_points', 0),
+                    'fixture_score': round(candidate_score, 2),
+                    'score_impact': round(impact, 2)
+                })
+            
+            # Sort by score impact
+            scored_candidates.sort(key=lambda x: x['score_impact'], reverse=True)
+            replacements_by_player[removed_id] = scored_candidates[:10]
+        
+        return jsonify({
+            'success': True,
+            'baseline_score': baseline_score,
+            'removed_players': [{'player_id': pid, 'name': removed_players_info[pid]['web_name'], 
+                                'position': analyzer.POSITION_NAMES[removed_players_info[pid]['position']]} 
+                               for pid in removed_player_ids],
+            'replacements': replacements_by_player
+        })
+    
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'error': str(e)
         }), 500
 
 

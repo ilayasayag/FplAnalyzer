@@ -2097,6 +2097,7 @@
             <button class="tab" onclick="showTab('squad')">👥 Squad Builder</button>
             <button class="tab" onclick="showTab('mockdraft')">🎯 Mock Draft</button>
             <button class="tab" onclick="showTab('players')">⭐ Players Manager</button>
+            <button class="tab" onclick="showTab('squadfixtures')">📊 Squad Fixture Analysis</button>
             <button class="tab" onclick="showTab('mysquad')">🏟️ My Squad Analysis</button>
             <button class="tab" onclick="showTab('freeagents')">🆓 Free Agents</button>
         </div>
@@ -2792,6 +2793,124 @@
                 </div>
                 
                 <div id="playersManagerGrid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 0.75rem; max-height: 600px; overflow-y: auto; padding-right: 0.5rem;"></div>
+            </div>
+        </div>
+        
+        <!-- Squad Fixture Analysis Tab -->
+        <div id="squadfixtures" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">📊 Squad Fixture Analysis</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
+                    Analyze squad fixture strength by position (GK/DEF/MID/FWD) across upcoming gameweeks. 
+                    Star players (⭐) are weighted 1.5x vs regular players (1.0x). 
+                    Target: 3.0+ score per position each gameweek.
+                </p>
+                
+                <!-- Analysis Configuration -->
+                <div style="background: var(--bg-tertiary); padding: 1.5rem; border-radius: 12px; margin-bottom: 2rem; border: 1px solid var(--border-color);">
+                    <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">⚙️ Analysis Configuration</h3>
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                        <div class="control-group">
+                            <label>FPL Manager</label>
+                            <select id="sfaManager" onchange="loadSquadFixtureAnalysis()">
+                                <option value="">Select a manager...</option>
+                            </select>
+                        </div>
+                        <div class="control-group">
+                            <label>Start Gameweek</label>
+                            <input type="number" id="sfaGWStart" value="23" min="1" max="38" onchange="loadSquadFixtureAnalysis()">
+                        </div>
+                        <div class="control-group">
+                            <label>Number of Gameweeks</label>
+                            <input type="number" id="sfaGWCount" value="5" min="1" max="15" onchange="loadSquadFixtureAnalysis()">
+                        </div>
+                        <div style="display: flex; align-items: flex-end;">
+                            <button onclick="runSquadFixtureAnalysis()" style="width: 100%; padding: 0.75rem; background: linear-gradient(135deg, var(--accent-cyan), var(--accent-violet)); border: none; border-radius: 8px; cursor: pointer; color: #fff; font-weight: 600;">
+                                🔍 Analyze
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Loading State -->
+                <div id="sfaLoading" style="display: none; text-align: center; padding: 3rem; color: var(--text-secondary);">
+                    <div style="font-size: 3rem; margin-bottom: 1rem;">⏳</div>
+                    <div>Analyzing squad fixtures...</div>
+                </div>
+                
+                <!-- Results Container -->
+                <div id="sfaResults" style="display: none;">
+                    <!-- Summary Stats -->
+                    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 2rem;">
+                        <div class="stat-card" style="text-align: center; background: linear-gradient(135deg, rgba(16, 185, 129, 0.1), rgba(6, 182, 212, 0.1));">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-emerald);" id="sfaTotalScore">-</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Total Score</div>
+                        </div>
+                        <div class="stat-card" style="text-align: center; background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(236, 72, 153, 0.1));">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-violet);" id="sfaSuccessRate">-</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Success Rate</div>
+                        </div>
+                        <div class="stat-card" style="text-align: center; background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(251, 146, 60, 0.1));">
+                            <div style="font-size: 2rem; font-weight: 700; color: var(--accent-amber);" id="sfaSuccessCount">-</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">GWs Meeting Target</div>
+                        </div>
+                        <div class="stat-card" style="text-align: center; background: linear-gradient(135deg, rgba(239, 68, 68, 0.1), rgba(251, 146, 60, 0.1));">
+                            <div style="font-size: 1.5rem; font-weight: 700; color: var(--accent-rose);" id="sfaWeakestPos">-</div>
+                            <div style="font-size: 0.8rem; color: var(--text-muted);">Weakest Position</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Position Score Heatmap -->
+                    <div class="stat-card" style="margin-bottom: 2rem;">
+                        <h3 style="color: var(--accent-cyan); margin-bottom: 1rem;">📊 Position Fixture Scores (Heatmap)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 0.5rem;">
+                            <strong>Position-Specific Tier System:</strong>
+                        </p>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.5rem; font-size: 0.75rem; color: var(--text-muted); margin-bottom: 1rem;">
+                            <div>📌 <strong>GK:</strong> 🔴<1 | 🟡1-1.5 | 🟢2+</div>
+                            <div>📌 <strong>DEF:</strong> 🔴<4 | 🟡4-5 | 🟢5+</div>
+                            <div>📌 <strong>MID:</strong> 🔴<4.5 | 🟡4.5-6 | 🟢6+</div>
+                            <div>📌 <strong>FWD:</strong> 🔴<2 | 🟡2-3 | 🟢3+</div>
+                        </div>
+                        <div id="sfaPositionGrid" style="overflow-x: auto;"></div>
+                    </div>
+                    
+                    <!-- Current Squad -->
+                    <div class="stat-card" style="margin-bottom: 2rem;">
+                        <h3 style="color: var(--accent-emerald); margin-bottom: 1rem;">✏️ Your Squad Simulation</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                            Click any player to find replacements. Replaced players show in green with comparison to original.
+                        </p>
+                        <div id="sfaCurrentSquad" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;"></div>
+                    </div>
+                    
+                    <!-- Transfer Recommendations -->
+                    <div class="stat-card" style="border: 2px solid var(--accent-rose);">
+                        <h3 style="color: var(--accent-rose); margin-bottom: 1rem;">💡 Transfer Recommendations (Top 50)</h3>
+                        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-bottom: 1rem;">
+                            Ranked by Combined Score: 60% Fixture Improvement + 40% FPL Performance
+                        </p>
+                        
+                        <div style="display: flex; gap: 1rem; margin-bottom: 1.5rem; flex-wrap: wrap;">
+                            <div class="control-group">
+                                <label>Filter by Position</label>
+                                <select id="sfaFilterPosition" onchange="filterRecommendations()">
+                                    <option value="">All Positions</option>
+                                    <option value="1">GK</option>
+                                    <option value="2">DEF</option>
+                                    <option value="3">MID</option>
+                                    <option value="4">FWD</option>
+                                </select>
+                            </div>
+                            <div class="control-group" style="display: flex; align-items: center; gap: 0.5rem;">
+                                <input type="checkbox" id="sfaFreeAgentsOnly" checked onchange="filterRecommendations()" style="accent-color: var(--accent-emerald); width: 18px; height: 18px;">
+                                <label for="sfaFreeAgentsOnly" style="cursor: pointer;">Free Agents Only</label>
+                            </div>
+                        </div>
+                        
+                        <div id="sfaRecommendations" style="overflow-x: auto;"></div>
+                    </div>
+                </div>
             </div>
         </div>
         
@@ -4794,6 +4913,11 @@
             // Initialize players manager when tab is shown
             if (tabId === 'players') {
                 initPlayersManager();
+            }
+            
+            // Load managers for squad fixture analysis
+            if (tabId === 'squadfixtures') {
+                loadSquadFixtureAnalysis();
             }
             
             // Initialize my squad analyzer when tab is shown
@@ -9216,14 +9340,116 @@
             
             // Fetch transactions/trades history
             status.textContent = 'Fetching trades and transactions...';
+            console.log('[FPL Fetcher] === TRANSACTION/TRADE FETCH START ===');
+            
+            let transactionsCount = 0;
+            let tradesFoundInTransactions = 0;
+            let tradesFromSeparateEndpoint = 0;
+            
             try {
                 const transRes = await fetch('https://draft.premierleague.com/api/draft/league/' + leagueId + '/transactions');
+                console.log('[FPL Fetcher] /transactions response:', transRes.status);
+                
                 if (transRes.ok) {
                     results.transactions = await transRes.json();
+                    const trans = results.transactions.transactions || [];
+                    transactionsCount = trans.length;
+                    
+                    // Count transactions by type
+                    const byt = {};
+                    trans.forEach(function(t) {
+                        const k = t.kind || 'unknown';
+                        byt[k] = (byt[k] || 0) + 1;
+                    });
+                    console.log('[FPL Fetcher] Transactions by type:', byt);
+                    
+                    // Look for trades (kind='t' or has entry_2/element_in_2)
+                    tradesFoundInTransactions = trans.filter(function(t) {
+                        return t.kind === 't' || t.entry_2 || t.element_in_2;
+                    }).length;
+                    
+                    console.log('[FPL Fetcher] Trades in /transactions:', tradesFoundInTransactions);
+                    
+                    // Log sample of each type
+                    Object.keys(byt).forEach(function(kind) {
+                        const sample = trans.find(function(t) { return t.kind === kind; });
+                        if (sample) {
+                            console.log('[FPL Fetcher] Sample ' + kind + ':', sample);
+                        }
+                    });
                 }
             } catch(e) {
-                console.log('Could not fetch transactions');
+                console.error('[FPL Fetcher] ❌ /transactions failed:', e);
             }
+            
+            // Try separate trades endpoint
+            status.textContent = 'Checking separate trades endpoint...';
+            try {
+                const tradesRes = await fetch('https://draft.premierleague.com/api/draft/league/' + leagueId + '/trades');
+                console.log('[FPL Fetcher] /trades response:', tradesRes.status);
+                
+                if (tradesRes.ok) {
+                    const tradesData = await tradesRes.json();
+                    console.log('[FPL Fetcher] /trades data structure:', Object.keys(tradesData));
+                    
+                    if (tradesData.trades && Array.isArray(tradesData.trades)) {
+                        console.log('[FPL Fetcher] ✅ Found ' + tradesData.trades.length + ' trades!');
+                        if (tradesData.trades.length > 0) {
+                            console.log('[FPL Fetcher] Sample trade:', tradesData.trades[0]);
+                        }
+                        
+                        // Normalize FPL trade structure to match transaction format
+                        // FPL trades have structure: { offered_entry, received_entry, tradeitem_set: [{element_in, element_out}] }
+                        if (!results.transactions) results.transactions = { transactions: [] };
+                        if (!results.transactions.transactions) results.transactions.transactions = [];
+                        
+                        tradesData.trades.forEach(function(trade) {
+                            // FPL trades can have multiple items in tradeitem_set
+                            // Convert each trade to normalized transaction format
+                            if (trade.tradeitem_set && Array.isArray(trade.tradeitem_set)) {
+                                // Store original trade data
+                                var normalizedTrade = {
+                                    id: trade.id,
+                                    kind: 't',
+                                    event: trade.event,
+                                    added: trade.offer_time || trade.response_time,
+                                    state: trade.state,
+                                    offered_entry: trade.offered_entry,
+                                    received_entry: trade.received_entry,
+                                    offer_time: trade.offer_time,
+                                    response_time: trade.response_time,
+                                    tradeitem_set: trade.tradeitem_set
+                                };
+                                
+                                results.transactions.transactions.push(normalizedTrade);
+                            }
+                        });
+                        
+                        tradesFromSeparateEndpoint = tradesData.trades.length;
+                        console.log('[FPL Fetcher] ✅ Normalized and merged ' + tradesData.trades.length + ' trades');
+                    } else {
+                        console.log('[FPL Fetcher] ⚠️ /trades returned empty or unexpected structure');
+                    }
+                } else {
+                    console.log('[FPL Fetcher] ℹ️ /trades endpoint not available (status ' + tradesRes.status + ')');
+                }
+            } catch(e) {
+                console.log('[FPL Fetcher] ℹ️ /trades endpoint error:', e.message);
+            }
+            
+            // Summary
+            const totalTrades = tradesFoundInTransactions + tradesFromSeparateEndpoint;
+            console.log('[FPL Fetcher] === TRADE FETCH SUMMARY ===');
+            console.log('[FPL Fetcher] Total transactions: ' + transactionsCount);
+            console.log('[FPL Fetcher] Trades found: ' + totalTrades);
+            console.log('[FPL Fetcher]   - In /transactions: ' + tradesFoundInTransactions);
+            console.log('[FPL Fetcher]   - From /trades: ' + tradesFromSeparateEndpoint);
+            
+            // Add fetch metadata with timestamps
+            const nowTimestamp = new Date().toISOString();
+            results.fetchedAt = nowTimestamp;
+            results.squadsFetchedAt = nowTimestamp; // Will update after squad fetch
+            results.tradesFetchedAt = nowTimestamp;
             
             // Fetch each team's squad for the CURRENT event (after trades)
             status.textContent = 'Fetching team squads for GW' + currentEvent + '...';
@@ -9406,7 +9632,8 @@
                 console.log('PL standings ready:', results.plStandings.slice(0, 5).map(function(t) { return t.position + '. ' + t.short_name + ' (' + t.points + 'pts)'; }));
             }
             
-            // Add timestamp
+            // Update squad fetch timestamp (now that we've finished fetching squads)
+            results.squadsFetchedAt = new Date().toISOString();
             results.fetchedAt = new Date().toISOString();
             
             // Debug: count how many player details have history
@@ -9421,12 +9648,28 @@
                 }
             });
             
+            // Count trades in final data
+            const allTransactions = (results.transactions && results.transactions.transactions) || [];
+            const finalTradesCount = allTransactions.filter(function(t) {
+                return t.kind === 't' || t.entry_2 || t.element_in_2;
+            }).length;
+            
             // Prepare JSON
             status.textContent = 'Preparing data...';
             const jsonStr = JSON.stringify(results, null, 2);
             const ownedCount = ownedPlayerIds.size;
             const freeAgentCount = freeAgentIds.length;
             const transactionCount = transactionPlayerIds.size;
+            
+            // Log final summary
+            console.log('[FPL Fetcher] === FINAL DATA SUMMARY ===');
+            console.log('[FPL Fetcher] Gameweek: ' + currentEvent);
+            console.log('[FPL Fetcher] Total transactions: ' + allTransactions.length);
+            console.log('[FPL Fetcher] Trades included: ' + finalTradesCount);
+            console.log('[FPL Fetcher] Owned players: ' + ownedCount);
+            console.log('[FPL Fetcher] Free agents: ' + freeAgentCount);
+            console.log('[FPL Fetcher] Players with history: ' + playersWithHistory);
+            console.log('[FPL Fetcher] JSON size: ' + (jsonStr.length / 1024 / 1024).toFixed(2) + ' MB');
             
             // Try to copy to clipboard
             let copied = false;
@@ -9458,7 +9701,8 @@
                 (standingsCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:5px;">📊 Real PL Standings: ' + standingsCount + ' teams (W/D/L/Pts)</div>' : 
                     (needsFetch ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:5px;">⚠️ PL standings blocked by CORS - analyzer will fetch directly</div>' : 
                     '<div style="font-size:14px;color:#ef4444;margin-bottom:5px;">⚠️ Could not fetch PL standings</div>')) +
-                (results.transactions ? '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions loaded (trades, waivers)</div>' : '') +
+                (results.transactions ? '<div style="font-size:14px;' + (finalTradesCount > 0 ? 'color:#10b981' : 'color:#f59e0b') + ';margin-bottom:5px;">📋 ' + (results.transactions.transactions?.length || 0) + ' transactions (' + finalTradesCount + ' trades' + (finalTradesCount === 0 ? ' - see console for details' : '') + ')</div>' : '') +
+                (finalTradesCount > 0 ? '<div style="font-size:14px;color:#10b981;margin-bottom:15px;">✅ Trades detected and will be synced!</div>' : '<div style="font-size:14px;color:#f59e0b;margin-bottom:15px;">⚠️ No trades found - check console logs (F12) for details</div>') +
                 '<div style="background:#1e293b;padding:15px;border-radius:10px;margin-bottom:20px;border:2px solid #22d3ee;">' +
                     '<div style="font-size:16px;color:#22d3ee;font-weight:bold;margin-bottom:8px;">🚀 Auto-Import Ready!</div>' +
                     '<div style="font-size:13px;color:#94a3b8;">Data copied to clipboard. Just <strong style="color:#10b981;">switch back to the Analyzer tab</strong> and it will auto-update!</div>' +
@@ -16835,18 +17079,38 @@
                 const lastUpdated = data.last_updated ? 
                     ` (Updated: ${new Date(data.last_updated).toLocaleString()})` : '';
                 
-                // Calculate unique sources
-                const sourcesSet = new Set();
+                // Calculate unique sources with weights
+                const sourcesMap = new Map();
                 data.predictions.forEach(p => {
                     if (p.sources_data) {
                         try {
                             const sources = JSON.parse(p.sources_data);
-                            sources.forEach(s => sourcesSet.add(s.name));
+                            sources.forEach(s => {
+                                if (!sourcesMap.has(s.name)) {
+                                    sourcesMap.set(s.name, s.weight || 0);
+                                }
+                            });
                         } catch (e) {}
                     }
                 });
-                const sourceCount = sourcesSet.size;
-                const sourceInfo = sourceCount > 0 ? ` from ${sourceCount} source${sourceCount !== 1 ? 's' : ''}` : '';
+                
+                const sourceCount = sourcesMap.size;
+                let sourceInfo = '';
+                if (sourceCount > 0) {
+                    const sourceNames = {
+                        'rotowire_enhanced': 'RotoWire',
+                        'rotowire': 'RotoWire',
+                        'ffscout': 'FF Scout',
+                        'premiere_injuries': 'Premier Injuries'
+                    };
+                    
+                    const sourceList = Array.from(sourcesMap.entries()).map(([name, weight]) => {
+                        const displayName = sourceNames[name] || name;
+                        return weight > 0 ? `${displayName} (${Math.round(weight * 100)}%)` : displayName;
+                    }).join(', ');
+                    
+                    sourceInfo = ` from ${sourceCount} source${sourceCount !== 1 ? 's' : ''}: ${sourceList}`;
+                }
                 const unmatchedInfo = data.total_unmatched > 0 ? ` (${data.total_unmatched} unmatched)` : '';
                 
                 showLineupsStatus(
@@ -16882,8 +17146,8 @@
             const loadingInterval = setInterval(() => {
                 dotIndex = (dotIndex + 1) % loadingDots.length;
                 showLineupsStatus(
-                    `🔄 Fetching lineups from RotoWire... ${loadingDots[dotIndex]}<br>` +
-                    `<span style="font-size: 0.9rem; opacity: 0.8;">This takes 40-50 seconds. Please wait...</span>`,
+                    `🔄 Fetching lineups from multiple sources... ${loadingDots[dotIndex]}<br>` +
+                    `<span style="font-size: 0.9rem; opacity: 0.8;">Scraping RotoWire, FF Scout, and injury data... This takes 40-60 seconds. Please wait...</span>`,
                     'info'
                 );
             }, 1000);
@@ -16989,7 +17253,7 @@
 
         function renderLineups(data, gameweek) {
             const predictions = data.predictions || data;  // Handle both array and object response
-            const unmatchedPlayers = data.unmatched_players || [];
+            const unmatchedPlayers = data.unmatched_predictions || data.unmatched_players || [];
             
             console.log('[Lineups] Rendering', predictions.length, 'predictions + ', unmatchedPlayers.length, 'unmatched for GW', gameweek);
             
@@ -17146,10 +17410,41 @@
             const validationNote = player.validation_note || '';
             const noteTooltip = validationNote ? ` title="${validationNote}"` : '';
             
-            // Source count badge
+            // Source count badge with breakdown
             const sourceCount = player.sources_count || player.occurrences || 0;
-            const sourceBadge = sourceCount > 0 ? 
-                `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan);" title="${sourceCount} source${sourceCount !== 1 ? 's' : ''}">📊 ${sourceCount}</span>` : '';
+            let sourceBadge = '';
+            let sourceTooltip = `${sourceCount} source${sourceCount !== 1 ? 's' : ''}`;
+            
+            // Try to parse sources_data for detailed breakdown
+            if (player.sources_data && typeof player.sources_data === 'string') {
+                try {
+                    const sources = JSON.parse(player.sources_data);
+                    if (sources && sources.length > 0) {
+                        // Create tooltip with source breakdown
+                        const sourceNames = {
+                            'rotowire_enhanced': 'RotoWire',
+                            'rotowire': 'RotoWire',
+                            'ffscout': 'FF Scout',
+                            'premiere_injuries': 'Premier Injuries'
+                        };
+                        
+                        const breakdown = sources.map(s => {
+                            const name = sourceNames[s.name] || s.name;
+                            const weight = s.weight ? ` (${Math.round(s.weight * 100)}%)` : '';
+                            const prob = s.probability !== undefined ? ` - ${Math.round(s.probability * 100)}%` : '';
+                            return `${name}${weight}${prob}`;
+                        }).join(', ');
+                        
+                        sourceTooltip = `${sourceCount} sources: ${breakdown}`;
+                    }
+                } catch (e) {
+                    // If parsing fails, fallback to simple count
+                }
+            }
+            
+            if (sourceCount > 0) {
+                sourceBadge = `<span style="padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; background: rgba(34, 211, 238, 0.2); color: var(--accent-cyan); cursor: help;" title="${sourceTooltip}">📊 ${sourceCount}</span>`;
+            }
             
             // FPL Club ownership badge
             const fplClub = player.fpl_club || null;
@@ -17241,6 +17536,964 @@
                 setTimeout(() => {
                     statusDiv.innerHTML = '';
                 }, 5000);
+            }
+        }
+
+        // ========================================================================
+        // Squad Fixture Analysis Functions
+        // ========================================================================
+
+        let currentSFAAnalysis = null;
+        let excludedPlayerIds = new Set();
+
+        async function loadSquadFixtureAnalysis() {
+            // Populate manager dropdown on tab load
+            const managerSelect = document.getElementById('sfaManager');
+            if (!managerSelect || managerSelect.options.length > 1) return;
+            
+            try {
+                const response = await fetch('/api/db/entries');
+                const data = await response.json();
+                
+                console.log('[Squad Fixture Analysis] Loaded managers:', data.length);
+                
+                if (data && data.length > 0) {
+                    data.forEach(entry => {
+                        const option = document.createElement('option');
+                        option.value = entry.entry_id;
+                        option.textContent = `${entry.entry_name} (${entry.short_name || ''})`;
+                        managerSelect.appendChild(option);
+                    });
+                    
+                    // Auto-select first manager
+                    managerSelect.selectedIndex = 1;
+                    console.log('[Squad Fixture Analysis] Populated dropdown with', data.length, 'managers');
+                }
+            } catch (e) {
+                console.error('Failed to load managers:', e);
+            }
+        }
+
+        async function runSquadFixtureAnalysis() {
+            const managerSelect = document.getElementById('sfaManager');
+            const entryId = managerSelect?.value;
+            
+            if (!entryId) {
+                alert('Please select a manager to analyze');
+                return;
+            }
+            
+            const gwStart = parseInt(document.getElementById('sfaGWStart').value);
+            const gwCount = parseInt(document.getElementById('sfaGWCount').value);
+            const gwEnd = gwStart + gwCount - 1;
+            
+            // Show loading
+            document.getElementById('sfaLoading').style.display = 'block';
+            document.getElementById('sfaResults').style.display = 'none';
+            
+            try {
+                // Build query string with excluded players
+                const params = new URLSearchParams({
+                    gw_start: gwStart,
+                    gw_end: gwEnd
+                });
+                
+                if (excludedPlayerIds.size > 0) {
+                    params.set('excluded_player_ids', Array.from(excludedPlayerIds).join(','));
+                }
+                
+                const response = await fetch(`/api/squad-fixture-analysis/${entryId}?${params.toString()}`);
+                const data = await response.json();
+                
+                if (data.success) {
+                    currentSFAAnalysis = data.analysis;
+                    renderSquadFixtureAnalysis();
+                } else {
+                    throw new Error(data.error || 'Analysis failed');
+                }
+            } catch (e) {
+                console.error('Squad fixture analysis error:', e);
+                alert('Failed to analyze squad: ' + e.message);
+            } finally {
+                document.getElementById('sfaLoading').style.display = 'none';
+            }
+        }
+
+        function renderSquadFixtureAnalysis() {
+            if (!currentSFAAnalysis) return;
+            
+            const analysis = currentSFAAnalysis;
+            
+            // Show results
+            document.getElementById('sfaResults').style.display = 'block';
+            
+            // Update summary stats
+            document.getElementById('sfaTotalScore').textContent = analysis.total_score.toFixed(1);
+            document.getElementById('sfaSuccessRate').textContent = analysis.success_rate.toFixed(1) + '%';
+            document.getElementById('sfaSuccessCount').textContent = `${analysis.success_count}/${analysis.total_gameweeks}`;
+            document.getElementById('sfaWeakestPos').textContent = analysis.weakest_position || 'None';
+            
+            // Render position heatmap
+            renderPositionHeatmap(analysis.by_gameweek);
+            
+            // Render current squad
+            renderCurrentSquad(analysis);
+            
+            // Render recommendations
+            renderRecommendations(analysis.recommendations);
+        }
+
+        function renderPositionHeatmap(byGameweek) {
+            const container = document.getElementById('sfaPositionGrid');
+            if (!container || !byGameweek.length) return;
+            
+            const positions = ['GK', 'DEF', 'MID', 'FWD'];
+            
+            let html = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: var(--bg-tertiary);">
+                            <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border-color);">Position</th>
+                            <th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">Target</th>
+                            ${byGameweek.map(gw => `<th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">GW${gw.gw}</th>`).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            positions.forEach(pos => {
+                const firstGW = byGameweek[0][pos];
+                const thresholds = firstGW.thresholds;
+                
+                html += `
+                    <tr>
+                        <td style="padding: 0.75rem; font-weight: 600; border: 1px solid var(--border-color);">${pos}</td>
+                        <td style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem;">
+                            <div>🔴<${thresholds.hard}</div>
+                            <div>🟡${thresholds.hard}-${thresholds.medium}</div>
+                            <div>🟢${thresholds.medium}+</div>
+                        </td>
+                `;
+                
+                byGameweek.forEach(gw => {
+                    const posData = gw[pos];
+                    const score = posData.score;
+                    const tier = posData.tier; // Use tier from backend
+                    
+                    let bgColor, textColor, tierEmoji;
+                    if (tier === 'easy') {
+                        bgColor = 'rgba(16, 185, 129, 0.2)'; // Green
+                        textColor = 'var(--accent-emerald)';
+                        tierEmoji = '🟢';
+                    } else if (tier === 'medium') {
+                        bgColor = 'rgba(245, 158, 11, 0.2)'; // Yellow
+                        textColor = 'var(--accent-amber)';
+                        tierEmoji = '🟡';
+                    } else { // hard
+                        bgColor = 'rgba(239, 68, 68, 0.2)'; // Red
+                        textColor = 'var(--accent-rose)';
+                        tierEmoji = '🔴';
+                    }
+                    
+                    const playersTooltip = posData.players.map(p => 
+                        `${p.is_star ? '⭐' : ''} ${p.name} (${p.team}): FDR ${p.fdr} → ${p.score} pts`
+                    ).join('\\n');
+                    
+                    html += `
+                        <td style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color); background: ${bgColor}; font-weight: 600; color: ${textColor}; cursor: help;" 
+                            title="${playersTooltip}">
+                            ${tierEmoji} ${score.toFixed(1)}
+                        </td>
+                    `;
+                });
+                
+                html += `</tr>`;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function renderCurrentSquad(analysis) {
+            const container = document.getElementById('sfaCurrentSquad');
+            if (!container || !analysis.full_squad) return;
+            
+            const squad = analysis.full_squad;
+            const optimalLineups = analysis.optimal_lineups || [];
+            
+            // Group by position
+            const byPosition = {1: [], 2: [], 3: [], 4: []};
+            squad.forEach(p => byPosition[p.position].push(p));
+            
+            const posNames = {1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD'};
+            const gwStart = analysis.gw_range.start;
+            const gwEnd = analysis.gw_range.end;
+            
+            // Header with inline replacements
+            let html = `
+                <div style="margin-bottom: 1.5rem;">
+                    ${playerReplacements.size > 0 ? `
+                        <div style="display: flex; flex-wrap: wrap; gap: 0.5rem; margin-bottom: 1rem;">
+                            ${Array.from(playerReplacements.entries()).map(([oldPlayerId, replacement]) => {
+                                const impactColor = replacement.replacementPlayer.impact > 0 ? 'var(--accent-emerald)' : 
+                                                  replacement.replacementPlayer.impact < 0 ? 'var(--accent-rose)' : 
+                                                  'var(--text-muted)';
+                                const impactText = replacement.replacementPlayer.impact > 0 ? `+${replacement.replacementPlayer.impact.toFixed(2)}` : 
+                                                 replacement.replacementPlayer.impact.toFixed(2);
+                                
+                                return `
+                                    <div style="display: inline-flex; align-items: center; gap: 0.5rem; padding: 0.5rem 0.75rem; background: var(--bg-secondary); border-radius: 20px; border: 1px solid var(--border-color);">
+                                        <span style="font-size: 0.85rem; color: var(--text-secondary);">${replacement.oldPlayer.name}</span>
+                                        <span style="color: var(--text-muted);">→</span>
+                                        <span style="font-size: 0.85rem; font-weight: 600; color: var(--accent-cyan);">${replacement.replacementPlayer.name}</span>
+                                        <span style="font-size: 0.75rem; color: ${impactColor}; font-weight: 600;">${impactText}</span>
+                                        <button onclick="undoReplacement(${oldPlayerId})" style="width: 18px; height: 18px; padding: 0; background: var(--accent-rose); border: none; border-radius: 50%; cursor: pointer; color: #fff; font-size: 0.7rem; display: flex; align-items: center; justify-content: center;" title="Undo">×</button>
+                                    </div>
+                                `;
+                            }).join('')}
+                            <button onclick="clearExcludedPlayers()" style="padding: 0.5rem 1rem; background: transparent; border: 1px solid var(--accent-rose); border-radius: 20px; cursor: pointer; color: var(--accent-rose); font-size: 0.85rem;">
+                                Reset All
+                            </button>
+                        </div>
+                    ` : ''}
+                </div>
+            `;
+            
+            for (let posId of [1, 2, 3, 4]) {
+                const players = byPosition[posId];
+                if (!players.length) continue;
+                
+                html += `
+                    <div style="margin-bottom: 2rem;">
+                        <h4 style="color: var(--accent-cyan); margin-bottom: 1rem;">${posNames[posId]} (${players.length})</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 1rem;">
+                `;
+                
+                players.forEach(player => {
+                    // Check if this player has been replaced
+                    const replacement = playerReplacements.get(player.player_id);
+                    const isReplaced = !!replacement;
+                    
+                    // Use replacement player data if exists, otherwise use original player
+                    const displayPlayer = isReplaced ? {
+                        player_id: replacement.replacementPlayer.id,
+                        web_name: replacement.replacementPlayer.name,
+                        pl_team: 'N/A',  // We don't have team info for replacement
+                        total_points: 0,  // We don't have this yet
+                        position: player.position,
+                        is_star_player: false,
+                        gw_scores: {}  // We'll need to calculate this
+                    } : player;
+                    
+                    const gwScores = player.gw_scores || {};
+                    
+                    // Calculate average score
+                    let totalScore = 0;
+                    let count = 0;
+                    for (let gw = gwStart; gw <= gwEnd; gw++) {
+                        if (gwScores[gw] !== undefined) {
+                            totalScore += gwScores[gw];
+                            count++;
+                        }
+                    }
+                    const avgScore = isReplaced ? replacement.replacementPlayer.avg : (count > 0 ? (totalScore / count).toFixed(2) : '0.00');
+                    
+                    html += `
+                        <div onclick="openReplacementModal(${player.player_id}, '${player.web_name}', ${player.position}, ${avgScore})" 
+                             style="padding: 0.75rem; background: var(--bg-tertiary); border-radius: 6px; border: 1px solid ${isReplaced ? 'var(--accent-cyan)' : 'var(--border-color)'}; cursor: pointer; transition: all 0.15s; position: relative; overflow: hidden;"
+                             onmouseenter="this.style.borderColor='var(--accent-cyan)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(6, 182, 212, 0.2)';"
+                             onmouseleave="this.style.borderColor='${isReplaced ? 'var(--accent-cyan)' : 'var(--border-color)'}'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
+                            ${isReplaced ? `<div style="position: absolute; top: 0; right: 0; background: var(--accent-cyan); color: #000; padding: 0.15rem 0.5rem; font-size: 0.65rem; font-weight: 600; border-bottom-left-radius: 6px;">CHANGED</div>` : ''}
+                            <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.75rem;">
+                                <div style="flex: 1;">
+                                    ${isReplaced ? `
+                                        <div style="font-size: 0.65rem; color: var(--text-muted); opacity: 0.7; text-decoration: line-through;">${player.web_name}</div>
+                                        <div style="font-weight: 600; color: var(--text-primary); font-size: 0.95rem;">${displayPlayer.web_name}</div>
+                                    ` : `
+                                        <div style="font-weight: 600; color: var(--text-primary); font-size: 0.95rem;">${player.is_star_player ? '⭐ ' : ''}${player.web_name}</div>
+                                    `}
+                                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.15rem;">${player.pl_team} • ${player.total_points} pts</div>
+                                </div>
+                                <div style="font-size: 0.7rem; color: var(--accent-cyan); opacity: 0;">→</div>
+                            </div>
+                            <div style="display: flex; gap: 0.25rem; margin-top: 0.5rem;">
+                `;
+                    
+                    // Show score for each GW
+                    for (let gw = gwStart; gw <= gwEnd; gw++) {
+                        const score = gwScores[gw] || 0;
+                        let bgColor = 'rgba(239, 68, 68, 0.15)';
+                        if (score >= 1.5) bgColor = 'rgba(16, 185, 129, 0.15)';
+                        else if (score >= 1.0) bgColor = 'rgba(245, 158, 11, 0.15)';
+                        else if (score > 0) bgColor = 'rgba(239, 68, 68, 0.15)';
+                        
+                        html += `
+                            <div style="flex: 1; text-align: center; padding: 0.4rem 0.2rem; background: ${bgColor}; border-radius: 4px; font-size: 0.7rem;">
+                                <div style="font-weight: 700; color: var(--text-primary);">${score.toFixed(1)}</div>
+                            </div>
+                        `;
+                    }
+                    
+                    html += `
+                            </div>
+                            <div style="margin-top: 0.65rem; text-align: right; font-size: 0.7rem; color: var(--text-muted);">
+                                Avg <span style="font-weight: 700; color: var(--text-primary); font-size: 0.85rem;">${avgScore}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            // Show optimal lineups
+            if (optimalLineups.length > 0) {
+                html += `
+                    <div style="margin-top: 2rem; padding: 1rem; background: var(--bg-secondary); border-radius: 8px;">
+                        <h4 style="color: var(--accent-violet); margin-bottom: 1rem;">🎯 Optimal 11 per Gameweek</h4>
+                        <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 1rem;">
+                `;
+                
+                optimalLineups.forEach(lineup => {
+                    html += `
+                        <div style="padding: 1rem; background: var(--bg-tertiary); border-radius: 6px;">
+                            <div style="font-weight: 600; color: var(--accent-cyan); margin-bottom: 0.5rem;">GW${lineup.gw}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-secondary);">Formation: ${lineup.formation}</div>
+                            <div style="font-size: 0.85rem; color: var(--text-muted);">${lineup.lineup.length} players</div>
+                            <div style="margin-top: 0.5rem; font-weight: 600; color: var(--accent-emerald);">Score: ${lineup.total_score}</div>
+                        </div>
+                    `;
+                });
+                
+                html += `
+                        </div>
+                    </div>
+                `;
+            }
+            
+            container.innerHTML = html;
+        }
+        
+        function togglePlayerExclusion(playerId) {
+            if (excludedPlayerIds.has(playerId)) {
+                excludedPlayerIds.delete(playerId);
+            } else {
+                excludedPlayerIds.add(playerId);
+            }
+            // Re-run analysis with updated exclusions
+            runSquadFixtureAnalysis();
+        }
+        
+        function clearExcludedPlayers() {
+            excludedPlayerIds.clear();
+            playerReplacements.clear();
+            runSquadFixtureAnalysis();
+        }
+        
+        // Replacement Modal State
+        let replacementModalState = {
+            isOpen: false,
+            currentPlayer: null,
+            allPlayers: [],
+            filteredPlayers: [],
+            filterType: 'free_agents',  // 'free_agents', 'manager', 'all'
+            selectedManager: null,
+            searchQuery: ''
+        };
+        
+        // Track actual replacements (not just exclusions)
+        let playerReplacements = new Map(); // Map<excludedPlayerId, {replacementPlayer, oldPlayer}>
+        
+        async function openReplacementModal(playerId, playerName, position, currentAvg) {
+            replacementModalState.currentPlayer = {
+                id: playerId,
+                name: playerName,
+                position: position,
+                avg: currentAvg
+            };
+            replacementModalState.isOpen = true;
+            replacementModalState.loading = true;
+            replacementModalState.filteredPlayers = [];
+            
+            // Show loading modal
+            renderReplacementModal();
+            
+            // Fetch all available players
+            await fetchReplacementCandidates(position);
+            
+            replacementModalState.loading = false;
+            
+            // Update modal with data
+            renderReplacementModal();
+        }
+        
+        async function fetchReplacementCandidates(position) {
+            try {
+                console.log('[Replacement] Fetching candidates for position:', position);
+                
+                // Get GW range
+                const gwStart = currentSFAAnalysis?.gw_range?.start || 23;
+                const gwEnd = currentSFAAnalysis?.gw_range?.end || 27;
+                
+                console.log('[Replacement] GW range:', gwStart, 'to', gwEnd);
+                
+                // Fetch fixture grid for all teams
+                const fixtureGridResp = await fetch(`/api/db/fixtures/grid?gw_start=${gwStart}&gw_end=${gwEnd}`);
+                if (!fixtureGridResp.ok) {
+                    console.error('[Replacement] Fixtures API error:', fixtureGridResp.status);
+                }
+                const fixtureGrid = await fixtureGridResp.json();
+                console.log('[Replacement] Fixture grid response:', fixtureGrid);
+                
+                // Organize by team_id for quick lookup
+                const fixtureData = {};
+                (fixtureGrid.fixtures || []).forEach(f => {
+                    if (!fixtureData[f.team_id]) {
+                        fixtureData[f.team_id] = [];
+                    }
+                    fixtureData[f.team_id].push(f);
+                });
+                replacementModalState.fixtureData = fixtureData;
+                
+                // Fetch free agents
+                console.log('[Replacement] Fetching free agents...');
+                const freeAgentsResp = await fetch(`/api/db/free-agents?position=${position}&limit=100`);
+                if (!freeAgentsResp.ok) {
+                    console.error('[Replacement] Free agents API error:', freeAgentsResp.status);
+                }
+                const freeAgentsData = await freeAgentsResp.json();
+                console.log('[Replacement] Free agents response:', freeAgentsData);
+                const freeAgents = freeAgentsData.players || [];
+                
+                // Fetch all entries (managers)
+                console.log('[Replacement] Fetching managers...');
+                const managersResp = await fetch('/api/db/entries');
+                if (!managersResp.ok) {
+                    console.error('[Replacement] Managers API error:', managersResp.status);
+                }
+                const managers = await managersResp.json();
+                console.log('[Replacement] Managers response:', managers);
+                
+                // Fetch all players in this position
+                console.log('[Replacement] Fetching all players...');
+                const allPlayersResp = await fetch(`/api/db/players?position=${position}&limit=200`);
+                if (!allPlayersResp.ok) {
+                    console.error('[Replacement] All players API error:', allPlayersResp.status);
+                }
+                const allPlayers = await allPlayersResp.json();
+                console.log('[Replacement] All players response:', allPlayers);
+                
+                // Ensure arrays
+                replacementModalState.allPlayers = Array.isArray(allPlayers) ? allPlayers : [];
+                replacementModalState.freeAgents = Array.isArray(freeAgents) ? freeAgents : [];
+                replacementModalState.managers = Array.isArray(managers) ? managers : [];
+                
+                console.log('[Replacement] ✅ Loaded:', {
+                    position: position,
+                    allPlayers: replacementModalState.allPlayers.length,
+                    freeAgents: replacementModalState.freeAgents.length,
+                    managers: replacementModalState.managers.length,
+                    fixtures: Object.keys(fixtureData).length
+                });
+                
+                // Default to free agents
+                await applyReplacementFilter();
+                
+            } catch (e) {
+                console.error('[Replacement] ❌ Failed to fetch replacement candidates:', e);
+                replacementModalState.allPlayers = [];
+                replacementModalState.freeAgents = [];
+                replacementModalState.managers = [];
+                replacementModalState.fixtureData = {};
+            }
+        }
+        
+        async function applyReplacementFilter() {
+            const { filterType, allPlayers, freeAgents, selectedManager, searchQuery, currentPlayer, fixtureData } = replacementModalState;
+            
+            console.log('[Replacement] Applying filter:', {
+                filterType,
+                freeAgentsCount: freeAgents?.length || 0,
+                allPlayersCount: allPlayers?.length || 0,
+                searchQuery,
+                currentPlayer
+            });
+            
+            let filtered = [];
+            
+            if (filterType === 'free_agents') {
+                filtered = freeAgents || [];
+                console.log('[Replacement] Using free agents:', filtered.length);
+            } else if (filterType === 'manager' && selectedManager) {
+                // TODO: Fetch players from specific manager's squad
+                filtered = allPlayers || [];
+                console.log('[Replacement] Using manager players (TODO):', filtered.length);
+            } else if (filterType === 'all') {
+                filtered = allPlayers || [];
+                console.log('[Replacement] Using all players:', filtered.length);
+            }
+            
+            // Apply search filter
+            if (searchQuery) {
+                const query = searchQuery.toLowerCase();
+                const beforeSearch = filtered.length;
+                filtered = filtered.filter(p => 
+                    p.web_name?.toLowerCase().includes(query) ||
+                    p.second_name?.toLowerCase().includes(query)
+                );
+                console.log('[Replacement] Search filtered:', beforeSearch, '→', filtered.length);
+            }
+            
+            // Calculate score impact for each candidate using cached fixture data
+            const gwStart = currentSFAAnalysis?.gw_range?.start || 23;
+            const gwEnd = currentSFAAnalysis?.gw_range?.end || 27;
+            const numGWs = gwEnd - gwStart + 1;
+            
+            const candidatesWithImpact = filtered.map(player => {
+                // Calculate average score this player would get
+                let candidateScore = 0;
+                
+                // Get score from position matrix (same as backend)
+                const posScores = {
+                    1: {easy: 1.5, medium: 1.0, hard: 0.0},  // GK
+                    2: {easy: 1.5, medium: 1.0, hard: 0.0},  // DEF  
+                    3: {easy: 1.5, medium: 1.0, hard: 0.5},  // MID
+                    4: {easy: 2.0, medium: 1.5, hard: 1.0}   // FWD
+                };
+                
+                // Use fixture data from state
+                const playerTeamId = player.team_id || player.team;
+                if (!playerTeamId) {
+                    console.warn('[Replacement] Player missing team_id:', player);
+                }
+                
+                for (let gw = gwStart; gw <= gwEnd; gw++) {
+                    const teamFixtures = fixtureData[playerTeamId];
+                    const gwFixture = teamFixtures?.find(f => f.gameweek === gw);
+                    const fdr = gwFixture?.fdr || 3.0;
+                    
+                    let tier = fdr <= 2.5 ? 'easy' : fdr <= 3.5 ? 'medium' : 'hard';
+                    candidateScore += posScores[currentPlayer.position][tier];
+                }
+                
+                const avgCandidateScore = candidateScore / numGWs;
+                const impact = avgCandidateScore - (currentPlayer.avg || 0);
+                
+                return {
+                    ...player,
+                    avgScore: parseFloat(avgCandidateScore.toFixed(2)),
+                    scoreImpact: parseFloat(impact.toFixed(2))
+                };
+            });
+            
+            // Sort by impact (best improvements first)
+            candidatesWithImpact.sort((a, b) => b.scoreImpact - a.scoreImpact);
+            
+            console.log('[Replacement] ✅ Final filtered players:', candidatesWithImpact.length);
+            if (candidatesWithImpact.length > 0) {
+                console.log('[Replacement] Top 3:', candidatesWithImpact.slice(0, 3).map(p => ({
+                    name: p.web_name,
+                    avgScore: p.avgScore,
+                    impact: p.scoreImpact
+                })));
+            }
+            
+            replacementModalState.filteredPlayers = candidatesWithImpact;
+            renderReplacementModal();
+        }
+        
+        function renderReplacementModal() {
+            if (!replacementModalState.isOpen) return;
+            
+            const { currentPlayer, filteredPlayers, filterType, searchQuery, managers } = replacementModalState;
+            const posNames = {1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD'};
+            
+            const modalHtml = `
+                <div id="replacementModal" style="position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center; padding: 2rem;">
+                    <div style="background: var(--bg-primary); border-radius: 12px; max-width: 800px; width: 100%; max-height: 90vh; overflow: hidden; display: flex; flex-direction: column;">
+                        <!-- Header -->
+                        <div style="padding: 1.5rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center;">
+                            <div>
+                                <h3 style="color: var(--accent-cyan); margin: 0;">Replace ${currentPlayer.name}</h3>
+                                <div style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                    ${posNames[currentPlayer.position]} | Current Avg: ${currentPlayer.avg}
+                                </div>
+                            </div>
+                            <button onclick="closeReplacementModal()" style="background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-secondary);">×</button>
+                        </div>
+                        
+                        <!-- Search & Filters -->
+                        <div style="padding: 1rem; border-bottom: 1px solid var(--border-color);">
+                            <input type="text" 
+                                   id="replacementSearch" 
+                                   placeholder="Search players..." 
+                                   value="${searchQuery}"
+                                   onkeyup="updateReplacementSearch(this.value)"
+                                   style="width: 100%; padding: 0.75rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary); margin-bottom: 1rem;">
+                            
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button onclick="setReplacementFilter('free_agents')" 
+                                        style="flex: 1; padding: 0.6rem; background: ${filterType === 'free_agents' ? 'var(--accent-cyan)' : 'var(--bg-secondary)'}; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary);">
+                                    🆓 Free Agents (${replacementModalState.freeAgents?.length || 0})
+                                </button>
+                                <button onclick="setReplacementFilter('manager')" 
+                                        style="flex: 1; padding: 0.6rem; background: ${filterType === 'manager' ? 'var(--accent-cyan)' : 'var(--bg-secondary)'}; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary);">
+                                    👥 From Manager
+                                </button>
+                                <button onclick="setReplacementFilter('all')" 
+                                        style="flex: 1; padding: 0.6rem; background: ${filterType === 'all' ? 'var(--accent-cyan)' : 'var(--bg-secondary)'}; border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary);">
+                                    🌐 All Players (${replacementModalState.allPlayers?.length || 0})
+                                </button>
+                            </div>
+                            
+                            ${filterType === 'manager' ? `
+                                <select onchange="setReplacementManager(this.value)" style="width: 100%; margin-top: 0.5rem; padding: 0.6rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; color: var(--text-primary);">
+                                    <option value="">Select Manager...</option>
+                                    ${(managers || []).map(m => `<option value="${m.entry_id}">${m.entry_name} (${m.short_name})</option>`).join('')}
+                                </select>
+                            ` : ''}
+                        </div>
+                        
+                        <!-- Player List -->
+                        <div style="flex: 1; overflow-y: auto; padding: 1rem;">
+                            ${replacementModalState.loading ? `
+                                <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                                    <div style="font-size: 2rem; margin-bottom: 1rem;">⏳</div>
+                                    <div>Calculating score impacts...</div>
+                                    <div style="font-size: 0.75rem; margin-top: 0.5rem; color: var(--text-muted);">Analyzing fixtures and rankings</div>
+                                </div>
+                            ` : filteredPlayers.length === 0 ? `
+                                <div style="text-align: center; padding: 3rem; color: var(--text-secondary);">
+                                    No players found. Try different filters or search.
+                                </div>
+                            ` : filteredPlayers.slice(0, 30).map((player, index) => {
+                                const impact = player.scoreImpact || 0;
+                                const avgScore = player.avgScore || 0;
+                                const impactColor = impact > 0 ? 'var(--accent-emerald)' : impact < 0 ? 'var(--accent-rose)' : 'var(--text-muted)';
+                                const rankColor = index < 3 ? 'var(--accent-emerald)' : index < 10 ? 'var(--accent-cyan)' : 'var(--text-muted)';
+                                
+                                return `
+                                    <div onclick="previewReplacement(${player.id}, '${player.web_name || player.second_name}', ${avgScore}, ${impact})" 
+                                         style="padding: 1rem; margin-bottom: 0.5rem; background: var(--bg-secondary); border-radius: 6px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; transition: all 0.2s;"
+                                         onmouseenter="this.style.background='rgba(6, 182, 212, 0.1)'"
+                                         onmouseleave="this.style.background='var(--bg-secondary)'">
+                                        <div style="width: 30px; text-align: center; font-weight: 600; color: ${rankColor};">#${index + 1}</div>
+                                        <div style="flex: 1; margin-left: 1rem;">
+                                            <div style="font-weight: 600; color: var(--text-primary);">${player.web_name || player.second_name}</div>
+                                            <div style="font-size: 0.75rem; color: var(--text-muted);">${player.team_name || ''} | ${player.total_points || 0} FPL pts | Avg: ${avgScore}</div>
+                                        </div>
+                                        <div style="text-align: right; min-width: 100px;">
+                                            <div style="font-size: 0.75rem; color: var(--text-muted);">Impact</div>
+                                            <div style="font-weight: 700; font-size: 1.1rem; color: ${impactColor};">${impact > 0 ? '+' : ''}${impact.toFixed(2)}</div>
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                        
+                        <!-- Footer -->
+                        <div style="padding: 1rem; border-top: 1px solid var(--border-color); display: flex; justify-content: space-between;">
+                            <button onclick="closeReplacementModal()" style="padding: 0.75rem 1.5rem; background: var(--bg-secondary); border: 1px solid var(--border-color); border-radius: 6px; cursor: pointer; color: var(--text-primary);">
+                                Cancel
+                            </button>
+                            <div style="color: var(--text-muted); font-size: 0.85rem; align-self: center;">
+                                Showing ${Math.min(20, filteredPlayers.length)} of ${filteredPlayers.length} players
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            // Remove existing modal if any
+            const existingModal = document.getElementById('replacementModal');
+            if (existingModal) existingModal.remove();
+            
+            // Add new modal
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+        }
+        
+        function closeReplacementModal() {
+            replacementModalState.isOpen = false;
+            const modal = document.getElementById('replacementModal');
+            if (modal) modal.remove();
+        }
+        
+        function updateReplacementSearch(query) {
+            replacementModalState.searchQuery = query;
+            applyReplacementFilter();
+        }
+        
+        function setReplacementFilter(filterType) {
+            replacementModalState.filterType = filterType;
+            applyReplacementFilter();
+        }
+        
+        function setReplacementManager(entryId) {
+            replacementModalState.selectedManager = entryId;
+            // TODO: Fetch this manager's squad and filter
+            applyReplacementFilter();
+        }
+        
+        function previewReplacement(newPlayerId, newPlayerName, newAvg, impact) {
+            const oldPlayer = replacementModalState.currentPlayer;
+            
+            // Show confirmation
+            const impactText = impact > 0 ? `+${impact.toFixed(2)} improvement ✅` : 
+                              impact < 0 ? `${impact.toFixed(2)} worse ❌` : 
+                              'No change';
+            
+            const confirm = window.confirm(
+                `Replace ${oldPlayer.name} (Avg: ${oldPlayer.avg}) with ${newPlayerName} (Avg: ${newAvg})?\n\n` +
+                `Impact: ${impactText}`
+            );
+            
+            if (confirm) {
+                applyReplacement(newPlayerId, newPlayerName, newAvg, impact);
+            }
+        }
+        
+        async function applyReplacement(newPlayerId, newPlayerName, newAvg, impact) {
+            const oldPlayer = replacementModalState.currentPlayer;
+            
+            // Get the new player's full data including team_id for fixture calculation
+            const newPlayerData = replacementModalState.filteredPlayers.find(p => p.id === newPlayerId);
+            
+            if (!newPlayerData) {
+                console.error('Could not find new player data');
+                return;
+            }
+            
+            // Track the replacement
+            playerReplacements.set(oldPlayer.id, {
+                replacementPlayer: {
+                    id: newPlayerId,
+                    name: newPlayerName,
+                    avg: newAvg,
+                    impact: impact,
+                    position: oldPlayer.position,
+                    team_id: newPlayerData.team_id || newPlayerData.team,
+                    pl_team: newPlayerData.team_name || 'N/A',
+                    total_points: newPlayerData.total_points || 0
+                },
+                oldPlayer: {
+                    id: oldPlayer.id,
+                    name: oldPlayer.name,
+                    avg: oldPlayer.avg,
+                    position: oldPlayer.position
+                }
+            });
+            
+            // Exclude old player from analysis
+            excludedPlayerIds.add(oldPlayer.id);
+            
+            closeReplacementModal();
+            
+            // Smart update: only recalculate affected position, don't reload entire page
+            await updateSquadWithReplacement(oldPlayer.id, newPlayerData);
+        }
+        
+        function undoReplacement(oldPlayerId) {
+            playerReplacements.delete(oldPlayerId);
+            excludedPlayerIds.delete(oldPlayerId);
+            
+            // Smart update: just re-render current squad without full reload
+            renderCurrentSquad(currentSFAAnalysis);
+            updatePositionScoresWithReplacements();
+        }
+        
+        async function updateSquadWithReplacement(oldPlayerId, newPlayerData) {
+            // Calculate new player's fixture scores
+            const gwStart = currentSFAAnalysis.gw_range.start;
+            const gwEnd = currentSFAAnalysis.gw_range.end;
+            const position = currentSFAAnalysis.full_squad.find(p => p.player_id === oldPlayerId)?.position;
+            
+            if (!position) return;
+            
+            // Fetch fixtures for the new player's team
+            const fixtureData = replacementModalState.fixtureData;
+            const teamFixtures = fixtureData[newPlayerData.team_id || newPlayerData.team] || [];
+            
+            // Calculate scores for each GW
+            const gwScores = {};
+            const posScores = {
+                1: {easy: 1.5, medium: 1.0, hard: 0.0},  // GK
+                2: {easy: 1.5, medium: 1.0, hard: 0.0},  // DEF
+                3: {easy: 1.5, medium: 1.0, hard: 0.5},  // MID
+                4: {easy: 2.0, medium: 1.5, hard: 1.0}   // FWD
+            };
+            
+            for (let gw = gwStart; gw <= gwEnd; gw++) {
+                const fixture = teamFixtures.find(f => f.gameweek === gw);
+                const fdr = fixture?.fdr || 3.0;
+                const tier = fdr <= 2.5 ? 'easy' : fdr <= 3.5 ? 'medium' : 'hard';
+                gwScores[gw] = posScores[position][tier];
+            }
+            
+            // Update the replacement with calculated scores
+            const replacement = playerReplacements.get(oldPlayerId);
+            if (replacement) {
+                replacement.replacementPlayer.gw_scores = gwScores;
+                playerReplacements.set(oldPlayerId, replacement);
+            }
+            
+            // Update UI without full reload
+            renderCurrentSquad(currentSFAAnalysis);
+            updatePositionScoresWithReplacements();
+        }
+        
+        function updatePositionScoresWithReplacements() {
+            // Recalculate position scores including replacements
+            if (!currentSFAAnalysis || !currentSFAAnalysis.by_gameweek) return;
+            
+            const gwStart = currentSFAAnalysis.gw_range.start;
+            const gwEnd = currentSFAAnalysis.gw_range.end;
+            
+            // Group players by position, applying replacements
+            const playersByPosition = {1: [], 2: [], 3: [], 4: []};
+            
+            currentSFAAnalysis.full_squad.forEach(player => {
+                const replacement = playerReplacements.get(player.player_id);
+                if (replacement) {
+                    // Use replacement player
+                    playersByPosition[player.position].push({
+                        ...player,
+                        web_name: replacement.replacementPlayer.name,
+                        gw_scores: replacement.replacementPlayer.gw_scores || player.gw_scores,
+                        is_replacement: true
+                    });
+                } else if (!excludedPlayerIds.has(player.player_id)) {
+                    // Use original player
+                    playersByPosition[player.position].push(player);
+                }
+            });
+            
+            // Recalculate each GW's position scores
+            for (let gw = gwStart; gw <= gwEnd; gw++) {
+                Object.keys(playersByPosition).forEach(posId => {
+                    const players = playersByPosition[posId];
+                    let totalScore = 0;
+                    
+                    players.forEach(player => {
+                        const gwScores = player.gw_scores || {};
+                        totalScore += gwScores[gw] || 0;
+                    });
+                    
+                    // Update the analysis object
+                    const gwData = currentSFAAnalysis.by_gameweek.find(g => g.gw === gw);
+                    if (gwData) {
+                        const posNames = {1: 'GK', 2: 'DEF', 3: 'MID', 4: 'FWD'};
+                        const posName = posNames[posId];
+                        if (gwData[posName]) {
+                            gwData[posName].score = totalScore;
+                        }
+                    }
+                });
+            }
+            
+            // Re-render just the heatmap
+            renderPositionHeatmap(currentSFAAnalysis.by_gameweek);
+        }
+        
+        function openBatchReplacementModal() {
+            // Get all excluded players
+            const excludedPlayers = Array.from(excludedPlayerIds);
+            
+            if (excludedPlayers.length === 0) {
+                alert('No players excluded. Click players to replace them.');
+                return;
+            }
+            
+            // For now, use the existing recommendations system
+            // In the future, this could be a more sophisticated multi-player optimizer
+            alert(`Batch Replacement Tool\n\nYou have ${excludedPlayers.length} players excluded.\n\nCheck the "Transfer Recommendations" section below for top suggestions to fill these positions.\n\nFeature coming soon: Multi-player optimization!`);
+        }
+
+        function renderRecommendations(recommendations) {
+            const container = document.getElementById('sfaRecommendations');
+            if (!container) return;
+            
+            if (!recommendations || recommendations.length === 0) {
+                container.innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                        <div style="font-size: 2rem; margin-bottom: 0.5rem;">✅</div>
+                        <p>No recommendations needed - your squad has excellent fixture coverage!</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            let html = `
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: var(--bg-tertiary);">
+                            <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border-color);">#</th>
+                            <th style="padding: 0.75rem; text-align: left; border: 1px solid var(--border-color);">Player</th>
+                            <th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">Pos</th>
+                            <th style="padding: 0.75rem; text-align: center; border: 1px solid var(--border-color);">Team</th>
+                            <th style="padding: 0.75rem; text-align: right; border: 1px solid var(--border-color);">FPL Pts</th>
+                            <th style="padding: 0.75rem; text-align: right; border: 1px solid var(--border-color);">Easy Fix</th>
+                            <th style="padding: 0.75rem; text-align: right; border: 1px solid var(--border-color);">GWs Fixed</th>
+                            <th style="padding: 0.75rem; text-align: right; border: 1px solid var(--border-color);">Fixture %</th>
+                            <th style="padding: 0.75rem; text-align: right; border: 1px solid var(--border-color);">Score</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            recommendations.slice(0, 50).forEach((player, idx) => {
+                const scoreColor = player.combined_score >= 80 ? 'var(--accent-emerald)' :
+                                  player.combined_score >= 60 ? 'var(--accent-amber)' :
+                                  'var(--text-secondary)';
+                
+                html += `
+                    <tr style="border-bottom: 1px solid var(--border-color);" onmouseover="this.style.background='var(--bg-tertiary)'" onmouseout="this.style.background=''">
+                        <td style="padding: 0.75rem;">${idx + 1}</td>
+                        <td style="padding: 0.75rem; font-weight: 600;">${player.name}</td>
+                        <td style="padding: 0.75rem; text-align: center;">${player.position}</td>
+                        <td style="padding: 0.75rem; text-align: center;">${player.team}</td>
+                        <td style="padding: 0.75rem; text-align: right;">${player.total_points}</td>
+                        <td style="padding: 0.75rem; text-align: right;">${player.easy_fixtures || 0}</td>
+                        <td style="padding: 0.75rem; text-align: right;">${player.gws_fixed}/${player.weak_gws_count}</td>
+                        <td style="padding: 0.75rem; text-align: right; color: ${player.fixture_improvement >= 70 ? 'var(--accent-emerald)' : 'var(--text-secondary)'};">
+                            ${player.fixture_improvement}%
+                        </td>
+                        <td style="padding: 0.75rem; text-align: right; font-weight: 700; color: ${scoreColor};">
+                            ${player.combined_score.toFixed(1)}
+                        </td>
+                    </tr>
+                `;
+            });
+            
+            html += `
+                    </tbody>
+                </table>
+            `;
+            
+            container.innerHTML = html;
+        }
+
+        function filterRecommendations() {
+            // Re-render with filters applied
+            if (currentSFAAnalysis && currentSFAAnalysis.recommendations) {
+                const position = document.getElementById('sfaFilterPosition')?.value;
+                const freeAgentsOnly = document.getElementById('sfaFreeAgentsOnly')?.checked;
+                
+                let filtered = currentSFAAnalysis.recommendations;
+                
+                if (position) {
+                    filtered = filtered.filter(p => p.position_id == position);
+                }
+                
+                // Note: Free agents filtering would need additional data from backend
+                
+                renderRecommendations(filtered);
             }
         }
 

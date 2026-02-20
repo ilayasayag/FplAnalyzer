@@ -134,24 +134,42 @@ class SmartPlayerMatcher:
         self.match_stats['failed'] += 1
         return None
     
+    def _get_name_variants(self, candidate: dict) -> List[str]:
+        """Get all possible name variants for a player."""
+        variants = []
+        
+        web_name = candidate.get('web_name', '')
+        first_name = candidate.get('first_name', '')
+        second_name = candidate.get('second_name', '')
+        
+        if web_name:
+            variants.append(web_name)
+        if second_name:
+            variants.append(second_name)  # Last name only
+        if first_name and second_name:
+            variants.append(f'{first_name} {second_name}')  # Full name
+        
+        return variants
+    
     def _exact_match(
         self, 
         pred_name: str, 
         candidates: List[dict], 
         source: str
     ) -> Optional[Dict]:
-        """Stage 1: Exact match after normalization."""
+        """Stage 1: Exact match after normalization (checks all name variants)."""
         norm_pred = self._normalize(pred_name)
         
         for candidate in candidates:
             if self._is_already_matched(candidate['id'], source):
                 continue
             
-            norm_candidate = self._normalize(candidate['web_name'])
-            
-            if norm_pred == norm_candidate:
-                self._mark_matched(candidate['id'], source)
-                return self._create_result(candidate, 100, 'exact')
+            # Check all name variants
+            for variant in self._get_name_variants(candidate):
+                norm_variant = self._normalize(variant)
+                if norm_pred == norm_variant:
+                    self._mark_matched(candidate['id'], source)
+                    return self._create_result(candidate, 100, 'exact')
         
         return None
     
@@ -162,7 +180,7 @@ class SmartPlayerMatcher:
         source: str,
         min_score: int = 85
     ) -> Optional[Dict]:
-        """Stage 2: Fuzzy match using Levenshtein distance."""
+        """Stage 2: Fuzzy match using Levenshtein distance (checks all name variants)."""
         norm_pred = self._normalize(pred_name)
         
         # Build list of normalized candidate names with their original data
@@ -173,9 +191,11 @@ class SmartPlayerMatcher:
             if self._is_already_matched(candidate['id'], source):
                 continue
             
-            norm_name = self._normalize(candidate['web_name'])
-            candidate_names.append(norm_name)
-            candidate_map[norm_name] = candidate
+            # Check all name variants
+            for variant in self._get_name_variants(candidate):
+                norm_name = self._normalize(variant)
+                candidate_names.append(norm_name)
+                candidate_map[norm_name] = candidate
         
         if not candidate_names:
             return None
@@ -203,7 +223,7 @@ class SmartPlayerMatcher:
         source: str,
         min_score: int = 70
     ) -> Optional[Dict]:
-        """Stage 3: Token set match (handles word order and partial names)."""
+        """Stage 3: Token set match (handles word order and partial names, checks all variants)."""
         norm_pred = self._normalize(pred_name)
         
         # Build list of normalized candidate names
@@ -214,9 +234,11 @@ class SmartPlayerMatcher:
             if self._is_already_matched(candidate['id'], source):
                 continue
             
-            norm_name = self._normalize(candidate['web_name'])
-            candidate_names.append(norm_name)
-            candidate_map[norm_name] = candidate
+            # Check all name variants
+            for variant in self._get_name_variants(candidate):
+                norm_name = self._normalize(variant)
+                candidate_names.append(norm_name)
+                candidate_map[norm_name] = candidate
         
         if not candidate_names:
             return None
@@ -244,7 +266,7 @@ class SmartPlayerMatcher:
         source: str,
         min_score: int = 60
     ) -> Optional[Dict]:
-        """Stage 4: Partial match (last resort with lower threshold)."""
+        """Stage 4: Partial match (last resort with lower threshold, checks all variants)."""
         norm_pred = self._normalize(pred_name)
         
         # Build list of normalized candidate names
@@ -255,9 +277,11 @@ class SmartPlayerMatcher:
             if self._is_already_matched(candidate['id'], source):
                 continue
             
-            norm_name = self._normalize(candidate['web_name'])
-            candidate_names.append(norm_name)
-            candidate_map[norm_name] = candidate
+            # Check all name variants
+            for variant in self._get_name_variants(candidate):
+                norm_name = self._normalize(variant)
+                candidate_names.append(norm_name)
+                candidate_map[norm_name] = candidate
         
         if not candidate_names:
             return None

@@ -13,6 +13,7 @@
     <link rel="stylesheet" href="styles/components.css">
     <link rel="stylesheet" href="styles/fixtures.css">
     <link rel="stylesheet" href="styles/predictions.css">
+    <link rel="stylesheet" href="styles/lineups.css">
 </head>
 <body>
     <div class="container">
@@ -28,6 +29,7 @@
             <button class="tab-btn active" data-tab="import">📥 Import Data</button>
             <button class="tab-btn" data-tab="fixtures">📊 Fixtures</button>
             <button class="tab-btn" data-tab="predictions">🎯 Predictions</button>
+            <button class="tab-btn" data-tab="lineups">📋 Predicted Lineups</button>
             <button class="tab-btn" data-tab="squad">👥 Squad Analysis</button>
             <button class="tab-btn" data-tab="h2h">⚔️ H2H</button>
             <button class="tab-btn" data-tab="trades">🔄 Trades</button>
@@ -185,6 +187,41 @@
             </div>
         </div>
 
+        <!-- Tab Content: Predicted Lineups -->
+        <div id="tab-lineups" class="tab-content">
+            <div class="section">
+                <h2 class="section-title">Predicted Starting Lineups</h2>
+                <p class="section-subtitle">
+                    See which players are expected to start, with probabilities and injury status
+                </p>
+                
+                <div class="controls">
+                    <div class="control-group">
+                        <label for="lineupsGwSelect">Gameweek</label>
+                        <select id="lineupsGwSelect">
+                            <!-- Populated by JS -->
+                        </select>
+                    </div>
+                    <button onclick="Lineups.loadPredictions()">Load Predictions</button>
+                    <button class="secondary" onclick="Lineups.refreshPredictions()">
+                        🔄 Refresh Data
+                    </button>
+                </div>
+                
+                <div id="lineupsStatus" style="margin-top: 1rem;"></div>
+                
+                <div id="lineupsGrid" class="lineups-grid">
+                    <div class="empty-state">
+                        <div class="empty-state-icon">📋</div>
+                        <div class="empty-state-title">No lineup predictions loaded</div>
+                        <div class="empty-state-description">
+                            Select a gameweek to see predicted starting lineups with probabilities
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Tab Content: Squad Analysis -->
         <div id="tab-squad" class="tab-content">
             <div class="section">
@@ -290,6 +327,7 @@
     <script src="js/state.js"></script>
     <script src="js/ui/fixtures.js"></script>
     <script src="js/ui/predictions.js"></script>
+    <script src="js/ui/lineups.js"></script>
     <script src="js/ui/squad.js"></script>
     <script src="js/ui/h2h.js"></script>
     <script src="js/ui/trades.js"></script>

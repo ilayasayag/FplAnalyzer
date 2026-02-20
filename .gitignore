@@ -31,3 +31,6 @@ __pycache__/
 *.json
 !*_wishlist.json
 
+# Database files
+*.duckdb
+*.duckdb.wal

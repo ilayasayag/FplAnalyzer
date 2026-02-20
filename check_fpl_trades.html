@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>FPL Trade Checker</title>
+    <style>
+        body { font-family: monospace; padding: 20px; background: #1a1a1a; color: #fff; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; margin: 10px 0; }
+        pre { background: #2a2a2a; padding: 15px; border-radius: 5px; overflow-x: auto; }
+        .trade { background: #1e3a4a; margin: 10px 0; padding: 10px; border-left: 3px solid #00ff88; }
+        .waiver { background: #3a2a1e; margin: 10px 0; padding: 10px; border-left: 3px solid #ffaa00; }
+        .summary { background: #2a2a4a; padding: 15px; margin: 20px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🔍 FPL Trade Checker</h1>
+    <p>This tool will check multiple FPL API endpoints to find your trades.</p>
+    
+    <label>League ID: <input type="number" id="leagueId" value="201560" style="width: 150px; padding: 5px;"></label>
+    <br><br>
+    
+    <button onclick="checkAllEndpoints()">🔎 Check All Transaction Endpoints</button>
+    
+    <div id="results"></div>
+    
+    <script>
+        async function checkAllEndpoints() {
+            const leagueId = document.getElementById('leagueId').value;
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Checking...</h2>';
+            
+            const endpoints = [
+                `/api/draft/league/${leagueId}/transactions`,
+                `/api/league/${leagueId}/transactions`,
+                `/api/draft/${leagueId}/transactions`,
+                `/api/draft/league/${leagueId}/trades`,
+                `/api/league/${leagueId}/trades`,
+            ];
+            
+            let html = '';
+            
+            for (const endpoint of endpoints) {
+                const url = `https://draft.premierleague.com${endpoint}`;
+                html += `<h3>Testing: ${endpoint}</h3>`;
+                
+                try {
+                    const response = await fetch(url);
+                    
+                    if (!response.ok) {
+                        html += `<p style="color: #ff6b6b;">❌ Failed: ${response.status} ${response.statusText}</p>`;
+                        continue;
+                    }
+                    
+                    const data = await response.json();
+                    html += `<p style="color: #00ff88;">✅ Success! Got data</p>`;
+                    
+                    // Analyze the data
+                    let transactions = [];
+                    
+                    if (Array.isArray(data)) {
+                        transactions = data;
+                    } else if (data.transactions && Array.isArray(data.transactions)) {
+                        transactions = data.transactions;
+                    } else if (data.trades && Array.isArray(data.trades)) {
+                        transactions = data.trades;
+                    }
+                    
+                    if (transactions.length === 0) {
+                        html += `<p>No transactions found in response</p>`;
+                        html += `<pre>${JSON.stringify(data, null, 2).substring(0, 500)}</pre>`;
+                        continue;
+                    }
+                    
+                    // Count by type
+                    const byType = {};
+                    transactions.forEach(t => {
+                        const kind = t.kind || 'unknown';
+                        byType[kind] = (byType[kind] || 0) + 1;
+                    });
+                    
+                    html += `<div class="summary">`;
+                    html += `<strong>📊 Total Transactions: ${transactions.length}</strong><br>`;
+                    html += `<strong>By Type:</strong><br>`;
+                    for (const [kind, count] of Object.entries(byType)) {
+                        const kindName = {
+                            't': '🔄 Trades (Inter-Manager)',
+                            'w': '📋 Waivers',
+                            'f': '🆓 Free Agent Pickups',
+                            'a': '💰 Auctions'
+                        }[kind] || kind;
+                        html += `   ${kindName}: ${count}<br>`;
+                    }
+                    html += `</div>`;
+                    
+                    // Show trades
+                    const trades = transactions.filter(t => t.kind === 't');
+                    if (trades.length > 0) {
+                        html += `<h4>🔄 TRADES FOUND: ${trades.length}</h4>`;
+                        trades.slice(0, 10).forEach((trade, i) => {
+                            html += `<div class="trade">`;
+                            html += `<strong>Trade #${i+1} (ID: ${trade.id})</strong><br>`;
+                            html += `Date: ${new Date(trade.added).toLocaleString()}<br>`;
+                            html += `Entry ${trade.entry} ↔️ Entry ${trade.entry_2}<br>`;
+                            html += `Entry 1: Player ${trade.element_out} → Player ${trade.element_in}<br>`;
+                            html += `Entry 2: Player ${trade.element_out_2} → Player ${trade.element_in_2}<br>`;
+                            html += `Result: ${trade.result}<br>`;
+                            html += `</div>`;
+                        });
+                    } else {
+                        html += `<p style="color: #ffaa00;">⚠️ No trades found (only waivers/free agents)</p>`;
+                    }
+                    
+                    // Show first few transactions
+                    html += `<details><summary>Show first 5 transactions</summary>`;
+                    html += `<pre>${JSON.stringify(transactions.slice(0, 5), null, 2)}</pre>`;
+                    html += `</details>`;
+                    
+                } catch (error) {
+                    html += `<p style="color: #ff6b6b;">❌ Error: ${error.message}</p>`;
+                }
+                
+                html += `<hr>`;
+            }
+            
+            results.innerHTML = html;
+        }
+    </script>
+</body>
+</html>

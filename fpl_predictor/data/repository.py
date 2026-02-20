@@ -13,6 +13,158 @@ from datetime import datetime
 from .database import get_connection
 
 
+class CacheManager:
+    """
+    Manages cache invalidation for database updates.
+    
+    When data changes in the database, related cache entries must be
+    invalidated to prevent stale data from being served.
+    """
+    
+    @staticmethod
+    def invalidate_squads(con: duckdb.DuckDBPyConnection, gameweek: int):
+        """
+        Invalidate squad-related caches for a specific gameweek.
+        
+        Call this after:
+        - Squad imports
+        - Transaction processing
+        - Squad updates
+        
+        Args:
+            con: Database connection
+            gameweek: Gameweek to invalidate
+        """
+        con.execute("""
+            DELETE FROM cache 
+            WHERE key LIKE 'squad:%' AND gameweek = ?
+        """, [gameweek])
+        print(f"[CacheManager] Invalidated squad caches for GW{gameweek}")
+    
+    @staticmethod
+    def invalidate_predictions(con: duckdb.DuckDBPyConnection, gameweek: int):
+        """
+        Invalidate prediction-related caches for a specific gameweek.
+        
+        Call this after:
+        - Player data updates
+        - Fixture updates
+        - Prediction recalculations
+        
+        Args:
+            con: Database connection
+            gameweek: Gameweek to invalidate
+        """
+        con.execute("""
+            DELETE FROM cache 
+            WHERE key LIKE 'prediction:%' AND gameweek = ?
+        """, [gameweek])
+        print(f"[CacheManager] Invalidated prediction caches for GW{gameweek}")
+    
+    @staticmethod
+    def invalidate_player_history(con: duckdb.DuckDBPyConnection, player_id: int):
+        """
+        Invalidate caches for a specific player's history.
+        
+        Call this after:
+        - Player gameweek data updates
+        - Player stats recalculations
+        
+        Args:
+            con: Database connection
+            player_id: Player ID to invalidate
+        """
+        con.execute("""
+            DELETE FROM cache 
+            WHERE key LIKE ?
+        """, [f'player:{player_id}:%'])
+        print(f"[CacheManager] Invalidated caches for player {player_id}")
+    
+    @staticmethod
+    def invalidate_all(con: duckdb.DuckDBPyConnection):
+        """
+        Clear all caches.
+        
+        Call this after:
+        - Full data imports
+        - Major schema changes
+        - System maintenance
+        
+        Args:
+            con: Database connection
+        """
+        count = con.execute("SELECT COUNT(*) FROM cache").fetchone()[0]
+        con.execute("DELETE FROM cache")
+        print(f"[CacheManager] Cleared all caches ({count} entries)")
+    
+    @staticmethod
+    def invalidate_gameweek(con: duckdb.DuckDBPyConnection, gameweek: int):
+        """
+        Invalidate all caches for a specific gameweek.
+        
+        Call this when:
+        - Gameweek advances
+        - Gameweek data is updated
+        
+        Args:
+            con: Database connection
+            gameweek: Gameweek to invalidate
+        """
+        count = con.execute("""
+            SELECT COUNT(*) FROM cache WHERE gameweek = ?
+        """, [gameweek]).fetchone()[0]
+        
+        con.execute("DELETE FROM cache WHERE gameweek = ?", [gameweek])
+        print(f"[CacheManager] Invalidated all caches for GW{gameweek} ({count} entries)")
+    
+    @staticmethod
+    def set_cache(
+        con: duckdb.DuckDBPyConnection,
+        key: str,
+        value: str,
+        gameweek: Optional[int] = None,
+        ttl_minutes: int = 60
+    ):
+        """
+        Set a cache value with optional TTL.
+        
+        Args:
+            con: Database connection
+            key: Cache key
+            value: JSON-encoded value
+            gameweek: Optional gameweek association
+            ttl_minutes: Time-to-live in minutes
+        """
+        con.execute("""
+            INSERT OR REPLACE INTO cache (
+                key, value, computed_at, expires_at, gameweek
+            ) VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP + INTERVAL ? MINUTE, ?)
+        """, [key, value, ttl_minutes, gameweek])
+    
+    @staticmethod
+    def get_cache(
+        con: duckdb.DuckDBPyConnection,
+        key: str
+    ) -> Optional[str]:
+        """
+        Get a cache value if not expired.
+        
+        Args:
+            con: Database connection
+            key: Cache key
+            
+        Returns:
+            Cached value or None if not found/expired
+        """
+        result = con.execute("""
+            SELECT value FROM cache
+            WHERE key = ? 
+            AND (expires_at IS NULL OR expires_at > CURRENT_TIMESTAMP)
+        """, [key]).fetchone()
+        
+        return result[0] if result else None
+
+
 @dataclass
 class PlayerDTO:
     """Data transfer object for player data."""
@@ -539,7 +691,7 @@ class FixtureRepository:
     
     def get_fixture_grid(self, gw_start: int, gw_end: int) -> List[Dict]:
         """Get FDR grid for fixture display."""
-        return self.con.execute("""
+        df = self.con.execute("""
             SELECT 
                 t.short_name as team,
                 t.id as team_id,
@@ -554,11 +706,15 @@ class FixtureRepository:
             JOIN pl_teams opp ON fd.opponent_id = opp.id
             WHERE fd.gameweek BETWEEN ? AND ?
             ORDER BY t.short_name, fd.gameweek
-        """, [gw_start, gw_end]).fetchdf().to_dict('records')
+        """, [gw_start, gw_end]).fetchdf()
+        
+        # Replace NaN with None before converting to dict
+        df = df.where(df.notna(), None)
+        return df.to_dict('records')
     
     def get_team_fixtures(self, team_id: int, gw_start: int, gw_end: int) -> List[Dict]:
         """Get fixtures for a specific team."""
-        return self.con.execute("""
+        df = self.con.execute("""
             SELECT 
                 fd.gameweek,
                 opp.short_name as opponent,
@@ -571,14 +727,20 @@ class FixtureRepository:
             JOIN pl_teams opp ON fd.opponent_id = opp.id
             WHERE fd.team_id = ? AND fd.gameweek BETWEEN ? AND ?
             ORDER BY fd.gameweek
-        """, [team_id, gw_start, gw_end]).fetchdf().to_dict('records')
+        """, [team_id, gw_start, gw_end]).fetchdf()
+        
+        # Replace NaN with None before converting to dict
+        df = df.where(df.notna(), None)
+        return df.to_dict('records')
 
 
 class PredictedLineupRepository:
     """Repository for predicted lineups data."""
     
     def __init__(self, con: Optional[duckdb.DuckDBPyConnection] = None):
+        # Store reference but don't use for reads (isolation issues)
         self.con = con or get_connection()
+        self._use_fresh_connections_for_reads = (con is None)
     
     def upsert_predictions(self, predictions: List[dict]):
         """Insert or update predicted lineups for a gameweek."""
@@ -626,7 +788,10 @@ class PredictedLineupRepository:
     
     def get_predictions_for_gameweek(self, gameweek: int) -> List[dict]:
         """Get all predicted lineups for a gameweek with FPL ownership info."""
-        result = self.con.execute("""
+        # Use existing connection to avoid lock conflicts
+        conn = self.con
+        
+        result = conn.execute("""
             SELECT 
                 pl.*,
                 p.web_name,
@@ -653,7 +818,8 @@ class PredictedLineupRepository:
             ORDER BY t.short_name, pl.start_probability DESC
         """, [gameweek])
         
-        return result.fetchdf().to_dict('records')
+        records = result.fetchdf().to_dict('records')
+        return records
     
     def get_player_lineup_probability(self, player_id: int, gameweek: int) -> Optional[float]:
         """Get a specific player's starting probability."""
@@ -727,7 +893,7 @@ class PredictedLineupRepository:
             VALUES (?, ?, ?, ?, 1)
             ON CONFLICT(scraped_name, team_code) 
             DO UPDATE SET
-                last_seen = CURRENT_TIMESTAMP,
+                last_seen = now(),
                 occurrences = unmatched_players.occurrences + 1,
                 sources = CASE 
                     WHEN unmatched_players.sources LIKE '%' || ? || '%' 
@@ -745,6 +911,166 @@ class PredictedLineupRepository:
             ORDER BY occurrences DESC, last_seen DESC
         """, [min_occurrences])
         return result.fetchdf().to_dict('records')
+    
+    def save_unmatched_predictions(self, gameweek: int, unmatched_predictions: List[dict]):
+        """Save unmatched predictions for a gameweek (stored as JSON in cache)."""
+        import json
+        cache_key = f"unmatched_predictions_gw{gameweek}"
+        cache_value = json.dumps(unmatched_predictions)
+        
+        self.con.execute("""
+            INSERT OR REPLACE INTO cache (key, value, computed_at, gameweek)
+            VALUES (?, ?, now(), ?)
+        """, [cache_key, cache_value, gameweek])
+        self.con.commit()
+    
+    def get_unmatched_predictions(self, gameweek: int) -> List[dict]:
+        """Get unmatched predictions for a gameweek."""
+        import json
+        cache_key = f"unmatched_predictions_gw{gameweek}"
+        
+        result = self.con.execute("""
+            SELECT value FROM cache 
+            WHERE key = ?
+        """, [cache_key]).fetchone()
+        
+        if result:
+            return json.loads(result[0])
+        return []
+
+
+class SquadAnalysisRepository:
+    """Repository for squad fixture analysis queries."""
+    
+    def __init__(self, con: Optional[duckdb.DuckDBPyConnection] = None):
+        self.con = con or get_connection()
+    
+    def get_squad_with_teams(self, entry_id: int, gameweek: int) -> List[Dict]:
+        """Get squad with PL team info for fixture analysis."""
+        return self.con.execute("""
+            SELECT 
+                s.player_id,
+                p.web_name,
+                p.position,
+                p.team_id,
+                t.short_name as pl_team,
+                p.total_points,
+                p.form,
+                p.points_per_game,
+                CASE 
+                    WHEN w.fpl_id IS NOT NULL THEN TRUE 
+                    ELSE FALSE 
+                END as is_star_player
+            FROM fpl_squads s
+            JOIN pl_players p ON s.player_id = p.id
+            JOIN pl_teams t ON p.team_id = t.id
+            LEFT JOIN wishlist_players w ON p.id = w.fpl_id
+            WHERE s.entry_id = ? AND s.gameweek = ?
+        """, [entry_id, gameweek]).fetchdf().to_dict('records')
+    
+    def get_fixture_difficulty_range(self, gw_start: int, gw_end: int) -> List[Dict]:
+        """Get FDR for all teams in GW range."""
+        return self.con.execute("""
+            SELECT 
+                team_id,
+                gameweek,
+                COALESCE(manual_override, weighted_fdr, official_fdr) as fdr,
+                opponent_id,
+                is_home
+            FROM fixture_difficulty
+            WHERE gameweek BETWEEN ? AND ?
+        """, [gw_start, gw_end]).fetchdf().to_dict('records')
+    
+    def get_free_agents_with_fixtures(
+        self, 
+        gameweek: int, 
+        gw_start: int, 
+        gw_end: int,
+        position: Optional[int] = None,
+        limit: int = 100
+    ) -> List[Dict]:
+        """Get free agents filtered by position with upcoming fixture info."""
+        query = """
+            WITH owned AS (
+                SELECT DISTINCT player_id 
+                FROM fpl_squads 
+                WHERE gameweek = ?
+            ),
+            player_form AS (
+                SELECT 
+                    player_id,
+                    ROUND(AVG(total_points), 2) as avg_points,
+                    COUNT(*) as games_played
+                FROM player_gameweeks
+                WHERE gameweek >= ? - 5 AND minutes > 0
+                GROUP BY player_id
+            ),
+            player_fixtures AS (
+                SELECT 
+                    p.id as player_id,
+                    COUNT(CASE WHEN COALESCE(fd.manual_override, fd.weighted_fdr, fd.official_fdr) <= 2 THEN 1 END) as easy_fixtures,
+                    COUNT(*) as total_fixtures,
+                    ROUND(AVG(COALESCE(fd.manual_override, fd.weighted_fdr, fd.official_fdr)), 2) as avg_fdr
+                FROM pl_players p
+                JOIN fixture_difficulty fd ON p.team_id = fd.team_id
+                WHERE fd.gameweek BETWEEN ? AND ?
+                GROUP BY p.id
+            )
+            SELECT 
+                p.id,
+                p.web_name,
+                p.first_name,
+                p.second_name,
+                p.team_id,
+                p.position,
+                p.status,
+                p.total_points,
+                p.form,
+                p.points_per_game,
+                t.short_name as team_name,
+                t.position as team_position,
+                t.batch_id,
+                pf.avg_points as recent_form,
+                pf.games_played,
+                px.easy_fixtures,
+                px.total_fixtures,
+                px.avg_fdr
+            FROM pl_players p
+            JOIN pl_teams t ON p.team_id = t.id
+            LEFT JOIN player_form pf ON p.id = pf.player_id
+            LEFT JOIN player_fixtures px ON p.id = px.player_id
+            WHERE p.id NOT IN (SELECT player_id FROM owned)
+              AND p.status = 'a'
+              AND (p.chance_of_playing IS NULL OR p.chance_of_playing >= 50)
+        """
+        params = [gameweek, gameweek, gw_start, gw_end]
+        
+        if position:
+            query += " AND p.position = ?"
+            params.append(position)
+        
+        query += """
+            ORDER BY px.easy_fixtures DESC, COALESCE(pf.avg_points, p.points_per_game, 0) DESC
+            LIMIT ?
+        """
+        params.append(limit)
+        
+        return self.con.execute(query, params).fetchdf().to_dict('records')
+    
+    def get_all_entries(self) -> List[Dict]:
+        """Get all league entries for manager selection."""
+        return self.con.execute("""
+            SELECT entry_id, entry_name, short_name, player_first_name, player_last_name
+            FROM fpl_entries
+            ORDER BY entry_name
+        """).fetchdf().to_dict('records')
+    
+    def get_current_gameweek(self) -> int:
+        """Get the most recent gameweek from fpl_squads."""
+        result = self.con.execute("""
+            SELECT MAX(gameweek) as current_gw FROM fpl_squads
+        """).fetchone()
+        return result[0] if result and result[0] else 22
 
 
 class CacheRepository:
@@ -807,5 +1133,6 @@ def get_repositories(con: Optional[duckdb.DuckDBPyConnection] = None) -> Dict[st
         'league': LeagueRepository(con),
         'fixtures': FixtureRepository(con),
         'cache': CacheRepository(con),
-        'predicted_lineups': PredictedLineupRepository(con)
+        'predicted_lineups': PredictedLineupRepository(con),
+        'squad_analysis': SquadAnalysisRepository(con)
     }

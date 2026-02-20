@@ -25,3 +25,12 @@ python-dotenv>=1.0.0
 # Type hints
 typing-extensions>=4.8.0
 
+# Web scraping
+selenium>=4.16.0
+webdriver-manager>=4.0.1
+
+# Fuzzy string matching
+rapidfuzz>=3.0.0
+
+# Scheduling
+schedule>=1.2.0

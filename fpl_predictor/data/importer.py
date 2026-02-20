@@ -13,6 +13,8 @@ from dataclasses import dataclass
 import duckdb
 
 from .database import get_connection, init_schema
+from .squad_processor import SquadProcessor
+from .sync_manager import SyncManager
 
 
 @dataclass
@@ -65,6 +67,10 @@ class DataImporter:
         # Always use the global connection to avoid lock conflicts
         self.con = get_connection()
         init_schema(self.con)
+        
+        # Store data during import for squad reconstruction
+        self._baseline_squads = {}
+        self._transactions_list = []
     
     def import_from_json(self, data: Dict[str, Any]) -> ImportResult:
         """
@@ -132,16 +138,17 @@ class DataImporter:
             else:
                 print(f"[Importer] No entries found. league_data keys: {list(league_data.keys()) if isinstance(league_data, dict) else 'not a dict'}")
             
-            # 7. Squads
+            # 7. Squads - Extract baseline (don't save yet)
             if squads and isinstance(squads, dict):
-                result.squads_imported = self._import_squads(squads, current_gw)
+                self._baseline_squads = self._extract_baseline_squads(squads)
+                print(f"[Importer] Extracted {len(self._baseline_squads)} baseline squads")
             
             # 8. Matches
             matches = league_data.get('matches', []) if isinstance(league_data, dict) else []
             if matches:
                 result.matches_imported = self._import_matches(matches)
             
-            # 9. Transactions
+            # 9. Transactions - Import to table
             if isinstance(transactions, dict):
                 trans_list = transactions.get('transactions', [])
             elif isinstance(transactions, list):
@@ -150,6 +157,11 @@ class DataImporter:
                 trans_list = []
             if trans_list:
                 result.transactions_imported = self._import_transactions(trans_list)
+                self._transactions_list = trans_list
+            
+            # 9b. Squad Reconstruction - Process transactions to get current squads
+            if self._baseline_squads:
+                result.squads_imported = self._process_squads_with_transactions(current_gw)
             
             # 10. Element status
             if isinstance(elements, dict):
@@ -461,9 +473,12 @@ class DataImporter:
         
         return count
     
-    def _import_squads(self, squads: Dict, current_gw: int) -> int:
-        """Import squad ownership."""
-        count = 0
+    def _extract_baseline_squads(self, squads: Dict) -> Dict[int, List[int]]:
+        """
+        Extract baseline squads from JSON without saving to DB.
+        Returns Dict[entry_id, List[player_ids]].
+        """
+        baseline = {}
         
         for entry_id_str, squad_data in squads.items():
             try:
@@ -473,36 +488,90 @@ class DataImporter:
                 continue
             
             if not isinstance(squad_data, dict):
-                print(f"[Importer] Squad data for {entry_id_str} is not a dict: {type(squad_data)}")
                 continue
             
             picks = squad_data.get('picks', [])
             if not isinstance(picks, list):
                 continue
             
+            player_ids = []
             for pick in picks:
-                if not isinstance(pick, dict):
-                    continue
-                    
+                if isinstance(pick, dict):
+                    player_id = pick.get('element')
+                    if player_id:
+                        player_ids.append(player_id)
+            
+            if player_ids:
+                baseline[entry_id] = player_ids
+        
+        return baseline
+    
+    def _process_squads_with_transactions(self, current_gw: int) -> int:
+        """
+        Process squads with smart reconciliation.
+        
+        Uses SyncManager to determine the best strategy:
+        1. If squads are newer than trades → Trust squads (absolute)
+        2. If trades are newer → Apply trades to squads
+        3. Track bookmarks for incremental updates
+        """
+        print(f"[Importer] Processing squads for GW{current_gw}")
+        
+        if not self._baseline_squads:
+            print(f"[Importer] No squads to process")
+            return 0
+        
+        # Initialize managers
+        sync_manager = SyncManager(self.con)
+        processor = SquadProcessor(self.con)
+        
+        # Get fetch timestamps from the JSON data (if available)
+        from datetime import datetime
+        squads_fetch_time = datetime.now()  # Default to now
+        trades_fetch_time = datetime.now()
+        
+        # Extract trades from transactions
+        trades = [t for t in self._transactions_list if t.get('kind') == 't']
+        
+        print(f"[Importer] Found {len(self._transactions_list)} total transactions")
+        print(f"[Importer] Found {len(trades)} inter-manager trades")
+        
+        # Use smart reconciliation
+        final_squads, strategy = sync_manager.process_import(
+            squads_data=self._baseline_squads,
+            trades_data=trades,
+            squads_fetch_time=squads_fetch_time,
+            trades_fetch_time=trades_fetch_time,
+            gameweek=current_gw
+        )
+        
+        print(f"[Importer] Strategy used: {strategy}")
+        
+        # Clear existing squads for this gameweek
+        self.con.execute(f"DELETE FROM fpl_squads WHERE gameweek = {current_gw}")
+        
+        # Save final squads
+        total_players = 0
+        for entry_id, player_ids in final_squads.items():
+            for position, player_id in enumerate(player_ids, 1):
                 try:
                     self.con.execute("""
-                        INSERT OR REPLACE INTO fpl_squads (
-                            entry_id, player_id, gameweek,
+                        INSERT INTO fpl_squads (
+                            entry_id, player_id, gameweek, 
                             squad_position, is_captain, is_vice_captain
                         ) VALUES (?, ?, ?, ?, ?, ?)
-                    """, [
-                        entry_id,
-                        pick.get('element'),
-                        current_gw,
-                        pick.get('position'),
-                        pick.get('is_captain', False),
-                        pick.get('is_vice_captain', False)
-                    ])
-                    count += 1
+                    """, [entry_id, player_id, current_gw, position, False, False])
+                    total_players += 1
                 except Exception as e:
-                    print(f"[Importer] Error importing pick for {entry_id}: {e}")
+                    print(f"[Importer] Error inserting player {player_id} for entry {entry_id}: {e}")
         
-        return count
+        self.con.commit()
+        print(f"[Importer] Saved {total_players} squad slots for {len(final_squads)} teams")
+        
+        # Update element_status to reflect ownership
+        processor.update_element_status(current_gw)
+        
+        return total_players
     
     def _import_matches(self, matches: List[Dict]) -> int:
         """Import H2H matches."""
@@ -547,30 +616,74 @@ class DataImporter:
         return count
     
     def _import_transactions(self, transactions: List[Dict]) -> int:
-        """Import transactions."""
+        """Import transactions and trades."""
         if not transactions:
             return 0
         
+        imported_count = 0
         for trans in transactions:
-            self.con.execute("""
-                INSERT OR REPLACE INTO fpl_transactions (
-                    id, entry_id, player_in, player_out,
-                    transaction_type, gameweek, priority,
-                    result, added_time
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """, [
-                trans.get('id'),
-                trans.get('entry'),
-                trans.get('element_in'),
-                trans.get('element_out'),
-                trans.get('kind'),
-                trans.get('event'),
-                trans.get('priority'),
-                trans.get('result'),
-                trans.get('added')
-            ])
+            # Check if this is a trade with tradeitem_set (new FPL trade format)
+            if trans.get('kind') == 't' and trans.get('tradeitem_set'):
+                # FPL trade format: {offered_entry, received_entry, tradeitem_set: [{element_in, element_out}]}
+                # Import trade information into fpl_transactions table
+                trade_id = trans.get('id')
+                event = trans.get('event')
+                offered_entry = trans.get('offered_entry')
+                received_entry = trans.get('received_entry')
+                added_time = trans.get('offer_time') or trans.get('added')
+                
+                # Process each trade item
+                for idx, trade_item in enumerate(trans.get('tradeitem_set', [])):
+                    element_in = trade_item.get('element_in')
+                    element_out = trade_item.get('element_out')
+                    
+                    # Insert two rows: one for each side of the trade
+                    # Row 1: offered_entry perspective
+                    self.con.execute("""
+                        INSERT OR REPLACE INTO fpl_transactions (
+                            id, entry_id, player_in, player_out,
+                            transaction_type, gameweek, priority,
+                            result, added_time,
+                            entry_id_2, player_in_2, player_out_2
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    """, [
+                        f"{trade_id}_{idx}_offer",
+                        offered_entry,
+                        element_in,  # offered_entry gets element_in
+                        element_out,  # offered_entry gives element_out
+                        't',
+                        event,
+                        None,
+                        trans.get('state'),
+                        added_time,
+                        received_entry,
+                        element_out,  # received_entry gets element_out
+                        element_in   # received_entry gives element_in
+                    ])
+                    
+                    imported_count += 1
+            else:
+                # Standard transaction (waiver, free agent, or old-style trade)
+                self.con.execute("""
+                    INSERT OR REPLACE INTO fpl_transactions (
+                        id, entry_id, player_in, player_out,
+                        transaction_type, gameweek, priority,
+                        result, added_time
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """, [
+                    trans.get('id'),
+                    trans.get('entry'),
+                    trans.get('element_in'),
+                    trans.get('element_out'),
+                    trans.get('kind'),
+                    trans.get('event'),
+                    trans.get('priority'),
+                    trans.get('result'),
+                    trans.get('added')
+                ])
+                imported_count += 1
         
-        return len(transactions)
+        return imported_count
     
     def _import_element_status(self, element_status: List[Dict]):
         """Import element availability status."""

@@ -41,8 +41,20 @@ def get_connection() -> duckdb.DuckDBPyConnection:
             if not _schema_initialized:
                 _init_schema_internal(_global_connection)
                 _schema_initialized = True
-                
-        return _global_connection
+    
+    return _global_connection
+
+
+def reset_connection():
+    """Reset the global connection (call after closing it)."""
+    global _global_connection
+    with _lock:
+        if _global_connection:
+            try:
+                _global_connection.close()
+            except:
+                pass
+        _global_connection = None
 
 
 def close_connection():

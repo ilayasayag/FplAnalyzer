@@ -3,6 +3,7 @@
 from .loader import DataLoader
 from .standings import StandingsFetcher
 from .database import get_connection, init_schema, get_db_stats, reset_database
+from .sync_manager import SyncManager, SyncMetadata
 from .repository import (
     PlayerRepository, TeamRepository, SquadRepository,
     LeagueRepository, FixtureRepository, CacheRepository,
@@ -13,6 +14,7 @@ from .importer import DataImporter, ImportResult, import_from_file, import_from_
 __all__ = [
     'DataLoader', 'StandingsFetcher',
     'get_connection', 'init_schema', 'get_db_stats', 'reset_database',
+    'SyncManager', 'SyncMetadata',
     'PlayerRepository', 'TeamRepository', 'SquadRepository',
     'LeagueRepository', 'FixtureRepository', 'CacheRepository',
     'get_repositories',
