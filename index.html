@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FPL Draft Analyzer</title>
+<style>
+:root {
+  --bg: #0f1923;
+  --surface: #1a2634;
+  --surface2: #243447;
+  --border: #2d4052;
+  --text: #e4e8ec;
+  --text2: #8899aa;
+  --accent: #00ff87;
+  --accent2: #04e4a0;
+  --easy: #00ff87;
+  --medium: #ebbb00;
+  --hard: #ff4655;
+  --blue: #38a1f3;
+  --radius: 8px;
+  --shadow: 0 2px 8px rgba(0,0,0,.3);
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg);
+  color: var(--text);
+  min-height: 100vh;
+}
+a { color: var(--accent); text-decoration: none; }
+button {
+  cursor: pointer;
+  border: none;
+  border-radius: var(--radius);
+  font-size: 14px;
+  padding: 8px 16px;
+  transition: all .15s;
+}
+.btn-primary { background: var(--accent); color: #111; font-weight: 600; }
+.btn-primary:hover { background: var(--accent2); }
+.btn-secondary { background: var(--surface2); color: var(--text); border: 1px solid var(--border); }
+.btn-secondary:hover { background: var(--border); }
+.btn-sm { padding: 4px 10px; font-size: 12px; }
+input, select {
+  background: var(--surface2);
+  color: var(--text);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 8px 12px;
+  font-size: 14px;
+  outline: none;
+}
+input:focus, select:focus { border-color: var(--accent); }
+
+/* Header */
+header {
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 12px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+header h1 { font-size: 18px; color: var(--accent); white-space: nowrap; }
+.header-controls { display: flex; gap: 8px; align-items: center; }
+#leagueInput { width: 120px; }
+#gwInfo { font-size: 13px; color: var(--text2); }
+
+/* Tabs */
+.tabs {
+  display: flex;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  overflow-x: auto;
+  padding: 0 16px;
+}
+.tab {
+  padding: 10px 18px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text2);
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  white-space: nowrap;
+  transition: all .15s;
+}
+.tab:hover { color: var(--text); }
+.tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+/* Tab content */
+.tab-content { display: none; padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+.tab-content.active { display: block; }
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card h3 { font-size: 15px; margin-bottom: 12px; color: var(--text); }
+
+/* Grid */
+.grid { display: grid; gap: 12px; }
+.grid-2 { grid-template-columns: repeat(2, 1fr); }
+.grid-3 { grid-template-columns: repeat(3, 1fr); }
+.grid-4 { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 768px) { .grid-2, .grid-3, .grid-4 { grid-template-columns: 1fr; } }
+
+/* Stat box */
+.stat { text-align: center; }
+.stat-value { font-size: 28px; font-weight: 700; color: var(--accent); }
+.stat-label { font-size: 12px; color: var(--text2); margin-top: 2px; }
+
+/* Table */
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th { text-align: left; padding: 8px 10px; color: var(--text2); font-weight: 600; border-bottom: 1px solid var(--border); position: sticky; top: 0; background: var(--surface); }
+td { padding: 8px 10px; border-bottom: 1px solid var(--border); }
+tr:hover td { background: rgba(255,255,255,.03); }
+
+/* FDR colors */
+.fdr-1 { background: #257d5a; color: #fff; }
+.fdr-2 { background: #00ff87; color: #111; }
+.fdr-3 { background: #ebbb00; color: #111; }
+.fdr-4 { background: #ff4655; color: #fff; }
+.fdr-5 { background: #920947; color: #fff; }
+
+/* Tier badges */
+.tier { display: inline-block; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 700; text-transform: uppercase; }
+.tier-easy { background: var(--easy); color: #111; }
+.tier-medium { background: var(--medium); color: #111; }
+.tier-hard { background: var(--hard); color: #fff; }
+
+/* Position badges */
+.pos { display: inline-block; padding: 2px 6px; border-radius: 4px; font-size: 11px; font-weight: 700; }
+.pos-GK { background: #f0a500; color: #111; }
+.pos-DEF { background: #4fc3f7; color: #111; }
+.pos-MID { background: #66bb6a; color: #111; }
+.pos-FWD { background: #ef5350; color: #fff; }
+
+/* Fixture grid */
+.fixture-grid { overflow-x: auto; }
+.fixture-grid table { min-width: 800px; }
+.fixture-cell {
+  width: 62px;
+  min-width: 62px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 2px;
+}
+.fixture-cell.current-gw { box-shadow: inset 0 0 0 2px var(--accent); }
+
+/* Player cards */
+.player-card {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  background: var(--surface2);
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all .15s;
+  border: 1px solid transparent;
+}
+.player-card:hover { border-color: var(--accent); }
+.player-card.replaced { border-color: var(--accent); background: rgba(0,255,135,.07); }
+.player-card .name { flex: 1; font-weight: 500; font-size: 14px; }
+.player-card .meta { font-size: 12px; color: var(--text2); }
+.player-card .pts { font-weight: 700; color: var(--accent); }
+
+/* Heatmap */
+.heatmap { overflow-x: auto; }
+.heatmap table { min-width: 600px; }
+.heatmap td, .heatmap th { text-align: center; padding: 6px 8px; }
+.heatmap .score-cell { font-weight: 600; border-radius: 4px; }
+
+/* Modal */
+.modal-overlay {
+  display: none;
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,.6);
+  z-index: 200;
+  justify-content: center;
+  align-items: flex-start;
+  padding-top: 60px;
+}
+.modal-overlay.active { display: flex; }
+.modal {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  width: 90%;
+  max-width: 600px;
+  max-height: 75vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,.5);
+}
+.modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 18px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 { font-size: 16px; }
+.modal-close { background: none; color: var(--text2); font-size: 20px; padding: 4px 8px; }
+.modal-close:hover { color: var(--text); }
+.modal-body { overflow-y: auto; padding: 14px 18px; flex: 1; }
+.modal-tabs { display: flex; gap: 8px; margin-bottom: 12px; }
+.modal-tab { padding: 6px 14px; border-radius: 6px; font-size: 13px; }
+.modal-tab.active { background: var(--accent); color: #111; }
+
+/* Replacement summary */
+.replacement-summary {
+  background: rgba(0,255,135,.08);
+  border: 1px solid rgba(0,255,135,.2);
+  border-radius: var(--radius);
+  padding: 12px 16px;
+  margin-bottom: 16px;
+}
+.replacement-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  font-size: 13px;
+}
+.replacement-item .arrow { color: var(--accent); font-weight: 700; }
+.replacement-item .impact { font-weight: 600; }
+.replacement-item .impact.positive { color: var(--easy); }
+.replacement-item .impact.negative { color: var(--hard); }
+.undo-btn { color: var(--hard); font-size: 12px; cursor: pointer; background: none; border: none; text-decoration: underline; }
+
+/* Loader */
+.loader { text-align: center; padding: 40px; color: var(--text2); }
+.spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--accent); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--bg); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--text2); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>FPL Draft Analyzer</h1>
+  <div class="header-controls">
+    <label style="font-size:13px;color:var(--text2)">League ID:</label>
+    <input type="number" id="leagueInput" value="201560">
+    <button class="btn-primary btn-sm" onclick="init()">Load</button>
+    <span id="gwInfo"></span>
+  </div>
+</header>
+
+<div class="tabs" id="tabBar">
+  <div class="tab active" data-tab="dashboard" onclick="showTab('dashboard')">Dashboard</div>
+  <div class="tab" data-tab="fixtures" onclick="showTab('fixtures')">Fixture Grid</div>
+  <div class="tab" data-tab="analysis" onclick="showTab('analysis')">Squad Analysis</div>
+  <div class="tab" data-tab="freeagents" onclick="showTab('freeagents')">Free Agents</div>
+  <div class="tab" data-tab="transactions" onclick="showTab('transactions')">Transactions</div>
+</div>
+
+<!-- Dashboard Tab -->
+<div class="tab-content active" id="tab-dashboard">
+  <div id="dashboardContent"><div class="loader"><div class="spinner"></div><p>Loading league data...</p></div></div>
+</div>
+
+<!-- Fixture Grid Tab -->
+<div class="tab-content" id="tab-fixtures">
+  <div class="card">
+    <h3>Fixture Difficulty Grid</h3>
+    <div class="fixture-grid" id="fixtureGrid"><div class="loader"><div class="spinner"></div></div></div>
+  </div>
+</div>
+
+<!-- Squad Analysis Tab -->
+<div class="tab-content" id="tab-analysis">
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Manager</label>
+      <select id="analysisManager" style="min-width:180px"></select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW Start</label>
+      <input type="number" id="analysisGwStart" style="width:80px">
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW End</label>
+      <input type="number" id="analysisGwEnd" style="width:80px">
+    </div>
+    <button class="btn-primary" onclick="runAnalysis()">Analyze</button>
+    <button class="btn-secondary" onclick="resetSimulation()">Reset Simulation</button>
+  </div>
+  <div id="analysisResults"></div>
+</div>
+
+<!-- Free Agents Tab -->
+<div class="tab-content" id="tab-freeagents">
+  <div class="card" style="display:flex;gap:12px;align-items:flex-end;flex-wrap:wrap">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Position</label>
+      <select id="faPosition">
+        <option value="">All</option>
+        <option value="1">GK</option>
+        <option value="2">DEF</option>
+        <option value="3">MID</option>
+        <option value="4">FWD</option>
+      </select>
+    </div>
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Sort By</label>
+      <select id="faSort">
+        <option value="total_points">Total Points</option>
+        <option value="form">Form</option>
+      </select>
+    </div>
+    <button class="btn-primary" onclick="loadFreeAgents()">Search</button>
+  </div>
+  <div id="freeAgentsContent"></div>
+</div>
+
+<!-- Transactions Tab -->
+<div class="tab-content" id="tab-transactions">
+  <div id="transactionsContent"><div class="loader"><div class="spinner"></div></div></div>
+</div>
+
+<!-- Replacement Modal -->
+<div class="modal-overlay" id="replModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h3 id="replTitle">Replace Player</h3>
+      <button class="modal-close" onclick="closeReplModal()">&times;</button>
+    </div>
+    <div style="padding:8px 18px;display:flex;gap:8px">
+      <div class="modal-tabs">
+        <button class="modal-tab active" onclick="setReplTab('free')">Free Agents</button>
+        <button class="modal-tab" onclick="setReplTab('all')">All Players</button>
+      </div>
+    </div>
+    <div class="modal-body" id="replBody"></div>
+  </div>
+</div>
+
+<script>
+// ─── State ──────────────────────────────────────────────────────────
+const API = '';
+let state = {
+  leagueId: 201560,
+  currentGw: 26,
+  entries: [],
+  standings: [],
+  replacements: new Map(),
+  starPlayers: JSON.parse(localStorage.getItem('starPlayers') || '[]'),
+  replTarget: null,
+  replTab: 'free',
+};
+
+// ─── API Helpers ────────────────────────────────────────────────────
+async function api(path, opts) {
+  const sep = path.includes('?') ? '&' : '?';
+  const url = `${API}${path}${sep}league_id=${state.leagueId}`;
+  const resp = await fetch(url, opts);
+  if (!resp.ok) throw new Error(`API ${resp.status}: ${path}`);
+  return resp.json();
+}
+
+// ─── Init ───────────────────────────────────────────────────────────
+async function init() {
+  state.leagueId = parseInt(document.getElementById('leagueInput').value) || 201560;
+  localStorage.setItem('leagueId', state.leagueId);
+  document.getElementById('dashboardContent').innerHTML = '<div class="loader"><div class="spinner"></div><p>Loading league data...</p></div>';
+
+  try {
+    const [health, leagueData, standings] = await Promise.all([
+      api('/api/health'),
+      api('/api/league'),
+      api('/api/league/standings'),
+    ]);
+    state.currentGw = health.current_gw;
+    state.entries = leagueData.entries || [];
+    state.standings = standings;
+
+    document.getElementById('gwInfo').textContent = `GW ${state.currentGw}`;
+    document.getElementById('analysisGwStart').value = state.currentGw;
+    document.getElementById('analysisGwEnd').value = Math.min(state.currentGw + 5, 38);
+
+    populateManagerSelect();
+    renderDashboard();
+  } catch (e) {
+    document.getElementById('dashboardContent').innerHTML = `<div class="card" style="color:var(--hard)">Failed to load: ${e.message}</div>`;
+  }
+}
+
+function populateManagerSelect() {
+  const sel = document.getElementById('analysisManager');
+  sel.innerHTML = '';
+  state.entries.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.entry_id;
+    opt.textContent = `${e.entry_name} (${e.player_first_name || ''})`;
+    sel.appendChild(opt);
+  });
+}
+
+// ─── Tabs ───────────────────────────────────────────────────────────
+function showTab(id) {
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.tab === id));
+  document.querySelectorAll('.tab-content').forEach(t => t.classList.toggle('active', t.id === 'tab-' + id));
+
+  if (id === 'fixtures') loadFixtureGrid();
+  if (id === 'freeagents') loadFreeAgents();
+  if (id === 'transactions') loadTransactions();
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────────
+function renderDashboard() {
+  const s = state.standings;
+  const league = state.entries;
+  let html = `
+    <div class="card">
+      <h3>League Standings - GW ${state.currentGw}</h3>
+      <table>
+        <tr><th>#</th><th>Team</th><th>Manager</th><th>W</th><th>D</th><th>L</th><th>PF</th><th>PA</th><th>Pts</th></tr>
+        ${s.map(r => `
+          <tr>
+            <td><b>${r.rank}</b></td>
+            <td>${r.entry_name}</td>
+            <td style="color:var(--text2)">${r.player_name}</td>
+            <td>${r.wins}</td>
+            <td>${r.draws}</td>
+            <td>${r.losses}</td>
+            <td>${r.points_for}</td>
+            <td>${r.points_against}</td>
+            <td><b style="color:var(--accent)">${r.league_points}</b></td>
+          </tr>
+        `).join('')}
+      </table>
+    </div>
+    <div class="card">
+      <h3>Quick Actions</h3>
+      <div class="grid grid-3">
+        <button class="btn-secondary" onclick="showTab('fixtures')" style="padding:16px;font-size:14px">View Fixture Grid</button>
+        <button class="btn-secondary" onclick="showTab('analysis')" style="padding:16px;font-size:14px">Squad Analysis</button>
+        <button class="btn-secondary" onclick="showTab('freeagents')" style="padding:16px;font-size:14px">Free Agent Picks</button>
+      </div>
+    </div>`;
+  document.getElementById('dashboardContent').innerHTML = html;
+}
+
+// ─── Fixture Grid ───────────────────────────────────────────────────
+let fixtureGridLoaded = false;
+async function loadFixtureGrid() {
+  if (fixtureGridLoaded) return;
+  const el = document.getElementById('fixtureGrid');
+  try {
+    const data = await api('/api/fixtures/grid');
+    const teams = data.teams || [];
+    const gw = data.current_gw || state.currentGw;
+    const gwStart = Math.max(gw - 2, 1);
+    const gwEnd = Math.min(gw + 10, 38);
+    const gws = [];
+    for (let g = gwStart; g <= gwEnd; g++) gws.push(g);
+
+    let html = '<table><tr><th style="min-width:100px">Team</th>';
+    gws.forEach(g => html += `<th class="fixture-cell${g === gw ? ' current-gw' : ''}">${g}</th>`);
+    html += '</tr>';
+
+    teams.forEach(t => {
+      html += `<tr><td><b>${t.team_short}</b> <span style="color:var(--text2);font-size:11px">${t.team_name}</span></td>`;
+      gws.forEach(g => {
+        const f = t.fixtures[String(g)];
+        if (f) {
+          html += `<td class="fixture-cell fdr-${f.fdr}${g === gw ? ' current-gw' : ''}">${f.display}</td>`;
+        } else {
+          html += `<td class="fixture-cell" style="color:var(--text2)">-</td>`;
+        }
+      });
+      html += '</tr>';
+    });
+    html += '</table>';
+    el.innerHTML = html;
+    fixtureGridLoaded = true;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── Squad Analysis ─────────────────────────────────────────────────
+let currentAnalysis = null;
+
+async function runAnalysis() {
+  const el = document.getElementById('analysisResults');
+  const entryId = document.getElementById('analysisManager').value;
+  const gwStart = parseInt(document.getElementById('analysisGwStart').value);
+  const gwEnd = parseInt(document.getElementById('analysisGwEnd').value);
+  if (!entryId) return;
+
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  try {
+    const replacementsObj = {};
+    state.replacements.forEach((v, k) => { replacementsObj[k] = v.newId; });
+
+    let result;
+    if (Object.keys(replacementsObj).length > 0) {
+      result = await api('/api/analysis/simulate', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({
+          entry_id: parseInt(entryId),
+          gw_start: gwStart,
+          gw_end: gwEnd,
+          star_players: state.starPlayers,
+          replacements: replacementsObj,
+        }),
+      });
+    } else {
+      const stars = state.starPlayers.length ? `&star_players=${state.starPlayers.join(',')}` : '';
+      result = await api(`/api/analysis/${entryId}?gw_start=${gwStart}&gw_end=${gwEnd}${stars}`);
+    }
+
+    currentAnalysis = result;
+    renderAnalysis(result, gwStart, gwEnd);
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderAnalysis(a, gwStart, gwEnd) {
+  const el = document.getElementById('analysisResults');
+  let html = '';
+
+  // Replacement summary
+  if (state.replacements.size > 0) {
+    html += '<div class="replacement-summary"><b>Simulation Changes:</b>';
+    state.replacements.forEach((v, oldId) => {
+      const impactClass = v.impact >= 0 ? 'positive' : 'negative';
+      const impactSign = v.impact >= 0 ? '+' : '';
+      html += `<div class="replacement-item">
+        <span style="text-decoration:line-through;color:var(--text2)">${v.oldName}</span>
+        <span class="arrow">&rarr;</span>
+        <span style="color:var(--accent)">${v.newName}</span>
+        <span class="impact ${impactClass}">${impactSign}${v.impact.toFixed(1)}</span>
+        <button class="undo-btn" onclick="undoReplacement(${oldId})">undo</button>
+      </div>`;
+    });
+    html += '</div>';
+  }
+
+  // Summary stats
+  html += `<div class="grid grid-4" style="margin-bottom:16px">
+    <div class="card stat"><div class="stat-value">${a.total_score}</div><div class="stat-label">Total Score</div></div>
+    <div class="card stat"><div class="stat-value">${a.success_rate}%</div><div class="stat-label">Easy GW Rate</div></div>
+    <div class="card stat"><div class="stat-value">${a.success_count}/${a.total_gameweeks}</div><div class="stat-label">Easy Gameweeks</div></div>
+    <div class="card stat"><div class="stat-value" style="color:var(--hard)">${a.weakest_position || 'None'}</div><div class="stat-label">Weakest Position</div></div>
+  </div>`;
+
+  // Position heatmap
+  html += '<div class="card"><h3>Position Heatmap</h3><div class="heatmap"><table><tr><th>Pos</th>';
+  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
+  html += '<th>Avg</th></tr>';
+
+  ['GK', 'DEF', 'MID', 'FWD'].forEach(pos => {
+    html += `<tr><td><span class="pos pos-${pos}">${pos}</span></td>`;
+    let sum = 0, count = 0;
+    a.by_gameweek.forEach(gw => {
+      const d = gw[pos];
+      if (!d) return;
+      const bg = d.tier === 'easy' ? 'var(--easy)' : d.tier === 'medium' ? 'var(--medium)' : 'var(--hard)';
+      const fg = d.tier === 'hard' ? '#fff' : '#111';
+      html += `<td class="score-cell" style="background:${bg};color:${fg}">${d.score}</td>`;
+      sum += d.score;
+      count++;
+    });
+    const avg = count ? (sum / count).toFixed(1) : '-';
+    html += `<td style="font-weight:700">${avg}</td></tr>`;
+  });
+  html += '</table></div></div>';
+
+  // Squad
+  html += '<div class="card"><h3>Your Squad (click to replace)</h3><div class="grid grid-3">';
+  const posGroups = {1: [], 2: [], 3: [], 4: []};
+  (a.full_squad || []).forEach(p => posGroups[p.position]?.push(p));
+
+  [1, 2, 3, 4].forEach(posId => {
+    const posName = {1:'GK',2:'DEF',3:'MID',4:'FWD'}[posId];
+    const players = posGroups[posId] || [];
+    players.forEach(p => {
+      const isReplaced = state.replacements.has(p.replaced_player_id || -1) || p.is_replacement;
+      const isStar = state.starPlayers.includes(p.player_id);
+      const avgScore = Object.values(p.gw_scores || {}).reduce((a,b) => a + b, 0) / Math.max(Object.keys(p.gw_scores || {}).length, 1);
+      html += `<div class="player-card${isReplaced ? ' replaced' : ''}" onclick="openReplModal(${p.replaced_player_id || p.player_id}, '${p.web_name}', ${p.position})">
+        <span class="pos pos-${posName}">${posName}</span>
+        <div>
+          <div class="name">${p.web_name}${isStar ? ' ★' : ''}${p.is_replacement ? ' <span style="color:var(--accent);font-size:11px">NEW</span>' : ''}</div>
+          <div class="meta">${p.team_short} · ${p.total_points} pts · Avg: ${avgScore.toFixed(1)}</div>
+        </div>
+        <div class="pts">${p.total_points}</div>
+      </div>`;
+    });
+  });
+  html += '</div></div>';
+
+  el.innerHTML = html;
+}
+
+function resetSimulation() {
+  state.replacements.clear();
+  runAnalysis();
+}
+
+function undoReplacement(oldPlayerId) {
+  state.replacements.delete(oldPlayerId);
+  runAnalysis();
+}
+
+// ─── Replacement Modal ──────────────────────────────────────────────
+function openReplModal(playerId, playerName, position) {
+  state.replTarget = { playerId, playerName, position };
+  document.getElementById('replTitle').textContent = `Replace ${playerName}`;
+  document.getElementById('replModal').classList.add('active');
+  setReplTab('free');
+}
+
+function closeReplModal() {
+  document.getElementById('replModal').classList.remove('active');
+}
+
+function setReplTab(tab) {
+  state.replTab = tab;
+  document.querySelectorAll('.modal-tab').forEach(t => t.classList.toggle('active', t.textContent.toLowerCase().includes(tab)));
+  loadReplacements();
+}
+
+async function loadReplacements() {
+  const body = document.getElementById('replBody');
+  body.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+  const t = state.replTarget;
+  if (!t) return;
+
+  const entryId = document.getElementById('analysisManager').value;
+  const gwStart = parseInt(document.getElementById('analysisGwStart').value);
+  const gwEnd = parseInt(document.getElementById('analysisGwEnd').value);
+
+  try {
+    const data = await api('/api/analysis/replacements', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        entry_id: parseInt(entryId),
+        player_id: t.playerId,
+        gw_start: gwStart,
+        gw_end: gwEnd,
+        star_players: state.starPlayers,
+        include_owned: state.replTab === 'all',
+      }),
+    });
+
+    if (!data.length) {
+      body.innerHTML = '<p style="color:var(--text2);padding:16px">No candidates found.</p>';
+      return;
+    }
+
+    let html = '<table><tr><th>Player</th><th>Team</th><th>Pts</th><th>Form</th><th>Impact</th><th>FA</th><th></th></tr>';
+    data.forEach(c => {
+      const impactColor = c.impact > 0 ? 'var(--easy)' : c.impact < 0 ? 'var(--hard)' : 'var(--text2)';
+      const sign = c.impact > 0 ? '+' : '';
+      html += `<tr>
+        <td><b>${c.name}</b></td>
+        <td>${c.team}</td>
+        <td>${c.total_points}</td>
+        <td>${c.form}</td>
+        <td style="color:${impactColor};font-weight:700">${sign}${c.impact}</td>
+        <td>${c.is_free_agent ? '<span style="color:var(--easy)">Yes</span>' : '<span style="color:var(--text2)">No</span>'}</td>
+        <td><button class="btn-primary btn-sm" onclick="applyReplacement(${t.playerId}, '${t.playerName}', ${c.player_id}, '${c.name}', ${c.impact})">Pick</button></td>
+      </tr>`;
+    });
+    html += '</table>';
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--hard);padding:16px">Error: ${e.message}</div>`;
+  }
+}
+
+function applyReplacement(oldId, oldName, newId, newName, impact) {
+  state.replacements.set(oldId, { newId, newName, oldName, impact });
+  closeReplModal();
+  runAnalysis();
+}
+
+// ─── Free Agents ────────────────────────────────────────────────────
+async function loadFreeAgents() {
+  const el = document.getElementById('freeAgentsContent');
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  const pos = document.getElementById('faPosition').value;
+  const sort = document.getElementById('faSort').value;
+  const posParam = pos ? `&position=${pos}` : '';
+
+  try {
+    const data = await api(`/api/free-agents?sort=${sort}&limit=100${posParam}`);
+    const posNames = {1:'GK',2:'DEF',3:'MID',4:'FWD'};
+    let html = '<div class="card"><table><tr><th>#</th><th>Player</th><th>Pos</th><th>Team</th><th>Pts</th><th>Form</th><th>Min</th><th>G</th><th>A</th><th>CS</th></tr>';
+    data.forEach((p, i) => {
+      const pn = posNames[p.position] || '?';
+      html += `<tr>
+        <td>${i + 1}</td>
+        <td><b>${p.web_name}</b></td>
+        <td><span class="pos pos-${pn}">${pn}</span></td>
+        <td>${p.team_short}</td>
+        <td><b>${p.total_points}</b></td>
+        <td>${p.form}</td>
+        <td>${p.minutes}</td>
+        <td>${p.goals_scored}</td>
+        <td>${p.assists}</td>
+        <td>${p.clean_sheets}</td>
+      </tr>`;
+    });
+    html += '</table></div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── Transactions ───────────────────────────────────────────────────
+async function loadTransactions() {
+  const el = document.getElementById('transactionsContent');
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  try {
+    const [txns, trades, players] = await Promise.all([
+      api('/api/league/transactions'),
+      api('/api/league/trades'),
+      api('/api/players'),
+    ]);
+
+    const playerMap = {};
+    players.forEach(p => playerMap[p.id] = p.web_name);
+    const entryMap = {};
+    state.entries.forEach(e => entryMap[e.entry_id] = e.entry_name);
+
+    let html = '';
+
+    // Trades
+    if (trades.length) {
+      html += '<div class="card"><h3>Manager Trades</h3><table><tr><th>GW</th><th>Offered By</th><th>Received By</th><th>Players Exchanged</th><th>Status</th></tr>';
+      trades.forEach(t => {
+        const items = (t.tradeitem_set || []).map(i =>
+          `${playerMap[i.element_in] || i.element_in} ↔ ${playerMap[i.element_out] || i.element_out}`
+        ).join(', ');
+        const status = t.state === 'a' ? '<span style="color:var(--easy)">Accepted</span>' :
+                       t.state === 'p' ? '<span style="color:var(--medium)">Pending</span>' :
+                       '<span style="color:var(--hard)">Rejected</span>';
+        html += `<tr><td>GW${t.event}</td><td>${entryMap[t.offered_entry] || t.offered_entry}</td><td>${entryMap[t.received_entry] || t.received_entry}</td><td>${items}</td><td>${status}</td></tr>`;
+      });
+      html += '</table></div>';
+    }
+
+    // Waivers & Free Agent picks
+    const kindNames = {w: 'Waiver', f: 'Free Agent', a: 'Admin'};
+    const resultNames = {a: 'Approved', di: 'Rejected', r: 'Rejected'};
+    html += '<div class="card"><h3>Waivers & Free Agent Picks</h3><table><tr><th>GW</th><th>Manager</th><th>Type</th><th>In</th><th>Out</th><th>Result</th></tr>';
+    txns.sort((a, b) => new Date(b.added) - new Date(a.added));
+    txns.slice(0, 100).forEach(t => {
+      const resColor = t.result === 'a' ? 'var(--easy)' : 'var(--hard)';
+      html += `<tr>
+        <td>GW${t.event}</td>
+        <td>${entryMap[t.entry] || t.entry}</td>
+        <td>${kindNames[t.kind] || t.kind}</td>
+        <td style="color:var(--easy)">${playerMap[t.element_in] || t.element_in}</td>
+        <td style="color:var(--hard)">${playerMap[t.element_out] || t.element_out}</td>
+        <td style="color:${resColor}">${resultNames[t.result] || t.result}</td>
+      </tr>`;
+    });
+    html += '</table></div>';
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── Star Players (localStorage) ────────────────────────────────────
+function toggleStarPlayer(playerId) {
+  const idx = state.starPlayers.indexOf(playerId);
+  if (idx >= 0) state.starPlayers.splice(idx, 1);
+  else state.starPlayers.push(playerId);
+  localStorage.setItem('starPlayers', JSON.stringify(state.starPlayers));
+}
+
+// ─── Boot ───────────────────────────────────────────────────────────
+const savedLeague = localStorage.getItem('leagueId');
+if (savedLeague) document.getElementById('leagueInput').value = savedLeague;
+init();
+</script>
+</body>
+</html>

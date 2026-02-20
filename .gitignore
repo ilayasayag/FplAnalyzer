@@ -1,36 +1,39 @@
-# OS generated files
-.DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
-Thumbs.db
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
 
-# IDE files
+# Virtual environments
+.venv/
+venv/
+env/
+
+# IDE
 .idea/
 .vscode/
 *.swp
 *.swo
 
-# Build artifacts
-*.zip
-dist/
-build/
+# OS
+.DS_Store
+Thumbs.db
 
-# Local data (user-specific)
-# Note: wishlist JSON files are included as sample data
-
-
-# Python cache
-__pycache__/
-*.pyc
-*.pyo
-
-# Data exports (can be large)
-*.json
-!*_wishlist.json
-
-# Database files
+# Legacy data (no longer used)
 *.duckdb
 *.duckdb.wal
+*.db
+fpl_league_data_*.json
+
+# Node (browser testing artifacts)
+node_modules/
+package.json
+package-lock.json
+
+# Verification screenshots
+verification_*/
+
+# Environment
+.env
