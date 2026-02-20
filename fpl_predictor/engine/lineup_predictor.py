@@ -27,7 +27,7 @@ class LineupPredictor:
         Uses FPL news, minutes data, starts, and recent patterns.
         """
         draft_players = self.client.get_players()
-        main_players = self.client.get_main_player_map()
+        draft_to_main = self.client.get_draft_to_main_map()
         team_map = self.client.get_team_map()
 
         squad = [p for p in draft_players if p["team"] == team_id]
@@ -35,7 +35,7 @@ class LineupPredictor:
 
         scored = []
         for p in squad:
-            main = main_players.get(p["id"], {})
+            main = draft_to_main.get(p["id"], {})
             score = self._availability_score(p, main, current_gw)
             scored.append({
                 "player_id": p["id"],
@@ -86,6 +86,94 @@ class LineupPredictor:
         teams = self.client.get_teams()
         return [self.predict_team_lineup(t["id"]) for t in teams]
 
+    def predict_gw_fixtures(self, gw: int) -> List[Dict]:
+        """
+        All fixtures for a GW with predicted lineups for both teams.
+        """
+        fixtures = self.client.get_fixtures()
+        team_map = self.client.get_team_map()
+        gw_fixtures = [f for f in fixtures if f.get("event") == gw]
+        result = []
+        for f in gw_fixtures:
+            h_id, a_id = f["team_h"], f["team_a"]
+            h_team = team_map.get(h_id, {})
+            a_team = team_map.get(a_id, {})
+            h_lineup = self.predict_team_lineup(h_id)
+            a_lineup = self.predict_team_lineup(a_id)
+            result.append({
+                "fixture_id": f.get("id"),
+                "kickoff": f.get("kickoff_time"),
+                "home": {
+                    "team_id": h_id,
+                    "team_name": h_team.get("name", "?"),
+                    "team_short": h_team.get("short_name", "?"),
+                    "lineup": h_lineup,
+                },
+                "away": {
+                    "team_id": a_id,
+                    "team_name": a_team.get("name", "?"),
+                    "team_short": a_team.get("short_name", "?"),
+                    "lineup": a_lineup,
+                },
+                "finished": f.get("finished", False),
+                "score": f"{f.get('team_h_score', '-')} - {f.get('team_a_score', '-')}" if f.get("finished") else None,
+            })
+        return result
+
+    def validate_accuracy(self, gw: int) -> Dict:
+        """
+        Validate predicted lineups accuracy against actual minutes played
+        in a past GW. Uses live GW data to check who actually played.
+        """
+        try:
+            live_data = self.client.get_gw_live(gw)
+        except Exception:
+            return {"error": f"Could not fetch live data for GW {gw}"}
+
+        actual_starters = {}
+        for elem in live_data:
+            pid = elem["id"]
+            stats = elem.get("stats", {})
+            mins = stats.get("minutes", 0)
+            started = stats.get("starts", 0)
+            if started > 0:
+                actual_starters[pid] = mins
+
+        player_map = self.client.get_player_map()
+        teams = self.client.get_teams()
+        actual_by_team = defaultdict(set)
+        for pid in actual_starters:
+            p = player_map.get(pid, {})
+            if p:
+                actual_by_team[p["team"]].add(pid)
+
+        results = []
+        for t in teams:
+            tid = t["id"]
+            predicted = self.predict_team_lineup(tid)
+            pred_ids = {p["player_id"] for p in predicted.get("predicted_xi", [])}
+            actual_ids = actual_by_team.get(tid, set())
+
+            correct = pred_ids & actual_ids
+            accuracy = round(len(correct) / max(len(pred_ids), 1) * 100, 1)
+
+            results.append({
+                "team_id": tid,
+                "team_short": t.get("short_name", "?"),
+                "team_name": t.get("name", "?"),
+                "predicted_count": len(pred_ids),
+                "actual_starters": len(actual_ids),
+                "correct": len(correct),
+                "accuracy": accuracy,
+            })
+
+        avg_accuracy = round(sum(r["accuracy"] for r in results) / max(len(results), 1), 1)
+        return {
+            "gw": gw,
+            "teams": results,
+            "avg_accuracy": avg_accuracy,
+        }
+
     def get_player_availability(self, league_id: int) -> List[Dict]:
         """
         Get availability info for all players in a league's squads.
@@ -93,7 +181,7 @@ class LineupPredictor:
         """
         current_gw = self.client.get_current_gw()
         entries = self.client.get_league_entries(league_id)
-        main_players = self.client.get_main_player_map()
+        draft_to_main = self.client.get_draft_to_main_map()
         player_map = self.client.get_player_map()
         team_map = self.client.get_team_map()
         result = []
@@ -107,7 +195,7 @@ class LineupPredictor:
             for pick in squad:
                 pid = pick["element"]
                 p = player_map.get(pid, {})
-                main = main_players.get(pid, {})
+                main = draft_to_main.get(pid, {})
                 if not p:
                     continue
                 team = team_map.get(p["team"], {})

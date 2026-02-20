@@ -237,6 +237,65 @@ tr:hover td { background: rgba(255,255,255,.03); }
 
 /* Batch cross cell */
 .batch-cell { text-align:center; padding:6px 10px; border-radius:4px; font-weight:600; font-size:13px; }
+
+/* Jersey icon */
+.jersey {
+  display:inline-block; width:32px; height:32px; position:relative; flex-shrink:0;
+}
+.jersey svg { width:100%; height:100%; }
+.jersey-sm { width:24px; height:24px; }
+.jersey-lg { width:42px; height:42px; }
+
+/* Score distribution chart */
+.dist-chart { display:flex; align-items:flex-end; gap:2px; height:60px; padding:4px 0; }
+.dist-bar {
+  flex:1; min-width:14px; border-radius:3px 3px 0 0;
+  position:relative; cursor:default; transition:opacity .15s;
+}
+.dist-bar:hover { opacity:.8; }
+.dist-bar .dist-label {
+  position:absolute; bottom:-16px; left:50%; transform:translateX(-50%);
+  font-size:9px; color:var(--text2); white-space:nowrap;
+}
+.dist-bar .dist-count {
+  position:absolute; top:-14px; left:50%; transform:translateX(-50%);
+  font-size:9px; color:var(--text); white-space:nowrap;
+}
+
+/* Player card with team stripe */
+.player-card-v2 {
+  display:flex; align-items:center; gap:10px;
+  padding:10px 12px; background:var(--surface2);
+  border-radius:var(--radius); cursor:pointer;
+  transition:all .15s; border-left:4px solid transparent;
+  position:relative;
+}
+.player-card-v2:hover { background:var(--border); }
+
+/* GW fixture card */
+.fixture-card {
+  background:var(--surface); border:1px solid var(--border);
+  border-radius:12px; overflow:hidden;
+}
+.fixture-card-header {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:12px 16px; font-size:14px;
+}
+.fixture-card-lineups { display:grid; grid-template-columns:1fr 1fr; gap:0; }
+.fixture-card-side { padding:8px 12px; }
+.fixture-card-side h4 { font-size:12px; color:var(--text2); margin-bottom:6px; }
+
+/* Compact player row for lineups */
+.lineup-row {
+  display:flex; align-items:center; gap:6px;
+  padding:3px 0; font-size:12px;
+}
+.lineup-row .lr-name { flex:1; }
+.lineup-row .lr-avail {
+  width:28px; height:28px; border-radius:50%;
+  display:flex; align-items:center; justify-content:center;
+  font-size:10px; font-weight:700;
+}
 </style>
 </head>
 <body>
@@ -259,6 +318,7 @@ tr:hover td { background: rgba(255,255,255,.03); }
   <div class="tab" data-tab="plteams" onclick="showTab('plteams')">PL Teams</div>
   <div class="tab" data-tab="ndk" onclick="showTab('ndk')">N-D-K</div>
   <div class="tab" data-tab="h2h" onclick="showTab('h2h')">H2H Compare</div>
+  <div class="tab" data-tab="gwlineups" onclick="showTab('gwlineups')">GW Lineups</div>
   <div class="tab" data-tab="freeagents" onclick="showTab('freeagents')">Free Agents</div>
   <div class="tab" data-tab="transactions" onclick="showTab('transactions')">Transactions</div>
 </div>
@@ -369,6 +429,20 @@ tr:hover td { background: rgba(255,255,255,.03); }
     <button class="btn-primary" onclick="loadH2H()">Compare</button>
   </div>
   <div id="h2hResults"></div>
+</div>
+
+<!-- GW Lineups -->
+<div class="tab-content" id="tab-gwlineups">
+  <div class="card" style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end">
+    <div>
+      <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Gameweek</label>
+      <input type="number" id="gwLineupsGw" style="width:80px">
+    </div>
+    <button class="btn-primary" onclick="loadGWLineups()">Load Predicted Lineups</button>
+    <button class="btn-secondary" onclick="validateLineups()">Validate Past GW Accuracy</button>
+    <div id="lineupAccuracy" style="font-size:13px;color:var(--text2)"></div>
+  </div>
+  <div id="gwLineupsContent"></div>
 </div>
 
 <!-- Free Agents -->
@@ -482,6 +556,7 @@ async function init() {
     document.getElementById('ndkGwStart').value = nxt;
     document.getElementById('ndkGwEnd').value = nxtEnd;
     document.getElementById('h2hGw').value = nxt;
+    document.getElementById('gwLineupsGw').value = nxt;
 
     populateManagerSelects();
     renderDashboard();
@@ -610,59 +685,6 @@ async function runAnalysis() {
   }
 }
 
-function renderAnalysis(a, gwStart, gwEnd) {
-  const el = document.getElementById('analysisResults');
-  let html = '';
-  if (state.replacements.size > 0) {
-    html += '<div class="replacement-summary"><b>Simulation Changes:</b>';
-    state.replacements.forEach((v, oldId) => {
-      const cls = v.impact >= 0 ? 'positive' : 'negative';
-      html += `<div class="replacement-item"><span style="text-decoration:line-through;color:var(--text2)">${v.oldName}</span><span class="arrow">&rarr;</span><span style="color:var(--accent)">${v.newName}</span><span class="impact ${cls}">${v.impact >= 0 ? '+' : ''}${v.impact.toFixed(1)}</span><button class="undo-btn" onclick="undoReplacement(${oldId})">undo</button></div>`;
-    });
-    html += '</div>';
-  }
-  html += `<div class="grid grid-4" style="margin-bottom:16px">
-    <div class="card stat"><div class="stat-value">${a.total_score}</div><div class="stat-label">Total Score</div></div>
-    <div class="card stat"><div class="stat-value">${a.success_rate}%</div><div class="stat-label">Easy GW Rate</div></div>
-    <div class="card stat"><div class="stat-value">${a.success_count}/${a.total_gameweeks}</div><div class="stat-label">Easy Gameweeks</div></div>
-    <div class="card stat"><div class="stat-value" style="color:var(--hard)">${a.weakest_position || 'None'}</div><div class="stat-label">Weakest Position</div></div>
-  </div>`;
-  html += '<div class="card"><h3>Position Heatmap</h3><div class="heatmap"><table><tr><th>Pos</th>';
-  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
-  html += '<th>Avg</th></tr>';
-  ['GK','DEF','MID','FWD'].forEach(pos => {
-    html += `<tr><td><span class="pos pos-${pos}">${pos}</span></td>`;
-    let sum = 0, count = 0;
-    a.by_gameweek.forEach(gw => {
-      const d = gw[pos];
-      if (!d) return;
-      const bg = d.tier === 'easy' ? 'var(--easy)' : d.tier === 'medium' ? 'var(--medium)' : 'var(--hard)';
-      const fg = d.tier === 'hard' ? '#fff' : '#111';
-      html += `<td class="score-cell" style="background:${bg};color:${fg}">${d.score}</td>`;
-      sum += d.score; count++;
-    });
-    html += `<td style="font-weight:700">${count ? (sum/count).toFixed(1) : '-'}</td></tr>`;
-  });
-  html += '</table></div></div>';
-  html += '<div class="card"><h3>Your Squad (click to replace)</h3><div class="grid grid-3">';
-  const pg = {1:[],2:[],3:[],4:[]};
-  (a.full_squad || []).forEach(p => pg[p.position]?.push(p));
-  [1,2,3,4].forEach(posId => {
-    (pg[posId]||[]).forEach(p => {
-      const isR = state.replacements.has(p.replaced_player_id || -1) || p.is_replacement;
-      const isStar = state.starPlayers.includes(p.player_id);
-      const avg = Object.values(p.gw_scores || {}).reduce((a,b) => a+b, 0) / Math.max(Object.keys(p.gw_scores || {}).length, 1);
-      html += `<div class="player-card${isR ? ' replaced' : ''}" onclick="openReplModal(${p.replaced_player_id || p.player_id}, '${p.web_name.replace(/'/g,"\\'")}', ${p.position})">
-        <span class="pos pos-${POS[posId]}">${POS[posId]}</span>
-        <div><div class="name">${p.web_name}${isStar ? ' *' : ''}${p.is_replacement ? ' <span style="color:var(--accent);font-size:11px">NEW</span>' : ''}</div><div class="meta">${p.team_short} | ${p.total_points} pts | Avg: ${avg.toFixed(1)}</div></div>
-        <div class="pts">${p.total_points}</div>
-      </div>`;
-    });
-  });
-  html += '</div></div>';
-  el.innerHTML = html;
-}
-
 function resetSimulation() { state.replacements.clear(); runAnalysis(); }
 function undoReplacement(id) { state.replacements.delete(id); runAnalysis(); }
 
@@ -729,190 +751,12 @@ async function loadPredictions() {
   }
 }
 
-function renderPredictions(data, gwStart, gwEnd) {
-  const el = document.getElementById('predResults');
-  const players = data.players || [];
-  const lineups = data.suggested_lineups || [];
-  let html = '';
-
-  // Suggested Lineups
-  if (lineups.length) {
-    html += '<div class="card"><h3>Suggested Lineups</h3><div style="overflow-x:auto;display:flex;gap:16px">';
-    lineups.forEach(lu => {
-      const lineup = lu.lineup || [];
-      const gkRow = lineup.filter(p => p.position === 1);
-      const defRow = lineup.filter(p => p.position === 2);
-      const midRow = lineup.filter(p => p.position === 3);
-      const fwdRow = lineup.filter(p => p.position === 4);
-
-      html += `<div style="min-width:320px"><div style="text-align:center;margin-bottom:8px"><b>GW${lu.gw}</b> | ${lu.formation} | <span style="color:var(--accent)">${lu.total_xpts} xPts</span> <span style="color:var(--text2);font-size:11px">(${lu.total_floor}-${lu.total_ceiling})</span></div>`;
-      html += '<div class="pitch">';
-      [gkRow, defRow, midRow, fwdRow].forEach(row => {
-        html += '<div class="pitch-row">';
-        row.forEach(p => {
-          html += `<div class="pitch-player" onclick="openPlayerDetail(${p.player_id})"><div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts}</div><div class="pp-team">${p.team_short}</div></div>`;
-        });
-        html += '</div>';
-      });
-      const bench = lu.bench || [];
-      if (bench.length) {
-        html += `<div style="text-align:center;color:rgba(255,255,255,.4);font-size:10px;margin-top:8px">BENCH</div><div class="pitch-row">`;
-        bench.forEach(p => {
-          html += `<div class="pitch-player" style="opacity:.5"><div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts.toFixed(1)}</div></div>`;
-        });
-        html += '</div>';
-      }
-      html += '</div></div>';
-    });
-    html += '</div></div>';
-  }
-
-  // Full player xPts table
-  html += '<div class="card"><h3>Player Predicted Points</h3><div style="overflow-x:auto"><table><tr><th>Player</th><th>Pos</th><th>Team</th><th>Form</th><th>Lineup%</th>';
-  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
-  html += '<th>Avg xPts</th></tr>';
-
-  const sorted = [...players].sort((a,b) => b.avg_xpts - a.avg_xpts);
-  sorted.forEach(p => {
-    const pn = POS[p.position] || '?';
-    html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td><b>${p.web_name}</b></td><td><span class="pos pos-${pn}">${pn}</span></td><td>${p.team_short}</td><td>${p.form}</td><td>${Math.round(p.lineup_prob*100)}%</td>`;
-    (p.predictions || []).forEach(pr => {
-      if (pr.no_fixture) { html += '<td style="color:var(--text2)">-</td>'; return; }
-      const bg = xptsColor(pr.expected);
-      html += `<td style="background:${bg};color:#111;text-align:center;font-weight:600;border-radius:4px" title="${pr.opponent} | Floor:${pr.floor} Ceil:${pr.ceiling}">${pr.expected}</td>`;
-    });
-    html += `<td style="font-weight:700;color:var(--accent)">${p.avg_xpts}</td></tr>`;
-  });
-  html += '</table></div></div>';
-
-  // Breakdown for top player
-  if (sorted.length && sorted[0].predictions?.length) {
-    const top = sorted[0];
-    const pr = top.predictions[0];
-    if (pr && pr.breakdown) {
-      html += `<div class="card"><h3>Breakdown: ${top.web_name} (GW${pr.gw} vs ${pr.opponent})</h3>`;
-      html += renderBreakdown(pr);
-      html += '</div>';
-    }
-  }
-
-  el.innerHTML = html;
-}
-
 function xptsColor(xpts) {
   if (xpts >= 6) return 'var(--easy)';
   if (xpts >= 4) return '#7ddf90';
   if (xpts >= 3) return 'var(--medium)';
   if (xpts >= 2) return '#e8a040';
   return 'var(--hard)';
-}
-
-function renderBreakdown(pr) {
-  const bd = pr.breakdown || {};
-  const items = [
-    ['Playing time', bd.playing],
-    ['Goals', bd.goals],
-    ['Assists', bd.assists],
-    ['Clean sheet', bd.clean_sheet],
-    ['Saves', bd.saves],
-    ['Bonus', bd.bonus],
-    ['Cards', bd.cards],
-    ['Goals conceded', bd.goals_conceded],
-  ].filter(x => x[1] !== 0);
-
-  let html = '<div class="grid grid-4">';
-  html += `<div class="stat stat-sm"><div class="stat-value">${pr.expected}</div><div class="stat-label">Expected</div></div>`;
-  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--text2)">${pr.floor}</div><div class="stat-label">Floor</div></div>`;
-  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${pr.ceiling}</div><div class="stat-label">Ceiling</div></div>`;
-  html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(pr.lineup_prob*100)}%</div><div class="stat-label">Lineup</div></div>`;
-  html += '</div>';
-
-  html += '<div style="margin-top:12px">';
-  items.forEach(([label, val]) => {
-    const color = val >= 0 ? 'var(--easy)' : 'var(--hard)';
-    const pct = Math.min(Math.abs(val) / 3 * 100, 100);
-    html += `<div class="xpts-bar" style="margin:4px 0"><span style="width:120px;color:var(--text2)">${label}</span><div class="bar-bg"><div class="bar-fill" style="width:${pct}%;background:${color}"></div></div><span style="color:${color};font-weight:600">${val >= 0 ? '+' : ''}${val.toFixed(2)}</span></div>`;
-  });
-  html += '</div>';
-
-  html += `<div style="margin-top:8px;font-size:12px;color:var(--text2)">xG: ${pr.xg} | xA: ${pr.xa} | CS prob: ${Math.round(pr.cs_prob*100)}%</div>`;
-  return html;
-}
-
-// ─── Player Detail Modal ─────────────────────────────────────────
-async function openPlayerDetail(playerId) {
-  const modal = document.getElementById('playerModal');
-  const body = document.getElementById('playerModalBody');
-  const title = document.getElementById('playerModalTitle');
-  modal.classList.add('active');
-  body.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
-
-  try {
-    const nxt = Math.min(state.nextGw, 38);
-    const [pred, history] = await Promise.all([
-      api(`/api/predict/player/${playerId}?gw_start=${nxt}&gw_end=${Math.min(nxt+5,38)}`),
-      api(`/api/player/${playerId}/history`),
-    ]);
-
-    title.textContent = `${pred.web_name} (${POS[pred.position]}) - ${pred.team_short}`;
-
-    let html = '';
-    const sr = pred.season_rates || {};
-    const fr = pred.form_rates || {};
-
-    html += '<div class="grid grid-5" style="margin-bottom:16px">';
-    html += `<div class="stat stat-sm"><div class="stat-value">${pred.total_points}</div><div class="stat-label">Total Pts</div></div>`;
-    html += `<div class="stat stat-sm"><div class="stat-value">${pred.form}</div><div class="stat-label">Form</div></div>`;
-    html += `<div class="stat stat-sm"><div class="stat-value">${pred.avg_xpts}</div><div class="stat-label">Avg xPts</div></div>`;
-    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(pred.lineup_prob*100)}%</div><div class="stat-label">Lineup</div></div>`;
-    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${sr.defcon_p90 || 0}</div><div class="stat-label">DefCon/90</div></div>`;
-    html += '</div>';
-
-    // Season vs Form comparison
-    html += '<div class="card"><h3>Season vs Recent Form (per 90 / per game)</h3><table><tr><th>Stat</th><th>Season</th><th>Form (L5)</th></tr>';
-    [['Goals/90', 'goals_p90'], ['Assists/90', 'assists_p90'], ['xG/90', 'xg_p90'], ['xA/90', 'xa_p90'],
-     ['CS rate', 'cs_rate'], ['Bonus/g', 'bonus_pg'], ['Cards/g', 'yellow_pg'], ['DefCon/90', 'defcon_p90']
-    ].forEach(([label, key]) => {
-      const sv = sr[key] ?? '-', fv = fr[key] ?? '-';
-      const diff = (typeof fv === 'number' && typeof sv === 'number') ? fv - sv : 0;
-      const dc = diff > 0.05 ? 'var(--easy)' : diff < -0.05 ? 'var(--hard)' : 'var(--text)';
-      html += `<tr><td>${label}</td><td>${typeof sv === 'number' ? sv.toFixed(3) : sv}</td><td style="color:${dc}">${typeof fv === 'number' ? fv.toFixed(3) : fv}</td></tr>`;
-    });
-    html += '</table></div>';
-
-    // Upcoming predictions
-    html += '<div class="card"><h3>Upcoming GW Predictions</h3><table><tr><th>GW</th><th>Opp</th><th>FDR</th><th>Floor</th><th>Expected</th><th>Ceiling</th><th>Lineup%</th></tr>';
-    (pred.predictions || []).forEach(pr => {
-      if (pr.no_fixture) return;
-      html += `<tr><td>GW${pr.gw}</td><td>${pr.opponent}</td><td><span class="fdr-${pr.fdr}" style="padding:2px 6px;border-radius:4px">${pr.fdr}</span></td><td>${pr.floor}</td><td style="font-weight:700;color:var(--accent)">${pr.expected}</td><td>${pr.ceiling}</td><td>${Math.round(pr.lineup_prob*100)}%</td></tr>`;
-      if (pr.breakdown) {
-        const bd = pr.breakdown;
-        html += `<tr><td colspan="7" style="font-size:11px;color:var(--text2);padding:2px 10px 8px">Playing:${bd.playing} | Goals:${bd.goals} | Assists:${bd.assists} | CS:${bd.clean_sheet} | Saves:${bd.saves} | Bonus:${bd.bonus} | Cards:${bd.cards} | GC:${bd.goals_conceded}</td></tr>`;
-      }
-    });
-    html += '</table></div>';
-
-    // Batch-level stats (defcon, goals, etc. by opponent quality)
-    const bs = pred.batch_stats || {};
-    if (Object.keys(bs).length) {
-      html += '<div class="card"><h3>Performance by Opponent Quality (DefCon, Goals, etc.)</h3><table><tr><th>Opponent Batch</th><th>Games</th><th>Pts/G</th><th>Goals/90</th><th>Assists/90</th><th>xG/90</th><th>CS Rate</th><th>DefCon/90</th><th>GC/90</th><th>Bonus/G</th></tr>';
-      Object.entries(bs).forEach(([batch, s]) => {
-        html += `<tr><td><b>${batch}</b></td><td>${s.games}</td><td style="font-weight:700;color:var(--accent)">${s.pts_pg}</td><td>${s.goals_p90}</td><td>${s.assists_p90}</td><td>${s.xg_p90}</td><td>${(s.cs_rate*100).toFixed(0)}%</td><td style="color:var(--blue)">${s.defcon_p90}</td><td>${s.gc_p90}</td><td>${s.bonus_pg}</td></tr>`;
-      });
-      html += '</table></div>';
-    }
-
-    // Season history chart
-    html += '<div class="card"><h3>Season History</h3><div style="overflow-x:auto"><table><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>CS</th><th>Bonus</th><th>xG</th><th>xA</th><th>DefCon</th></tr>';
-    (history || []).slice().reverse().forEach(h => {
-      html += `<tr><td>${h.round}</td><td>${h.was_home ? 'H' : 'A'} vs T${h.opponent_team}</td><td style="font-weight:700;color:var(--accent)">${h.total_points}</td><td>${h.minutes}</td><td>${h.goals_scored}</td><td>${h.assists}</td><td>${h.clean_sheets}</td><td>${h.bonus}</td><td>${h.expected_goals}</td><td>${h.expected_assists}</td><td>${h.defensive_contribution}</td></tr>`;
-    });
-    html += '</table></div></div>';
-
-    body.innerHTML = html;
-  } catch (e) {
-    body.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
-  }
 }
 
 // ─── PL Teams ────────────────────────────────────────────────────
@@ -1088,64 +932,6 @@ function ndkBar(val, color) {
 }
 
 // ─── H2H Compare ─────────────────────────────────────────────────
-async function loadH2H() {
-  const el = document.getElementById('h2hResults');
-  const e1 = document.getElementById('h2hTeam1').value;
-  const e2 = document.getElementById('h2hTeam2').value;
-  const gw = parseInt(document.getElementById('h2hGw').value);
-  if (!e1 || !e2 || e1 === e2) { el.innerHTML = '<div class="card" style="color:var(--medium)">Select two different teams.</div>'; return; }
-  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Computing H2H comparison...</p></div>';
-
-  try {
-    const data = await api(`/api/predict/h2h?entry1=${e1}&entry2=${e2}&gw=${gw}`);
-    renderH2H(data);
-  } catch (e) {
-    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
-  }
-}
-
-function renderH2H(data) {
-  const el = document.getElementById('h2hResults');
-  const e1 = data.entry_1 || {};
-  const e2 = data.entry_2 || {};
-  const s1 = e1.squad || {};
-  const s2 = e2.squad || {};
-  const p1 = s1.players || [];
-  const p2 = s2.players || [];
-
-  const n1 = state.entries.find(e => e.entry_id == e1.entry_id)?.entry_name || '?';
-  const n2 = state.entries.find(e => e.entry_id == e2.entry_id)?.entry_name || '?';
-  const adv = data.advantage;
-  const advText = adv === 1 ? n1 : adv === 2 ? n2 : 'Even';
-
-  let html = `<div class="card"><h3>GW${data.gw} Head-to-Head</h3>`;
-  html += `<div class="grid grid-3" style="margin-bottom:16px">
-    <div class="stat"><div class="stat-value" style="color:${adv===1?'var(--easy)':'var(--text2)'}">${e1.xpts}</div><div class="stat-label">${n1}</div></div>
-    <div class="stat"><div class="stat-value" style="color:var(--purple)">vs</div><div class="stat-label">Advantage: ${advText}</div></div>
-    <div class="stat"><div class="stat-value" style="color:${adv===2?'var(--easy)':'var(--text2)'}">${e2.xpts}</div><div class="stat-label">${n2}</div></div>
-  </div>`;
-
-  html += '<div class="grid grid-2">';
-  [
-    { players: p1, name: n1, xpts: e1.xpts, lineup: (s1.suggested_lineups || [])[0] },
-    { players: p2, name: n2, xpts: e2.xpts, lineup: (s2.suggested_lineups || [])[0] },
-  ].forEach(side => {
-    html += '<div>';
-    html += `<h3 style="margin-bottom:8px">${side.name} <span style="color:var(--accent)">${side.xpts} xPts</span></h3>`;
-    if (side.lineup) html += `<div style="font-size:12px;color:var(--text2);margin-bottom:6px">${side.lineup.formation} | Floor: ${side.lineup.total_floor} | Ceil: ${side.lineup.total_ceiling}</div>`;
-    html += '<table><tr><th>Player</th><th>Pos</th><th>xPts</th></tr>';
-    const sorted = [...side.players].sort((a,b) => (b.predictions?.[0]?.expected || 0) - (a.predictions?.[0]?.expected || 0));
-    sorted.forEach(p => {
-      const pr = p.predictions?.[0] || {};
-      const pn = POS[p.position] || '?';
-      html += `<tr><td>${p.web_name}</td><td><span class="pos pos-${pn}">${pn}</span></td><td style="font-weight:700;color:var(--accent)">${pr.expected || 0}</td></tr>`;
-    });
-    html += '</table></div>';
-  });
-  html += '</div></div>';
-  el.innerHTML = html;
-}
-
 // ─── Free Agents ─────────────────────────────────────────────────
 async function loadFreeAgents() {
   const el = document.getElementById('freeAgentsContent');
@@ -1200,6 +986,397 @@ async function loadTransactions() {
   } catch (e) {
     el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
   }
+}
+
+// ─── Team Colors & Jersey ────────────────────────────────────────
+const TEAM_COLORS = {
+  ARS:{p:'#EF0107',s:'#FFFFFF',a:'#063672'},AVL:{p:'#670E36',s:'#95BFE5',a:'#FFFFFF'},
+  BOU:{p:'#DA291C',s:'#000000',a:'#FFFFFF'},BRE:{p:'#E30613',s:'#FFFFFF',a:'#FFB81C'},
+  BHA:{p:'#0057B8',s:'#FFFFFF',a:'#FFCD00'},BUR:{p:'#6C1D45',s:'#99D6EA',a:'#FFFFFF'},
+  CHE:{p:'#034694',s:'#FFFFFF',a:'#DBA111'},CRY:{p:'#1B458F',s:'#C4122E',a:'#FFFFFF'},
+  EVE:{p:'#003399',s:'#FFFFFF',a:'#FFFFFF'},FUL:{p:'#000000',s:'#FFFFFF',a:'#CC0000'},
+  LEE:{p:'#FFFFFF',s:'#1D428A',a:'#FFCD00'},LIV:{p:'#C8102E',s:'#FFFFFF',a:'#00B2A9'},
+  MCI:{p:'#6CABDD',s:'#FFFFFF',a:'#1C2C5B'},MUN:{p:'#DA291C',s:'#FFFFFF',a:'#FBE122'},
+  NEW:{p:'#241F20',s:'#FFFFFF',a:'#41B6E6'},NFO:{p:'#DD0000',s:'#FFFFFF',a:'#FFFFFF'},
+  SUN:{p:'#EB172B',s:'#FFFFFF',a:'#211E1F'},TOT:{p:'#132257',s:'#FFFFFF',a:'#FFFFFF'},
+  WHU:{p:'#7A263A',s:'#1BB1E7',a:'#F3D459'},WOL:{p:'#FDB913',s:'#231F20',a:'#FFFFFF'},
+};
+
+function jerseySvg(teamShort, size='') {
+  const c = TEAM_COLORS[teamShort] || {p:'#555',s:'#fff',a:'#888'};
+  const cls = size ? ` jersey-${size}` : '';
+  return `<span class="jersey${cls}"><svg viewBox="0 0 36 36"><path d="M8 6 L2 12 L6 14 L6 32 L30 32 L30 14 L34 12 L28 6 L22 10 L14 10 Z" fill="${c.p}" stroke="${c.s}" stroke-width="1.5"/><path d="M14 10 L22 10" stroke="${c.a}" stroke-width="2"/><path d="M2 12 L6 14 L6 10" fill="${c.a}" opacity=".3"/><path d="M34 12 L30 14 L30 10" fill="${c.a}" opacity=".3"/></svg></span>`;
+}
+
+function teamBorder(teamShort) {
+  const c = TEAM_COLORS[teamShort];
+  return c ? `border-left-color:${c.p}` : '';
+}
+
+// ─── GW Lineups ──────────────────────────────────────────────────
+async function loadGWLineups() {
+  const el = document.getElementById('gwLineupsContent');
+  const gw = parseInt(document.getElementById('gwLineupsGw').value);
+  if (!gw) return;
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Loading predicted lineups for all fixtures...</p></div>';
+
+  try {
+    const data = await api(`/api/lineups/gw/${gw}`);
+    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(450px,1fr));gap:16px;margin-top:16px">`;
+    data.forEach(fix => {
+      const h = fix.home;
+      const a = fix.away;
+      const hc = TEAM_COLORS[h.team_short] || {};
+      const ac = TEAM_COLORS[a.team_short] || {};
+      html += `<div class="fixture-card">`;
+      html += `<div class="fixture-card-header" style="background:linear-gradient(90deg,${hc.p||'#333'}22,transparent,${ac.p||'#333'}22)">`;
+      html += `<span>${jerseySvg(h.team_short)} <b>${h.team_short}</b></span>`;
+      html += `<span style="color:var(--text2);font-size:12px">${fix.score || 'vs'}</span>`;
+      html += `<span><b>${a.team_short}</b> ${jerseySvg(a.team_short)}</span>`;
+      html += `</div>`;
+      html += `<div class="fixture-card-lineups">`;
+      [h, a].forEach(side => {
+        const lu = side.lineup || {};
+        const xi = lu.predicted_xi || [];
+        const conf = lu.confidence || 'medium';
+        const confColor = conf === 'high' ? 'var(--easy)' : conf === 'medium' ? 'var(--medium)' : 'var(--hard)';
+        html += `<div class="fixture-card-side" style="border-top:2px solid ${TEAM_COLORS[side.team_short]?.p || '#333'}">`;
+        html += `<h4>${side.team_name} <span style="color:${confColor}">(${conf})</span></h4>`;
+        xi.forEach(p => {
+          const avColor = p.availability_score >= 85 ? 'var(--easy)' : p.availability_score >= 60 ? 'var(--medium)' : 'var(--hard)';
+          html += `<div class="lineup-row">${jerseySvg(side.team_short,'sm')}<span class="pos pos-${p.pos_name}" style="font-size:9px">${p.pos_name}</span><span class="lr-name">${p.web_name}</span><span class="lr-avail" style="background:${avColor}22;color:${avColor}">${Math.round(p.availability_score)}</span></div>`;
+        });
+        html += `</div>`;
+      });
+      html += `</div></div>`;
+    });
+    html += '</div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+async function validateLineups() {
+  const el = document.getElementById('lineupAccuracy');
+  const gw = parseInt(document.getElementById('gwLineupsGw').value) - 1;
+  if (!gw || gw < 1) { el.textContent = 'Set GW first (validates previous GW)'; return; }
+  el.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:2px"></span>';
+  try {
+    const data = await api(`/api/lineups/validate/${gw}`);
+    el.innerHTML = `<span style="color:var(--accent)">GW${gw} Accuracy: <b>${data.avg_accuracy}%</b></span> (avg across 20 teams)`;
+  } catch (e) {
+    el.textContent = `Error: ${e.message}`;
+  }
+}
+
+// ─── Enhanced Player Modal (with score dist, predicted repeats, team colors) ─
+async function openPlayerDetail(playerId) {
+  const modal = document.getElementById('playerModal');
+  const body = document.getElementById('playerModalBody');
+  const title = document.getElementById('playerModalTitle');
+  modal.classList.add('active');
+  body.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  try {
+    const nxt = Math.min(state.nextGw, 38);
+    const [pred, history] = await Promise.all([
+      api(`/api/predict/player/${playerId}?gw_start=${nxt}&gw_end=${Math.min(nxt+5,38)}`),
+      api(`/api/player/${playerId}/history`),
+    ]);
+
+    const tc = TEAM_COLORS[pred.team_short] || {};
+    title.innerHTML = `${jerseySvg(pred.team_short)} ${pred.web_name} (${POS[pred.position]}) - ${pred.team_short}`;
+
+    let html = '';
+    const sr = pred.season_rates || {};
+    const fr = pred.form_rates || {};
+
+    // Top stats row with team color accent
+    html += `<div style="border-left:4px solid ${tc.p||'var(--accent)'};padding-left:12px;margin-bottom:16px">`;
+    html += '<div class="grid grid-5">';
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.total_points}</div><div class="stat-label">Total Pts</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.form}</div><div class="stat-label">Form</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value">${pred.avg_xpts}</div><div class="stat-label">Avg xPts</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--purple)">${Math.round(pred.lineup_prob*100)}%</div><div class="stat-label">Lineup</div></div>`;
+    html += `<div class="stat stat-sm"><div class="stat-value" style="color:var(--blue)">${sr.defcon_p90 || 0}</div><div class="stat-label">DefCon/90</div></div>`;
+    html += '</div></div>';
+
+    // Score Distribution Chart
+    const sd = pred.score_distribution || {};
+    const bins = sd.bins || [];
+    if (bins.length) {
+      const maxCount = Math.max(...bins.map(b => b.count));
+      html += '<div class="card"><h3>Points Distribution This Season</h3>';
+      html += `<div style="display:flex;gap:12px;margin-bottom:8px;font-size:12px;color:var(--text2)"><span>Games: ${sd.games_played}</span><span>Avg: ${sd.avg_pts}</span><span>Median: ${sd.median_pts}</span><span>Max: ${sd.max_pts}</span></div>`;
+      html += '<div class="dist-chart">';
+      bins.forEach(b => {
+        const h = Math.max((b.count / maxCount) * 100, 5);
+        const color = b.points >= 7 ? 'var(--easy)' : b.points >= 4 ? 'var(--medium)' : b.points >= 2 ? 'var(--blue)' : 'var(--hard)';
+        html += `<div class="dist-bar" style="height:${h}%;background:${color}" title="${b.points} pts: ${b.count}x (${b.pct}%)"><span class="dist-count">${b.count}</span><span class="dist-label">${b.points}</span></div>`;
+      });
+      html += '</div><div style="text-align:center;font-size:10px;color:var(--text2);margin-top:18px">Points scored</div></div>';
+    }
+
+    // Predicted Repeat Scores per upcoming GW
+    const reps = pred.predicted_repeats || [];
+    if (reps.length) {
+      html += '<div class="card"><h3>Predicted Repeat Scores (based on similar matchups)</h3>';
+      html += '<div class="grid grid-3">';
+      reps.forEach(r => {
+        html += `<div style="background:var(--surface2);border-radius:var(--radius);padding:10px"><div style="font-weight:600;margin-bottom:4px">GW${r.gw} vs ${r.opponent}</div>`;
+        html += `<div style="font-size:11px;color:var(--text2)">${r.similar_matches} similar matches</div>`;
+        if (r.top_predicted_scores?.length) {
+          r.top_predicted_scores.forEach((s,i) => {
+            const icon = i === 0 ? '1st' : '2nd';
+            html += `<div style="margin-top:4px;display:flex;align-items:center;gap:6px"><span style="background:${i===0?'var(--accent)':'var(--blue)'};color:#111;padding:1px 6px;border-radius:3px;font-size:10px;font-weight:700">${icon}</span><span style="font-weight:700;font-size:16px">${s.points} pts</span><span style="color:var(--text2);font-size:11px">${s.probability}% chance</span></div>`;
+          });
+        } else {
+          html += '<div style="color:var(--text2);font-size:11px;margin-top:4px">No similar matches found</div>';
+        }
+        html += '</div>';
+      });
+      html += '</div></div>';
+    }
+
+    // Season vs Form comparison
+    html += '<div class="card"><h3>Season vs Recent Form (per 90 / per game)</h3><table><tr><th>Stat</th><th>Season</th><th>Form (L5)</th></tr>';
+    [['Goals/90','goals_p90'],['Assists/90','assists_p90'],['xG/90','xg_p90'],['xA/90','xa_p90'],
+     ['CS rate','cs_rate'],['Bonus/g','bonus_pg'],['Cards/g','yellow_pg'],['DefCon/90','defcon_p90']
+    ].forEach(([label, key]) => {
+      const sv = sr[key] ?? '-', fv = fr[key] ?? '-';
+      const diff = (typeof fv === 'number' && typeof sv === 'number') ? fv - sv : 0;
+      const dc = diff > 0.05 ? 'var(--easy)' : diff < -0.05 ? 'var(--hard)' : 'var(--text)';
+      html += `<tr><td>${label}</td><td>${typeof sv === 'number' ? sv.toFixed(3) : sv}</td><td style="color:${dc}">${typeof fv === 'number' ? fv.toFixed(3) : fv}</td></tr>`;
+    });
+    html += '</table></div>';
+
+    // Batch-level stats
+    const bs = pred.batch_stats || {};
+    if (Object.keys(bs).length) {
+      html += '<div class="card"><h3>Performance by Opponent Quality</h3><table><tr><th>Opponent</th><th>Games</th><th>Pts/G</th><th>Goals/90</th><th>Assists/90</th><th>CS Rate</th><th>DefCon/90</th></tr>';
+      Object.entries(bs).forEach(([batch, s]) => {
+        html += `<tr><td><b>${batch}</b></td><td>${s.games}</td><td style="font-weight:700;color:var(--accent)">${s.pts_pg}</td><td>${s.goals_p90}</td><td>${s.assists_p90}</td><td>${(s.cs_rate*100).toFixed(0)}%</td><td style="color:var(--blue)">${s.defcon_p90}</td></tr>`;
+      });
+      html += '</table></div>';
+    }
+
+    // Upcoming predictions with full breakdown
+    html += '<div class="card"><h3>Upcoming GW Predictions</h3><table><tr><th>GW</th><th>Opp</th><th>FDR</th><th>Floor</th><th>Expected</th><th>Ceiling</th><th>Lineup%</th></tr>';
+    (pred.predictions || []).forEach(pr => {
+      if (pr.no_fixture) return;
+      html += `<tr><td>GW${pr.gw}</td><td>${pr.opponent}</td><td><span class="fdr-${pr.fdr}" style="padding:2px 6px;border-radius:4px">${pr.fdr}</span></td><td>${pr.floor}</td><td style="font-weight:700;color:var(--accent)">${pr.expected}</td><td>${pr.ceiling}</td><td>${Math.round(pr.lineup_prob*100)}%</td></tr>`;
+      if (pr.breakdown) {
+        const bd = pr.breakdown;
+        html += `<tr><td colspan="7" style="font-size:11px;color:var(--text2);padding:2px 10px 8px">Playing:${bd.playing} | Goals:${bd.goals} | Assists:${bd.assists} | CS:${bd.clean_sheet} | Saves:${bd.saves} | Bonus:${bd.bonus} | Cards:${bd.cards} | GC:${bd.goals_conceded}</td></tr>`;
+      }
+    });
+    html += '</table></div>';
+
+    // Season history
+    html += '<div class="card"><h3>Season History</h3><div style="overflow-x:auto"><table><tr><th>GW</th><th>Opp</th><th>Pts</th><th>Min</th><th>G</th><th>A</th><th>CS</th><th>Bonus</th><th>xG</th><th>xA</th><th>DefCon</th></tr>';
+    (history || []).slice().reverse().forEach(h => {
+      html += `<tr><td>${h.round}</td><td>${h.was_home ? 'H' : 'A'} vs T${h.opponent_team}</td><td style="font-weight:700;color:var(--accent)">${h.total_points}</td><td>${h.minutes}</td><td>${h.goals_scored}</td><td>${h.assists}</td><td>${h.clean_sheets}</td><td>${h.bonus}</td><td>${h.expected_goals}</td><td>${h.expected_assists}</td><td>${h.defensive_contribution}</td></tr>`;
+    });
+    html += '</table></div></div>';
+
+    body.innerHTML = html;
+  } catch (e) {
+    body.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── Enhanced Predictions with jerseys ───────────────────────────
+function renderPredictions(data, gwStart, gwEnd) {
+  const el = document.getElementById('predResults');
+  const players = data.players || [];
+  const lineups = data.suggested_lineups || [];
+  let html = '';
+
+  if (lineups.length) {
+    html += '<div class="card"><h3>Suggested Lineups</h3><div style="overflow-x:auto;display:flex;gap:16px">';
+    lineups.forEach(lu => {
+      const lineup = lu.lineup || [];
+      const gkRow = lineup.filter(p => p.position === 1);
+      const defRow = lineup.filter(p => p.position === 2);
+      const midRow = lineup.filter(p => p.position === 3);
+      const fwdRow = lineup.filter(p => p.position === 4);
+
+      html += `<div style="min-width:320px"><div style="text-align:center;margin-bottom:8px"><b>GW${lu.gw}</b> | ${lu.formation} | <span style="color:var(--accent)">${lu.total_xpts} xPts</span> <span style="color:var(--text2);font-size:11px">(${lu.total_floor}-${lu.total_ceiling})</span></div>`;
+      html += '<div class="pitch">';
+      [gkRow, defRow, midRow, fwdRow].forEach(row => {
+        html += '<div class="pitch-row">';
+        row.forEach(p => {
+          html += `<div class="pitch-player" onclick="openPlayerDetail(${p.player_id})">${jerseySvg(p.team_short,'sm')}<div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts}</div><div class="pp-team">${p.team_short}</div></div>`;
+        });
+        html += '</div>';
+      });
+      const bench = lu.bench || [];
+      if (bench.length) {
+        html += `<div style="text-align:center;color:rgba(255,255,255,.4);font-size:10px;margin-top:8px">BENCH</div><div class="pitch-row">`;
+        bench.forEach(p => {
+          html += `<div class="pitch-player" style="opacity:.5">${jerseySvg(p.team_short,'sm')}<div class="pp-name">${p.web_name}</div><div class="pp-xpts">${p.xpts.toFixed(1)}</div></div>`;
+        });
+        html += '</div>';
+      }
+      html += '</div></div>';
+    });
+    html += '</div></div>';
+  }
+
+  html += '<div class="card"><h3>Player Predicted Points</h3><div style="overflow-x:auto"><table><tr><th></th><th>Player</th><th>Pos</th><th>Team</th><th>Form</th><th>Lineup%</th>';
+  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
+  html += '<th>Avg xPts</th></tr>';
+
+  const sorted = [...players].sort((a,b) => b.avg_xpts - a.avg_xpts);
+  sorted.forEach(p => {
+    const pn = POS[p.position] || '?';
+    html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td>${jerseySvg(p.team_short,'sm')}</td><td><b>${p.web_name}</b></td><td><span class="pos pos-${pn}">${pn}</span></td><td>${p.team_short}</td><td>${p.form}</td><td>${Math.round(p.lineup_prob*100)}%</td>`;
+    (p.predictions || []).forEach(pr => {
+      if (pr.no_fixture) { html += '<td style="color:var(--text2)">-</td>'; return; }
+      const bg = xptsColor(pr.expected);
+      html += `<td style="background:${bg};color:#111;text-align:center;font-weight:600;border-radius:4px" title="${pr.opponent} | Floor:${pr.floor} Ceil:${pr.ceiling}">${pr.expected}</td>`;
+    });
+    html += `<td style="font-weight:700;color:var(--accent)">${p.avg_xpts}</td></tr>`;
+  });
+  html += '</table></div></div>';
+  el.innerHTML = html;
+}
+
+// ─── Enhanced H2H with matchups auto-prediction ──────────────────
+async function loadH2H() {
+  const el = document.getElementById('h2hResults');
+  const e1 = document.getElementById('h2hTeam1').value;
+  const e2 = document.getElementById('h2hTeam2').value;
+  const gw = parseInt(document.getElementById('h2hGw').value);
+  if (!e1 || !e2 || e1 === e2) { el.innerHTML = '<div class="card" style="color:var(--medium)">Select two different teams.</div>'; return; }
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Computing H2H comparison...</p></div>';
+
+  try {
+    const [h2h, matchups] = await Promise.all([
+      api(`/api/predict/h2h?entry1=${e1}&entry2=${e2}&gw=${gw}`),
+      api(`/api/predict/gw-matchups?gw=${gw}`),
+    ]);
+    renderH2HEnhanced(h2h, matchups, gw);
+  } catch (e) {
+    el.innerHTML = `<div class="card" style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderH2HEnhanced(data, matchups, gw) {
+  const el = document.getElementById('h2hResults');
+  const e1 = data.entry_1 || {};
+  const e2 = data.entry_2 || {};
+  const s1 = e1.squad || {};
+  const s2 = e2.squad || {};
+  const p1 = s1.players || [];
+  const p2 = s2.players || [];
+
+  const n1 = state.entries.find(e => e.entry_id == e1.entry_id)?.entry_name || '?';
+  const n2 = state.entries.find(e => e.entry_id == e2.entry_id)?.entry_name || '?';
+  const adv = data.advantage;
+
+  let html = '';
+
+  // All GW matchups overview
+  if (matchups.length) {
+    html += `<div class="card"><h3>All GW${gw} Matchup Predictions</h3><table><tr><th>Home</th><th>xPts</th><th></th><th>xPts</th><th>Away</th><th>Predicted Winner</th></tr>`;
+    matchups.forEach(m => {
+      if (m.error) return;
+      const w = m.advantage === 1 ? m.entry_1_name : m.advantage === 2 ? m.entry_2_name : 'Draw';
+      const wc = m.advantage === 1 ? 'var(--easy)' : m.advantage === 2 ? 'var(--hard)' : 'var(--medium)';
+      html += `<tr><td><b>${m.entry_1_name}</b></td><td style="color:${m.advantage===1?'var(--easy)':'var(--text)'};font-weight:700">${m.entry_1_xpts}</td><td style="color:var(--text2)">vs</td><td style="color:${m.advantage===2?'var(--easy)':'var(--text)'};font-weight:700">${m.entry_2_xpts}</td><td><b>${m.entry_2_name}</b></td><td style="color:${wc}">${w}</td></tr>`;
+    });
+    html += '</table></div>';
+  }
+
+  // Detailed H2H
+  html += `<div class="card"><h3>GW${gw} Detailed Head-to-Head</h3>`;
+  html += `<div class="grid grid-3" style="margin-bottom:16px">
+    <div class="stat"><div class="stat-value" style="color:${adv===1?'var(--easy)':'var(--text2)'}">${e1.xpts}</div><div class="stat-label">${n1}</div></div>
+    <div class="stat"><div class="stat-value" style="color:var(--purple)">vs</div><div class="stat-label">Advantage: ${adv===1?n1:adv===2?n2:'Even'}</div></div>
+    <div class="stat"><div class="stat-value" style="color:${adv===2?'var(--easy)':'var(--text2)'}">${e2.xpts}</div><div class="stat-label">${n2}</div></div>
+  </div>`;
+
+  // Position-by-position comparison
+  html += '<h3 style="margin-bottom:8px">Position Comparison</h3>';
+  [1,2,3,4].forEach(posId => {
+    const pn = POS[posId];
+    const side1 = p1.filter(p => p.position === posId).map(p => ({...p, xpts: p.predictions?.[0]?.expected || 0}));
+    const side2 = p2.filter(p => p.position === posId).map(p => ({...p, xpts: p.predictions?.[0]?.expected || 0}));
+    const sum1 = side1.reduce((s,p) => s + p.xpts, 0);
+    const sum2 = side2.reduce((s,p) => s + p.xpts, 0);
+    const better = sum1 > sum2 ? 1 : sum2 > sum1 ? 2 : 0;
+    html += `<div style="margin-bottom:8px;padding:8px;background:var(--surface2);border-radius:var(--radius)">`;
+    html += `<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px"><span class="pos pos-${pn}">${pn}</span><span style="color:${better===1?'var(--easy)':better===2?'var(--hard)':'var(--text2)'};font-size:12px">${sum1.toFixed(1)} vs ${sum2.toFixed(1)}</span></div>`;
+    html += '<div class="grid grid-2" style="gap:4px">';
+    [side1, side2].forEach(side => {
+      html += '<div>';
+      side.sort((a,b) => b.xpts - a.xpts).forEach(p => {
+        html += `<div style="display:flex;align-items:center;gap:4px;font-size:12px;padding:2px 0">${jerseySvg(p.team_short,'sm')}<span style="flex:1">${p.web_name}</span><span style="font-weight:700;color:var(--accent)">${p.xpts.toFixed(1)}</span></div>`;
+      });
+      html += '</div>';
+    });
+    html += '</div></div>';
+  });
+  html += '</div>';
+
+  el.innerHTML = html;
+}
+
+// ─── Enhanced Squad Analysis with jerseys ────────────────────────
+function renderAnalysis(a, gwStart, gwEnd) {
+  const el = document.getElementById('analysisResults');
+  let html = '';
+  if (state.replacements.size > 0) {
+    html += '<div class="replacement-summary"><b>Simulation Changes:</b>';
+    state.replacements.forEach((v, oldId) => {
+      const cls = v.impact >= 0 ? 'positive' : 'negative';
+      html += `<div class="replacement-item"><span style="text-decoration:line-through;color:var(--text2)">${v.oldName}</span><span class="arrow">&rarr;</span><span style="color:var(--accent)">${v.newName}</span><span class="impact ${cls}">${v.impact >= 0 ? '+' : ''}${v.impact.toFixed(1)}</span><button class="undo-btn" onclick="undoReplacement(${oldId})">undo</button></div>`;
+    });
+    html += '</div>';
+  }
+  html += `<div class="grid grid-4" style="margin-bottom:16px">
+    <div class="card stat"><div class="stat-value">${a.total_score}</div><div class="stat-label">Total Score</div></div>
+    <div class="card stat"><div class="stat-value">${a.success_rate}%</div><div class="stat-label">Easy GW Rate</div></div>
+    <div class="card stat"><div class="stat-value">${a.success_count}/${a.total_gameweeks}</div><div class="stat-label">Easy Gameweeks</div></div>
+    <div class="card stat"><div class="stat-value" style="color:var(--hard)">${a.weakest_position || 'None'}</div><div class="stat-label">Weakest Position</div></div>
+  </div>`;
+  html += '<div class="card"><h3>Position Heatmap</h3><div class="heatmap"><table><tr><th>Pos</th>';
+  for (let gw = gwStart; gw <= gwEnd; gw++) html += `<th>GW${gw}</th>`;
+  html += '<th>Avg</th></tr>';
+  ['GK','DEF','MID','FWD'].forEach(pos => {
+    html += `<tr><td><span class="pos pos-${pos}">${pos}</span></td>`;
+    let sum = 0, count = 0;
+    a.by_gameweek.forEach(gw => {
+      const d = gw[pos];
+      if (!d) return;
+      const bg = d.tier === 'easy' ? 'var(--easy)' : d.tier === 'medium' ? 'var(--medium)' : 'var(--hard)';
+      const fg = d.tier === 'hard' ? '#fff' : '#111';
+      html += `<td class="score-cell" style="background:${bg};color:${fg}">${d.score}</td>`;
+      sum += d.score; count++;
+    });
+    html += `<td style="font-weight:700">${count ? (sum/count).toFixed(1) : '-'}</td></tr>`;
+  });
+  html += '</table></div></div>';
+
+  // Squad with jerseys and team-colored borders
+  html += '<div class="card"><h3>Your Squad (click to view stats / replace)</h3><div class="grid grid-3">';
+  const pg = {1:[],2:[],3:[],4:[]};
+  (a.full_squad || []).forEach(p => pg[p.position]?.push(p));
+  [1,2,3,4].forEach(posId => {
+    (pg[posId]||[]).forEach(p => {
+      const isR = state.replacements.has(p.replaced_player_id || -1) || p.is_replacement;
+      const avg = Object.values(p.gw_scores || {}).reduce((a,b) => a+b, 0) / Math.max(Object.keys(p.gw_scores || {}).length, 1);
+      html += `<div class="player-card-v2${isR ? ' replaced' : ''}" style="${teamBorder(p.team_short)}" onclick="openPlayerDetail(${p.player_id})">
+        ${jerseySvg(p.team_short)}
+        <div style="flex:1"><div style="font-weight:600;font-size:14px">${p.web_name}${p.is_replacement ? ' <span style="color:var(--accent);font-size:11px">NEW</span>' : ''}</div><div style="font-size:12px;color:var(--text2)">${p.team_short} | <span class="pos pos-${POS[posId]}" style="font-size:9px">${POS[posId]}</span> | ${p.total_points} pts | Avg: ${avg.toFixed(1)}</div></div>
+        <div style="text-align:right"><div style="font-weight:700;color:var(--accent);font-size:16px">${p.total_points}</div><button class="btn-sm btn-secondary" onclick="event.stopPropagation();openReplModal(${p.replaced_player_id || p.player_id}, '${p.web_name.replace(/'/g,"\\'")}', ${p.position})" style="margin-top:4px;font-size:10px">Replace</button></div>
+      </div>`;
+    });
+  });
+  html += '</div></div>';
+  el.innerHTML = html;
 }
 
 // ─── Boot ────────────────────────────────────────────────────────

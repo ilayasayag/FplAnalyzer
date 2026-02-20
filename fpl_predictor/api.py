@@ -479,6 +479,18 @@ def player_availability():
     return jsonify(_clean(result))
 
 
+@app.route("/api/lineups/gw/<int:gw>")
+def predicted_lineups_gw(gw):
+    """All fixtures for a GW with predicted lineups."""
+    return jsonify(_clean(lineup_pred.predict_gw_fixtures(gw)))
+
+
+@app.route("/api/lineups/validate/<int:gw>")
+def validate_lineups(gw):
+    """Validate lineup prediction accuracy against actual data."""
+    return jsonify(_clean(lineup_pred.validate_accuracy(gw)))
+
+
 # ──────────────────────────────────────────────────────────────────────
 # Player detail with history
 # ──────────────────────────────────────────────────────────────────────
@@ -495,6 +507,114 @@ def player_upcoming(player_id):
     """Upcoming fixtures with difficulty."""
     upcoming = fpl.get_player_upcoming(player_id)
     return jsonify(_clean(upcoming))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# FA suggestions for specific fixtures
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/suggest/fixture")
+def suggest_fa_fixture():
+    """Best FAs for a specific GW fixture."""
+    lid = _get_league_id()
+    entry_id = request.args.get("entry_id", type=int)
+    pos = request.args.get("position", type=int) or 0
+    gw = request.args.get("gw", type=int) or fpl.get_next_gw()
+    result = predictor.suggest_fa_for_fixture(lid, entry_id, pos, gw)
+    return jsonify(_clean(result))
+
+
+@app.route("/api/suggest/range")
+def suggest_fa_range():
+    """Best FAs over a GW range."""
+    lid = _get_league_id()
+    entry_id = request.args.get("entry_id", type=int)
+    pos = request.args.get("position", type=int) or 0
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 2, 38)
+    result = predictor.suggest_fa_multi_gw(lid, entry_id, pos, gw_start, gw_end)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# H2H auto-predictions for all GW matchups
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/predict/gw-matchups")
+def predict_gw_matchups():
+    """Auto-predict all league H2H matchups for a GW."""
+    lid = _get_league_id()
+    gw = request.args.get("gw", type=int) or fpl.get_next_gw()
+    matches = fpl.get_league_matches(lid)
+    gw_matches = [m for m in matches if m.get("event") == gw]
+    entries = {e["id"]: e for e in fpl.get_league_entries(lid)}
+
+    results = []
+    for m in gw_matches:
+        le1 = m.get("league_entry_1")
+        le2 = m.get("league_entry_2")
+        e1 = entries.get(le1, {})
+        e2 = entries.get(le2, {})
+        eid1 = e1.get("entry_id")
+        eid2 = e2.get("entry_id")
+        if not eid1 or not eid2:
+            continue
+        try:
+            h2h = predictor.predict_h2h(lid, eid1, eid2, gw)
+            results.append({
+                "entry_1_name": e1.get("entry_name", "?"),
+                "entry_2_name": e2.get("entry_name", "?"),
+                "entry_1_xpts": h2h["entry_1"]["xpts"],
+                "entry_2_xpts": h2h["entry_2"]["xpts"],
+                "advantage": h2h["advantage"],
+                "finished": m.get("finished", False),
+                "actual_1": m.get("league_entry_1_points"),
+                "actual_2": m.get("league_entry_2_points"),
+            })
+        except Exception:
+            results.append({
+                "entry_1_name": e1.get("entry_name", "?"),
+                "entry_2_name": e2.get("entry_name", "?"),
+                "error": True,
+            })
+    return jsonify(_clean(results))
+
+
+# ──────────────────────────────────────────────────────────────────────
+# Team color scheme
+# ──────────────────────────────────────────────────────────────────────
+
+TEAM_COLORS = {
+    "ARS": {"primary": "#EF0107", "secondary": "#FFFFFF", "accent": "#063672"},
+    "AVL": {"primary": "#670E36", "secondary": "#95BFE5", "accent": "#FFFFFF"},
+    "BOU": {"primary": "#DA291C", "secondary": "#000000", "accent": "#FFFFFF"},
+    "BRE": {"primary": "#E30613", "secondary": "#FFFFFF", "accent": "#FFB81C"},
+    "BHA": {"primary": "#0057B8", "secondary": "#FFFFFF", "accent": "#FFCD00"},
+    "BUR": {"primary": "#6C1D45", "secondary": "#99D6EA", "accent": "#FFFFFF"},
+    "CHE": {"primary": "#034694", "secondary": "#FFFFFF", "accent": "#DBA111"},
+    "CRY": {"primary": "#1B458F", "secondary": "#C4122E", "accent": "#FFFFFF"},
+    "EVE": {"primary": "#003399", "secondary": "#FFFFFF", "accent": "#FFFFFF"},
+    "FUL": {"primary": "#000000", "secondary": "#FFFFFF", "accent": "#CC0000"},
+    "LEE": {"primary": "#FFFFFF", "secondary": "#1D428A", "accent": "#FFCD00"},
+    "LIV": {"primary": "#C8102E", "secondary": "#FFFFFF", "accent": "#00B2A9"},
+    "MCI": {"primary": "#6CABDD", "secondary": "#FFFFFF", "accent": "#1C2C5B"},
+    "MUN": {"primary": "#DA291C", "secondary": "#FFFFFF", "accent": "#FBE122"},
+    "NEW": {"primary": "#241F20", "secondary": "#FFFFFF", "accent": "#41B6E6"},
+    "NFO": {"primary": "#DD0000", "secondary": "#FFFFFF", "accent": "#FFFFFF"},
+    "SUN": {"primary": "#EB172B", "secondary": "#FFFFFF", "accent": "#211E1F"},
+    "TOT": {"primary": "#132257", "secondary": "#FFFFFF", "accent": "#FFFFFF"},
+    "WHU": {"primary": "#7A263A", "secondary": "#1BB1E7", "accent": "#F3D459"},
+    "WOL": {"primary": "#FDB913", "secondary": "#231F20", "accent": "#FFFFFF"},
+}
+
+NAME_ALIASES = {
+    792: {"web_name": "Taty", "full_name": "Valentín Castellanos"},
+}
+
+
+@app.route("/api/team-colors")
+def team_colors():
+    return jsonify(TEAM_COLORS)
 
 
 # ──────────────────────────────────────────────────────────────────────

@@ -14,7 +14,7 @@ Output is a point range: {floor, expected, ceiling} for each GW.
 
 import math
 from typing import Dict, List, Optional
-from collections import defaultdict
+from collections import defaultdict, Counter
 from fpl_predictor.data.fpl_api import FPLClient, _safe_float
 from fpl_predictor.engine.team_form import TeamFormAnalyzer
 
@@ -52,13 +52,14 @@ class PlayerPredictor:
     def __init__(self, client: FPLClient):
         self.client = client
         self.team_form = TeamFormAnalyzer(client)
-        self._main_player_map = None
+        self._draft_to_main = None
 
     @property
     def main_players(self) -> Dict[int, Dict]:
-        if self._main_player_map is None:
-            self._main_player_map = self.client.get_main_player_map()
-        return self._main_player_map
+        """Draft-ID -> main API player data (cross-referenced by name+team)."""
+        if self._draft_to_main is None:
+            self._draft_to_main = self.client.get_draft_to_main_map()
+        return self._draft_to_main
 
     def predict_player(self, player_id: int, gw_start: int, gw_end: int) -> Dict:
         """
@@ -110,6 +111,8 @@ class PlayerPredictor:
 
         avg_xpts = sum(p.get("expected", 0) for p in predictions) / max(len(predictions), 1)
         batch_stats = self._batch_level_stats(history, pos)
+        score_dist = self._score_distribution(history)
+        predicted_repeats = self._predicted_repeat_scores(history, predictions, grid, team_id)
 
         return {
             "player_id": player_id,
@@ -125,6 +128,8 @@ class PlayerPredictor:
             "avg_xpts": round(avg_xpts, 2),
             "predictions": predictions,
             "batch_stats": batch_stats,
+            "score_distribution": score_dist,
+            "predicted_repeats": predicted_repeats,
         }
 
     def predict_squad(self, league_id: int, entry_id: int,
@@ -424,6 +429,154 @@ class PlayerPredictor:
                 "bench": bench_entries,
             })
         return result
+
+    def _score_distribution(self, history: List[Dict]) -> Dict:
+        """Build histogram of points scored across the season."""
+        played = [h for h in history if h.get("minutes", 0) > 0]
+        if not played:
+            return {"bins": [], "max_pts": 0, "avg_pts": 0, "median_pts": 0}
+
+        pts_list = [h.get("total_points", 0) for h in played]
+        counts = Counter(pts_list)
+
+        bins = []
+        for pts in sorted(counts.keys()):
+            bins.append({"points": pts, "count": counts[pts], "pct": round(counts[pts] / len(pts_list) * 100, 1)})
+
+        sorted_pts = sorted(pts_list)
+        mid = len(sorted_pts) // 2
+        median = sorted_pts[mid] if len(sorted_pts) % 2 else (sorted_pts[mid - 1] + sorted_pts[mid]) / 2
+
+        return {
+            "bins": bins,
+            "max_pts": max(pts_list),
+            "min_pts": min(pts_list),
+            "avg_pts": round(sum(pts_list) / len(pts_list), 1),
+            "median_pts": median,
+            "games_played": len(pts_list),
+        }
+
+    def _predicted_repeat_scores(self, history: List[Dict], predictions: List[Dict],
+                                  grid: Dict, team_id: int) -> List[Dict]:
+        """
+        For each upcoming GW, find the top 2 most likely score outcomes
+        based on similar historical matchups (same batch, same venue type).
+        """
+        batch_map = self.client.get_team_batch_map()
+        result = []
+
+        for pred in predictions:
+            if pred.get("no_fixture"):
+                continue
+            opp_id = pred.get("opponent_id")
+            is_home = pred.get("is_home", True)
+            opp_batch = batch_map.get(opp_id, 3)
+
+            similar = []
+            for h in history:
+                if h.get("minutes", 0) < 45:
+                    continue
+                h_opp = h.get("opponent_team")
+                h_batch = batch_map.get(h_opp, 3)
+                h_home = h.get("was_home", True)
+                similarity = 0
+                if h_batch == opp_batch:
+                    similarity += 3
+                elif abs(h_batch - opp_batch) <= 1:
+                    similarity += 1
+                if h_home == is_home:
+                    similarity += 1
+                if h_opp == opp_id:
+                    similarity += 5
+                if similarity >= 2:
+                    similar.append({
+                        "gw": h.get("round"),
+                        "opponent_team": h_opp,
+                        "was_home": h_home,
+                        "points": h.get("total_points", 0),
+                        "goals": h.get("goals_scored", 0),
+                        "assists": h.get("assists", 0),
+                        "minutes": h.get("minutes", 0),
+                        "similarity": similarity,
+                    })
+
+            similar.sort(key=lambda x: -x["similarity"])
+            if similar:
+                pts_counts = Counter(s["points"] for s in similar)
+                top_scores = pts_counts.most_common(2)
+                total = len(similar)
+                top2 = [
+                    {"points": pts, "occurrences": cnt,
+                     "probability": round(cnt / total * 100, 1)}
+                    for pts, cnt in top_scores
+                ]
+            else:
+                top2 = []
+
+            result.append({
+                "gw": pred.get("gw"),
+                "opponent": pred.get("opponent", "?"),
+                "similar_matches": len(similar),
+                "top_predicted_scores": top2,
+                "similar_details": similar[:5],
+            })
+        return result
+
+    def suggest_fa_for_fixture(self, league_id: int, entry_id: int,
+                                position: int, gw: int, limit: int = 10) -> List[Dict]:
+        """
+        Suggest best free agents for a specific fixture/GW.
+        Ranks by predicted xPts for that specific GW.
+        """
+        free = self.client.get_free_agents(league_id, position=position, limit=200)
+        results = []
+        for fa in free:
+            pred = self.predict_player(fa["player_id"], gw, gw)
+            if not pred.get("predictions"):
+                continue
+            gw_pred = pred["predictions"][0]
+            if gw_pred.get("no_fixture"):
+                continue
+            results.append({
+                "player_id": fa["player_id"],
+                "web_name": fa["web_name"],
+                "team_short": fa["team_short"],
+                "position": fa["position"],
+                "total_points": fa["total_points"],
+                "form": fa["form"],
+                "gw_xpts": gw_pred["expected"],
+                "gw_floor": gw_pred["floor"],
+                "gw_ceiling": gw_pred["ceiling"],
+                "opponent": gw_pred.get("opponent", "?"),
+                "fdr": gw_pred.get("fdr", 3),
+                "lineup_prob": pred["lineup_prob"],
+            })
+        results.sort(key=lambda x: -x["gw_xpts"])
+        return results[:limit]
+
+    def suggest_fa_multi_gw(self, league_id: int, entry_id: int,
+                             position: int, gw_start: int, gw_end: int,
+                             limit: int = 10) -> List[Dict]:
+        """Suggest best FA over a GW range, ranked by total expected points."""
+        free = self.client.get_free_agents(league_id, position=position, limit=150)
+        results = []
+        for fa in free:
+            pred = self.predict_player(fa["player_id"], gw_start, gw_end)
+            total_xpts = sum(p.get("expected", 0) for p in pred.get("predictions", []))
+            results.append({
+                "player_id": fa["player_id"],
+                "web_name": fa["web_name"],
+                "team_short": fa["team_short"],
+                "position": fa["position"],
+                "total_points": fa["total_points"],
+                "form": fa["form"],
+                "total_xpts": round(total_xpts, 1),
+                "avg_xpts": pred.get("avg_xpts", 0),
+                "lineup_prob": pred.get("lineup_prob", 0),
+                "predictions": pred.get("predictions", []),
+            })
+        results.sort(key=lambda x: -x["total_xpts"])
+        return results[:limit]
 
     def _batch_level_stats(self, history: List[Dict], pos: int) -> Dict:
         """

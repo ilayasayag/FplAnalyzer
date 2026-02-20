@@ -226,19 +226,62 @@ class FPLClient:
     def get_main_player_map(self) -> Dict[int, Dict]:
         return {p["id"]: p for p in self.get_main_players()}
 
+    def get_draft_to_main_map(self) -> Dict[int, Dict]:
+        """
+        Cross-reference draft player IDs to main API player data.
+        IDs differ between the two APIs, so we match by name + team.
+        Returns dict keyed by DRAFT player_id -> main API player dict.
+        """
+        cache_key = "_draft_to_main"
+        if hasattr(self, cache_key):
+            return getattr(self, cache_key)
+
+        draft_players = self.get_players()
+        main_players = self.get_main_players()
+
+        main_by_name = {}
+        for p in main_players:
+            key = (p.get("first_name", "").lower(), p.get("second_name", "").lower(), p.get("team"))
+            main_by_name[key] = p
+            wn_key = (p.get("web_name", "").lower(), p.get("team"))
+            main_by_name[wn_key] = p
+
+        result = {}
+        for dp in draft_players:
+            did = dp["id"]
+            name_key = (dp.get("first_name", "").lower(), dp.get("second_name", "").lower(), dp.get("team"))
+            if name_key in main_by_name:
+                result[did] = main_by_name[name_key]
+                continue
+            wn_key = (dp.get("web_name", "").lower(), dp.get("team"))
+            if wn_key in main_by_name:
+                result[did] = main_by_name[wn_key]
+                continue
+            result[did] = {}
+
+        setattr(self, cache_key, result)
+        return result
+
     def get_main_teams(self) -> List[Dict]:
         return self.get_main_bootstrap()["teams"]
 
     def get_main_team_map(self) -> Dict[int, Dict]:
         return {t["id"]: t for t in self.get_main_teams()}
 
+    def _draft_to_main_id(self, draft_id: int) -> int:
+        """Convert a draft player ID to its main API equivalent."""
+        xref = self.get_draft_to_main_map()
+        main = xref.get(draft_id, {})
+        return main.get("id", draft_id)
+
     def get_player_history(self, player_id: int) -> Dict:
         """
         Per-GW history + upcoming fixtures for a single player.
-        Returns {history: [...], fixtures: [...], history_past: [...]}.
+        Accepts draft player_id; auto-converts to main API ID.
         Cached for 30 minutes (data only changes post-match).
         """
-        return self._get(f"{FPL_BASE}/element-summary/{player_id}/", ttl=1800)
+        main_id = self._draft_to_main_id(player_id)
+        return self._get(f"{FPL_BASE}/element-summary/{main_id}/", ttl=1800)
 
     def get_player_gw_history(self, player_id: int) -> List[Dict]:
         """Per-gameweek stats for a player this season."""
