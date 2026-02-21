@@ -185,8 +185,54 @@ class FPLClient:
 
     def get_squad(self, entry_id: int, gw: int) -> List[Dict]:
         """Get squad picks for an entry in a specific gameweek."""
-        data = self._get(f"{DRAFT_BASE}/entry/{entry_id}/event/{gw}")
-        return data.get("picks", [])
+        try:
+            data = self._get(f"{DRAFT_BASE}/entry/{entry_id}/event/{gw}")
+            if isinstance(data, str):
+                return []
+            return data.get("picks", []) or []
+        except Exception:
+            return []
+
+    def get_current_squad(self, league_id: int, entry_id: int) -> List[Dict]:
+        """
+        Get the actual current squad for an entry by combining the last
+        available GW squad with approved transactions for the next GW.
+        This handles the gap between GW end and next GW start where
+        picks aren't available yet but waivers/FA pickups are processed.
+        """
+        current_gw = self.get_current_gw()
+        next_gw = self.get_next_gw()
+
+        squad = self.get_squad(entry_id, next_gw)
+        if squad:
+            return squad
+
+        squad = self.get_squad(entry_id, current_gw)
+        if not squad:
+            for gw in range(current_gw - 1, 0, -1):
+                squad = self.get_squad(entry_id, gw)
+                if squad:
+                    break
+        if not squad:
+            return []
+
+        txns = self.get_transactions(league_id)
+        approved = [
+            t for t in txns
+            if t.get("entry") == entry_id
+            and t.get("result") == "a"
+            and t.get("event", 0) > current_gw
+        ]
+
+        for t in approved:
+            p_in = t["element_in"]
+            p_out = t["element_out"]
+            for i, pick in enumerate(squad):
+                if pick["element"] == p_out:
+                    squad[i] = {**pick, "element": p_in}
+                    break
+
+        return squad
 
     def get_all_squads(self, league_id: int, gw: int) -> Dict[int, List[Dict]]:
         """Get squads for all entries in a league for a gameweek."""
@@ -411,11 +457,12 @@ class FPLClient:
     def get_enriched_squad(self, league_id: int, entry_id: int, gw: int) -> List[Dict]:
         """
         Get a squad with full player + team details attached.
+        Uses transaction-aware squad (applies approved waivers/FA pickups).
         
         Returns list of dicts with: player_id, web_name, team_id, team_short,
         position, total_points, form, is_captain, squad_position, etc.
         """
-        picks = self.get_squad(entry_id, gw)
+        picks = self.get_current_squad(league_id, entry_id)
         player_map = self.get_player_map()
         team_map = self.get_team_map()
 

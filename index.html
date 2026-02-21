@@ -355,6 +355,45 @@ tr:hover td { background: rgba(255,255,255,.03); }
     <button class="btn-secondary" onclick="resetSimulation()">Reset Simulation</button>
   </div>
   <div id="analysisResults"></div>
+
+  <!-- Player Points Breakdown -->
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px">
+      <h3 style="margin:0">Player Points Breakdown</h3>
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Manager</label>
+        <select id="breakdownManager" style="min-width:180px"></select>
+      </div>
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">GW</label>
+        <input type="number" id="breakdownGw" style="width:80px">
+      </div>
+      <label style="font-size:12px;display:flex;align-items:center;gap:4px;cursor:pointer"><input type="checkbox" id="breakdownOptimal"> Show Optimal 11 Only</label>
+      <button class="btn-primary btn-sm" onclick="loadBreakdown()">Load</button>
+    </div>
+    <div id="breakdownResults"></div>
+  </div>
+
+  <!-- FA Suggestions -->
+  <div class="card" style="margin-top:16px">
+    <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:flex-end;margin-bottom:12px">
+      <h3 style="margin:0">FA Suggestions</h3>
+      <div>
+        <label style="font-size:12px;color:var(--text2);display:block;margin-bottom:4px">Position</label>
+        <select id="faSugPos">
+          <option value="0">All</option>
+          <option value="1">GK</option>
+          <option value="2">DEF</option>
+          <option value="3">MID</option>
+          <option value="4">FWD</option>
+        </select>
+      </div>
+      <button class="btn-secondary btn-sm" onclick="loadFASuggestions('fixture')">Best for THIS GW</button>
+      <button class="btn-secondary btn-sm" onclick="loadFASuggestions('range')">Best for Next 3 GWs</button>
+      <button class="btn-secondary btn-sm" onclick="loadFASuggestions('weak')">Best for Weak Spots</button>
+    </div>
+    <div id="faSugResults"></div>
+  </div>
 </div>
 
 <!-- Predictions -->
@@ -549,8 +588,8 @@ async function init() {
     const nxt = Math.min(state.nextGw, 38);
     const nxtEnd = Math.min(nxt + 5, 38);
 
-    document.getElementById('analysisGwStart').value = state.currentGw;
-    document.getElementById('analysisGwEnd').value = Math.min(state.currentGw + 5, 38);
+    document.getElementById('analysisGwStart').value = nxt;
+    document.getElementById('analysisGwEnd').value = nxtEnd;
     document.getElementById('predGwStart').value = nxt;
     document.getElementById('predGwEnd').value = nxtEnd;
     document.getElementById('ndkGwStart').value = nxt;
@@ -566,8 +605,9 @@ async function init() {
 }
 
 function populateManagerSelects() {
-  ['analysisManager','predManager','h2hTeam1','h2hTeam2'].forEach(id => {
+  ['analysisManager','predManager','h2hTeam1','h2hTeam2','breakdownManager'].forEach(id => {
     const sel = document.getElementById(id);
+    if (!sel) return;
     sel.innerHTML = '';
     state.entries.forEach(e => {
       const opt = document.createElement('option');
@@ -576,6 +616,8 @@ function populateManagerSelects() {
       sel.appendChild(opt);
     });
   });
+  const bdGw = document.getElementById('breakdownGw');
+  if (bdGw && !bdGw.value) bdGw.value = state.nextGw;
 }
 
 function showTab(id) {
@@ -1013,7 +1055,7 @@ function teamBorder(teamShort) {
   return c ? `border-left-color:${c.p}` : '';
 }
 
-// ─── GW Lineups ──────────────────────────────────────────────────
+// ─── GW Lineups (with bench threats and data sources) ────────────
 async function loadGWLineups() {
   const el = document.getElementById('gwLineupsContent');
   const gw = parseInt(document.getElementById('gwLineupsGw').value);
@@ -1022,7 +1064,7 @@ async function loadGWLineups() {
 
   try {
     const data = await api(`/api/lineups/gw/${gw}`);
-    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(450px,1fr));gap:16px;margin-top:16px">`;
+    let html = `<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(480px,1fr));gap:16px;margin-top:16px">`;
     data.forEach(fix => {
       const h = fix.home;
       const a = fix.away;
@@ -1038,6 +1080,8 @@ async function loadGWLineups() {
       [h, a].forEach(side => {
         const lu = side.lineup || {};
         const xi = lu.predicted_xi || [];
+        const bench = lu.bench_threats || [];
+        const sources = lu.data_sources || [];
         const conf = lu.confidence || 'medium';
         const confColor = conf === 'high' ? 'var(--easy)' : conf === 'medium' ? 'var(--medium)' : 'var(--hard)';
         html += `<div class="fixture-card-side" style="border-top:2px solid ${TEAM_COLORS[side.team_short]?.p || '#333'}">`;
@@ -1046,6 +1090,20 @@ async function loadGWLineups() {
           const avColor = p.availability_score >= 85 ? 'var(--easy)' : p.availability_score >= 60 ? 'var(--medium)' : 'var(--hard)';
           html += `<div class="lineup-row">${jerseySvg(side.team_short,'sm')}<span class="pos pos-${p.pos_name}" style="font-size:9px">${p.pos_name}</span><span class="lr-name">${p.web_name}</span><span class="lr-avail" style="background:${avColor}22;color:${avColor}">${Math.round(p.availability_score)}</span></div>`;
         });
+        if (bench.length) {
+          html += `<div style="margin-top:6px;padding-top:4px;border-top:1px dashed var(--border);font-size:10px;color:var(--text2)">Bench threats:</div>`;
+          bench.forEach(b => {
+            const rp = b.would_replace;
+            html += `<div class="lineup-row" style="opacity:.6;font-size:11px"><span class="pos pos-${b.pos_name}" style="font-size:8px">${b.pos_name}</span><span class="lr-name">${b.web_name}</span>`;
+            if (rp && b.replace_probability > 0) {
+              html += `<span style="color:var(--medium);font-size:10px">${b.replace_probability}% replaces ${rp.web_name}</span>`;
+            }
+            html += `</div>`;
+          });
+        }
+        if (sources.length) {
+          html += `<div style="margin-top:4px;font-size:9px;color:var(--text2);opacity:.5">${sources.join(' | ')}</div>`;
+        }
         html += `</div>`;
       });
       html += `</div></div>`;
@@ -1068,6 +1126,126 @@ async function validateLineups() {
   } catch (e) {
     el.textContent = `Error: ${e.message}`;
   }
+}
+
+// ─── Player Points Breakdown ─────────────────────────────────────
+async function loadBreakdown() {
+  const el = document.getElementById('breakdownResults');
+  const entryId = document.getElementById('breakdownManager').value;
+  const gw = parseInt(document.getElementById('breakdownGw').value);
+  const optimalOnly = document.getElementById('breakdownOptimal').checked;
+  if (!entryId || !gw) return;
+  el.innerHTML = '<div class="loader"><div class="spinner"></div><p>Calculating player breakdowns...</p></div>';
+
+  try {
+    const data = await api(`/api/predict/breakdown/${entryId}?gw=${gw}`);
+    let players = data.players || [];
+    if (optimalOnly) players = players.filter(p => p.in_optimal_xi);
+
+    let html = `<div style="overflow-x:auto"><table><tr>`;
+    html += '<th>Player</th><th>Pos</th><th>Team</th><th>vs</th><th>Opp Batch</th><th>Games</th>';
+    html += '<th>Goals</th><th>Assists</th><th>CS</th><th>Saves</th><th>Bonus</th><th>Cards</th><th>Predicted</th></tr>';
+
+    players.forEach(p => {
+      const star = p.in_optimal_xi ? '<span style="color:var(--accent);font-size:10px" title="In optimal XI">&#9733;</span>' : '';
+      const confColor = p.confidence === 'high' ? 'var(--easy)' : p.confidence === 'medium' ? 'var(--medium)' : 'var(--hard)';
+      const tc = TEAM_COLORS[p.team_short] || {};
+      const opc = TEAM_COLORS[p.opponent_short] || {};
+
+      html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer">`;
+      html += `<td style="border-left:3px solid ${tc.p||'transparent'}">${star} <b>${p.web_name}</b> <span style="color:${confColor};font-size:9px">&#9679;</span></td>`;
+      html += `<td><span class="pos pos-${POS[p.position]}">${POS[p.position]}</span></td>`;
+      html += `<td>${jerseySvg(p.team_short,'sm')} ${p.team_short}</td>`;
+      html += `<td>${jerseySvg(p.opponent_short,'sm')} <b>${p.opponent}</b></td>`;
+      html += `<td style="font-size:11px">${p.opponent_batch_name}</td>`;
+      html += `<td>${p.games_played}</td>`;
+
+      const fields = ['goals_pts','assists_pts','cs_pts','saves_pts','bonus_pts','cards_pts'];
+      fields.forEach(f => {
+        const v = p[f];
+        const color = v > 0.5 ? 'var(--easy)' : v > 0.1 ? 'var(--text)' : v < -0.05 ? 'var(--hard)' : 'var(--text2)';
+        html += `<td style="color:${color};text-align:center">${v.toFixed(1)}</td>`;
+      });
+
+      const predColor = xptsColor(p.predicted);
+      html += `<td style="background:${predColor};color:#111;text-align:center;font-weight:700;border-radius:4px" title="Floor:${p.floor} Ceil:${p.ceiling}">${p.predicted}</td>`;
+      html += '</tr>';
+    });
+    html += '</table></div>';
+
+    html += `<div style="display:flex;gap:24px;margin-top:12px;padding:12px;background:var(--surface2);border-radius:var(--radius);font-size:13px">`;
+    html += `<span>Formation: <b>${data.formation}</b></span>`;
+    html += `<span>Optimal 11: <b style="color:var(--accent)">${data.optimal_xi_pts} pts</b></span>`;
+    html += `<span>Bench: <b>+${data.bench_pts} pts</b></span>`;
+    html += `<span>Confidence: <span style="color:var(--easy)">&#9679; High</span> <span style="color:var(--medium)">&#9679; Med</span> <span style="color:var(--hard)">&#9679; Low</span></span>`;
+    html += '</div>';
+
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+// ─── FA Suggestions ──────────────────────────────────────────────
+async function loadFASuggestions(mode) {
+  const el = document.getElementById('faSugResults');
+  const entryId = document.getElementById('breakdownManager').value || document.getElementById('analysisManager').value;
+  const pos = document.getElementById('faSugPos').value;
+  const gw = parseInt(document.getElementById('breakdownGw').value || document.getElementById('analysisGwStart').value);
+  if (!entryId) { el.innerHTML = '<div style="color:var(--medium)">Select a manager first.</div>'; return; }
+  el.innerHTML = '<div class="loader"><div class="spinner"></div></div>';
+
+  try {
+    let data;
+    if (mode === 'fixture') {
+      data = await api(`/api/suggest/fixture?entry_id=${entryId}&position=${pos}&gw=${gw}`);
+    } else if (mode === 'range') {
+      const gwEnd = Math.min(gw + 2, 38);
+      data = await api(`/api/suggest/range?entry_id=${entryId}&position=${pos}&gw_start=${gw}&gw_end=${gwEnd}`);
+    } else {
+      const gwEnd = Math.min(gw + 5, 38);
+      const resp = await api(`/api/suggest/weak?entry_id=${entryId}&gw_start=${gw}&gw_end=${gwEnd}`);
+      renderWeakFASuggestions(el, resp);
+      return;
+    }
+
+    let html = `<div style="overflow-x:auto"><table><tr><th></th><th>Player</th><th>Pos</th><th>Team</th><th>Pts</th><th>Form</th><th>Lineup%</th>`;
+    if (mode === 'fixture') {
+      html += '<th>Opponent</th><th>FDR</th><th>GW xPts</th></tr>';
+      data.forEach(p => {
+        const color = xptsColor(p.gw_xpts);
+        html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td>${jerseySvg(p.team_short,'sm')}</td><td><b>${p.web_name}</b></td><td><span class="pos pos-${POS[p.position]}">${POS[p.position]}</span></td><td>${p.team_short}</td><td>${p.total_points}</td><td>${p.form}</td><td>${Math.round(p.lineup_prob*100)}%</td><td>${p.opponent}</td><td><span class="fdr-${p.fdr}" style="padding:2px 6px;border-radius:4px">${p.fdr}</span></td><td style="background:${color};color:#111;font-weight:700;border-radius:4px;text-align:center">${p.gw_xpts}</td></tr>`;
+      });
+    } else {
+      html += '<th>Total xPts</th><th>Avg xPts</th></tr>';
+      data.forEach(p => {
+        html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td>${jerseySvg(p.team_short,'sm')}</td><td><b>${p.web_name}</b></td><td><span class="pos pos-${POS[p.position]}">${POS[p.position]}</span></td><td>${p.team_short}</td><td>${p.total_points}</td><td>${p.form}</td><td>${Math.round(p.lineup_prob*100)}%</td><td style="font-weight:700;color:var(--accent)">${p.total_xpts}</td><td>${p.avg_xpts}</td></tr>`;
+      });
+    }
+    html += '</table></div>';
+    el.innerHTML = html;
+  } catch (e) {
+    el.innerHTML = `<div style="color:var(--hard)">Error: ${e.message}</div>`;
+  }
+}
+
+function renderWeakFASuggestions(el, data) {
+  const weakPos = data.weak_positions || {};
+  const suggestions = data.suggestions || {};
+  if (!Object.keys(weakPos).length) {
+    el.innerHTML = '<div style="color:var(--easy);padding:8px">No weak positions found - your squad is solid!</div>';
+    return;
+  }
+  let html = '';
+  Object.entries(suggestions).forEach(([posName, players]) => {
+    html += `<div style="margin-bottom:12px"><h4 style="color:var(--hard);margin-bottom:4px">${posName} - ${weakPos[posName]} weak GW(s)</h4>`;
+    html += '<table><tr><th></th><th>Player</th><th>Team</th><th>Pts</th><th>Form</th><th>GW xPts</th></tr>';
+    (players || []).forEach(p => {
+      html += `<tr onclick="openPlayerDetail(${p.player_id})" style="cursor:pointer"><td>${jerseySvg(p.team_short,'sm')}</td><td><b>${p.web_name}</b></td><td>${p.team_short}</td><td>${p.total_points}</td><td>${p.form}</td><td style="font-weight:700;color:var(--accent)">${p.gw_xpts}</td></tr>`;
+    });
+    html += '</table></div>';
+  });
+  el.innerHTML = html;
 }
 
 // ─── Enhanced Player Modal (with score dist, predicted repeats, team colors) ─

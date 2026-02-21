@@ -71,6 +71,8 @@ class LineupPredictor:
             for p in available[count:]:
                 subs.append({**p, "role": "sub"})
 
+        top_bench = self._bench_threats(predicted_xi, subs)
+
         team = team_map.get(team_id, {})
         return {
             "team_id": team_id,
@@ -78,8 +80,57 @@ class LineupPredictor:
             "team_short": team.get("short_name", "?"),
             "predicted_xi": predicted_xi,
             "subs": subs,
+            "bench_threats": top_bench,
             "confidence": self._team_confidence(predicted_xi),
+            "data_sources": [
+                "FPL API player status/news",
+                "Minutes & starts this season",
+                "Chance of playing % (main FPL API)",
+                "Recent form & rotation patterns",
+            ],
         }
+
+    def _bench_threats(self, xi: List[Dict], subs: List[Dict]) -> List[Dict]:
+        """
+        Top 3-5 bench players most likely to replace a starter.
+        Shows who they'd replace and with what probability.
+        """
+        threats = []
+        for sub in subs[:5]:
+            if sub["availability_score"] < 30:
+                continue
+            pos = sub["position"]
+            starters_same_pos = [
+                s for s in xi if s["position"] == pos
+            ]
+            starters_same_pos.sort(key=lambda s: s["availability_score"])
+
+            replaces = None
+            replace_pct = 0
+            if starters_same_pos:
+                weakest = starters_same_pos[0]
+                gap = sub["availability_score"] - weakest["availability_score"]
+                if gap > -20:
+                    replace_pct = min(max(10 + gap * 0.5, 5), 60)
+                    replaces = {
+                        "player_id": weakest["player_id"],
+                        "web_name": weakest["web_name"],
+                        "availability_score": weakest["availability_score"],
+                    }
+
+            threats.append({
+                "player_id": sub["player_id"],
+                "web_name": sub["web_name"],
+                "position": sub["position"],
+                "pos_name": sub.get("pos_name", "?"),
+                "availability_score": sub["availability_score"],
+                "form": sub.get("form", 0),
+                "total_points": sub.get("total_points", 0),
+                "replace_probability": round(replace_pct, 1),
+                "would_replace": replaces,
+            })
+        threats.sort(key=lambda x: -x["replace_probability"])
+        return threats[:5]
 
     def predict_all_teams(self) -> List[Dict]:
         """Predict lineups for all 20 PL teams."""

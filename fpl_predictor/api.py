@@ -356,6 +356,19 @@ def simulate_replacements():
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Player Points Breakdown (per-GW detailed)
+# ──────────────────────────────────────────────────────────────────────
+
+@app.route("/api/predict/breakdown/<int:entry_id>")
+def predict_breakdown(entry_id):
+    """Per-player points breakdown for a specific GW."""
+    lid = _get_league_id()
+    gw = request.args.get("gw", type=int) or fpl.get_next_gw()
+    result = predictor.predict_squad_breakdown(lid, entry_id, gw)
+    return jsonify(_clean(result))
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Player Predictions (xPts)
 # ──────────────────────────────────────────────────────────────────────
 
@@ -534,6 +547,26 @@ def suggest_fa_range():
     gw_end = request.args.get("gw_end", type=int) or min(gw_start + 2, 38)
     result = predictor.suggest_fa_multi_gw(lid, entry_id, pos, gw_start, gw_end)
     return jsonify(_clean(result))
+
+
+@app.route("/api/suggest/weak")
+def suggest_fa_weak():
+    """Best FAs for GWs where team is weakest (hardest fixtures)."""
+    lid = _get_league_id()
+    entry_id = request.args.get("entry_id", type=int)
+    gw_start = request.args.get("gw_start", type=int) or fpl.get_next_gw()
+    gw_end = request.args.get("gw_end", type=int) or min(gw_start + 5, 38)
+    analyzer = _get_analyzer()
+    analysis = analyzer.analyze_squad(entry_id, gw_start, gw_end)
+    weak_positions = analysis.get("position_failures", {})
+    suggestions = {}
+    POS_MAP = {"GK": 1, "DEF": 2, "MID": 3, "FWD": 4}
+    for pos_name, fail_count in weak_positions.items():
+        if fail_count > 0:
+            pos_id = POS_MAP.get(pos_name, 3)
+            fa_list = predictor.suggest_fa_for_fixture(lid, entry_id, pos_id, gw_start)
+            suggestions[pos_name] = fa_list[:5]
+    return jsonify(_clean({"weak_positions": weak_positions, "suggestions": suggestions}))
 
 
 # ──────────────────────────────────────────────────────────────────────

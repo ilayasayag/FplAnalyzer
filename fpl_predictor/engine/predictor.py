@@ -154,6 +154,119 @@ class PlayerPredictor:
             "suggested_lineups": suggested,
         }
 
+    def predict_squad_breakdown(self, league_id: int, entry_id: int, gw: int) -> Dict:
+        """
+        Detailed per-player breakdown for a single GW, showing each point
+        component (goals, assists, CS, saves, bonus, cards) and opponent info.
+        Used for the Player Points Breakdown dashboard.
+        """
+        current_gw = self.client.get_current_gw()
+        squad = self.client.get_enriched_squad(league_id, entry_id, current_gw)
+        grid = self.client.get_fixture_grid()
+        batch_map = self.client.get_team_batch_map()
+        team_map = self.client.get_team_map()
+        batch_names = {1: "Top 4", 2: "Top 8 (5-8)", 3: "Mid Table (9-12)",
+                       4: "Lower (13-17)", 5: "Bottom 3"}
+
+        players = []
+        for p in squad:
+            pred = self.predict_player(p["player_id"], gw, gw)
+            gw_pred = pred.get("predictions", [{}])[0] if pred.get("predictions") else {}
+            bd = gw_pred.get("breakdown", {})
+            fixture = grid.get(p["team_id"], {}).get(gw)
+            opp_id = fixture["opponent_id"] if fixture else None
+            opp_team = team_map.get(opp_id, {}) if opp_id else {}
+            opp_batch = batch_map.get(opp_id, 3) if opp_id else 3
+
+            history = self._get_history_safe(p["player_id"])
+            games_played = len([h for h in history if h.get("minutes", 0) > 0])
+
+            confidence = "high" if pred.get("lineup_prob", 0) >= 0.85 else \
+                         "medium" if pred.get("lineup_prob", 0) >= 0.55 else "low"
+
+            players.append({
+                "player_id": p["player_id"],
+                "web_name": pred.get("web_name", p.get("web_name", "?")),
+                "position": p["position"],
+                "team_short": p["team_short"],
+                "team_id": p["team_id"],
+                "opponent": gw_pred.get("opponent", "?"),
+                "opponent_id": opp_id,
+                "opponent_short": opp_team.get("short_name", "?"),
+                "opponent_batch": opp_batch,
+                "opponent_batch_name": batch_names.get(opp_batch, "?"),
+                "is_home": gw_pred.get("is_home", True),
+                "fdr": gw_pred.get("fdr", 3),
+                "games_played": games_played,
+                "goals_pts": round(bd.get("goals", 0), 1),
+                "assists_pts": round(bd.get("assists", 0), 1),
+                "cs_pts": round(bd.get("clean_sheet", 0), 1),
+                "saves_pts": round(bd.get("saves", 0), 1),
+                "bonus_pts": round(bd.get("bonus", 0), 1),
+                "cards_pts": round(bd.get("cards", 0), 1),
+                "playing_pts": round(bd.get("playing", 0), 1),
+                "gc_pts": round(bd.get("goals_conceded", 0), 1),
+                "predicted": gw_pred.get("expected", 0),
+                "floor": gw_pred.get("floor", 0),
+                "ceiling": gw_pred.get("ceiling", 0),
+                "lineup_prob": pred.get("lineup_prob", 0),
+                "confidence": confidence,
+                "form": pred.get("form", 0),
+                "total_points": p.get("total_points", 0),
+                "squad_position": p.get("squad_position", 0),
+            })
+
+        players.sort(key=lambda x: -x["predicted"])
+
+        optimal = self._select_optimal_xi(players)
+        xi_ids = {p["player_id"] for p in optimal["lineup"]}
+        for p in players:
+            p["in_optimal_xi"] = p["player_id"] in xi_ids
+
+        bench_pts = sum(p["predicted"] for p in players if not p["in_optimal_xi"])
+
+        return {
+            "entry_id": entry_id,
+            "gw": gw,
+            "players": players,
+            "formation": optimal["formation"],
+            "optimal_xi_pts": optimal["total"],
+            "bench_pts": round(bench_pts, 1),
+        }
+
+    def _select_optimal_xi(self, players: List[Dict]) -> Dict:
+        """Select the best 11 from a list of predicted players."""
+        from itertools import combinations
+        POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+        FORMATIONS = [
+            (1, 3, 5, 2), (1, 3, 4, 3), (1, 4, 5, 1),
+            (1, 4, 4, 2), (1, 4, 3, 3), (1, 5, 4, 1),
+            (1, 5, 3, 2), (1, 5, 2, 3),
+        ]
+        by_pos = defaultdict(list)
+        for p in players:
+            by_pos[p["position"]].append(p)
+        for pos in by_pos:
+            by_pos[pos].sort(key=lambda x: -x["predicted"])
+
+        best = None
+        best_score = -1
+        for f in FORMATIONS:
+            gk, df, mf, fw = f
+            if (len(by_pos.get(1, [])) < gk or len(by_pos.get(2, [])) < df or
+                len(by_pos.get(3, [])) < mf or len(by_pos.get(4, [])) < fw):
+                continue
+            lineup = by_pos[1][:gk] + by_pos[2][:df] + by_pos[3][:mf] + by_pos[4][:fw]
+            total = sum(p["predicted"] for p in lineup)
+            if total > best_score:
+                best_score = total
+                best = {
+                    "lineup": lineup,
+                    "formation": f"{df}-{mf}-{fw}",
+                    "total": round(total, 1),
+                }
+        return best or {"lineup": [], "formation": "N/A", "total": 0}
+
     def predict_h2h(self, league_id: int, entry1: int, entry2: int,
                     gw: int) -> Dict:
         """Compare two FPL squads for a specific GW."""
