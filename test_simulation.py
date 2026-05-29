@@ -930,6 +930,111 @@ def run_10_player_simulation():
     assert league_doc["champion"] == final_match["home"], "Champion must be the winner of final match"
     print("🏆 Simulation 4 passed perfectly!")
 
+def run_poller_auto_finalize_simulation():
+    print("\n==============================================")
+    print("🏃 RUNNING SIMULATION 5: POLLER AUTO-FINALIZE PIPELINE")
+    print("==============================================")
+    
+    # Clear and repopulate mock data
+    clear_emulator_db()
+    populate_mock_data()
+    
+    # 1. Create a 6-player league
+    admin_uid = "mgr_1"
+    res = league_mgr.create_league(
+        uid=admin_uid,
+        name="Poller Auto-Finalize League",
+        display_name="Manager 1",
+        max_members=6,
+        pick_timer=30
+    )
+    lid = res["leagueId"]
+    invite_code = res["inviteCode"]
+    print(f"🏆 League '{res['name']}' created. ID: {lid}")
+    
+    # 2. Join 5 friends
+    for idx in range(2, 7):
+        league_mgr.join_league(
+            uid=f"mgr_{idx}",
+            invite_code=invite_code,
+            display_name=f"Manager {idx}",
+            team_name=f"Team {idx}"
+        )
+    print("👥 6 managers have joined.")
+    
+    # 3. Lock for draft (calculates knockoutStartGw, actualMemberCount, etc.)
+    lock_res = league_mgr.lock_for_draft(lid, admin_uid)
+    print(f"🔒 League locked for draft: actualMemberCount = {lock_res['memberCount']}")
+    
+    # 5. Populate Draft Squads
+    gk_players = db.collection("wc_players").where("position", "==", 1).get()
+    def_players = db.collection("wc_players").where("position", "==", 2).get()
+    mid_players = db.collection("wc_players").where("position", "==", 3).get()
+    fwd_players = db.collection("wc_players").where("position", "==", 4).get()
+    
+    gk_pool = [g.to_dict() for g in gk_players]
+    def_pool = [d.to_dict() for d in def_players]
+    mid_pool = [m.to_dict() for m in mid_players]
+    fwd_pool = [f.to_dict() for f in fwd_players]
+    
+    from test_simulation import get_draft_squad
+    managers_squads = {}
+    for idx in range(1, 7):
+        uid = f"mgr_{idx}"
+        squad_players = get_draft_squad(gk_pool, def_pool, mid_pool, fwd_pool, idx - 1)
+        db.collection("leagues").document(lid).collection("squads").document(uid).set({
+            "players": squad_players,
+            "updatedAt": datetime.now(timezone.utc)
+        })
+        managers_squads[uid] = squad_players
+        
+    print("🔒 Draft completed successfully.")
+    
+    # Transition league status to group_phase and generate schedule
+    db.collection("leagues").document(lid).update({"status": "drafting"})
+    league_mgr.start_season(lid, admin_uid)
+    print("🚀 Season started.")
+    
+    # Set lineup for managers
+    for idx in range(1, 7):
+        uid = f"mgr_{idx}"
+        squad = managers_squads[uid]
+        from test_simulation import get_starting_and_bench
+        starting, bench = get_starting_and_bench(squad)
+        squad_mgr.set_lineup(
+            lid=lid, uid=uid, gw=1,
+            starting=starting, bench=bench,
+            captain=starting[0], vice_captain=starting[1]
+        )
+        
+    # Mock scoring for GW 1
+    points_map = {}
+    for idx in range(1, 7):
+        uid = f"mgr_{idx}"
+        squad = managers_squads[uid]
+        for p in squad:
+            points_map[p["playerId"]] = 5
+            
+    simulate_fixtures_scoring(1, points_map)
+    
+    # 4. Inject mock client and db to api_wc to run poller
+    import fpl_predictor.api_wc as api_wc
+    class DummyWC:
+        def get_live_fixtures(self):
+            return []
+    api_wc._wc = DummyWC()
+    api_wc._db = db
+    
+    print("🔄 Running background poller auto-finalize pipeline...")
+    poller_res = api_wc.background_poll_and_process_fixtures()
+    print(f"Poller run result: {poller_res}")
+    
+    # Verify that league was finalized!
+    league_doc = db.collection("leagues").document(lid).get().to_dict()
+    print(f"🏁 Finalized currentGw: {league_doc.get('currentGw')}")
+    assert league_doc.get("currentGw") == 2, "League should have auto-finalized GW1 and advanced currentGw to 2!"
+    print("🏆 Simulation 5 passed perfectly!")
+
 def main():
     clear_emulator_db()
     populate_mock_data()
@@ -937,6 +1042,7 @@ def main():
     run_6_player_simulation()
     run_8_player_schedule_simulation()
     run_10_player_simulation()
+    run_poller_auto_finalize_simulation()
     print("\n🎉 ALL WORLD CUP FANTASY INTEGRATION TESTS COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":

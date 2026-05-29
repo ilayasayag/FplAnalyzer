@@ -10,6 +10,10 @@ function BracketScreen({ onTab }) {
 
   // QF results: fallback statuses. Currently SF/F empty.
   const qfResults = {
+    "qf_1v8": { status: "scheduled" },
+    "qf_4v5": { status: "live", liveLabel: "Lock in 36h" },
+    "qf_2v7": { status: "scheduled" },
+    "qf_3v6": { status: "scheduled" },
     qf1: { status: "scheduled" },
     qf2: { status: "live", liveLabel: "Lock in 36h" },
     qf3: { status: "scheduled" },
@@ -17,6 +21,8 @@ function BracketScreen({ onTab }) {
   };
 
   const sfResults = {
+    "sf_1v4": { status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
+    "sf_2v3": { status: "scheduled" },
     sf1: { status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
     sf2: { status: "scheduled" },
   };
@@ -46,7 +52,7 @@ function BracketScreen({ onTab }) {
         {hasQf && (
           <div className="bracket__col">
             <div className="bracket__col-head">Quarter-Finals · GW4</div>
-            {rounds.qf && rounds.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={qfResults[m.id]} round="qf" />)}
+            {rounds.qf && rounds.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={qfResults[m.id] || qfResults[`qf${i+1}`]} round="qf" />)}
           </div>
         )}
 
@@ -63,7 +69,7 @@ function BracketScreen({ onTab }) {
                   </div>
                 );
               } else {
-                return <BracketMatch key={m.id} match={m} result={sfResults[m.id]} round="sf" />;
+                return <BracketMatch key={m.id} match={m} result={sfResults[m.id] || sfResults[`sf${i+1}`]} round="sf" />;
               }
             })
           ) : hasQf ? (

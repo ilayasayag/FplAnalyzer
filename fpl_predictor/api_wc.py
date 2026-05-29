@@ -1063,6 +1063,36 @@ def background_poll_and_process_fixtures():
                 errors.append({"fid": fid, "error": str(exc)})
                 print(f"[warn] process-live fixture {fid}: {exc}")
 
+    # Auto-finalize gameweeks for active leagues if all matches for the current gameweek are completed and processed
+    try:
+        leagues = _db.collection("leagues").get()
+        for ldoc in leagues:
+            lid = ldoc.id
+            league = ldoc.to_dict()
+            status = league.get("status")
+            if status in ("complete", "pre_draft", "drafting"):
+                continue
+            cgw = league.get("currentGw")
+            if not cgw:
+                continue
+            
+            gw_fixtures = _db.collection("wc_fixtures").where("gw", "==", cgw).get()
+            if not gw_fixtures:
+                continue
+            
+            all_processed = all(f.to_dict().get("processedForFantasy") for f in gw_fixtures)
+            if all_processed:
+                try:
+                    print(f"[Background Poller] Auto-finalizing GW {cgw} for league {lid}...")
+                    finalize_gw(lid, cgw, _db, _wc)
+                    processed.append(f"finalize_gw_{lid}_gw{cgw}")
+                except Exception as f_exc:
+                    print(f"[warn] Auto-finalize failed for league {lid} GW {cgw}: {f_exc}")
+                    errors.append({"lid": lid, "gw": cgw, "error": str(f_exc)})
+    except Exception as exc:
+        print(f"[warn] Failed during leagues auto-finalization check: {exc}")
+        errors.append({"error": f"Failed leagues auto-finalization check: {exc}"})
+
     return {"processed": processed, "count": len(processed), "errors": errors}
 
 
