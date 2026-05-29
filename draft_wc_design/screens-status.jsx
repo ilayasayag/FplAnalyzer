@@ -339,7 +339,7 @@ function PickTeamScreen({ onTab }) {
               {elimStarting.length} eliminated player{elimStarting.length > 1 ? "s" : ""} in your starting XI
             </div>
             <div style={{ fontSize: 12 }}>
-              {elimStarting.map(id => playerById(id).name).join(", ")} — their nation is out of the tournament. They'll score 0 in GW4.
+              {elimStarting.map(id => playerById(id).name).join(", ")} — their nation is out of the tournament. They will score 0 in GW4.
             </div>
           </div>
         </div>
@@ -377,7 +377,7 @@ function PickTeamScreen({ onTab }) {
       {/* Fixtures preview */}
       <div className="card">
         <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <strong style={{ fontSize: 14, letterSpacing: "-0.01em" }}>Your players' GW4 fixtures</strong>
+          <strong style={{ fontSize: 14, letterSpacing: "-0.01em" }}>Your players GW4 fixtures</strong>
           <span className="muted" style={{ fontSize: 12 }}>R32 · Jul 1–4</span>
         </div>
         <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>

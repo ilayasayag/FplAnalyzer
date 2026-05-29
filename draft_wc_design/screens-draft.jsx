@@ -269,7 +269,6 @@ function DraftRoomScreen({ onTab }) {
     </div>
   );
 }
-}
 
 function SquadCount({ label, cur, max }) {
   const full = cur >= max;
