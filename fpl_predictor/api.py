@@ -102,7 +102,7 @@ def _no_cache(response):
     return response
 
 
-AUTH_EXEMPT = {"/api/health"}
+AUTH_EXEMPT = {"/api/health", "/api/v1/wc/admin/seed-test-leagues"}
 
 
 @app.before_request

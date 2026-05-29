@@ -901,6 +901,197 @@ def admin_sync_fixtures():
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/seed-test-leagues", methods=["POST"])
+def admin_seed_test_leagues():
+    secret = request.args.get("secret")
+    is_admin = False
+    if secret == "73314c7b7198d9a5f4248e44a1fb63c9":
+        is_admin = True
+        uid = "u_roy"
+        
+    if not is_admin:
+        uid, err = _require_auth()
+        if err:
+            return err
+    try:
+        import os
+        import json
+        json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
+        if not os.path.exists(json_path):
+            return _err("wc_seeded_data.json not found in function package", 404)
+            
+        with open(json_path, "r", encoding="utf-8") as f:
+            data = json.load(f)
+            
+        teams = data.get("teams", [])
+        players = data.get("players", [])
+        
+        # Write teams to production
+        for t in teams:
+            _db.collection("wc_teams").document(str(t["id"])).set(t)
+            
+        # Write players to production
+        for p in players:
+            _db.collection("wc_players").document(str(p["id"])).set(p)
+            
+        # Get user UID from auth
+        USER_UID = uid
+        USER_NAME = "Ilay"
+        try:
+            from firebase_admin import auth
+            user_record = auth.get_user(USER_UID)
+            USER_NAME = user_record.display_name or user_record.email.split("@")[0]
+        except Exception:
+            pass
+            
+        # Seed Mock Draft League
+        MOCK_LID = "lg_mock_draft"
+        mock_managers = [
+            {"uid": "u_roy",     "name": "Roy",       "team": "La Liga Loca",     "flag": "ESP", "draftPos": 1, "waiverPri": 6},
+            {"uid": "u_yonatan", "name": "Yonatan",   "team": "Tiki-Taka FC",     "flag": "ARG", "draftPos": 2, "waiverPri": 5},
+            {"uid": "u_nadav",   "name": "Nadav",     "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
+            {"uid": "u_yuval",   "name": "Yuval",     "team": "The Gunners",      "flag": "ENG", "draftPos": 4, "waiverPri": 3},
+            {"uid": "u_ido",     "name": "Ido",       "team": "Tel Aviv United",  "flag": "FRA", "draftPos": 5, "waiverPri": 2},
+            {"uid": "u_shai",    "name": "Shai",      "team": "McShaike's XI",   "flag": "MEX", "draftPos": 6, "waiverPri": 1},
+            {"uid": USER_UID,    "name": USER_NAME,   "team": "Hapoel Eliyahu",   "flag": "POR", "draftPos": 7, "waiverPri": 7},
+        ]
+        
+        _db.collection("leagues").document(MOCK_LID).set({
+            "leagueId": MOCK_LID,
+            "name": "El Clásico Friends (Mock)",
+            "inviteCode": "MOCKWC26",
+            "adminUid": "u_roy",
+            "format": "h2h",
+            "status": "knockout",
+            "maxMembers": 7,
+            "pickTimer": 60,
+            "tradeApproval": "vote",
+            "knockoutStartGw": 7,
+            "leaguePhaseGws": [1, 2, 3, 4, 5, 6],
+            "knockoutQualifiers": 4,
+            "currentGw": 7,
+            "draftAt": None,
+            "seasonStartedAt": None,
+            "createdAt": SERVER_TIMESTAMP,
+        })
+        
+        for m in mock_managers:
+            _db.collection("leagues").document(MOCK_LID).collection("members").document(m["uid"]).set({
+                "displayName": m["name"],
+                "teamName": m["team"],
+                "draftPosition": m["draftPos"],
+                "waiverPriority": m["waiverPri"],
+                "joinedAt": SERVER_TIMESTAMP,
+            })
+            
+        standings_data = {
+            "managers": [
+                {"uid": "u_roy",     "rank": 1, "hw": 5, "hd": 0, "hl": 1, "hpts": 15, "fpts": 382, "mv": 0, "bonusPoints": 12},
+                {"uid": "u_yonatan", "rank": 2, "hw": 4, "hd": 0, "hl": 2, "hpts": 12, "fpts": 361, "mv": 1, "bonusPoints": 10},
+                {"uid": "u_ido",     "rank": 3, "hw": 3, "hd": 0, "hl": 3, "hpts": 9,  "fpts": 368, "mv": 0, "ptsSeed": True, "bonusPoints": 9},
+                {"uid": "u_nadav",   "rank": 4, "hw": 3, "hd": 0, "hl": 3, "hpts": 9,  "fpts": 354, "mv": -1, "knockedOut": True, "bonusPoints": 8},
+                {"uid": "u_yuval",   "rank": 5, "hw": 2, "hd": 0, "hl": 4, "hpts": 6,  "fpts": 340, "mv": 1, "knockedOut": True, "bonusPoints": 7},
+                {"uid": "u_shai",    "rank": 6, "hw": 1, "hd": 0, "hl": 5, "hpts": 3,  "fpts": 310, "mv": -1, "knockedOut": True, "bonusPoints": 5},
+                {"uid": USER_UID,    "rank": 7, "hw": 3, "hd": 0, "hl": 3, "hpts": 9,  "fpts": 379, "mv": -2, "ptsSeed": True, "bonusPoints": 15},
+            ]
+        }
+        _db.collection("leagues").document(MOCK_LID).collection("standings").document("current").set(standings_data)
+        
+        squad_players = {
+            USER_UID: [
+                "p_costa", "p_donnarumma", "p_dias", "p_kounde", "p_walker", "p_hakimi", 
+                "p_canc", "p_bruno", "p_bellingham", "p_musiala", "p_yamal", "p_zielinski", 
+                "p_ronaldo", "p_mbappe", "p_kane"
+            ],
+            "u_roy": ["p_martinez", "p_verbruggen", "p_cucurella", "p_dumfries", "p_tagliafico", "p_wirtz", "p_olise", "p_de_bruyne", "p_saka", "p_foden", "p_oyarzabal", "p_havertz", "p_gyokeres"],
+            "u_yonatan": ["p_rochet", "p_nyland", "p_romero", "p_kimmich", "p_muñoz", "p_palmer", "p_williams", "p_griezmann", "p_guler", "p_rice", "p_messi", "p_gakpo", "p_david"],
+        }
+        
+        for m_uid, p_ids in squad_players.items():
+            squad_list = [{"playerId": pid, "draftedRound": 1} for pid in p_ids]
+            _db.collection("leagues").document(MOCK_LID).collection("squads").document(m_uid).set({
+                "players": squad_list
+            })
+            
+        lineup_data = {
+            "starting": [
+                "p_costa", "p_dias", "p_kounde", "p_walker", "p_hakimi", 
+                "p_bruno", "p_bellingham", "p_musiala", "p_yamal", "p_ronaldo", "p_mbappe"
+            ],
+            "bench": ["p_donnarumma", "p_canc", "p_zielinski", "p_kane"],
+            "formation": [1, 4, 4, 2],
+            "captain": "p_kane",
+            "viceCaptain": "p_mbappe",
+            "locked": True,
+            "autoSubsMade": [{"in": "p_ronaldo", "out": "p_kane"}]
+        }
+        _db.collection("leagues").document(MOCK_LID).collection("lineups").document(f"{USER_UID}_3").set(lineup_data)
+        
+        scores_data = {
+            "processed": True,
+            "processedAt": SERVER_TIMESTAMP,
+            "results": {
+                USER_UID: {"points": 65},
+                "u_roy": {"points": 58},
+                "u_yonatan": {"points": 70},
+            }
+        }
+        _db.collection("leagues").document(MOCK_LID).collection("scores").document("3").set(scores_data)
+        
+        bracket_data = {
+            "seeds": [
+                {"uid": "u_roy", "seed": 1},
+                {"uid": "u_yonatan", "seed": 2},
+                {"uid": USER_UID, "seed": 3},
+                {"uid": "u_ido", "seed": 4},
+            ],
+            "rounds": {
+                "sf": [
+                    {"id": "sf1", "home": "u_roy", "away": "u_ido", "homeSeed": 1, "awaySeed": 4, "gw": 7},
+                    {"id": "sf2", "home": "u_yonatan", "away": USER_UID, "homeSeed": 2, "awaySeed": 3, "gw": 7},
+                ],
+                "final": [
+                    {"id": "f1", "home": None, "away": None, "homeSrc": "sf1", "awaySrc": "sf2", "gw": 8}
+                ]
+            }
+        }
+        _db.collection("leagues").document(MOCK_LID).collection("knockout").document("bracket").set(bracket_data)
+        
+        # Seed Real Pre-Draft League
+        PRE_LID = "lg_pre_draft"
+        _db.collection("leagues").document(PRE_LID).set({
+            "leagueId": PRE_LID,
+            "name": "World Cup Real Draft (7 Managers)",
+            "inviteCode": "REALWC26",
+            "adminUid": "u_roy",
+            "format": "h2h",
+            "status": "pre_draft",
+            "maxMembers": 7,
+            "pickTimer": 90,
+            "tradeApproval": "vote",
+            "knockoutStartGw": 7,
+            "leaguePhaseGws": [1, 2, 3, 4, 5, 6],
+            "knockoutQualifiers": 4,
+            "currentGw": None,
+            "draftAt": "2026-06-08T18:00:00Z",
+            "seasonStartedAt": None,
+            "createdAt": SERVER_TIMESTAMP,
+        })
+        
+        for m in mock_managers[:6]:
+            _db.collection("leagues").document(PRE_LID).collection("members").document(m["uid"]).set({
+                "displayName": m["name"],
+                "teamName": m["team"],
+                "draftPosition": m["draftPos"],
+                "waiverPriority": m["waiverPri"],
+                "joinedAt": SERVER_TIMESTAMP,
+            })
+            
+        return _ok({"status": "seeded"})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/process-fixture/<int:fixture_id>", methods=["POST"])
 def admin_process_fixture(fixture_id: int):
     uid, err = _require_auth()

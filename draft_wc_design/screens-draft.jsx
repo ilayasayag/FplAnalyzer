@@ -25,8 +25,8 @@ function DraftRoomScreen({ onTab }) {
     return () => clearInterval(t);
   }, []);
 
-  const onClock = managerById(DRAFT_STATE.onTheClock);
-  const onClockTeam = teamById(onClock.flag);
+  const onClock = managerById(DRAFT_STATE.onTheClock) || { name: "TBD", team: "Draft Pending", flag: "GER" };
+  const onClockTeam = teamById(onClock.flag) || teamById("GER");
 
   // Players already picked
   const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
@@ -39,15 +39,17 @@ function DraftRoomScreen({ onTab }) {
 
   // Snake order projection for next ~10 picks
   const upcoming = [];
-  let pickN = DRAFT_STATE.pickOverall;
-  let round = DRAFT_STATE.round;
-  let inRound = DRAFT_STATE.pickInRound;
-  while (upcoming.length < 8 && pickN <= 150) {
+  let pickN = DRAFT_STATE.pickOverall || 1;
+  let round = DRAFT_STATE.round || 1;
+  let inRound = DRAFT_STATE.pickInRound || 1;
+  const numManagers = MANAGERS.length || 10;
+  while (upcoming.length < 8 && pickN <= (numManagers * 15)) {
     const order = round % 2 === 1 ? MANAGERS : [...MANAGERS].reverse();
-    upcoming.push({ overall: pickN, round, uid: order[inRound - 1]?.uid });
+    const uid = order[inRound - 1]?.uid;
+    upcoming.push({ overall: pickN, round, uid });
     pickN++;
     inRound++;
-    if (inRound > 10) { round++; inRound = 1; }
+    if (inRound > numManagers) { round++; inRound = 1; }
   }
 
   // My squad so far
@@ -406,6 +408,9 @@ function CreateForm({ onBack, onTab }) {
         draftAt: draftDate ? new Date(draftDate).toISOString() : undefined
       });
       alert(`League "${res.name}" created successfully!\nInvite Code: ${res.inviteCode}`);
+      if (window.refreshActiveLeague) {
+        await window.refreshActiveLeague();
+      }
       onBack();
     } catch (err) {
       alert("Failed to create league: " + (err.error || err.detail || JSON.stringify(err)));
@@ -529,6 +534,9 @@ function JoinForm({ onBack }) {
         displayName: displayName || _auth.currentUser?.email.split("@")[0] || "Manager"
       });
       alert("Joined league successfully!");
+      if (window.refreshActiveLeague) {
+        await window.refreshActiveLeague();
+      }
       onBack();
     } catch (err) {
       alert("Failed to join league: " + (err.error || err.detail || JSON.stringify(err)));

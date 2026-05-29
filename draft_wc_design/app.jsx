@@ -32,6 +32,21 @@ function App() {
   const [isSignUp, setIsSignUp] = React.useState(false);
   const [activeLid, setActiveLid] = React.useState("lg_clasico");
 
+  // Expose global league switch/refresh handlers
+  React.useEffect(() => {
+    window.setActiveLeagueId = setActiveLid;
+    window.refreshActiveLeague = async () => {
+      try {
+        const list = await apiCall("GET", "/leagues/my");
+        if (list && list.length > 0) {
+          setActiveLid(list[0].leagueId);
+        }
+      } catch (e) {
+        console.warn("Failed to refresh active league", e);
+      }
+    };
+  }, []);
+
   // Monitor Auth state changes
   React.useEffect(() => {
     return _auth.onAuthStateChanged(async (u) => {
@@ -222,7 +237,7 @@ function App() {
 
         // Fetch players list
         const players = await apiCall("GET", "/players");
-        if (players) {
+        if (players && players.length > 0) {
           window.PLAYERS = players.map(p => ({
             id: String(p.id),
             name: p.name,
@@ -261,10 +276,12 @@ function App() {
               }));
             }
 
-            window.BRACKET = {
-              sf: parsedSf,
-              final: parsedFinal,
-            };
+            if (parsedSf.length > 0 || parsedFinal.length > 0) {
+              window.BRACKET = {
+                sf: parsedSf,
+                final: parsedFinal,
+              };
+            }
           }
         } catch(e) {
           console.warn("Knockout bracket not seeded yet, using mock placeholder", e);
@@ -273,7 +290,7 @@ function App() {
         // Fetch Schedule
         try {
           const schedule = await apiCall("GET", `/leagues/${lid}/schedule`);
-          if (schedule && schedule.schedule) {
+          if (schedule && schedule.schedule && schedule.schedule.length > 0) {
             window.SCHEDULE = {};
             schedule.schedule.forEach(g => {
               window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
@@ -286,7 +303,7 @@ function App() {
         // Fetch my Squad
         try {
           const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
-          if (squad && squad.players) {
+          if (squad && squad.players && squad.players.length > 0) {
             window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
           }
         } catch (e) {
@@ -296,7 +313,7 @@ function App() {
         // Fetch my Lineup
         try {
           const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${curGw}`);
-          if (lineup) {
+          if (lineup && lineup.starting && lineup.starting.length > 0) {
             window.MY_LINEUP_GW3 = {
               starting: (lineup.starting || []).map(String),
               bench: (lineup.bench || []).map(String),
@@ -327,7 +344,7 @@ function App() {
         // Fetch free agents
         try {
           const fa = await apiCall("GET", `/leagues/${lid}/free-agents`);
-          if (fa) {
+          if (fa && fa.length > 0) {
             window.FREE_AGENTS = fa.map(p => ({
               id: String(p.id),
               name: p.name,
@@ -344,7 +361,7 @@ function App() {
         // Fetch active waivers
         try {
           const wav = await apiCall("GET", `/leagues/${lid}/waivers`);
-          if (wav) {
+          if (wav && wav.length > 0) {
             window.MY_WAIVERS = wav.map(w => ({
               id: w.waiverId || w.id,
               playerIn: String(w.playerIn),
