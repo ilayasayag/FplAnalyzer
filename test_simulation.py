@@ -629,14 +629,91 @@ def run_6_player_simulation():
     assert h2h_results["mgr_4"]["h2hPoints"] == 2, "Rank 4 gets 2 points"
     assert h2h_results["mgr_5"]["h2hPoints"] == 1, "Rank 5 gets 1 points"
     assert h2h_results["mgr_6"]["h2hPoints"] == 0, "Rank 6 gets 0 points"
+    
+    # Assert GW6 top-scorer standings bonus point was awarded to mgr_1
+    assert scores_gw6["results"]["mgr_1"].get("bonusPoint") is True, "mgr_1 (top scorer) must be awarded the standings bonus point"
+    assert scores_gw6["results"]["mgr_2"].get("bonusPoint") is not True, "mgr_2 must not have the standings bonus point"
+    print("✅ GW6 Top Scorer standings bonus point verified successfully!")
+    
     print("✅ AAA scoring and ties verified perfectly!")
     print("🏆 Simulation 2 passed perfectly!")
+
+def run_8_player_schedule_simulation():
+    print("\n==============================================")
+    print("🏃 RUNNING SIMULATION 3: 8-PLAYER LEAGUE SCHEDULE (NO SELF-PAIRINGS)")
+    print("==============================================")
+    
+    admin_uid = "mgr_1"
+    res = league_mgr.create_league(
+        uid=admin_uid,
+        name="FIFA World Cup 8-League",
+        display_name="Manager 1",
+        max_members=8,
+        pick_timer=30
+    )
+    lid = res["leagueId"]
+    invite_code = res["inviteCode"]
+    print(f"🏆 League '{res['name']}' created. ID: {lid}, Invite Code: {invite_code}")
+    
+    # 2. Join 7 other friends
+    for idx in range(2, 9):
+        uid = f"mgr_{idx}"
+        league_mgr.join_league(
+            uid=uid,
+            invite_code=invite_code,
+            display_name=f"Manager {idx}",
+            team_name=f"Team Manager {idx}"
+        )
+    print(f"👥 8 managers have joined.")
+    
+    # 3. Lock for draft
+    lock_res = league_mgr.lock_for_draft(lid, admin_uid)
+    print(f"🔒 League locked for draft: actualMemberCount = {lock_res['memberCount']}")
+    
+    # 4. Mock squads to allow season start
+    gk_players = db.collection("wc_players").where("position", "==", 1).get()
+    def_players = db.collection("wc_players").where("position", "==", 2).get()
+    mid_players = db.collection("wc_players").where("position", "==", 3).get()
+    fwd_players = db.collection("wc_players").where("position", "==", 4).get()
+    
+    gk_pool = [g.to_dict() for g in gk_players]
+    def_pool = [d.to_dict() for d in def_players]
+    mid_pool = [m.to_dict() for m in mid_players]
+    fwd_pool = [f.to_dict() for f in fwd_players]
+    
+    for idx in range(1, 9):
+        uid = f"mgr_{idx}"
+        squad_players = get_draft_squad(gk_pool, def_pool, mid_pool, fwd_pool, idx - 1)
+        db.collection("leagues").document(lid).collection("squads").document(uid).set({
+            "players": squad_players,
+            "updatedAt": datetime.now(timezone.utc)
+        })
+        
+    # Start season (generates H2H schedule)
+    db.collection("leagues").document(lid).update({"status": "drafting"})
+    league_mgr.start_season(lid, admin_uid)
+    print("🚀 Season started. H2H Schedule generated.")
+    
+    # 5. Verify no self-pairings in any match of GW1 to GW6
+    for gw in range(1, 7):
+        schedule = db.collection("leagues").document(lid).collection("schedule").document(str(gw)).get().to_dict()
+        matches = schedule.get("matches", [])
+        print(f"   GW {gw} Matches: {matches}")
+        assert len(matches) == 4, f"GW {gw} must have exactly 4 matches scheduled for an 8-player league"
+        for m in matches:
+            home = m["home"]
+            away = m["away"]
+            assert home != away, f"Self-pairing detected in GW {gw}: {home} vs {away}"
+            
+    print("✅ 8-player schedule verified: exactly 4 matches per round, 0 self-pairings!")
+    print("🏆 Simulation 3 passed perfectly!")
 
 def main():
     clear_emulator_db()
     populate_mock_data()
     run_7_player_simulation()
     run_6_player_simulation()
+    run_8_player_schedule_simulation()
     print("\n🎉 ALL WORLD CUP FANTASY INTEGRATION TESTS COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":

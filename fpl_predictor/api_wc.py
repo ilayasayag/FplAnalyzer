@@ -859,6 +859,36 @@ def admin_expire_trades(lid: str):
     return _ok({"status": "done"})
 
 
+@wc_bp.route("/admin/set-tournament-result", methods=["POST"])
+def admin_set_tournament_result():
+    uid, err = _require_auth()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    winner = data.get("winner")          # national team id (string)
+    top_scorer = data.get("topScorer")  # player id (int)
+
+    if winner is not None and not isinstance(winner, str):
+        return _err("winner must be a string team ID", 400)
+    if top_scorer is not None and not isinstance(top_scorer, int):
+        return _err("topScorer must be an integer player ID", 400)
+
+    try:
+        ref = _db.collection("wc_config").document("tournament")
+        update_data = {}
+        if winner is not None:
+            update_data["winner"] = winner
+        if top_scorer is not None:
+            update_data["topScorer"] = top_scorer
+        
+        if update_data:
+            ref.set(update_data, merge=True)
+            
+        return _ok({"status": "updated", "winner": winner, "topScorer": top_scorer})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 # ---------------------------------------------------------------------------
 # Predictions
 # ---------------------------------------------------------------------------
