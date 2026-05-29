@@ -13,11 +13,8 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 def seed_knockout(lid: str, db) -> dict:
     """
-    Called after the last league-phase GW (GW6) finalizes.
-
-    Always SF bracket (6-8 player leagues):
-      Top 4 qualifiers → 1v4, 2v3 in GW7.
-      Seeds 1-2 = best H2H (overlap-resolution), 3-4 filled from fpts.
+    Called after the last league-phase GW finalizes.
+    Seeds dynamic bracket (Quarter-finals or Semi-finals) based on rules.
     """
     league_ref = db.collection("leagues").document(lid)
     league = league_ref.get().to_dict()
@@ -35,11 +32,40 @@ def seed_knockout(lid: str, db) -> dict:
         m.id: m.to_dict().get("draftPosition", 99) for m in member_docs
     }
 
-    seeds = _compute_seeds(managers, 4, draft_positions)
+    # Load custom rules from Firestore config
+    config_doc = db.collection("wc_config").document("tournament").get()
+    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
 
-    bracket_type = "sf_start"
-    first_round_key = "sf"
-    matchups = [(1, 4), (2, 3)]
+    n = len(managers)
+    size_rules = rules.get("leagueSizeRules", {}).get(str(n), {})
+    
+    knockout_start_gw = size_rules.get("knockoutStartGw", league.get("knockoutStartGw", 7))
+    knockout_qualifiers = size_rules.get("knockoutQualifiers", league.get("knockoutQualifiers", 4))
+    knockout_structure = size_rules.get("knockoutStructure", "qf" if knockout_qualifiers == 8 else "sf") # "sf" or "qf"
+    
+    ko_rules = rules.get("knockout", {})
+    h2h_slots = ko_rules.get("qualificationCriteria", {}).get("h2hSlots", knockout_qualifiers // 2)
+    fpts_slots = ko_rules.get("qualificationCriteria", {}).get("fptsSlots", knockout_qualifiers - h2h_slots)
+
+    seeds = _compute_seeds(managers, knockout_qualifiers, draft_positions, h2h_slots, fpts_slots)
+
+    if knockout_structure == "qf":
+        bracket_type = "qf_start"
+        first_round_key = "qf"
+        matchups = [(1, 8), (4, 5), (2, 7), (3, 6)]
+        rounds_structure = {
+            "qf": [],
+            "sf": [],
+            "final": []
+        }
+    else:
+        bracket_type = "sf_start"
+        first_round_key = "sf"
+        matchups = [(1, 4), (2, 3)]
+        rounds_structure = {
+            "sf": [],
+            "final": []
+        }
 
     matches = []
     for seed_home, seed_away in matchups:
@@ -48,7 +74,7 @@ def seed_knockout(lid: str, db) -> dict:
         if not home or not away:
             continue
         matches.append({
-            "id": f"sf_{seed_home}v{seed_away}",
+            "id": f"{first_round_key}_{seed_home}v{seed_away}",
             "seedHome": seed_home,
             "seedAway": seed_away,
             "home": home,
@@ -59,14 +85,13 @@ def seed_knockout(lid: str, db) -> dict:
             "gw": knockout_start_gw,
         })
 
+    rounds_structure[first_round_key] = matches
+
     bracket = {
         "type": bracket_type,
         "seededAt": SERVER_TIMESTAMP,
         "seeds": seeds,
-        "rounds": {
-            "sf": matches,
-            "final": [],
-        },
+        "rounds": rounds_structure,
         "champion": None,
     }
 
@@ -82,6 +107,7 @@ def seed_knockout(lid: str, db) -> dict:
     }
 
 
+
 def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
     """
     Called after a knockout GW finalizes.
@@ -89,8 +115,17 @@ def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
     """
     league_ref = db.collection("leagues").document(lid)
     league = league_ref.get().to_dict()
-    knockout_start_gw = league.get("knockoutStartGw", 4)
-    qualifiers = league.get("knockoutQualifiers", 8)
+
+    # Load custom rules from Firestore config
+    config_doc = db.collection("wc_config").document("tournament").get()
+    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+
+    standings_doc = league_ref.collection("standings").document("current").get()
+    n_managers = len(standings_doc.to_dict().get("managers", [])) if standings_doc.exists else 8
+
+    size_rules = rules.get("leagueSizeRules", {}).get(str(n_managers), {})
+    knockout_start_gw = size_rules.get("knockoutStartGw", league.get("knockoutStartGw", 7))
+    knockout_structure = size_rules.get("knockoutStructure", "sf") # "sf" or "qf"
 
     bracket_ref = league_ref.collection("knockout").document("bracket")
     bracket_doc = bracket_ref.get()
@@ -103,11 +138,18 @@ def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
         raise ValueError(f"No scores for GW {gw}")
     scores = scores_doc.to_dict().get("results", {})
 
-    # Always SF bracket: GW7=SF, GW8=Final
-    round_gw_map = {
-        knockout_start_gw: "sf",
-        knockout_start_gw + 1: "final",
-    }
+    # Dynamic round mapping based on knockout_structure
+    if knockout_structure == "qf":
+        round_gw_map = {
+            knockout_start_gw: "qf",
+            knockout_start_gw + 1: "sf",
+            knockout_start_gw + 2: "final",
+        }
+    else:
+        round_gw_map = {
+            knockout_start_gw: "sf",
+            knockout_start_gw + 1: "final",
+        }
 
     current_round_key = round_gw_map.get(gw)
     if not current_round_key:
@@ -167,27 +209,62 @@ def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
             rounds["final"] = [new_match]
 
         elif next_round_key == "sf" and n == 4:
-            sf_matches = [
-                {
-                    "id": f"sf_{winners_sorted[0][1]}v{winners_sorted[3][1]}",
-                    "seedHome": winners_sorted[0][1],
-                    "seedAway": winners_sorted[3][1],
-                    "home": winners_sorted[0][0],
-                    "away": winners_sorted[3][0],
-                    "homePoints": None, "awayPoints": None, "winner": None,
-                    "gw": gw + 1,
-                },
-                {
-                    "id": f"sf_{winners_sorted[1][1]}v{winners_sorted[2][1]}",
-                    "seedHome": winners_sorted[1][1],
-                    "seedAway": winners_sorted[2][1],
-                    "home": winners_sorted[1][0],
-                    "away": winners_sorted[2][0],
-                    "homePoints": None, "awayPoints": None, "winner": None,
-                    "gw": gw + 1,
-                },
-            ]
+            if current_round_key == "qf":
+                # SF 1: Winner of QF 0 (1v8) vs Winner of QF 1 (4v5)
+                w0 = updated_matches[0]["winner"]
+                s0 = seed_map[w0]
+                w1 = updated_matches[1]["winner"]
+                s1 = seed_map[w1]
+                # SF 2: Winner of QF 2 (2v7) vs Winner of QF 3 (3v6)
+                w2 = updated_matches[2]["winner"]
+                s2 = seed_map[w2]
+                w3 = updated_matches[3]["winner"]
+                s3 = seed_map[w3]
+                
+                sf_matches = [
+                    {
+                        "id": f"sf_{s0}v{s1}",
+                        "seedHome": s0,
+                        "seedAway": s1,
+                        "home": w0,
+                        "away": w1,
+                        "homePoints": None, "awayPoints": None, "winner": None,
+                        "gw": gw + 1,
+                    },
+                    {
+                        "id": f"sf_{s2}v{s3}",
+                        "seedHome": s2,
+                        "seedAway": s3,
+                        "home": w2,
+                        "away": w3,
+                        "homePoints": None, "awayPoints": None, "winner": None,
+                        "gw": gw + 1,
+                    },
+                ]
+            else:
+                sf_matches = [
+                    {
+                        "id": f"sf_{winners_sorted[0][1]}v{winners_sorted[3][1]}",
+                        "seedHome": winners_sorted[0][1],
+                        "seedAway": winners_sorted[3][1],
+                        "home": winners_sorted[0][0],
+                        "away": winners_sorted[3][0],
+                        "homePoints": None, "awayPoints": None, "winner": None,
+                        "gw": gw + 1,
+                    },
+                    {
+                        "id": f"sf_{winners_sorted[1][1]}v{winners_sorted[2][1]}",
+                        "seedHome": winners_sorted[1][1],
+                        "seedAway": winners_sorted[2][1],
+                        "home": winners_sorted[1][0],
+                        "away": winners_sorted[2][0],
+                        "homePoints": None, "awayPoints": None, "winner": None,
+                        "gw": gw + 1,
+                    },
+                ]
             rounds["sf"] = sf_matches
+
+
 
     # Check for champion
     champion = None
@@ -229,16 +306,15 @@ def get_bracket(lid: str, db) -> dict:
 
 def _compute_seeds(
     managers: List[Dict],
-    qualifiers: int,          # always 4
+    qualifiers: int,
     draft_positions: Dict[str, int],
+    h2h_slots: int = 2,
+    fpts_slots: int = 2,
 ) -> List[Dict]:
     """
-    Seed 4 qualifiers using overlap-resolution algorithm:
-      1. Fill 2 H2H slots (best hpts, tiebreak: fpts → draft order).
-      2. Fill remaining 2 from fpts-sorted list, skipping already-qualified.
-
-    This handles all overlap scenarios (e.g. same person leads both lists)
-    naturally without special cases.
+    Seed qualifiers using overlap-resolution algorithm:
+      1. Fill h2h_slots from H2H list (best hpts, tiebreak: fpts → draft order).
+      2. Fill remaining slots from fpts-sorted list, skipping already-qualified.
     """
     qualified: List[Dict] = []
     qualified_uids: set = set()
@@ -260,23 +336,24 @@ def _compute_seeds(
         ),
     )
 
-    # Fill 2 H2H slots
-    for m in by_h2h:
-        if m["uid"] not in qualified_uids:
-            qualified.append({**m, "qualifiedVia": "h2h"})
-            qualified_uids.add(m["uid"])
-        if sum(1 for q in qualified if q.get("qualifiedVia") == "h2h") == 2:
-            break
+    # Fill H2H slots
+    if h2h_slots > 0:
+        for m in by_h2h:
+            if m["uid"] not in qualified_uids:
+                qualified.append({**m, "qualifiedVia": "h2h"})
+                qualified_uids.add(m["uid"])
+            if sum(1 for q in qualified if q.get("qualifiedVia") == "h2h") == h2h_slots:
+                break
 
-    # Fill remaining 2 slots from fpts (skip already qualified)
+    # Fill FPTS slots (skip already qualified)
     for m in by_fpts:
         if m["uid"] not in qualified_uids:
             qualified.append({**m, "qualifiedVia": "fpts"})
             qualified_uids.add(m["uid"])
-        if len(qualified) == 4:
+        if len(qualified) == qualifiers:
             break
 
-    # Assign seeds 1-4 in order of qualification
+    # Assign seeds in order of qualification
     seeds = []
     for i, m in enumerate(qualified, start=1):
         seeds.append({
@@ -289,6 +366,7 @@ def _compute_seeds(
             "qualifiedVia": m.get("qualifiedVia", "h2h"),
         })
     return seeds
+
 
 
 def _resolve_match(

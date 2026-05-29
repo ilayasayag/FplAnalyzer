@@ -36,6 +36,14 @@
   <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
   <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
 
+  <!-- Firebase SDK (compat = global firebase.* API, no module bundler needed) -->
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+  <!-- Firebase Initialisation -->
+  <script type="text/babel" src="firebase.jsx?v=4"></script>
+
   <!-- Tweaks panel (provides TweaksPanel, useTweaks, Tweak* controls) -->
   <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
 
@@ -49,6 +57,7 @@
   <script type="text/babel" src="screens-data.jsx?v=4"></script>
   <script type="text/babel" src="screens-bracket.jsx?v=4"></script>
   <script type="text/babel" src="screens-draft.jsx?v=4"></script>
+  <script type="text/babel" src="screens-config.jsx?v=4"></script>
 
   <!-- Player stats modal -->
   <script type="text/babel" src="player-stats-modal.jsx?v=4"></script>

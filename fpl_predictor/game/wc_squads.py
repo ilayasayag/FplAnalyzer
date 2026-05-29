@@ -86,8 +86,13 @@ class WCSquadManager:
         if not squad_doc.exists:
             raise ValueError("No squad found")
 
+        config_doc = self.db.collection("wc_config").document("tournament").get()
+        squad_size = 15
+        if config_doc.exists:
+            squad_size = config_doc.to_dict().get("rules", {}).get("squadLimit", {}).get("totalPlayers", 15)
+
         players = squad_doc.to_dict().get("players", [])
-        if len(players) < 15:
+        if len(players) < squad_size:
             raise ValueError("SQUAD_INCOMPLETE")
 
         player_map = {p["playerId"]: p for p in players}
@@ -95,13 +100,14 @@ class WCSquadManager:
         all_ids = list(starting) + list(bench)
 
         if set(all_ids) != squad_ids:
-            raise ValueError("Lineup must contain exactly your 15 squad players")
+            raise ValueError(f"Lineup must contain exactly your {squad_size} squad players")
         if len(starting) != 11:
             raise ValueError("Must have exactly 11 starters")
-        if len(bench) != 4:
-            raise ValueError("Must have exactly 4 bench players")
-        if len(set(all_ids)) != 15:
+        if len(bench) != squad_size - 11:
+            raise ValueError(f"Must have exactly {squad_size - 11} bench players")
+        if len(set(all_ids)) != squad_size:
             raise ValueError("Duplicate player IDs in lineup")
+
 
         formation = self._get_formation(starting, player_map)
         if formation not in VALID_FORMATIONS:
@@ -205,7 +211,21 @@ class WCSquadManager:
             "teamIso": player_in_doc.get("teamIso", ""),
             "eliminated": False,
         }]
-        _validate_squad_quota(new_squad)
+        
+        # Load dynamic SQUAD_QUOTA from Firestore rules
+        quota = SQUAD_QUOTA
+        config_doc = self.db.collection("wc_config").document("tournament").get()
+        if config_doc.exists:
+            custom_quota = config_doc.to_dict().get("rules", {}).get("squadLimit", {})
+            if custom_quota:
+                quota = {
+                    1: custom_quota.get("gk", 2),
+                    2: custom_quota.get("def", 5),
+                    3: custom_quota.get("mid", 5),
+                    4: custom_quota.get("fwd", 3)
+                }
+        _validate_squad_quota(new_squad, quota)
+
 
         # Atomic claim via Firestore transaction
         from google.cloud.firestore_v1 import transactional
@@ -389,16 +409,18 @@ class WCSquadManager:
 # Module-level helpers
 # ------------------------------------------------------------------
 
-def _validate_squad_quota(players: List[Dict]):
+def _validate_squad_quota(players: List[Dict], quota: Optional[Dict] = None):
+    quota = quota or SQUAD_QUOTA
     counts = {1: 0, 2: 0, 3: 0, 4: 0}
     for p in players:
         counts[p["position"]] = counts.get(p["position"], 0) + 1
-    for pos, required in SQUAD_QUOTA.items():
+    for pos, required in quota.items():
         if counts.get(pos, 0) != required:
             raise ValueError(
                 f"POSITION_QUOTA_VIOLATED: need {required} {POS_NAMES[pos]}, "
                 f"have {counts.get(pos, 0)}"
             )
+
 
 
 def _grace_deadline() -> str:

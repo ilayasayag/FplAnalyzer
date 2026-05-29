@@ -9,6 +9,17 @@ function DraftRoomScreen({ onTab }) {
   const [posFilter, setPosFilter] = React.useState("all");
   const [watchlist, setWatchlist] = React.useState(new Set(["p_alvarez", "p_modric", "p_courtois"]));
 
+  const handleDraftPick = async (playerId) => {
+    try {
+      const lid = LEAGUE.id;
+      const idKey = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const numericId = isNaN(Number(playerId)) ? Number(String(playerId).replace("p_", "")) : Number(playerId);
+      await apiCall("POST", `/leagues/${lid}/draft/pick`, { playerId: numericId, idempotencyKey: idKey });
+    } catch(err) {
+      alert("Draft pick failed: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   React.useEffect(() => {
     const t = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
@@ -194,7 +205,7 @@ function DraftRoomScreen({ onTab }) {
                       style={{ padding: "4px 8px", fontSize: 14, background: "transparent", color: isWatched ? "var(--gold-500)" : "rgba(255,255,255,0.4)" }}>
                       {isWatched ? "★" : "☆"}
                     </button>
-                    <button className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
+                    <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
                   </div>
                 </div>
               );
@@ -249,7 +260,7 @@ function DraftRoomScreen({ onTab }) {
                   <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
                   <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>{t.id} · DR {p.dr}</div>
                 </div>
-                <button className="btn btn--draft" style={{ padding: "4px 10px", fontSize: 10 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
+                <button onClick={() => handleDraftPick(id)} className="btn btn--draft" style={{ padding: "4px 10px", fontSize: 10 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
               </div>
             );
           })}
@@ -257,6 +268,7 @@ function DraftRoomScreen({ onTab }) {
       </div>
     </div>
   );
+}
 }
 
 function SquadCount({ label, cur, max }) {
@@ -380,9 +392,9 @@ function CreateForm({ onBack, onTab }) {
   const [tradeRule, setTradeRule] = React.useState("vote");
   const [draftDate, setDraftDate] = React.useState("2026-06-08T18:00");
 
-  const koStartGw = size > 8 ? 4 : 6;
+  const koStartGw = size > 8 ? 4 : 7;
   const qualifiers = size > 8 ? 8 : 4;
-  const leaguePhase = size > 8 ? [1, 2, 3] : [1, 2, 3, 4, 5];
+  const leaguePhase = size > 8 ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -400,8 +412,8 @@ function CreateForm({ onBack, onTab }) {
           </Field>
 
           <Field label="League size" hint={`${size} managers · ${koStartGw === 4 ? "Standard format" : "Extended H2H format"}`}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(13, 1fr)", gap: 4 }}>
-              {[4,5,6,7,8,9,10,11,12,13,14,15,16].map(n => (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 4 }}>
+              {[6,7,8,9,10].map(n => (
                 <button key={n}
                   className={"btn " + (size === n ? "btn--solid-dark" : "btn--ghost-dark")}
                   style={{ padding: "10px 0", fontSize: 13 }}

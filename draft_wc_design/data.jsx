@@ -1,8 +1,7 @@
 // =====================================================================
 // WC26 Fantasy Draft — Mock Data
-// State: GW3 just finalised. Group stage done. 16 teams eliminated.
-// Window 3 (the big one) is OPEN. KO bracket SEEDED for GW4 (QF round).
-// League: "El Clásico Friends" — 10 managers, you are seed #7.
+// State: GW6 finalised. SF seeded, GW7 incoming.
+// League: 7 managers, 4 qualifiers (seeds 1v4, 2v3 at GW7).
 // =====================================================================
 
 // ---------- Groups & Teams ----------
@@ -217,51 +216,38 @@ const PLAYER_MAP = Object.fromEntries(PLAYERS.map(p => [p.id, p]));
 // ---------- Managers (10) ----------
 // "you" = ilay_me. Indices used for snake draft order.
 const MANAGERS = [
-  { uid: "u_roy",    name: "Roy",     team: "La Liga Loca",   flag: "ESP", draftPos: 1, waiverPri: 10 },
-  { uid: "u_yonatan",name: "Yonatan", team: "Tiki-Taka FC",   flag: "ARG", draftPos: 2, waiverPri: 9 },
-  { uid: "u_nadav",  name: "Nadav",   team: "Red Devils 2026",flag: "BRA", draftPos: 3, waiverPri: 8 },
-  { uid: "u_yuval",  name: "Yuval",   team: "The Gunners",    flag: "ENG", draftPos: 4, waiverPri: 7 },
-  { uid: "u_ido",    name: "Ido",     team: "Tel Aviv United",flag: "FRA", draftPos: 5, waiverPri: 6 },
-  { uid: "u_shai",   name: "Shai",    team: "McShaike's XI",  flag: "MEX", draftPos: 6, waiverPri: 5 },
-  { uid: "u_me",     name: "Ilay (you)", team: "Hapoel Eliyahu", flag: "POR", draftPos: 7, waiverPri: 4 },
-  { uid: "u_dor",    name: "Dor",     team: "El Capitano",    flag: "GER", draftPos: 8, waiverPri: 3 },
-  { uid: "u_omer",   name: "Omer",    team: "Samba Boys",     flag: "NED", draftPos: 9, waiverPri: 2 },
-  { uid: "u_eyal",   name: "Eyal",    team: "Oranje Crush",   flag: "COL", draftPos: 10, waiverPri: 1 },
+  { uid: "u_roy",    name: "Roy",     team: "La Liga Loca",   flag: "ESP", draftPos: 1, waiverPri: 7 },
+  { uid: "u_yonatan",name: "Yonatan", team: "Tiki-Taka FC",   flag: "ARG", draftPos: 2, waiverPri: 6 },
+  { uid: "u_nadav",  name: "Nadav",   team: "Red Devils 2026",flag: "BRA", draftPos: 3, waiverPri: 5 },
+  { uid: "u_yuval",  name: "Yuval",   team: "The Gunners",    flag: "ENG", draftPos: 4, waiverPri: 4 },
+  { uid: "u_ido",    name: "Ido",     team: "Tel Aviv United",flag: "FRA", draftPos: 5, waiverPri: 3 },
+  { uid: "u_shai",   name: "Shai",    team: "McShaike's XI",  flag: "MEX", draftPos: 6, waiverPri: 2 },
+  { uid: "u_me",     name: "Ilay (you)", team: "Hapoel Eliyahu", flag: "POR", draftPos: 7, waiverPri: 1 },
 ];
 
-const ME = "u_me";
+let ME = "u_me";
 
 // ---------- Final group-phase H2H standings (after GW3) ----------
 // Sorted by hpts → fpts. Top 8 qualify for KO.
 const STANDINGS = [
-  { uid: "u_roy",    rank: 1, hw: 3, hd: 0, hl: 0, hpts: 9, fpts: 218, mv: 0 },
-  { uid: "u_yonatan",rank: 2, hw: 2, hd: 1, hl: 0, hpts: 7, fpts: 201, mv: 1 },
-  { uid: "u_dor",    rank: 3, hw: 2, hd: 0, hl: 1, hpts: 6, fpts: 195, mv: 2 },
-  { uid: "u_nadav",  rank: 4, hw: 2, hd: 0, hl: 1, hpts: 6, fpts: 188, mv: -1 },
-  // — H2H line —
-  { uid: "u_ido",    rank: 5, hw: 1, hd: 1, hl: 1, hpts: 4, fpts: 192, mv: 0, ptsSeed: true },
-  { uid: "u_yuval",  rank: 6, hw: 1, hd: 1, hl: 1, hpts: 4, fpts: 184, mv: 1, ptsSeed: true },
-  { uid: "u_me",     rank: 7, hw: 1, hd: 0, hl: 2, hpts: 3, fpts: 179, mv: -2, ptsSeed: true },
-  { uid: "u_omer",   rank: 8, hw: 1, hd: 0, hl: 2, hpts: 3, fpts: 167, mv: 0, ptsSeed: true },
+  { uid: "u_roy",    rank: 1, hw: 5, hd: 0, hl: 1, hpts: 15, fpts: 382, mv: 0, bonusPoints: 12 },
+  { uid: "u_yonatan",rank: 2, hw: 4, hd: 0, hl: 2, hpts: 12, fpts: 361, mv: 1, bonusPoints: 10 },
+  { uid: "u_me",     rank: 3, hw: 3, hd: 0, hl: 3, hpts: 9, fpts: 379, mv: -2, ptsSeed: true, bonusPoints: 15 },
+  { uid: "u_ido",    rank: 4, hw: 3, hd: 0, hl: 3, hpts: 9, fpts: 368, mv: 0, ptsSeed: true, bonusPoints: 9 },
   // — Qualification line —
-  { uid: "u_shai",   rank: 9, hw: 0, hd: 1, hl: 2, hpts: 1, fpts: 145, mv: -1, knockedOut: true },
-  { uid: "u_eyal",   rank: 10, hw: 0, hd: 0, hl: 3, hpts: 0, fpts: 132, mv: 0, knockedOut: true },
+  { uid: "u_nadav",  rank: 5, hw: 3, hd: 0, hl: 3, hpts: 9, fpts: 354, mv: -1, knockedOut: true, bonusPoints: 8 },
+  { uid: "u_yuval",  rank: 6, hw: 2, hd: 0, hl: 4, hpts: 6, fpts: 340, mv: 1, knockedOut: true, bonusPoints: 7 },
+  { uid: "u_shai",   rank: 7, hw: 1, hd: 0, hl: 5, hpts: 3, fpts: 310, mv: -1, knockedOut: true, bonusPoints: 5 },
 ];
 
 // ---------- KO Bracket — seeded for GW4 (Quarter-Finals) ----------
 // Seeds 1–4 = top H2H, 5–8 = best points of remaining
 const BRACKET = {
-  qf: [
-    { id: "qf1", home: "u_roy",    away: "u_omer", homeSeed: 1, awaySeed: 8, gw: 4 },
-    { id: "qf2", home: "u_yonatan",away: "u_me",   homeSeed: 2, awaySeed: 7, gw: 4 },
-    { id: "qf3", home: "u_dor",    away: "u_yuval",homeSeed: 3, awaySeed: 6, gw: 4 },
-    { id: "qf4", home: "u_nadav",  away: "u_ido",  homeSeed: 4, awaySeed: 5, gw: 4 },
-  ],
   sf: [
-    { id: "sf1", home: null, away: null, homeSrc: "qf1", awaySrc: "qf2", gw: 5 },
-    { id: "sf2", home: null, away: null, homeSrc: "qf3", awaySrc: "qf4", gw: 5 },
+    { id: "sf1", home: "u_roy", away: "u_ido", homeSeed: 1, awaySeed: 4, gw: 7 },
+    { id: "sf2", home: "u_yonatan", away: "u_me", homeSeed: 2, awaySeed: 3, gw: 7 },
   ],
-  final: { id: "f1", home: null, away: null, homeSrc: "sf1", awaySrc: "sf2", gw: 6 },
+  final: { id: "f1", home: null, away: null, homeSrc: "sf1", awaySrc: "sf2", gw: 8 },
 };
 
 // ---------- My Squad (15 players) ----------
@@ -306,17 +292,21 @@ const GW3_TOTALS = {
 // ---------- GW3 H2H schedule (matchups) ----------
 const SCHEDULE = {
   1: [
-    ["u_roy","u_eyal"], ["u_yonatan","u_omer"], ["u_dor","u_shai"],
-    ["u_nadav","u_me"], ["u_ido","u_yuval"]
+    ["u_roy","u_shai"], ["u_yonatan","u_me"], ["u_nadav","u_ido"]
   ],
   2: [
-    ["u_roy","u_omer"], ["u_yonatan","u_shai"], ["u_dor","u_me"],
-    ["u_nadav","u_yuval"], ["u_ido","u_eyal"]
+    ["u_roy","u_me"], ["u_yonatan","u_ido"], ["u_nadav","u_yuval"]
   ],
   3: [
-    ["u_roy","u_shai"], ["u_yonatan","u_me"], ["u_dor","u_yuval"],
-    ["u_nadav","u_eyal"], ["u_ido","u_omer"]
+    ["u_roy","u_ido"], ["u_yonatan","u_yuval"], ["u_me","u_shai"]
   ],
+  4: [
+    ["u_roy","u_yuval"], ["u_yonatan","u_nadav"], ["u_ido","u_shai"]
+  ],
+  5: [
+    ["u_roy","u_nadav"], ["u_yuval","u_shai"], ["u_me","u_ido"]
+  ],
+  6: [],
 };
 
 // ---------- Fixtures: GW4 (Round of 32, July 1–4) ----------
@@ -417,16 +407,16 @@ const DRAFT_HISTORY = [
 
 // ---------- Tournament config ----------
 const TOURNAMENT = {
-  currentGw: 4,
+  currentGw: 7,
   status: "knockout",        // we just finished group → knockout begins
   season: 2026,
   gwDates: {
     1: { wcRound: "Group Stage · MD1", start: "Jun 11", end: "Jun 15", lockAt: "Jun 11 18:00" },
     2: { wcRound: "Group Stage · MD2", start: "Jun 16", end: "Jun 21", lockAt: "Jun 16 18:00" },
     3: { wcRound: "Group Stage · MD3", start: "Jun 22", end: "Jun 26", lockAt: "Jun 22 18:00" },
-    4: { wcRound: "Round of 32",       start: "Jul 1",  end: "Jul 4",  lockAt: "Jul 1 16:00" },
-    5: { wcRound: "Round of 16",       start: "Jul 5",  end: "Jul 8",  lockAt: "Jul 5 16:00" },
-    6: { wcRound: "Quarter-Finals",    start: "Jul 10", end: "Jul 12", lockAt: "Jul 10 16:00" },
+    4: { wcRound: "Group Stage · MD4", start: "Jun 27", end: "Jun 30", lockAt: "Jun 27 18:00" },
+    5: { wcRound: "Group Stage · MD5", start: "Jul 1",  end: "Jul 5",  lockAt: "Jul 1 18:00" },
+    6: { wcRound: "Group Stage · MD6", start: "Jul 6",  end: "Jul 10", lockAt: "Jul 6 18:00" },
     7: { wcRound: "Semi-Finals",       start: "Jul 14", end: "Jul 15", lockAt: "Jul 14 18:00" },
     8: { wcRound: "Final",             start: "Jul 18", end: "Jul 19", lockAt: "Jul 18 18:00" },
   },
@@ -437,10 +427,10 @@ const LEAGUE = {
   id: "lg_clasico",
   name: "El Clásico Friends",
   inviteCode: "WC26-Q7XN",
-  size: 10,
-  knockoutStartGw: 4,
-  leaguePhaseGws: [1, 2, 3],
-  knockoutQualifiers: 8,
+  size: 7,
+  knockoutStartGw: 7,
+  leaguePhaseGws: [1, 2, 3, 4, 5, 6],
+  knockoutQualifiers: 4,
   pickTimer: 60,
   tradeApproval: "vote",
   admin: "u_roy",

@@ -43,7 +43,7 @@ VALID_FORMATIONS = [
 # Per-player point calculation
 # ---------------------------------------------------------------------------
 
-def compute_player_points(stats: Dict, position: int) -> Tuple[int, int]:
+def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = None) -> Tuple[int, int]:
     """
     Compute fantasy points for one player in one fixture.
 
@@ -58,53 +58,79 @@ def compute_player_points(stats: Dict, position: int) -> Tuple[int, int]:
     if minutes == 0:
         return 0, 0
 
-    pts = APPEAR_UNDER_60
+    rules = rules or {}
+    scoring_rules = rules.get("scoring", {})
+
+    appear_under_60 = scoring_rules.get("appearUnder60", APPEAR_UNDER_60)
+    appear_60_plus = scoring_rules.get("appear60Plus", APPEAR_60_PLUS)
+
+    pts = appear_under_60
 
     if minutes >= 60:
-        pts = APPEAR_60_PLUS
+        pts = appear_60_plus
+
+    # Position-based mappings
+    goal_points_raw = scoring_rules.get("goalPoints", GOAL_POINTS)
+    goal_points = {int(k): v for k, v in goal_points_raw.items()} if isinstance(goal_points_raw, dict) else GOAL_POINTS
+
+    assist_points = scoring_rules.get("assistPoints", ASSIST_POINTS)
+
+    cs_points_raw = scoring_rules.get("csPoints", CS_POINTS)
+    cs_points = {int(k): v for k, v in cs_points_raw.items()} if isinstance(cs_points_raw, dict) else CS_POINTS
+
+    gc_points_per_2_raw = scoring_rules.get("gcPointsPer2", GC_POINTS_PER_2)
+    gc_points_per_2 = {int(k): v for k, v in gc_points_per_2_raw.items()} if isinstance(gc_points_per_2_raw, dict) else GC_POINTS_PER_2
+
+    yellow_card_points = scoring_rules.get("yellowCardPoints", YELLOW_CARD_POINTS)
+    red_card_points = scoring_rules.get("redCardPoints", RED_CARD_POINTS)
+    own_goal_points = scoring_rules.get("ownGoalPoints", OWN_GOAL_POINTS)
+    penalty_miss_points = scoring_rules.get("penaltyMissPoints", PENALTY_MISS_POINTS)
+    penalty_save_points = scoring_rules.get("penaltySavePoints", PENALTY_SAVE_POINTS)
+    saves_per_point_gk = scoring_rules.get("savesPerPointGk", SAVES_PER_POINT_GK)
 
     # Goals
     goals = stats.get("goals", 0) or 0
-    pts += goals * GOAL_POINTS.get(position, 4)
+    pts += goals * goal_points.get(position, 4)
 
     # Assists
     assists = stats.get("assists", 0) or 0
-    pts += assists * ASSIST_POINTS
+    pts += assists * assist_points
 
     # Clean sheet (only if played ≥ 60 min)
     if minutes >= 60 and stats.get("cleanSheet", False):
-        pts += CS_POINTS.get(position, 0)
+        pts += cs_points.get(position, 0)
 
     # Goals conceded (GK and DEF only; not if clean sheet)
     if not stats.get("cleanSheet", False):
         gc = stats.get("goalsConceded", 0) or 0
-        gc_pen = GC_POINTS_PER_2.get(position, 0)
+        gc_pen = gc_points_per_2.get(position, 0)
         if gc_pen < 0:
             pts += (gc // 2) * gc_pen   # floor division
 
     # Cards
     yellow = stats.get("yellowCards", 0) or 0
     red = stats.get("redCards", 0) or 0
-    pts += yellow * YELLOW_CARD_POINTS
-    pts += red * RED_CARD_POINTS
+    pts += yellow * yellow_card_points
+    pts += red * red_card_points
 
     # Own goals
     own_goals = stats.get("ownGoal", 0) or 0
-    pts += own_goals * OWN_GOAL_POINTS
+    pts += own_goals * own_goal_points
 
     # Penalty miss
     pen_miss = stats.get("penaltyMissed", 0) or 0
-    pts += pen_miss * PENALTY_MISS_POINTS
+    pts += pen_miss * penalty_miss_points
 
     # GK-only: saves + penalty saves
     if position == 1:
         saves = stats.get("saves", 0) or 0
-        pts += (saves // SAVES_PER_POINT_GK)
+        pts += (saves // saves_per_point_gk)
 
         pen_saved = stats.get("penaltySaved", 0) or 0
-        pts += pen_saved * PENALTY_SAVE_POINTS
+        pts += pen_saved * penalty_save_points
 
     return pts, 0  # bonus is added separately
+
 
 
 def compute_bps_bonus(player_bps_list: List[Tuple[int, int]]) -> Dict[int, int]:
@@ -329,13 +355,18 @@ def process_fixture(
     # Compute BPS bonuses
     bonuses = compute_bps_bonus(bps_list)
 
+    # Load custom rules from Firestore config
+    config_doc = db.collection("wc_config").document("tournament").get()
+    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+
     # Compute points and persist
     results: Dict[int, Dict] = {}
     batch = db.batch()
 
     for pid, pdata in player_stats.items():
         pos = pos_map.get(pid, 3)
-        base_pts, _ = compute_player_points(pdata["stats"], pos)
+        base_pts, _ = compute_player_points(pdata["stats"], pos, rules)
+
         bonus = bonuses.get(pid, 0)
         total_pts = base_pts + bonus
 
@@ -634,6 +665,11 @@ def _update_standings(lid: str, db):
         "gwPoints": {},
     } for m in members}
 
+    # Load tournament rules to get dynamic H2H bonus point value
+    config_doc = db.collection("wc_config").document("tournament").get()
+    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+    bonus_value = rules.get("bonus", {}).get("gwTopScorerH2HBonus", 1)
+
     score_docs = league_ref.collection("scores").get()
     for doc in score_docs:
         doc_id = doc.id
@@ -656,8 +692,9 @@ def _update_standings(lid: str, db):
                 stats[uid]["gwPoints"][str(gw_int)] = pts
             # GW top-scorer bonus point (stored per-score-doc)
             if res.get("bonusPoint"):
-                stats[uid]["hpts"] += 1
-                stats[uid]["bonusPoints"] += 1
+                stats[uid]["hpts"] += bonus_value
+                stats[uid]["bonusPoints"] += bonus_value
+
 
         for uid, h in h2h.items():
             if uid not in stats:

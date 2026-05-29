@@ -48,7 +48,9 @@ def populate_mock_data():
     print("🌱 Populating mock teams, players, and fixtures...")
     
     # 1. Config
+    from fpl_predictor.api_wc import DEFAULT_RULES
     db.collection("wc_config").document("tournament").set({
+        "rules": DEFAULT_RULES,
         "winner": "1",        # Team 1 (Argentina)
         "topScorer": 101,          # Player 101 (Messi)
         "gwDates": all_gws_as_dict(),
@@ -85,8 +87,8 @@ def populate_mock_data():
     
     positions = [
         (1, 20, 101, "GK"),
-        (2, 45, 201, "DEF"),
-        (3, 45, 301, "MID"),
+        (2, 50, 201, "DEF"),
+        (3, 50, 301, "MID"),
         (4, 30, 401, "FWD")
     ]
     
@@ -708,12 +710,233 @@ def run_8_player_schedule_simulation():
     print("✅ 8-player schedule verified: exactly 4 matches per round, 0 self-pairings!")
     print("🏆 Simulation 3 passed perfectly!")
 
+def run_10_player_simulation():
+    print("\n==============================================")
+    print("🏃 RUNNING SIMULATION 4: 10-PLAYER LEAGUE (QF KNOCKOUT)")
+    print("==============================================")
+    
+    # 1. Create league
+    admin_uid = "mgr_1"
+    res = league_mgr.create_league(
+        uid=admin_uid,
+        name="FIFA World Cup 10-League",
+        display_name="Manager 1",
+        max_members=10,
+        pick_timer=30
+    )
+    lid = res["leagueId"]
+    invite_code = res["inviteCode"]
+    print(f"🏆 League '{res['name']}' created. ID: {lid}, Invite Code: {invite_code}")
+    
+    # 2. Join 9 other friends
+    for idx in range(2, 11):
+        uid = f"mgr_{idx}"
+        league_mgr.join_league(
+            uid=uid,
+            invite_code=invite_code,
+            display_name=f"Manager {idx}",
+            team_name=f"Team Manager {idx}"
+        )
+    print(f"👥 10 managers have joined.")
+    
+    # 3. Every manager registers predictions before GW1 locks
+    for idx in range(1, 11):
+        uid = f"mgr_{idx}"
+        db.collection("leagues").document(lid).collection("predictions").document(uid).set({
+            "predictedWinner": "1",
+            "predictedTopScorer": 101,
+            "submittedAt": datetime.now(timezone.utc)
+        })
+        
+    # 4. Lock for draft
+    lock_res = league_mgr.lock_for_draft(lid, admin_uid)
+    print(f"🔒 League locked for draft: actualMemberCount = {lock_res['memberCount']}")
+    
+    # 5. Populate Draft Squads
+    gk_players = db.collection("wc_players").where("position", "==", 1).get()
+    def_players = db.collection("wc_players").where("position", "==", 2).get()
+    mid_players = db.collection("wc_players").where("position", "==", 3).get()
+    fwd_players = db.collection("wc_players").where("position", "==", 4).get()
+    
+    gk_pool = [g.to_dict() for g in gk_players]
+    def_pool = [d.to_dict() for d in def_players]
+    mid_pool = [m.to_dict() for m in mid_players]
+    fwd_pool = [f.to_dict() for f in fwd_players]
+    
+    managers_squads = {}
+    for idx in range(1, 11):
+        uid = f"mgr_{idx}"
+        squad_players = get_draft_squad(gk_pool, def_pool, mid_pool, fwd_pool, idx - 1)
+        db.collection("leagues").document(lid).collection("squads").document(uid).set({
+            "players": squad_players,
+            "updatedAt": datetime.now(timezone.utc)
+        })
+        managers_squads[uid] = squad_players
+        
+    # Start season (generates H2H schedule)
+    db.collection("leagues").document(lid).update({"status": "drafting"})
+    league_mgr.start_season(lid, admin_uid)
+    print("🚀 Season started. H2H Schedule generated.")
+    
+    # 6. Simulate GW1, GW2, GW3 (league phase for 10-player league)
+    # The config-driven size rules say size 9-10 has leaguePhaseGws = [1, 2, 3] and knockoutStartGw = 4
+    for gw in range(1, 4):
+        print(f"\n--- Gameweek {gw} Simulation ---")
+        
+        # Set Lineups for all 10 managers
+        for idx in range(1, 11):
+            uid = f"mgr_{idx}"
+            squad = managers_squads[uid]
+            starting, bench = get_starting_and_bench(squad)
+            squad_mgr.set_lineup(
+                lid=lid, uid=uid, gw=gw,
+                starting=starting, bench=bench,
+                captain=starting[0], vice_captain=starting[1]
+            )
+            
+        # Simulate points. Let's make Managers score higher or lower so we get solid qualifiers
+        # Managers 1-8 score 8 points per starting player, 9-10 score 2 points
+        points_map = {}
+        for idx in range(1, 11):
+            uid = f"mgr_{idx}"
+            squad = managers_squads[uid]
+            starting, bench = get_starting_and_bench(squad)
+            for p in starting:
+                points_map[p] = 8 if idx <= 8 else 2
+                
+        simulate_fixtures_scoring(gw, points_map)
+        fin_res = finalize_gw(lid, gw, db, None)
+        print(f"GW {gw} Finalized: nextGw = {fin_res['nextGw']}")
+        
+    # 7. GW3 completed! Seeding QF (Quarter-Finals) Knockout for GW4
+    print("\n--- Seeding Quarter-finals (GW 4) Knockout Bracket ---")
+    bracket_res = get_bracket(lid, db)
+    assert bracket_res, "Bracket should be seeded successfully"
+    print(f"🏆 Bracket type: {bracket_res['type']}")
+    assert bracket_res['type'] == "qf_start", f"Expected qf_start bracket structure, got {bracket_res['type']}"
+    
+    seeds = bracket_res["seeds"]
+    print("Seeds:")
+    for s in seeds:
+        print(f"  Seed {s['seed']}: {s['displayName']} - hpts: {s['hpts']}, fpts: {s['fpts']}, via: {s['qualifiedVia']}")
+    
+    assert len(seeds) == 8, f"Expected exactly 8 qualifiers, got {len(seeds)}"
+    
+    # 8. Run GW4 Quarter-Finals
+    print("\n--- GW 4 Quarter-finals Simulation ---")
+    qf_uids = [s["uid"] for s in seeds]
+    for uid in qf_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        squad_mgr.set_lineup(
+            lid=lid, uid=uid, gw=4,
+            starting=starting, bench=bench,
+            captain=starting[0], vice_captain=starting[1]
+        )
+        
+    # Seed matchups are 1v8, 4v5, 2v7, 3v6. Let's make seeds 1, 4, 2, 3 win!
+    s1_uid = next(s["uid"] for s in seeds if s["seed"] == 1)
+    s8_uid = next(s["uid"] for s in seeds if s["seed"] == 8)
+    s4_uid = next(s["uid"] for s in seeds if s["seed"] == 4)
+    s5_uid = next(s["uid"] for s in seeds if s["seed"] == 5)
+    s2_uid = next(s["uid"] for s in seeds if s["seed"] == 2)
+    s7_uid = next(s["uid"] for s in seeds if s["seed"] == 7)
+    s3_uid = next(s["uid"] for s in seeds if s["seed"] == 3)
+    s6_uid = next(s["uid"] for s in seeds if s["seed"] == 6)
+    
+    qf_points_map = {}
+    for uid in qf_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        for p in starting:
+            if uid in [s1_uid, s4_uid, s2_uid, s3_uid]:
+                qf_points_map[p] = 10  # Winners score 10
+            else:
+                qf_points_map[p] = 2   # Losers score 2
+                
+    simulate_fixtures_scoring(4, qf_points_map)
+    finalize_gw(lid, 4, db, None)
+    
+    # Verify bracket advancement to SF (GW 5)
+    bracket_res = get_bracket(lid, db)
+    sf_matches = bracket_res["rounds"]["sf"]
+    print(f"🎫 QF Results: {bracket_res['rounds']['qf']}")
+    print(f"🎫 SF Matchups: {sf_matches}")
+    
+    sf_uids = [s1_uid, s4_uid, s2_uid, s3_uid]
+    for m in sf_matches:
+        assert m["home"] in sf_uids, "Winner must advance to SF"
+        assert m["away"] in sf_uids, "Winner must advance to SF"
+        
+    # 9. Run GW5 Semi-Finals
+    print("\n--- GW 5 Semi-finals Simulation ---")
+    for uid in sf_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        squad_mgr.set_lineup(
+            lid=lid, uid=uid, gw=5,
+            starting=starting, bench=bench,
+            captain=starting[0], vice_captain=starting[1]
+        )
+        
+    # Let's make s1_uid and s2_uid win and advance to the final!
+    sf_points_map = {}
+    for uid in sf_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        for p in starting:
+            if uid in [s1_uid, s2_uid]:
+                sf_points_map[p] = 10
+            else:
+                sf_points_map[p] = 2
+                
+    simulate_fixtures_scoring(5, sf_points_map)
+    finalize_gw(lid, 5, db, None)
+    
+    # Verify bracket advancement to Final (GW 6)
+    bracket_res = get_bracket(lid, db)
+    final_match = bracket_res["rounds"]["final"][0]
+    print(f"🎫 SF Results: {bracket_res['rounds']['sf']}")
+    print(f"🎫 Final Matchup generated: {final_match['home']} vs {final_match['away']}")
+    assert final_match["home"] in [s1_uid, s2_uid], "Winners must advance to final"
+    assert final_match["away"] in [s1_uid, s2_uid], "Winners must advance to final"
+    
+    # 10. Run GW6 Final
+    print("\n--- GW 6 Final Simulation ---")
+    final_uids = [final_match["home"], final_match["away"]]
+    for uid in final_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        squad_mgr.set_lineup(
+            lid=lid, uid=uid, gw=6,
+            starting=starting, bench=bench,
+            captain=starting[0], vice_captain=starting[1]
+        )
+        
+    final_points_map = {}
+    for uid in final_uids:
+        squad = managers_squads[uid]
+        starting, bench = get_starting_and_bench(squad)
+        for p in starting:
+            final_points_map[p] = 12 if uid == final_match["home"] else 4
+            
+    simulate_fixtures_scoring(6, final_points_map)
+    finalize_gw(lid, 6, db, None)
+    
+    # Verify League is complete and Champion crowned!
+    league_doc = db.collection("leagues").document(lid).get().to_dict()
+    print(f"🏁 League Status: {league_doc['status']}. Champion: {league_doc['champion']}")
+    assert league_doc["status"] == "complete", "League status must be complete"
+    assert league_doc["champion"] == final_match["home"], "Champion must be the winner of final match"
+    print("🏆 Simulation 4 passed perfectly!")
+
 def main():
     clear_emulator_db()
     populate_mock_data()
     run_7_player_simulation()
     run_6_player_simulation()
     run_8_player_schedule_simulation()
+    run_10_player_simulation()
     print("\n🎉 ALL WORLD CUP FANTASY INTEGRATION TESTS COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":

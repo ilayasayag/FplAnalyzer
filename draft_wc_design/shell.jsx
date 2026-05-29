@@ -14,6 +14,7 @@ const TABS = [
   { id: "players",    label: "Players" },
   { id: "trades",     label: "Trades" },
   { id: "create",     label: "Leagues" },
+  { id: "config",     label: "Rules Config" },
 ];
 
 function TopBar({ tweak }) {

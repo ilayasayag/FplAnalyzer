@@ -43,8 +43,18 @@ class WCLeagueManager:
             raise ValueError(f"tradeApproval must be one of {VALID_TRADE_MODES}")
         if pick_timer not in VALID_PICK_TIMERS:
             raise ValueError(f"pickTimer must be one of {VALID_PICK_TIMERS}")
-        if not 6 <= max_members <= 8:
-            raise ValueError("maxMembers must be between 6 and 8")
+        # Load tournament rules from Firestore config
+        config_doc = self.db.collection("wc_config").document("tournament").get()
+        rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+
+        league_size_conf = rules.get("leagueSize", {})
+        min_managers = league_size_conf.get("minManagers", 6)
+        max_managers = min(league_size_conf.get("maxManagers", 10), 10)
+
+        if not min_managers <= max_members <= max_managers:
+            raise ValueError(f"maxMembers must be between {min_managers} and {max_managers}")
+
+
         if len(name.strip()) < 2:
             raise ValueError("League name must be at least 2 characters")
 
@@ -52,10 +62,17 @@ class WCLeagueManager:
         while self._code_exists(invite_code):
             invite_code = _generate_invite_code()
 
-        # Always fixed — league is 6-8 players, knockout always starts GW7
-        knockout_start = 7
-        league_phase_gws = list(range(1, 7))
-        qualifiers = 4
+        # Dynamically calculated based on max_members and rules config
+        size_rules = rules.get("leagueSizeRules", {}).get(str(max_members), {})
+        if size_rules:
+            knockout_start = size_rules.get("knockoutStartGw", 7)
+            league_phase_gws = size_rules.get("leaguePhaseGws", [1, 2, 3, 4, 5, 6])
+            qualifiers = size_rules.get("knockoutQualifiers", 4)
+        else:
+            knockout_start = compute_knockout_start_gw(max_members)
+            league_phase_gws = compute_league_phase_gws(max_members)
+            qualifiers = compute_knockout_qualifiers(max_members)
+
 
         league_ref = self.db.collection("leagues").document()
         league_data = {
@@ -298,13 +315,28 @@ class WCLeagueManager:
             if not m.to_dict().get("kickedAt") and not m.to_dict().get("leftAt")
         ]
         n = len(members)
-        if n < 6:
-            raise ValueError(f"Need at least 6 managers; have {n}")
+        
+        # Load tournament rules from Firestore config
+        config_doc = self.db.collection("wc_config").document("tournament").get()
+        rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
 
-        # Always fixed — league is 6-8 players, knockout always starts GW7
-        knockout_start = 7
-        league_phase_gws = list(range(1, 7))
-        qualifiers = 4
+        league_size_conf = rules.get("leagueSize", {})
+        min_managers = league_size_conf.get("minManagers", 6)
+
+        if n < min_managers:
+            raise ValueError(f"Need at least {min_managers} managers; have {n}")
+
+        # Dynamically calculated based on actual members n and rules config
+        size_rules = rules.get("leagueSizeRules", {}).get(str(n), {})
+        if size_rules:
+            knockout_start = size_rules.get("knockoutStartGw", 7)
+            league_phase_gws = size_rules.get("leaguePhaseGws", [1, 2, 3, 4, 5, 6])
+            qualifiers = size_rules.get("knockoutQualifiers", 4)
+        else:
+            knockout_start = compute_knockout_start_gw(n)
+            league_phase_gws = compute_league_phase_gws(n)
+            qualifiers = compute_knockout_qualifiers(n)
+
 
         doc.reference.update({
             "status": "drafting",

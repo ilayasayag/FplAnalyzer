@@ -100,13 +100,117 @@ def _clean(obj):
 # §0 — Tournament config
 # ---------------------------------------------------------------------------
 
+# §0 — Tournament config
+# ---------------------------------------------------------------------------
+
+DEFAULT_RULES = {
+    "scoring": {
+        "appearUnder60": 1,
+        "appear60Plus": 2,
+        "goalPoints": {"1": 10, "2": 6, "3": 5, "4": 4},
+        "assistPoints": 3,
+        "csPoints": {"1": 4, "2": 4, "3": 1, "4": 0},
+        "gcPointsPer2": {"1": -1, "2": -1, "3": 0, "4": 0},
+        "yellowCardPoints": -1,
+        "redCardPoints": -3,
+        "ownGoalPoints": -2,
+        "penaltyMissPoints": -2,
+        "penaltySavePoints": 5,
+        "savesPerPointGk": 3
+    },
+    "squadLimit": {
+        "totalPlayers": 15,
+        "gk": 2,
+        "def": 5,
+        "mid": 5,
+        "fwd": 3
+    },
+    "leagueSize": {
+        "minManagers": 6,
+        "maxManagers": 10,
+        "optimalMin": 6,
+        "optimalMax": 10
+    },
+    "bonus": {
+        "gwTopScorerH2HBonus": 1
+    },
+    "leaguePhase": {
+        "format": "h2h",
+        "customGameWeeksCount": None
+    },
+    "knockout": {
+        "qualifiersCount": 4,
+        "qualificationCriteria": {
+            "h2hSlots": 2,
+            "fptsSlots": 2
+        },
+        "structure": "sf"
+    },
+    "leagueSizeRules": {
+        "6": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
+        "7": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
+        "8": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
+        "9": { "knockoutStartGw": 4, "leaguePhaseGws": [1,2,3], "knockoutQualifiers": 8, "knockoutStructure": "qf" },
+        "10": { "knockoutStartGw": 4, "leaguePhaseGws": [1,2,3], "knockoutQualifiers": 8, "knockoutStructure": "qf" }
+    }
+}
+
+def _merge_dicts(default_dict, custom_dict):
+    """Recursively merge custom config on top of default config."""
+    res = {}
+    for k, v in default_dict.items():
+        if k in custom_dict:
+            if isinstance(v, dict) and isinstance(custom_dict[k], dict):
+                res[k] = _merge_dicts(v, custom_dict[k])
+            else:
+                res[k] = custom_dict[k]
+        else:
+            res[k] = v
+    # Add any extra keys present in custom_dict that were not in default_dict
+    for k, v in custom_dict.items():
+        if k not in res:
+            res[k] = v
+    return res
+
 @wc_bp.route("/config", methods=["GET"])
 def get_config():
     doc = _db.collection("wc_config").document("tournament").get()
     base = doc.to_dict() if doc.exists else {}
+    custom_rules = base.get("rules", {})
+    base["rules"] = _merge_dicts(DEFAULT_RULES, custom_rules)
     base["gwDates"] = all_gws_as_dict()
     base["currentGw"] = get_current_gw()
     return _ok(base)
+
+@wc_bp.route("/config", methods=["POST", "PUT"])
+def save_config():
+    uid, err = _require_auth()
+    if err:
+        return err
+
+    # admin gate — tournament config is global, not per-league.
+    cfg = _db.collection("wc_config").document("tournament").get()
+    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
+    if admin_uids and uid not in admin_uids:
+        return _err("Admin only", 403)
+
+    # Freeze config once the tournament starts
+    from fpl_predictor.game.wc_gameweeks import is_locked
+    if is_locked(1):   # GW1 kickoff has passed → tournament live
+        return _err("Config is frozen once the tournament starts", 409)
+
+    data = request.json or {}
+    rules = data.get("rules")
+    if not rules:
+        return _err("Missing rules object", 400)
+    if not isinstance(rules, dict):
+        return _err("Rules must be a dictionary", 400)
+    
+    ref = _db.collection("wc_config").document("tournament")
+    ref.set({"rules": rules}, merge=True)
+    return _ok({"status": "ok", "rules": rules})
+
+
 
 
 # ---------------------------------------------------------------------------

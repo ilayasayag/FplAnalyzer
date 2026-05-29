@@ -167,18 +167,23 @@ def all_gws_as_dict() -> Dict[str, Dict]:
 def compute_knockout_start_gw(member_count: int = 0) -> int:
     """
     Returns the GW where knockout phase starts.
-    League is always 6-8 players → always GW7 (SF bracket, top 4 qualify).
+    If 9-10 players -> starts GW4 (top 8 qualifiers).
+    If 6-8 players -> starts GW7 (top 4 qualifiers).
     """
-    return 7
+    return 4 if member_count > 8 else 7
 
 
 def compute_league_phase_gws(member_count: int = 0) -> list:
-    """All GWs in the league (H2H) phase — always GWs 1-6."""
+    """All GWs in the league (H2H) phase."""
+    if member_count > 8:
+        return list(range(1, 4))
     return list(range(1, 7))
 
 
 def compute_knockout_qualifiers(member_count: int = 0) -> int:
-    """Number of managers who advance to knockout — always 4."""
+    """Number of managers who advance to knockout."""
+    if member_count > 8:
+        return 8
     return 4
 
 

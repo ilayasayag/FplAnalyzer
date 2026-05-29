@@ -184,7 +184,7 @@ Below: per-resource validation rules. Each rule has an `error_code` the frontend
 | # | Rule | Error code | Trigger |
 |---|---|---|---|
 | 4.1 | `name` is 3–48 chars, no leading/trailing whitespace, no profanity | `LEAGUE_NAME_INVALID` | Schema |
-| 4.2 | `size` ∈ {4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16} | `LEAGUE_SIZE_OUT_OF_RANGE` | Schema |
+| 4.2 | `size` ∈ {6, 7, 8, 9, 10} | `LEAGUE_SIZE_OUT_OF_RANGE` | Schema |
 | 4.3 | `pickTimer` ∈ {30, 60, 90, 120, 180, 300} seconds | `PICK_TIMER_INVALID` | Schema |
 | 4.4 | `tradeApproval` ∈ {`instant`, `vote`, `admin`, `none`} | `TRADE_APPROVAL_INVALID` | Schema |
 | 4.5 | `draftAt` is in the future AND ≥ 24h from now AND ≤ 2026-06-10T20:00Z (last possible draft time before WC starts) | `DRAFT_DATE_INVALID` | State |
@@ -192,9 +192,9 @@ Below: per-resource validation rules. Each rule has an `error_code` the frontend
 | 4.7 | Caller is NOT over the per-user league limit (default 5 active leagues) | `LEAGUE_LIMIT_EXCEEDED` | Authz |
 
 **Server computes (not from request body):**
-- `knockoutStartGw = size > 8 ? 4 : 6`
-- `leaguePhaseGws = size > 8 ? [1,2,3] : [1,2,3,4,5]`
-- `knockoutQualifiers = size > 8 ? 8 : 4`
+- `knockoutStartGw` (4 for size 9-10; 7 for size 6-8)
+- `leaguePhaseGws` ([1, 2, 3] for size 9-10; [1, 2, 3, 4, 5, 6] for size 6-8)
+- `knockoutQualifiers` (8 for size 9-10; 4 for size 6-8)
 - `inviteCode` (server-generated, 8 chars, base32, must be unique)
 - `adminUid = authenticated caller`
 

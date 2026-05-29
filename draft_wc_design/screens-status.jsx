@@ -249,6 +249,27 @@ function PickTeamScreen({ onTab }) {
   const [captain, setCaptain] = React.useState("p_kane");
   const [selected, setSelected] = React.useState(null);
 
+  const handleSaveLineup = async () => {
+    try {
+      const lid = LEAGUE.id;
+      const gw = TOURNAMENT.currentGw;
+      const parseId = id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id);
+      
+      const payload = {
+        starting: lineup.starting.map(parseId),
+        bench: lineup.bench.map(parseId),
+        formation: lineup.formation,
+        captain: parseId(captain),
+        viceCaptain: lineup.starting.find(id => id !== captain) ? parseId(lineup.starting.find(id => id !== captain)) : parseId(captain)
+      };
+      
+      await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
+      alert("Lineup saved successfully!");
+    } catch(err) {
+      alert("Failed to save lineup: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   const handlePlayerClick = id => {
     if (!selected) {
       setSelected(id);
@@ -321,7 +342,7 @@ function PickTeamScreen({ onTab }) {
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
-          <button className="btn btn--primary" style={{ minWidth: 200 }}>Save Lineup for GW4</button>
+          <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: 200 }}>Save Lineup for GW{TOURNAMENT.currentGw}</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining

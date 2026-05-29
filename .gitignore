@@ -67,3 +67,7 @@ ml/
 
 # Python cache
 __pycache__/
+
+# Local firebase credentials
+draft_wc_design/firebase.jsx
+
