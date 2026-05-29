@@ -65,6 +65,13 @@ class FPLClient:
         with self._lock:
             self._cache.clear()
 
+    def warm_cache(self):
+        """Pre-fetch bootstrap static data to warm up local in-memory cache."""
+        try:
+            self.get_bootstrap()
+        except Exception:
+            pass
+
     # ------------------------------------------------------------------
     # Bootstrap: players, teams, gameweek info
     # ------------------------------------------------------------------

@@ -49,7 +49,7 @@ EWMA_ALPHA = 0.35
 class PlayerPredictor:
     """Predicts expected FPL points for players across upcoming gameweeks."""
 
-    def __init__(self, client: FPLClient):
+    def __init__(self, client: FPLClient, lineup_predictor=None):
         self.client = client
         self.team_form = TeamFormAnalyzer(client)
         self._draft_to_main = None

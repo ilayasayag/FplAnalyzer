@@ -86,7 +86,7 @@ class ScheduleManager:
             r = []
             r.append((fixed, rotating[0]))
             for j in range(1, n // 2):
-                r.append((rotating[j], rotating[n - 2 - j]))
+                r.append((rotating[j], rotating[n - 1 - j]))
             rounds.append(r)
             rotating = rotating[1:] + rotating[:1]
 

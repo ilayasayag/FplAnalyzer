@@ -507,13 +507,17 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
         })
 
         scores_ref.set({
-            f"results.{uid}.points": total_pts,
-            f"results.{uid}.rawPoints": base_pts,
-            f"results.{uid}.captainBonus": captain_bonus,
-            f"results.{uid}.effectiveCaptain": effective_captain,
-            f"results.{uid}.captain": captain,
-            f"results.{uid}.viceCaptain": vc,
-            f"results.{uid}.autoSubs": subs_made,
+            "results": {
+                uid: {
+                    "points": total_pts,
+                    "rawPoints": base_pts,
+                    "captainBonus": captain_bonus,
+                    "effectiveCaptain": effective_captain,
+                    "captain": captain,
+                    "viceCaptain": vc,
+                    "autoSubs": subs_made,
+                }
+            }
         }, merge=True)
 
     # Re-read updated scores
@@ -724,7 +728,13 @@ def _award_gw_bonus(results: Dict[str, Dict], scores_ref) -> List[str]:
     max_pts = max(r.get("points", 0) for r in results.values())
     bonus_uids = [uid for uid, r in results.items() if r.get("points", 0) == max_pts]
     for uid in bonus_uids:
-        scores_ref.set({f"results.{uid}.bonusPoint": True}, merge=True)
+        scores_ref.set({
+            "results": {
+                uid: {
+                    "bonusPoint": True
+                }
+            }
+        }, merge=True)
     return bonus_uids
 
 

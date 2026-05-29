@@ -252,26 +252,40 @@ class WC2026Client:
     # Player pool (reads from Firestore)
     # ------------------------------------------------------------------
 
+    def _enrich_player_fpl_compat(self, p: Dict) -> Dict:
+        if not p:
+            return p
+        p["element_type"] = p.get("position")
+        p["web_name"] = p.get("name", "?")
+        p["team"] = p.get("teamId", 0)
+        p["draft_rank"] = p.get("draftRank", 0)
+        p["total_points"] = p.get("totalPoints", 0)
+        p["form"] = p.get("form", "0")
+        return p
+
     def get_player(self, player_id: int, db=None) -> Optional[Dict]:
         db = db or self.db
         if not db:
             return None
         doc = db.collection("wc_players").document(str(player_id)).get()
-        return doc.to_dict() if doc.exists else None
+        return self._enrich_player_fpl_compat(doc.to_dict()) if doc.exists else None
 
     def get_player_map(self, db=None) -> Dict[int, Dict]:
         db = db or self.db
         if not db:
             return {}
         docs = db.collection("wc_players").get()
-        return {int(d.id): d.to_dict() for d in docs}
+        return {int(d.id): self._enrich_player_fpl_compat(d.to_dict()) for d in docs}
 
     def get_all_players(self, db=None) -> List[Dict]:
         db = db or self.db
         if not db:
             return []
         docs = db.collection("wc_players").stream()
-        return [d.to_dict() for d in docs]
+        return [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+
+    def get_players(self, db=None) -> List[Dict]:
+        return self.get_all_players(db)
 
     def get_players_by_team(self, team_id: int, db=None) -> List[Dict]:
         db = db or self.db
@@ -279,21 +293,42 @@ class WC2026Client:
             return []
         docs = (db.collection("wc_players")
                 .where("teamId", "==", team_id).get())
-        return [d.to_dict() for d in docs]
+        return [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
 
     def get_team(self, team_id: int, db=None) -> Optional[Dict]:
         db = db or self.db
         if not db:
             return None
         doc = db.collection("wc_teams").document(str(team_id)).get()
-        return doc.to_dict() if doc.exists else None
+        t = doc.to_dict() if doc.exists else None
+        if t and "short_name" not in t:
+            name = t.get("name", "")
+            t["short_name"] = name[:3].upper() if name else "???"
+        return t
 
     def get_all_teams(self, db=None) -> List[Dict]:
         db = db or self.db
         if not db:
             return []
         docs = db.collection("wc_teams").stream()
-        return [d.to_dict() for d in docs]
+        res = []
+        for d in docs:
+            t = d.to_dict()
+            if "short_name" not in t:
+                name = t.get("name", "")
+                t["short_name"] = name[:3].upper() if name else "???"
+            res.append(t)
+        return res
+
+    def get_teams(self, db=None) -> List[Dict]:
+        return self.get_all_teams(db)
+
+    def get_team_map(self, db=None) -> Dict[int, Dict]:
+        db = db or self.db
+        if not db:
+            return {}
+        teams = self.get_all_teams(db)
+        return {int(t["id"]): t for t in teams if "id" in t}
 
     # ------------------------------------------------------------------
     # Live data (hits api-sports, TTL-cached)

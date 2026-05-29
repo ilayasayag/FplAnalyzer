@@ -34,5 +34,18 @@
       ],
       "predeploy": "rm -rf functions/fpl_predictor && cp -r fpl_predictor functions/fpl_predictor"
     }
-  ]
+  ],
+  "emulators": {
+    "auth": {
+      "port": 9099
+    },
+    "firestore": {
+      "port": 8080
+    },
+    "ui": {
+      "enabled": true,
+      "port": 4000
+    },
+    "singleProjectMode": true
+  }
 }
