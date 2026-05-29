@@ -1,0 +1,10 @@
+[build]
+  publish = "dist"
+  command = "mkdir -p dist && cp index.html dist/"
+
+# Proxy all /api/* requests to Firebase Cloud Functions backend
+[[redirects]]
+  from = "/api/*"
+  to = "https://us-central1-fpl-analyzer-792eb.cloudfunctions.net/api/api/:splat"
+  status = 200
+  force = true

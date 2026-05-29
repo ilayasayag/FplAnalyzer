@@ -1,0 +1,17 @@
+.git
+.gitignore
+node_modules/
+.venv/
+venv/
+verification_*/
+*.html
+.DS_Store
+Dockerfile
+.dockerignore
+README.md
+run_server.py
+package.json
+package-lock.json
+netlify.toml
+.netlify/
+dist/

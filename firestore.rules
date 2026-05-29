@@ -1,0 +1,60 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+
+    match /leagues/{leagueId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update: if request.auth != null;
+
+      match /members/{memberId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+
+      match /squads/{uid} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+      }
+
+      match /lineups/{docId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null;
+      }
+
+      match /draft/{docId} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+
+        match /picks/{pickId} {
+          allow read: if request.auth != null;
+          allow write: if false;
+        }
+      }
+
+      match /trades/{tradeId} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+      }
+
+      match /waivers/{waiverId} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+      }
+
+      match /scores/{gw} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+      }
+
+      match /schedule/{gw} {
+        allow read: if request.auth != null;
+        allow write: if false; // server-only writes
+      }
+    }
+  }
+}

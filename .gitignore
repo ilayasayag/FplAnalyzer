@@ -37,3 +37,33 @@ verification_*/
 
 # Environment
 .env
+*-service-account*.json
+
+# Firebase
+firebase-debug.log
+firebase-debug.*.log
+.firebase/
+functions/venv/
+functions/fpl_predictor/# Netlify
+.netlify/
+dist/
+
+# Secrets — NEVER commit
+secrets.json
+*service-account*.json
+
+# Personal / unrelated files
+*.exe
+*.gb1
+*.gm81
+לב*
+
+# ML training artefacts
+ml_venv/
+ml/
+
+# Claude AI session files (local only)
+.claude/
+
+# Python cache
+__pycache__/

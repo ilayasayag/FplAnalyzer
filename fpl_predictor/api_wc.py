@@ -1,0 +1,859 @@
+"""
+WC2026 Fantasy Draft REST API — Flask Blueprint.
+
+Register in api.py with: app.register_blueprint(wc_bp, url_prefix="/api/v1/wc")
+
+Auth: Firebase ID token in Authorization: Bearer <token> header.
+All endpoints return {"data": ..., "error": null} or {"data": null, "error": "..."}.
+"""
+
+import math
+from datetime import datetime, timezone
+from flask import Blueprint, jsonify, request, g
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+
+from .data.wc_api import WC2026Client
+from .game.wc_leagues import WCLeagueManager
+from .game.wc_squads import WCSquadManager
+from .game.wc_trades import WCTradeManager
+from .game.wc_waivers import WCWaiverManager
+from .game.wc_knockout import get_bracket, seed_knockout, advance_knockout_bracket
+from .game.wc_scoring import finalize_gw, process_fixture
+from .game.wc_gameweeks import (
+    all_gws_as_dict, get_current_gw, is_locked, get_gw_config,
+    compute_knockout_start_gw,
+)
+
+
+wc_bp = Blueprint("wc", __name__)
+
+
+# ---------------------------------------------------------------------------
+# Dependency injection — set in api.py after creating the Blueprint
+# ---------------------------------------------------------------------------
+
+_db = None
+_wc: WC2026Client = None
+_league_mgr: WCLeagueManager = None
+_squad_mgr: WCSquadManager = None
+_trade_mgr: WCTradeManager = None
+_waiver_mgr: WCWaiverManager = None
+
+
+def init_wc(db, firebase_auth=None):
+    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr
+    _db = db
+    _wc = WC2026Client(db=db)
+    _league_mgr = WCLeagueManager(db)
+    _squad_mgr = WCSquadManager(db, _wc)
+    _trade_mgr = WCTradeManager(db, _wc)
+    _waiver_mgr = WCWaiverManager(db, _wc)
+
+
+# ---------------------------------------------------------------------------
+# Auth middleware
+# ---------------------------------------------------------------------------
+
+def _require_auth():
+    """Extract uid from Firebase ID token. Returns uid or raises."""
+    from firebase_admin import auth as fb_auth
+    auth_header = request.headers.get("Authorization", "")
+    if not auth_header.startswith("Bearer "):
+        return None, _err("Unauthorized", 401)
+    token = auth_header[7:]
+    try:
+        decoded = fb_auth.verify_id_token(token)
+        return decoded["uid"], None
+    except Exception:
+        return None, _err("Invalid token", 401)
+
+
+# ---------------------------------------------------------------------------
+# Response helpers
+# ---------------------------------------------------------------------------
+
+def _ok(data=None, status=200):
+    return jsonify({"data": _clean(data), "error": None}), status
+
+
+def _err(msg: str, status=400):
+    return jsonify({"data": None, "error": msg}), status
+
+
+def _clean(obj):
+    if obj is None:
+        return None
+    if isinstance(obj, float):
+        if math.isnan(obj) or math.isinf(obj):
+            return None
+        return obj
+    if isinstance(obj, dict):
+        return {k: _clean(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [_clean(v) for v in obj]
+    if isinstance(obj, datetime):
+        return obj.isoformat()
+    return obj
+
+
+# ---------------------------------------------------------------------------
+# §0 — Tournament config
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/config", methods=["GET"])
+def get_config():
+    doc = _db.collection("wc_config").document("tournament").get()
+    base = doc.to_dict() if doc.exists else {}
+    base["gwDates"] = all_gws_as_dict()
+    base["currentGw"] = get_current_gw()
+    return _ok(base)
+
+
+# ---------------------------------------------------------------------------
+# §1 — Teams + Players (public data)
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/teams", methods=["GET"])
+def list_teams():
+    teams = _wc.get_all_teams(_db)
+    return _ok(teams)
+
+
+@wc_bp.route("/players", methods=["GET"])
+def list_players():
+    position = request.args.get("position", type=int)
+    team_id = request.args.get("teamId", type=int)
+    search = request.args.get("q", "").strip()
+    limit = request.args.get("limit", 200, type=int)
+
+    players = _wc.get_all_players(_db)
+
+    if position:
+        players = [p for p in players if p.get("position") == position]
+    if team_id:
+        players = [p for p in players if p.get("teamId") == team_id]
+    if search:
+        search_lower = search.lower()
+        players = [p for p in players if search_lower in p.get("name", "").lower()]
+
+    return _ok(players[:limit])
+
+
+@wc_bp.route("/players/<int:player_id>", methods=["GET"])
+def get_player(player_id: int):
+    player = _wc.get_player(player_id, _db)
+    if not player:
+        return _err("Player not found", 404)
+    return _ok(player)
+
+
+# ---------------------------------------------------------------------------
+# §2 — Fixtures
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/fixtures", methods=["GET"])
+def list_fixtures():
+    gw = request.args.get("gw", type=int)
+    if gw:
+        fixtures = _wc.get_gw_fixtures(gw, _db)
+    else:
+        docs = _db.collection("wc_fixtures").get()
+        fixtures = [d.to_dict() for d in docs]
+    return _ok(fixtures)
+
+
+@wc_bp.route("/fixtures/live", methods=["GET"])
+def live_fixtures():
+    try:
+        fixtures = _wc.get_live_fixtures()
+    except Exception as exc:
+        return _err(str(exc), 502)
+    return _ok(fixtures)
+
+
+@wc_bp.route("/fixtures/<int:fixture_id>/scores", methods=["GET"])
+def fixture_scores(fixture_id: int):
+    docs = (_db.collection("wc_fixtures").document(str(fixture_id))
+            .collection("playerScores").get())
+    scores = {int(d.id): d.to_dict() for d in docs}
+    return _ok(scores)
+
+
+# ---------------------------------------------------------------------------
+# §3 — API usage stats (admin only)
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/api-usage", methods=["GET"])
+def api_usage():
+    uid, err = _require_auth()
+    if err:
+        return err
+    today = datetime.now(timezone.utc).date().isoformat()
+    doc = _db.collection("wc_api_usage").document(today).get()
+    count = doc.to_dict().get("requests", 0) if doc.exists else 0
+    return _ok({"date": today, "requests": count, "limit": 100, "inProcess": _wc.get_daily_usage()})
+
+
+# ---------------------------------------------------------------------------
+# §4 — Leagues
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues", methods=["POST"])
+def create_league():
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    try:
+        result = _league_mgr.create_league(
+            uid=uid,
+            name=body.get("name", ""),
+            display_name=body.get("displayName", "Manager"),
+            trade_approval=body.get("tradeApproval", "vote"),
+            pick_timer=body.get("pickTimer", 60),
+            max_members=body.get("maxMembers", 8),
+        )
+        return _ok(result, 201)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/join", methods=["POST"])
+def join_league():
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    try:
+        result = _league_mgr.join_league(
+            uid=uid,
+            invite_code=body.get("inviteCode", ""),
+            display_name=body.get("displayName", "Manager"),
+            team_name=body.get("teamName"),
+        )
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/my", methods=["GET"])
+def my_leagues():
+    uid, err = _require_auth()
+    if err:
+        return err
+    return _ok(_league_mgr.get_my_leagues(uid))
+
+
+@wc_bp.route("/leagues/<lid>", methods=["GET"])
+def get_league(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        return _ok(_league_mgr.get_league(lid, uid))
+    except ValueError as exc:
+        return _err(str(exc), 404)
+
+
+@wc_bp.route("/leagues/<lid>", methods=["PATCH"])
+def update_league(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _league_mgr.update_league(lid, uid, request.get_json() or {})
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/lock", methods=["POST"])
+def lock_league(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _league_mgr.lock_for_draft(lid, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/start-season", methods=["POST"])
+def start_season(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _league_mgr.start_season(lid, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/kick", methods=["POST"])
+def kick_member(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    target = body.get("targetUid")
+    if not target:
+        return _err("targetUid required")
+    try:
+        result = _league_mgr.kick_member(lid, uid, target)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/leave", methods=["POST"])
+def leave_league(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        _league_mgr.leave_league(lid, uid)
+        return _ok({"status": "left"})
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+# ---------------------------------------------------------------------------
+# §5 — Draft
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/draft/state", methods=["GET"])
+def get_draft_state(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    doc = (_db.collection("leagues").document(lid)
+           .collection("draft").document("state").get())
+    if not doc.exists:
+        return _err("Draft not started", 404)
+    return _ok({"leagueId": lid, **doc.to_dict()})
+
+
+@wc_bp.route("/leagues/<lid>/draft/start", methods=["POST"])
+def start_draft(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        from .game.draft import DraftEngine
+        draft = DraftEngine(_db, _wc)
+        result = draft.start_draft(lid, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/draft/pick", methods=["POST"])
+def make_pick(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    player_id = body.get("playerId")
+    idempotency_key = body.get("idempotencyKey")
+    if not player_id:
+        return _err("playerId required")
+    try:
+        from .game.draft import DraftEngine
+        draft = DraftEngine(_db, _wc)
+        result = draft.make_pick(lid, uid, player_id, idempotency_key=idempotency_key)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/draft/watchlist", methods=["GET"])
+def get_watchlist(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    doc = (_db.collection("leagues").document(lid)
+           .collection("draft").document("watchlists")
+           .collection(uid).document("list").get())
+    players = doc.to_dict().get("playerIds", []) if doc.exists else []
+    return _ok({"playerIds": players})
+
+
+@wc_bp.route("/leagues/<lid>/draft/watchlist", methods=["PUT"])
+def update_watchlist(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    player_ids = body.get("playerIds", [])
+    (_db.collection("leagues").document(lid)
+     .collection("draft").document("watchlists")
+     .collection(uid).document("list")
+     .set({"playerIds": player_ids, "updatedAt": SERVER_TIMESTAMP}))
+    return _ok({"playerIds": player_ids})
+
+
+# ---------------------------------------------------------------------------
+# §6 — Squads
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/squads/<target_uid>", methods=["GET"])
+def get_squad(lid: str, target_uid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    squad = _squad_mgr.get_squad(lid, target_uid)
+    return _ok({"leagueId": lid, "uid": target_uid, **squad})
+
+
+@wc_bp.route("/leagues/<lid>/squads/me", methods=["GET"])
+def get_my_squad(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    squad = _squad_mgr.get_squad(lid, uid)
+    return _ok({"leagueId": lid, "uid": uid, **squad})
+
+
+@wc_bp.route("/leagues/<lid>/squad/drop", methods=["POST"])
+def drop_player(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    player_out = body.get("playerOut")
+    if not player_out:
+        return _err("playerOut required")
+    try:
+        result = _squad_mgr.drop_player(lid, uid, player_out)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+# ---------------------------------------------------------------------------
+# §7 — Lineup
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/lineup/<int:gw>", methods=["GET"])
+def get_lineup(lid: str, gw: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    lineup = _squad_mgr.get_lineup(lid, uid, gw)
+    locked = is_locked(gw)
+    return _ok({"leagueId": lid, "uid": uid, "gw": gw, "locked": locked, **lineup})
+
+
+@wc_bp.route("/leagues/<lid>/lineup/<target_uid>/<int:gw>", methods=["GET"])
+def get_opponent_lineup(lid: str, target_uid: str, gw: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    if not is_locked(gw):
+        return _err("Opponent lineup only visible after GW lockAt", 403)
+    lineup = _squad_mgr.get_lineup(lid, target_uid, gw)
+    return _ok({"leagueId": lid, "uid": target_uid, "gw": gw, "locked": True, **lineup})
+
+
+@wc_bp.route("/leagues/<lid>/lineup/<int:gw>", methods=["PUT"])
+def set_lineup(lid: str, gw: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    try:
+        result = _squad_mgr.set_lineup(
+            lid=lid,
+            uid=uid,
+            gw=gw,
+            starting=body.get("starting", []),
+            bench=body.get("bench", []),
+            captain=body.get("captain"),
+            vice_captain=body.get("viceCaptain"),
+        )
+        return _ok(result)
+    except ValueError as exc:
+        code = str(exc)
+        if code in ("LINEUP_LOCKED", "SQUAD_INCOMPLETE"):
+            return _err(code, 409)
+        return _err(code)
+
+
+# ---------------------------------------------------------------------------
+# §8 — Scores + Standings
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/scores/<int:gw>", methods=["GET"])
+def get_scores(lid: str, gw: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    doc = (_db.collection("leagues").document(lid)
+           .collection("scores").document(str(gw)).get())
+    if not doc.exists:
+        return _ok({"leagueId": lid, "gw": gw, "results": {}, "processed": False})
+    return _ok({"leagueId": lid, "gw": gw, **doc.to_dict()})
+
+
+@wc_bp.route("/leagues/<lid>/standings", methods=["GET"])
+def get_standings(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    doc = (_db.collection("leagues").document(lid)
+           .collection("standings").document("current").get())
+    if not doc.exists:
+        return _ok({"leagueId": lid, "managers": []})
+    return _ok({"leagueId": lid, **doc.to_dict()})
+
+
+@wc_bp.route("/leagues/<lid>/schedule", methods=["GET"])
+def get_schedule(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    gw = request.args.get("gw", type=int)
+    if gw:
+        doc = (_db.collection("leagues").document(lid)
+               .collection("schedule").document(str(gw)).get())
+        schedule = doc.to_dict() if doc.exists else {"gw": gw, "matches": []}
+        return _ok({"leagueId": lid, **schedule})
+    else:
+        docs = (_db.collection("leagues").document(lid)
+                .collection("schedule").get())
+        all_gws = sorted([d.to_dict() for d in docs], key=lambda x: x.get("gw", 0))
+        return _ok({"leagueId": lid, "schedule": all_gws})
+
+
+# ---------------------------------------------------------------------------
+# §9 — Transfer windows + Free agent pickups
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/transfer-window", methods=["GET"])
+def get_transfer_window(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    windows = (_db.collection("leagues").document(lid)
+               .collection("transfer_windows")
+               .where("status", "==", "open").limit(1).get())
+    if not windows:
+        return _ok({"status": "closed", "window": None})
+    w = windows[0].to_dict()
+    w["windowId"] = windows[0].id
+    return _ok({"status": "open", "window": w})
+
+
+@wc_bp.route("/leagues/<lid>/free-agent", methods=["POST"])
+def sign_free_agent(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    player_in = body.get("playerIn")
+    player_out = body.get("playerOut")
+    window_number = body.get("windowNumber", 1)
+    if not player_in or not player_out:
+        return _err("playerIn and playerOut required")
+    try:
+        result = _squad_mgr.sign_free_agent(lid, uid, player_in, player_out, window_number)
+        return _ok(result)
+    except ValueError as exc:
+        code = str(exc)
+        if code in ("PLAYER_ALREADY_OWNED", "WINDOW_CLOSED", "PLAYER_TEAM_ELIMINATED"):
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/free-agents", methods=["GET"])
+def list_free_agents(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    position = request.args.get("position", type=int)
+    search = request.args.get("q", "")
+    limit = request.args.get("limit", 50, type=int)
+    agents = _waiver_mgr.get_free_agents(lid, position=position, search=search, limit=limit)
+    return _ok(agents)
+
+
+# ---------------------------------------------------------------------------
+# §10 — Waivers
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/waivers", methods=["POST"])
+def submit_waiver(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    try:
+        result = _waiver_mgr.submit_waiver(
+            lid=lid,
+            uid=uid,
+            player_in=body.get("playerIn"),
+            player_out=body.get("playerOut"),
+            window_number=body.get("windowNumber", 1),
+        )
+        return _ok(result, 201)
+    except ValueError as exc:
+        code = str(exc)
+        if "DUPLICATE_WAIVER" in code or "WAIVER_LIMIT" in code:
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/waivers", methods=["GET"])
+def get_waivers(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    window_number = request.args.get("window", 1, type=int)
+    waivers = _waiver_mgr.get_my_waivers(lid, uid, window_number)
+    return _ok(waivers)
+
+
+@wc_bp.route("/leagues/<lid>/waivers/<waiver_id>", methods=["DELETE"])
+def cancel_waiver(lid: str, waiver_id: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        _waiver_mgr.cancel_waiver(lid, waiver_id, uid)
+        return _ok({"status": "cancelled"})
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/waivers/order", methods=["GET"])
+def waiver_order(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    order = _waiver_mgr.get_waiver_order(lid)
+    return _ok({"leagueId": lid, "waiverOrder": order})
+
+
+@wc_bp.route("/leagues/<lid>/waivers/order/reset", methods=["POST"])
+def reset_waiver_order(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        _waiver_mgr.reset_waiver_priority_to_standings(lid, uid)
+        return _ok({"status": "reset"})
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+# ---------------------------------------------------------------------------
+# §11 — Trades
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/trades", methods=["GET"])
+def list_trades(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    status = request.args.get("status")
+    trades = _trade_mgr.get_trades(lid, status=status)
+    return _ok(trades)
+
+
+@wc_bp.route("/leagues/<lid>/trades", methods=["POST"])
+def propose_trade(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    try:
+        result = _trade_mgr.propose_trade(
+            lid=lid,
+            proposer_uid=uid,
+            target_uid=body.get("targetUid", ""),
+            proposer_player_ids=body.get("proposerPlayerIds", []),
+            target_player_ids=body.get("targetPlayerIds", []),
+            message=body.get("message", ""),
+        )
+        return _ok(result, 201)
+    except ValueError as exc:
+        code = str(exc)
+        if "PLAYER_MID_FIXTURE" in code or "TRADE_LIMIT" in code:
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/trades/<trade_id>/respond", methods=["POST"])
+def respond_trade(lid: str, trade_id: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json() or {}
+    action = body.get("action")
+    if action not in ("accept", "decline"):
+        return _err("action must be 'accept' or 'decline'")
+    try:
+        result = _trade_mgr.respond_trade(lid, trade_id, uid, action)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/trades/<trade_id>/veto", methods=["POST"])
+def veto_trade(lid: str, trade_id: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _trade_mgr.cast_veto(lid, trade_id, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/trades/<trade_id>/cancel", methods=["POST"])
+def cancel_trade(lid: str, trade_id: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _trade_mgr.cancel_trade(lid, trade_id, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/trades/<trade_id>/admin-approve", methods=["POST"])
+def admin_approve_trade(lid: str, trade_id: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _trade_mgr.admin_approve(lid, trade_id, uid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+# ---------------------------------------------------------------------------
+# §12 — Knockout bracket
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/knockout", methods=["GET"])
+def get_knockout(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    bracket = get_bracket(lid, _db)
+    return _ok(bracket)
+
+
+# ---------------------------------------------------------------------------
+# §13 — Transactions log
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/transactions", methods=["GET"])
+def get_transactions(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    limit = request.args.get("limit", 20, type=int)
+    docs = (_db.collection("leagues").document(lid)
+            .collection("transactions")
+            .order_by("timestamp", direction="DESCENDING")
+            .limit(limit)
+            .get())
+    txns = [{"id": d.id, **d.to_dict()} for d in docs]
+    return _ok(txns)
+
+
+# ---------------------------------------------------------------------------
+# §14 — Admin / background operations
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/admin/sync-squads", methods=["POST"])
+def admin_sync_squads():
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _wc.sync_all_squads(_db)
+        return _ok(result)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/sync-fixtures", methods=["POST"])
+def admin_sync_fixtures():
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        count = _wc.sync_fixtures(_db)
+        return _ok({"fixturesWritten": count})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/process-fixture/<int:fixture_id>", methods=["POST"])
+def admin_process_fixture(fixture_id: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        raw_stats = _wc.get_fixture_player_stats(fixture_id, use_cache=False)
+        results = process_fixture(fixture_id, raw_stats, _wc, _db)
+        return _ok({"fixtureId": fixture_id, "playersScored": len(results)})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/finalize-gw/<int:gw>", methods=["POST"])
+def admin_finalize_gw(lid: str, gw: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = finalize_gw(lid, gw, _db, _wc)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
+def admin_process_waivers(lid: str, window_number: int):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _waiver_mgr.process_waivers(lid, window_number)
+        return _ok(result)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/detect-eliminations", methods=["POST"])
+def admin_detect_eliminations():
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        result = _wc.detect_group_stage_eliminations(_db)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/expire-trades", methods=["POST"])
+def admin_expire_trades(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    _trade_mgr.expire_stale_trades(lid)
+    return _ok({"status": "done"})

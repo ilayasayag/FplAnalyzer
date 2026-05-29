@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>WC26 Fantasy Draft</title>
+  <meta name="viewport" content="width=1440" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700;800&family=Bricolage+Grotesque:opsz,wght@12..96,600;12..96,700;12..96,800&family=DM+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+  <template id="__bundler_thumbnail">
+    <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0" stop-color="#4a1ba8"/>
+          <stop offset="0.5" stop-color="#3a2db8"/>
+          <stop offset="1" stop-color="#1be8d4"/>
+        </linearGradient>
+      </defs>
+      <rect width="200" height="200" rx="36" fill="url(#bg)"/>
+      <path d="M70 60h60v18a30 30 0 0 1-60 0V60Z" fill="#ffc844"/>
+      <path d="M52 64h18v12a8 8 0 0 1-8-8 4 4 0 0 1-4-4Zm78 0h18a4 4 0 0 1-4 4 8 8 0 0 1-8 8V64Z" fill="#ffc844" opacity="0.85"/>
+      <path d="M88 110h24v14H88z" fill="#ffc844"/>
+      <path d="M76 124h48v14H76z" fill="#ffc844"/>
+      <path d="M64 138h72v10H64z" fill="#ffc844" opacity="0.9"/>
+      <circle cx="100" cy="76" r="14" fill="#0c0a3e" opacity="0.25"/>
+      <text x="100" y="83" text-anchor="middle" fill="#fff" font-family="Bricolage Grotesque, Inter, sans-serif" font-weight="800" font-size="18">26</text>
+    </svg>
+  </template>
+</head>
+<body>
+  <div id="app"></div>
+
+  <!-- React + Babel -->
+  <script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+  <script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+
+  <!-- Tweaks panel (provides TweaksPanel, useTweaks, Tweak* controls) -->
+  <script type="text/babel" src="tweaks-panel.jsx?v=3"></script>
+
+  <!-- Data + components -->
+  <script type="text/babel" src="data.jsx?v=4"></script>
+  <script type="text/babel" src="components.jsx?v=4"></script>
+  <script type="text/babel" src="shell.jsx?v=4"></script>
+
+  <!-- Screens -->
+  <script type="text/babel" src="screens-status.jsx?v=4"></script>
+  <script type="text/babel" src="screens-data.jsx?v=4"></script>
+  <script type="text/babel" src="screens-bracket.jsx?v=4"></script>
+  <script type="text/babel" src="screens-draft.jsx?v=4"></script>
+
+  <!-- Player stats modal -->
+  <script type="text/babel" src="player-stats-modal.jsx?v=4"></script>
+
+  <!-- App -->
+  <script type="text/babel" src="app.jsx?v=4"></script>
+</body>
+</html>
