@@ -1529,8 +1529,54 @@ def team_colors():
 
 
 # ──────────────────────────────────────────────────────────────────────
+# Background Live Scoring Polling Scheduler (Sprint 3)
+# ──────────────────────────────────────────────────────────────────────
+
+_scheduler_started = False
+
+def init_background_scheduler(interval_seconds=300):
+    global _scheduler_started
+    if _scheduler_started:
+        return
+    _scheduler_started = True
+    
+    import threading
+    import time
+    
+    def poll_loop():
+        # wait 10 seconds before first poll to let app stabilize
+        time.sleep(10)
+        while True:
+            try:
+                from .api_wc import background_poll_and_process_fixtures
+                print("[Background Poller] Polling live fixtures...")
+                res = background_poll_and_process_fixtures()
+                proc = res.get("processed", [])
+                errs = res.get("errors", [])
+                if proc:
+                    print(f"[Background Poller] Processed FT fixtures: {proc}")
+                if errs:
+                    print(f"[Background Poller] Errors encountered during polling: {errs}")
+            except Exception as e:
+                print(f"[Background Poller] Unexpected exception in loop: {e}")
+            time.sleep(interval_seconds)
+
+    thread = threading.Thread(target=poll_loop, name="WCLivePollingThread", daemon=True)
+    thread.start()
+    print("[Background Poller] Started background polling daemon thread.")
+
+
+# Automatically attempt to initialize when imported (e.g. under gunicorn)
+# but skip if we are running standard test suites.
+if os.environ.get("FPL_TESTING") != "true":
+    init_background_scheduler(300)
+
+
+# ──────────────────────────────────────────────────────────────────────
 # Server runner
 # ──────────────────────────────────────────────────────────────────────
 
 def run_server(host="0.0.0.0", port=5000, debug=False):
+    # Explicitly ensure background scheduler starts
+    init_background_scheduler(300)
     app.run(host=host, port=port, debug=debug)

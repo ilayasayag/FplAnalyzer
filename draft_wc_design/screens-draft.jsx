@@ -396,6 +396,23 @@ function CreateForm({ onBack, onTab }) {
   const qualifiers = size > 8 ? 8 : 4;
   const leaguePhase = size > 8 ? [1, 2, 3] : [1, 2, 3, 4, 5, 6];
 
+  const handleCreate = async () => {
+    try {
+      const res = await apiCall("POST", "/leagues", {
+        name,
+        displayName: _auth.currentUser?.displayName || _auth.currentUser?.email.split("@")[0] || "Admin",
+        maxMembers: size,
+        pickTimer: timer,
+        tradeApproval: tradeRule,
+        draftAt: draftDate ? new Date(draftDate).toISOString() : undefined
+      });
+      alert(`League "${res.name}" created successfully!\nInvite Code: ${res.inviteCode}`);
+      onBack();
+    } catch (err) {
+      alert("Failed to create league: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   return (
     <div className="col" style={{ gap: 16 }}>
       <button onClick={onBack} className="muted" style={{ alignSelf: "flex-start", fontSize: 13 }}>← Back</button>
@@ -461,7 +478,7 @@ function CreateForm({ onBack, onTab }) {
 
           <div style={{ display: "flex", gap: 8, justifyContent: "flex-end", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
             <button onClick={onBack} className="btn btn--ghost-dark">Cancel</button>
-            <button className="btn btn--primary" disabled={!name}>Create League</button>
+            <button onClick={handleCreate} className="btn btn--primary" disabled={!name}>Create League</button>
           </div>
         </div>
 
@@ -502,6 +519,23 @@ function Field({ label, hint, children }) {
 
 function JoinForm({ onBack }) {
   const [code, setCode] = React.useState("");
+  const [displayName, setDisplayName] = React.useState(_auth.currentUser?.displayName || "");
+  const [teamName, setTeamName] = React.useState("");
+
+  const handleJoin = async () => {
+    try {
+      await apiCall("POST", "/leagues/join", {
+        inviteCode: code,
+        teamName: teamName || "Unnamed Team",
+        displayName: displayName || _auth.currentUser?.email.split("@")[0] || "Manager"
+      });
+      alert("Joined league successfully!");
+      onBack();
+    } catch (err) {
+      alert("Failed to join league: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   return (
     <div className="col" style={{ gap: 16, maxWidth: 520 }}>
       <button onClick={onBack} className="muted" style={{ alignSelf: "flex-start", fontSize: 13 }}>← Back</button>
@@ -515,14 +549,14 @@ function JoinForm({ onBack }) {
           />
         </Field>
         <Field label="Display name" hint="What your friends will see in this league">
-          <input type="text" defaultValue="Ilay Asayag" style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--border-strong)", fontSize: 15 }} />
+          <input type="text" value={displayName} onChange={e => setDisplayName(e.target.value)} style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--border-strong)", fontSize: 15 }} />
         </Field>
         <Field label="Team name" hint="Pick something memorable. You can change it later.">
-          <input type="text" placeholder="e.g. Hapoel Eliyahu" style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--border-strong)", fontSize: 15 }} />
+          <input type="text" value={teamName} onChange={e => setTeamName(e.target.value)} placeholder="e.g. Hapoel Eliyahu" style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid var(--border-strong)", fontSize: 15 }} />
         </Field>
         <div style={{ display: "flex", gap: 8, justifyContent: "flex-end" }}>
           <button onClick={onBack} className="btn btn--ghost-dark">Cancel</button>
-          <button className="btn btn--primary" disabled={!code}>Join League</button>
+          <button onClick={handleJoin} className="btn btn--primary" disabled={!code}>Join League</button>
         </div>
       </div>
     </div>

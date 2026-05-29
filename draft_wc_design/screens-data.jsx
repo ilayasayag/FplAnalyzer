@@ -361,42 +361,47 @@ function StandingsTable({ onTab }) {
 }
 
 function ScheduleTable() {
+  const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
   return (
     <div className="card">
-      {[1, 2, 3].map(gw => (
-        <div key={gw} style={{ borderBottom: "1px solid var(--border)" }}>
-          <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--cream)" }}>
-            <strong>Gameweek {gw}</strong>
-            <span className="muted" style={{ fontSize: 12 }}>{TOURNAMENT.gwDates[gw].wcRound}</span>
+      {gws.map(gw => {
+        const matches = (window.SCHEDULE || {})[gw] || [];
+        if (!matches || matches.length === 0) return null;
+        return (
+          <div key={gw} style={{ borderBottom: "1px solid var(--border)" }}>
+            <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--cream)" }}>
+              <strong>Gameweek {gw}</strong>
+              <span className="muted" style={{ fontSize: 12 }}>{TOURNAMENT.gwDates[gw]?.wcRound || `Gameweek ${gw}`}</span>
+            </div>
+            {matches.map(([a, b], i) => {
+              const A = managerById(a), B = managerById(b);
+              if (!A || !B) return null;
+              const aT = teamById(A.flag), bT = teamById(B.flag);
+              const ap = gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[a] || 0) : 50 + ((gw + i) * 7) % 30;
+              const bp = gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : 50 + ((gw + i) * 11) % 25;
+              const aWin = ap > bp;
+              const isMe = a === ME || b === ME;
+              return (
+                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: aWin ? 700 : 500 }}>
+                    <span>{A.team}</span>
+                    <Flag team={aT} />
+                  </div>
+                  <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 16 }}>
+                    <span style={{ color: aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
+                    <span style={{ color: "var(--ink-300)", margin: "0 8px" }}>–</span>
+                    <span style={{ color: !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: !aWin ? 700 : 500 }}>
+                    <Flag team={bT} />
+                    <span>{B.team}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-          {SCHEDULE[gw].map(([a, b], i) => {
-            const A = managerById(a), B = managerById(b);
-            const aT = teamById(A.flag), bT = teamById(B.flag);
-            // synth scores for GW3 = last GW
-            const ap = gw === 3 ? GW3_TOTALS[a] : 50 + ((gw + i) * 7) % 30;
-            const bp = gw === 3 ? GW3_TOTALS[b] : 50 + ((gw + i) * 11) % 25;
-            const aWin = ap > bp;
-            const isMe = a === ME || b === ME;
-            return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
-                <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: aWin ? 700 : 500 }}>
-                  <span>{A.team}</span>
-                  <Flag team={aT} />
-                </div>
-                <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 16 }}>
-                  <span style={{ color: aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
-                  <span style={{ color: "var(--ink-300)", margin: "0 8px" }}>–</span>
-                  <span style={{ color: !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
-                </div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: !aWin ? 700 : 500 }}>
-                  <Flag team={bT} />
-                  <span>{B.team}</span>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }

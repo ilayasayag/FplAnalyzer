@@ -1035,20 +1035,14 @@ def set_predictions(lid: str):
 # Live fixture polling
 # ---------------------------------------------------------------------------
 
-@wc_bp.route("/admin/process-live-fixtures", methods=["POST"])
-def admin_process_live_fixtures():
-    """
-    Poll api-sports.io for live fixtures; process any that just went FT.
-    Run every 5 minutes on match days (Cloud Scheduler or cron).
-    """
-    uid, err = _require_auth()
-    if err:
-        return err
-
+def background_poll_and_process_fixtures():
+    """Poll api-sports.io for live fixtures; process any that just went FT in the background."""
+    if _wc is None or _db is None:
+        return {"processed": [], "count": 0, "errors": [{"error": "Client or DB not initialized"}]}
     try:
         live = _wc.get_live_fixtures()
     except Exception as exc:
-        return _err(f"Failed to fetch live fixtures: {exc}", 500)
+        return {"processed": [], "count": 0, "errors": [{"error": f"Failed to fetch live fixtures: {exc}"}]}
 
     processed = []
     errors = []
@@ -1069,4 +1063,24 @@ def admin_process_live_fixtures():
                 errors.append({"fid": fid, "error": str(exc)})
                 print(f"[warn] process-live fixture {fid}: {exc}")
 
-    return _ok({"processed": processed, "count": len(processed), "errors": errors})
+    return {"processed": processed, "count": len(processed), "errors": errors}
+
+
+@wc_bp.route("/admin/process-live-fixtures", methods=["POST"])
+def admin_process_live_fixtures():
+    """
+    Poll api-sports.io for live fixtures; process any that just went FT.
+    Run every 5 minutes on match days (Cloud Scheduler or cron).
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+
+    res = background_poll_and_process_fixtures()
+    # If it failed to fetch live fixtures and got an error, propagate it
+    if res.get("errors") and not res.get("processed"):
+        err_msg = res["errors"][0].get("error", "")
+        if "Failed to fetch live" in err_msg:
+            return _err(err_msg, 500)
+
+    return _ok(res)

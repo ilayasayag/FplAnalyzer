@@ -245,7 +245,35 @@ function StatBlock({ label, value, accent }) {
 
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
-  const list = FREE_AGENTS.filter(p => posFilter === "all" || p.pos === Number(posFilter));
+  const [activePickup, setActivePickup] = React.useState(null);
+  const [playerToDrop, setPlayerToDrop] = React.useState("");
+
+  const list = (window.FREE_AGENTS || []).filter(p => posFilter === "all" || p.pos === Number(posFilter));
+  const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
+
+  const handlePickup = async (p) => {
+    if (!playerToDrop) {
+      alert("Please select a player to drop.");
+      return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const winNum = window.WINDOW.windowNumber || 1;
+      const pIn = isNaN(Number(p.id)) ? Number(p.id.replace("p_", "")) : Number(p.id);
+      const pOut = isNaN(Number(playerToDrop)) ? Number(playerToDrop.replace("p_", "")) : Number(playerToDrop);
+      
+      await apiCall("POST", `/leagues/${lid}/free-agent`, {
+        playerIn: pIn,
+        playerOut: pOut,
+        windowNumber: winNum
+      });
+      alert(`Successfully picked up ${p.name} and dropped ${window.PLAYER_MAP[playerToDrop]?.name || playerToDrop}!`);
+      setActivePickup(null);
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
 
   return (
     <div className="card" style={{ overflow: "hidden" }}>
@@ -280,9 +308,11 @@ function FreeAgentsTab() {
         <tbody>
           {list.map(p => {
             const t = teamById(p.team);
-            // synth fixture
             const oppMap = { ARG: "ECU", ENG: "URU", NED: "EGY", USA: "BRA", BEL: "AUS", FRA: "POR2", CRO: "POL", BRA: "USA", JPN: "ESP", KOR: "COL", URU: "ENG", COL: "KOR" };
             const opp = oppMap[p.team] ? teamById(oppMap[p.team]) : null;
+            const eligibleDrops = mySquad.filter(s => s.pos === p.pos);
+            const isPicking = activePickup?.id === p.id;
+
             return (
               <tr key={p.id}>
                 <td>
@@ -310,7 +340,20 @@ function FreeAgentsTab() {
                   </span>
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }}>Pick up</button>
+                  {isPicking ? (
+                    <div className="row" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                      <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
+                        <option value="">-- Drop player --</option>
+                        {eligibleDrops.map(s => (
+                          <option key={s.id} value={s.id}>{s.name} ({s.teamName || s.team})</option>
+                        ))}
+                      </select>
+                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => handlePickup(p)}>✔</button>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => setActivePickup(null)}>✖</button>
+                    </div>
+                  ) : (
+                    <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>Pick up</button>
+                  )}
                 </td>
               </tr>
             );
@@ -322,12 +365,60 @@ function FreeAgentsTab() {
 }
 
 function WaiversTab() {
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [waiverIn, setWaiverIn] = React.useState("");
+  const [waiverOut, setWaiverOut] = React.useState("");
+
+  const list = window.MY_WAIVERS || [];
+  const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
+
+  const eligibleWaiverIn = (window.FREE_AGENTS || []).filter(p => {
+    if (!waiverOut) return true;
+    const sOut = window.PLAYER_MAP[waiverOut];
+    return sOut ? p.pos === sOut.pos : true;
+  });
+
+  const handleCancelWaiver = async (waiverId) => {
+    try {
+      const lid = window.LEAGUE.id;
+      await apiCall("DELETE", `/leagues/${lid}/waivers/${waiverId}`);
+      alert("Waiver claim cancelled successfully!");
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to cancel waiver: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
+  const handleSubmitWaiver = async () => {
+    if (!waiverIn || !waiverOut) {
+      alert("Please select both players.");
+      return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const winNum = window.WINDOW.windowNumber || 1;
+      const pIn = isNaN(Number(waiverIn)) ? Number(waiverIn.replace("p_", "")) : Number(waiverIn);
+      const pOut = isNaN(Number(waiverOut)) ? Number(waiverOut.replace("p_", "")) : Number(waiverOut);
+      
+      await apiCall("POST", `/leagues/${lid}/waivers`, {
+        playerIn: pIn,
+        playerOut: pOut,
+        windowNumber: winNum
+      });
+      alert("Waiver claim submitted successfully!");
+      setIsSubmitting(false);
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to submit waiver: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   return (
     <div className="col" style={{ gap: 12 }}>
       <div className="alert alert--gold">
         <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
         <div>
-          <strong>Waivers process in 12h</strong> — Mon 27 Jun · 10:00. Your priority is <strong>#4</strong> in queue.
+          <strong>Waivers processing window is open</strong> · Priority-based snake queue.
           Higher-priority managers claim first; after one successful claim, you drop to the back.
         </div>
       </div>
@@ -344,9 +435,9 @@ function WaiversTab() {
             </tr>
           </thead>
           <tbody>
-            {MY_WAIVERS.map((w, i) => {
-              const pIn = playerById(w.playerIn);
-              const pOut = playerById(w.playerOut);
+            {list.map((w, i) => {
+              const pIn = window.PLAYER_MAP[w.playerIn] || { name: w.playerIn, team: "", pos: 1 };
+              const pOut = window.PLAYER_MAP[w.playerOut] || { name: w.playerOut, team: "", pos: 1 };
               const tIn = teamById(pIn.team);
               const tOut = teamById(pOut.team);
               return (
@@ -372,28 +463,59 @@ function WaiversTab() {
                     </div>
                   </td>
                   <td className="num">#{w.priority}</td>
-                  <td><span className="pill pill--gold" style={{ fontSize: 10 }}>Pending</span></td>
+                  <td><span className="pill pill--gold" style={{ fontSize: 10 }}>{w.status}</span></td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Cancel</button>
+                    <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => handleCancelWaiver(w.id)}>Cancel</button>
                   </td>
                 </tr>
               );
             })}
           </tbody>
         </table>
-        <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
-          <button className="btn btn--primary">+ Submit New Waiver Claim</button>
-        </div>
+
+        {isSubmitting ? (
+          <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
+            <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
+              <div className="col">
+                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DROP PLAYER</span>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverOut} onChange={e => { setWaiverOut(e.target.value); setWaiverIn(""); }}>
+                  <option value="">-- Drop player --</option>
+                  {mySquad.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
+                  ))}
+                </select>
+              </div>
+              <span className="h-display" style={{ fontSize: 20, color: "var(--ink-400)", marginTop: 16 }}>↔</span>
+              <div className="col">
+                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM PLAYER</span>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverIn} onChange={e => setWaiverIn(e.target.value)} disabled={!waiverOut}>
+                  <option value="">-- Claim player --</option>
+                  {eligibleWaiverIn.map(s => (
+                    <option key={s.id} value={s.id}>{s.name} (DR {s.dr})</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="row" style={{ gap: 8, justifyContent: "center" }}>
+              <button className="btn btn--ghost-dark" onClick={() => setIsSubmitting(false)}>Cancel</button>
+              <button className="btn btn--primary" onClick={handleSubmitWaiver} disabled={!waiverIn || !waiverOut}>Submit Waiver Claim</button>
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
+            <button className="btn btn--primary" onClick={() => setIsSubmitting(true)}>+ Submit New Waiver Claim</button>
+          </div>
+        )}
       </div>
 
       <div className="card" style={{ padding: 18 }}>
         <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Waiver Queue · League-wide priority</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(10, 1fr)", gap: 6 }}>
-          {[...MANAGERS].sort((a, b) => a.waiverPri - b.waiverPri).map((m, i) => (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
+          {(window.MANAGERS || []).sort((a, b) => a.waiverPri - b.waiverPri).map((m, i) => (
             <div key={m.uid} style={{
               padding: "10px 8px", borderRadius: 6,
-              background: m.uid === ME ? "var(--gold-500)" : "var(--cream)",
-              border: "1px solid " + (m.uid === ME ? "var(--gold-500)" : "var(--border)"),
+              background: m.uid === window.ME ? "var(--gold-500)" : "var(--cream)",
+              border: "1px solid " + (m.uid === window.ME ? "var(--gold-500)" : "var(--border)"),
               textAlign: "center",
             }}>
               <div className="mono" style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>#{i + 1}</div>

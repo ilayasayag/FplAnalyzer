@@ -30,6 +30,7 @@ function App() {
   const [displayName, setDisplayName] = React.useState("");
   const [authError, setAuthError] = React.useState("");
   const [isSignUp, setIsSignUp] = React.useState(false);
+  const [activeLid, setActiveLid] = React.useState("lg_clasico");
 
   // Monitor Auth state changes
   React.useEffect(() => {
@@ -37,20 +38,27 @@ function App() {
       if (u) {
         setUser(u);
         try {
-          const token = await u.getIdToken(false);
-          await fetch(`http://localhost:5000/api/v1/wc/auth/me`, {
-            method: "POST",
-            headers: {
-              "Authorization": `Bearer ${token}`,
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
+          // Sync profile
+          try {
+            await apiCall("POST", "/auth/me", {
               displayName: u.displayName || u.email.split("@")[0],
               photoUrl: ""
-            })
-          });
+            });
+          } catch (e) {
+            console.warn("POST /auth/me profile sync failed, continuing", e);
+          }
+
+          // Fetch my leagues to determine the active league ID
+          const list = await apiCall("GET", "/leagues/my");
+          if (list && list.length > 0) {
+            if (list.some(l => l.leagueId === "lg_clasico")) {
+              setActiveLid("lg_clasico");
+            } else {
+              setActiveLid(list[0].leagueId);
+            }
+          }
         } catch (e) {
-          console.warn("POST /auth/me profile sync failed, continuing", e);
+          console.warn("Failed to fetch leagues in auth sync", e);
         }
       } else {
         setUser(null);
@@ -94,7 +102,7 @@ function App() {
     window.ME = user.uid;
     try { ME = user.uid; } catch(e) {}
 
-    const lid = "lg_clasico"; // active league ID
+    const lid = activeLid; // active league ID
 
     // 1. Sync Standings live
     const unsubStandings = _db.collection("leagues").doc(lid)
@@ -180,6 +188,38 @@ function App() {
     // 5. Initial HTTP fetches (Bracket, Schedule, Squad, Lineup, Players)
     const loadInitialData = async () => {
       try {
+        // Fetch active league details
+        try {
+          const leagueDetails = await apiCall("GET", `/leagues/${lid}`);
+          if (leagueDetails) {
+            window.LEAGUE = {
+              id: leagueDetails.leagueId,
+              name: leagueDetails.name,
+              inviteCode: leagueDetails.inviteCode,
+              size: leagueDetails.maxMembers,
+              knockoutStartGw: leagueDetails.knockoutStartGw,
+              leaguePhaseGws: leagueDetails.leaguePhaseGws,
+              knockoutQualifiers: leagueDetails.knockoutQualifiers,
+              pickTimer: leagueDetails.pickTimer,
+              tradeApproval: leagueDetails.tradeApproval,
+              admin: leagueDetails.adminUid,
+            };
+
+            if (leagueDetails.members) {
+              window.MANAGERS = leagueDetails.members.map(m => ({
+                uid: m.uid,
+                name: m.displayName || m.uid.substring(0, 8),
+                team: m.teamName || "Unnamed Team",
+                flag: "GER",
+                draftPos: m.draftPosition || 99,
+                waiverPri: m.waiverPriority || 99,
+              }));
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch league details, using mock defaults", e);
+        }
+
         // Fetch players list
         const players = await apiCall("GET", "/players");
         if (players) {
@@ -222,29 +262,91 @@ function App() {
         }
 
         // Fetch Schedule
-        const schedule = await apiCall("GET", `/leagues/${lid}/schedule`);
-        if (schedule && schedule.schedule) {
-          window.SCHEDULE = {};
-          schedule.schedule.forEach(g => {
-            window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
-          });
+        try {
+          const schedule = await apiCall("GET", `/leagues/${lid}/schedule`);
+          if (schedule && schedule.schedule) {
+            window.SCHEDULE = {};
+            schedule.schedule.forEach(g => {
+              window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch schedule", e);
         }
 
         // Fetch my Squad
-        const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
-        if (squad && squad.players) {
-          window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
+        try {
+          const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
+          if (squad && squad.players) {
+            window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
+          }
+        } catch (e) {
+          console.warn("Failed to fetch my squad", e);
         }
 
         // Fetch my Lineup
-        const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${curGw}`);
-        if (lineup) {
-          window.MY_LINEUP_GW3 = {
-            starting: (lineup.starting || []).map(String),
-            bench: (lineup.bench || []).map(String),
-            formation: lineup.formation || [1, 4, 4, 2],
-            autoSubs: lineup.autoSubsMade || [],
-          };
+        try {
+          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${curGw}`);
+          if (lineup) {
+            window.MY_LINEUP_GW3 = {
+              starting: (lineup.starting || []).map(String),
+              bench: (lineup.bench || []).map(String),
+              formation: lineup.formation || [1, 4, 4, 2],
+              autoSubs: lineup.autoSubsMade || [],
+            };
+          }
+        } catch (e) {
+          console.warn("Failed to fetch my lineup", e);
+        }
+
+        // Fetch transfer window
+        try {
+          const winData = await apiCall("GET", `/leagues/${lid}/transfer-window`);
+          if (winData) {
+            window.WINDOW = {
+              hoursLeft: winData.status === "open" ? 36 : 0,
+              freeTransfers: 2,
+              used: 0,
+              state: winData.status,
+              windowNumber: winData.window ? winData.window.windowNumber : 1
+            };
+          }
+        } catch (e) {
+          console.warn("Failed to fetch transfer window", e);
+        }
+
+        // Fetch free agents
+        try {
+          const fa = await apiCall("GET", `/leagues/${lid}/free-agents`);
+          if (fa) {
+            window.FREE_AGENTS = fa.map(p => ({
+              id: String(p.id),
+              name: p.name,
+              pos: p.position,
+              team: p.teamShort || String(p.teamId),
+              pts: p.totalPoints || 0,
+              dr: p.draftRank || 999,
+            }));
+          }
+        } catch (e) {
+          console.warn("Failed to fetch free agents", e);
+        }
+
+        // Fetch active waivers
+        try {
+          const wav = await apiCall("GET", `/leagues/${lid}/waivers`);
+          if (wav) {
+            window.MY_WAIVERS = wav.map(w => ({
+              id: w.waiverId || w.id,
+              playerIn: String(w.playerIn),
+              playerOut: String(w.playerOut),
+              priority: w.priority || 4,
+              gw: w.gw || curGw,
+              status: w.status || "pending"
+            }));
+          }
+        } catch (e) {
+          console.warn("Failed to fetch waivers", e);
         }
 
         forceUpdate();
@@ -261,7 +363,7 @@ function App() {
       unsubDraft();
       unsubDraftPicks();
     };
-  }, [user]);
+  }, [user, activeLid]);
 
   // Apply theme accent via CSS custom props
   React.useEffect(() => {
