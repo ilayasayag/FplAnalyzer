@@ -4,20 +4,21 @@
 
 // ---------- KNOCKOUT BRACKET ----------
 function BracketScreen({ onTab }) {
-  const hasQf = LEAGUE.knockoutQualifiers === 8 || (BRACKET.qf && BRACKET.qf.length > 0);
+  const rounds = BRACKET.rounds || BRACKET;
+  const hasQf = LEAGUE.knockoutQualifiers === 8 || (rounds.qf && rounds.qf.length > 0);
   const gridColumns = hasQf ? "1fr 1fr 1fr 220px" : "1fr 1fr 220px";
 
-  // QF results: pre-played. Currently SF/F empty.
+  // QF results: fallback statuses. Currently SF/F empty.
   const qfResults = {
-    qf1: { homePts: null, awayPts: null, winner: null, status: "scheduled" },
-    qf2: { homePts: null, awayPts: null, winner: null, status: "live", liveLabel: "Lock in 36h" },
-    qf3: { homePts: null, awayPts: null, winner: null, status: "scheduled" },
-    qf4: { homePts: null, awayPts: null, winner: null, status: "scheduled" },
+    qf1: { status: "scheduled" },
+    qf2: { status: "live", liveLabel: "Lock in 36h" },
+    qf3: { status: "scheduled" },
+    qf4: { status: "scheduled" },
   };
 
   const sfResults = {
-    sf1: { homePts: null, awayPts: null, winner: null, status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
-    sf2: { homePts: null, awayPts: null, winner: null, status: "scheduled" },
+    sf1: { status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
+    sf2: { status: "scheduled" },
   };
 
   return (
@@ -45,34 +46,48 @@ function BracketScreen({ onTab }) {
         {hasQf && (
           <div className="bracket__col">
             <div className="bracket__col-head">Quarter-Finals · GW4</div>
-            {BRACKET.qf && BRACKET.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={qfResults[m.id]} round="qf" />)}
+            {rounds.qf && rounds.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={qfResults[m.id]} round="qf" />)}
           </div>
         )}
 
         {/* SF column */}
         <div className="bracket__col" style={{ paddingTop: hasQf ? 28 : 0 }}>
           <div className="bracket__col-head">Semi-Finals · GW{hasQf ? 5 : 7}</div>
-          {BRACKET.sf.map((m, i) => {
-            if (hasQf) {
-              return (
-                <div key={m.id} className="bracket__match" style={{ opacity: 0.55 }}>
-                  <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+1}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
-                  <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+2}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
-                </div>
-              );
-            } else {
-              return <BracketMatch key={m.id} match={m} result={sfResults[m.id]} round="sf" />;
-            }
-          })}
+          {rounds.sf && rounds.sf.length > 0 ? (
+            rounds.sf.map((m, i) => {
+              if (hasQf && (!m.home || !m.away)) {
+                return (
+                  <div key={m.id} className="bracket__match" style={{ opacity: 0.55 }}>
+                    <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+1}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
+                    <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+2}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
+                  </div>
+                );
+              } else {
+                return <BracketMatch key={m.id} match={m} result={sfResults[m.id]} round="sf" />;
+              }
+            })
+          ) : hasQf ? (
+            // Render 2 empty placeholder matches for SFs if QFs are not yet finished
+            [1, 2].map((_, i) => (
+              <div key={i} className="bracket__match" style={{ opacity: 0.55, marginTop: i === 0 ? 0 : 20 }}>
+                <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+1}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
+                <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner QF{i*2+2}</div><div className="bracket__team-sub">to be decided</div></div><div className="bracket__pts">–</div></div>
+              </div>
+            ))
+          ) : null}
         </div>
 
         {/* Final column */}
         <div className="bracket__col" style={{ justifyContent: "center" }}>
           <div className="bracket__col-head">Final · GW{hasQf ? 6 : 8}</div>
-          <div className="bracket__match" style={{ opacity: 0.55 }}>
-            <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner SF1</div><div className="bracket__team-sub">awaiting</div></div><div className="bracket__pts">–</div></div>
-            <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner SF2</div><div className="bracket__team-sub">awaiting</div></div><div className="bracket__pts">–</div></div>
-          </div>
+          {rounds.final && rounds.final.length > 0 ? (
+            rounds.final.map(m => <BracketMatch key={m.id} match={m} result={{ status: "scheduled" }} round="final" />)
+          ) : (
+            <div className="bracket__match" style={{ opacity: 0.55 }}>
+              <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner SF1</div><div className="bracket__team-sub">awaiting</div></div><div className="bracket__pts">–</div></div>
+              <div className="bracket__side"><div className="bracket__seed">—</div><div><div className="bracket__team">Winner SF2</div><div className="bracket__team-sub">awaiting</div></div><div className="bracket__pts">–</div></div>
+            </div>
+          )}
         </div>
 
         {/* Trophy column */}
@@ -130,37 +145,43 @@ function BracketScreen({ onTab }) {
 }
 
 function BracketMatch({ match, result, round }) {
-  const h = managerById(match.home);
-  const a = managerById(match.away);
-  const hT = teamById(h.flag);
-  const aT = teamById(a.flag);
+  const h = match.home ? managerById(match.home) : null;
+  const a = match.away ? managerById(match.away) : null;
+  const hT = h ? teamById(h.flag) : null;
+  const aT = a ? teamById(a.flag) : null;
   const isLive = result?.status === "live";
   const meSide = match.home === ME ? "home" : (match.away === ME ? "away" : null);
+
+  const homeSeed = match.seedHome ?? match.homeSeed ?? "—";
+  const awaySeed = match.seedAway ?? match.awaySeed ?? "—";
+  
+  const homePts = match.homePoints ?? result?.homePts ?? "–";
+  const awayPts = match.awayPoints ?? result?.awayPts ?? "–";
 
   return (
     <div className={"bracket__match " + (isLive ? "is-live" : "")}>
       {isLive && (
         <div style={{ position: "absolute", top: -10, left: "50%", transform: "translateX(-50%)", background: "var(--green-400)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", padding: "2px 10px", borderRadius: 999, textTransform: "uppercase", whiteSpace: "nowrap", zIndex: 2 }}>{result.liveLabel || "Live"}</div>
       )}
-      <div className={"bracket__side " + (meSide === "home" ? "is-me" : "")} style={{ background: meSide === "home" ? "rgba(255,200,68,0.12)" : undefined }}>
-        <div className="bracket__seed">#{match.homeSeed}</div>
+      <div className={"bracket__side " + (meSide === "home" ? "is-me" : "")} style={{ background: meSide === "home" ? "rgba(255,200,68,0.12)" : undefined, opacity: h ? 1 : 0.6 }}>
+        <div className="bracket__seed">#{homeSeed}</div>
         <div>
           <div className="bracket__team" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Flag team={hT} /> {h.team}
+            {hT && <Flag team={hT} />} {h ? h.team : "TBD"}
           </div>
-          <div className="bracket__team-sub">{h.name}</div>
+          <div className="bracket__team-sub">{h ? h.name : "Awaiting Seeding"}</div>
         </div>
-        <div className="bracket__pts">{result?.homePts ?? "–"}</div>
+        <div className="bracket__pts">{homePts}</div>
       </div>
-      <div className={"bracket__side " + (meSide === "away" ? "is-me" : "")} style={{ background: meSide === "away" ? "rgba(255,200,68,0.12)" : undefined }}>
-        <div className="bracket__seed">#{match.awaySeed}</div>
+      <div className={"bracket__side " + (meSide === "away" ? "is-me" : "")} style={{ background: meSide === "away" ? "rgba(255,200,68,0.12)" : undefined, opacity: a ? 1 : 0.6 }}>
+        <div className="bracket__seed">#{awaySeed}</div>
         <div>
           <div className="bracket__team" style={{ display: "flex", alignItems: "center", gap: 6 }}>
-            <Flag team={aT} /> {a.team}
+            {aT && <Flag team={aT} />} {a ? a.team : "TBD"}
           </div>
-          <div className="bracket__team-sub">{a.name}</div>
+          <div className="bracket__team-sub">{a ? a.name : "Awaiting Seeding"}</div>
         </div>
-        <div className="bracket__pts">{result?.awayPts ?? "–"}</div>
+        <div className="bracket__pts">{awayPts}</div>
       </div>
     </div>
   );
