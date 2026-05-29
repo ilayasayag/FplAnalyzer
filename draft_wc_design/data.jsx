@@ -437,16 +437,39 @@ const LEAGUE = {
 };
 
 // ---------- Helpers ----------
-const managerById = uid => MANAGERS.find(m => m.uid === uid) || {
-  uid: uid || "unknown",
-  name: uid === ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
-  team: uid === ME ? "My Team" : "Opponent XI",
-  flag: "GER",
-  draftPos: 99,
-  waiverPri: 99
+const managerById = uid => {
+  if (!uid) return undefined;
+  return MANAGERS.find(m => m.uid === uid) || {
+    uid: uid,
+    name: uid === ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
+    team: uid === ME ? "My Team" : "Opponent XI",
+    flag: "GER",
+    draftPos: 99,
+    waiverPri: 99
+  };
 };
-const playerById  = id => PLAYER_MAP[id];
-const teamById    = id => TEAM_MAP[id];
+const playerById  = id => {
+  if (!id) return undefined;
+  return PLAYER_MAP[id] || {
+    id: id,
+    name: "Player " + String(id).replace("p_", ""),
+    pos: 3,
+    team: "GER",
+    pts: 0,
+    dr: 999
+  };
+};
+const teamById    = id => {
+  if (!id) return undefined;
+  return TEAM_MAP[id] || {
+    id: id,
+    name: id || "Unknown Team",
+    grp: "A",
+    flag: ["#ccc", "#fff", "#ccc"],
+    elim: false,
+    pos: 4
+  };
+};
 
 // expose globally
 Object.assign(window, {
