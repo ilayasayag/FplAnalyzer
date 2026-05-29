@@ -4,13 +4,19 @@
 
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
-  const myStanding = STANDINGS.find(s => s.uid === ME);
+  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: STANDINGS.length + 1, fpts: 0 };
   const top5 = STANDINGS.slice(0, 8);
 
-  const rounds = BRACKET.rounds || BRACKET;
-  const myMatch = (rounds.qf || []).find(m => m.home === ME || m.away === ME) ||
-                  (rounds.sf || []).find(m => m.home === ME || m.away === ME) ||
-                  (rounds.final || []).find(m => m.home === ME || m.away === ME);
+  const rounds = BRACKET.rounds || BRACKET || {};
+  const qfArray = Array.isArray(rounds.qf) ? rounds.qf : [];
+  const sfArray = Array.isArray(rounds.sf) ? rounds.sf : [];
+  const finalArray = Array.isArray(rounds.final) 
+    ? rounds.final 
+    : (rounds.final && typeof rounds.final === 'object' ? [rounds.final] : []);
+
+  const myMatch = qfArray.find(m => m.home === ME || m.away === ME) ||
+                  sfArray.find(m => m.home === ME || m.away === ME) ||
+                  finalArray.find(m => m.home === ME || m.away === ME);
   
   const myOpponent = myMatch ? (myMatch.home === ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
   const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === ME);

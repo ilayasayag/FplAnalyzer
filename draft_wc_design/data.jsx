@@ -247,7 +247,7 @@ const BRACKET = {
     { id: "sf1", home: "u_roy", away: "u_ido", homeSeed: 1, awaySeed: 4, gw: 7 },
     { id: "sf2", home: "u_yonatan", away: "u_me", homeSeed: 2, awaySeed: 3, gw: 7 },
   ],
-  final: { id: "f1", home: null, away: null, homeSrc: "sf1", awaySrc: "sf2", gw: 8 },
+  final: [{ id: "f1", home: null, away: null, homeSrc: "sf1", awaySrc: "sf2", gw: 8 }],
 };
 
 // ---------- My Squad (15 players) ----------
@@ -437,7 +437,14 @@ const LEAGUE = {
 };
 
 // ---------- Helpers ----------
-const managerById = uid => MANAGERS.find(m => m.uid === uid);
+const managerById = uid => MANAGERS.find(m => m.uid === uid) || {
+  uid: uid || "unknown",
+  name: uid === ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
+  team: uid === ME ? "My Team" : "Opponent XI",
+  flag: "GER",
+  draftPos: 99,
+  waiverPri: 99
+};
 const playerById  = id => PLAYER_MAP[id];
 const teamById    = id => TEAM_MAP[id];
 

@@ -238,23 +238,32 @@ function App() {
         try {
           const bracket = await apiCall("GET", `/leagues/${lid}/knockout`);
           if (bracket) {
-            window.BRACKET = {
-              sf: (bracket.sf || []).map(m => ({
+            const roundsSource = bracket.rounds || bracket;
+            const parsedSf = (roundsSource.sf || []).map(m => ({
+              id: m.id,
+              home: m.home,
+              away: m.away,
+              homeSeed: m.homeSeed,
+              awaySeed: m.awaySeed,
+              gw: m.gw,
+            }));
+
+            let parsedFinal = [];
+            if (roundsSource.final) {
+              const finalItems = Array.isArray(roundsSource.final) ? roundsSource.final : [roundsSource.final];
+              parsedFinal = finalItems.filter(Boolean).map(m => ({
                 id: m.id,
                 home: m.home,
                 away: m.away,
-                homeSeed: m.homeSeed,
-                awaySeed: m.awaySeed,
+                homeSrc: m.homeSrc,
+                awaySrc: m.awaySrc,
                 gw: m.gw,
-              })),
-              final: bracket.final ? {
-                id: bracket.final.id,
-                home: bracket.final.home,
-                away: bracket.final.away,
-                homeSrc: bracket.final.homeSrc,
-                awaySrc: bracket.final.awaySrc,
-                gw: bracket.final.gw,
-              } : null,
+              }));
+            }
+
+            window.BRACKET = {
+              sf: parsedSf,
+              final: parsedFinal,
             };
           }
         } catch(e) {
