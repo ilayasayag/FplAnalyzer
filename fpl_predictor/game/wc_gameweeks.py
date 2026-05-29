@@ -164,24 +164,22 @@ def all_gws_as_dict() -> Dict[str, Dict]:
     return {f"gw{gw}": gw_as_dict(gw) for gw in range(1, TOTAL_GWS + 1)}
 
 
-def compute_knockout_start_gw(member_count: int) -> int:
+def compute_knockout_start_gw(member_count: int = 0) -> int:
     """
-    Returns the GW where knockout phase starts based on league size.
-    N > 8 → GW4 (QF bracket, top 8 qualify)
-    N ≤ 8 → GW7 (SF bracket, top 4 qualify)
+    Returns the GW where knockout phase starts.
+    League is always 6-8 players → always GW7 (SF bracket, top 4 qualify).
     """
-    return 4 if member_count > 8 else 7
+    return 7
 
 
-def compute_league_phase_gws(member_count: int) -> list:
-    """All GWs in the league (H2H) phase for this league size."""
-    knockout_start = compute_knockout_start_gw(member_count)
-    return list(range(1, knockout_start))
+def compute_league_phase_gws(member_count: int = 0) -> list:
+    """All GWs in the league (H2H) phase — always GWs 1-6."""
+    return list(range(1, 7))
 
 
-def compute_knockout_qualifiers(member_count: int) -> int:
-    """Number of managers who advance to knockout."""
-    return 8 if member_count > 8 else 4
+def compute_knockout_qualifiers(member_count: int = 0) -> int:
+    """Number of managers who advance to knockout — always 4."""
+    return 4
 
 
 def is_transfer_window_open(gw: int, now: Optional[datetime] = None) -> bool:

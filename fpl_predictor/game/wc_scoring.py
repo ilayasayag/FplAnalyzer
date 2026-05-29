@@ -520,47 +520,65 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     scores_doc = scores_ref.get()
     results = scores_doc.to_dict().get("results", {})
 
-    # Step 3: H2H results (league phase only)
+    n_members = len(uid_list)
+    # 6-player leagues use all-against-all ranking for GW6 instead of H2H
+    is_aaa_gw = (n_members == 6 and gw == 6)
+
+    # Step 3: H2H / all-against-all results (league phase only)
     if gw in league_phase_gws:
-        schedule_doc = league_ref.collection("schedule").document(str(gw)).get()
-        if schedule_doc.exists:
-            matches = schedule_doc.to_dict().get("matches", [])
-            h2h_results = {}
-            for match in matches:
-                home = match.get("home")
-                away = match.get("away")
-                home_pts = results.get(home, {}).get("points", 0)
-                away_pts = results.get(away, {}).get("points", 0)
-
-                if home_pts > away_pts:
-                    h_result, a_result = "W", "L"
-                elif home_pts < away_pts:
-                    h_result, a_result = "L", "W"
-                else:
-                    h_result, a_result = "D", "D"
-
-                h2h_results[home] = {
-                    "opponent": away, "result": h_result,
-                    "pointsFor": home_pts, "pointsAgainst": away_pts,
+        if is_aaa_gw:
+            # All-against-all: rank all managers by GW fantasy score
+            aaa = compute_all_against_all_standings(results)
+            aaa_h2h_results = {
+                uid: {
+                    "result": "AAA",
+                    "h2hPoints": h2h_pts,
+                    "pointsFor": results.get(uid, {}).get("points", 0),
                 }
-                h2h_results[away] = {
-                    "opponent": home, "result": a_result,
-                    "pointsFor": away_pts, "pointsAgainst": home_pts,
-                }
+                for uid, h2h_pts in aaa.items()
+            }
+            scores_ref.set(
+                {"h2hResults": aaa_h2h_results, "gwType": "all_against_all"},
+                merge=True,
+            )
+        else:
+            schedule_doc = league_ref.collection("schedule").document(str(gw)).get()
+            if schedule_doc.exists:
+                matches = schedule_doc.to_dict().get("matches", [])
+                h2h_results = {}
+                for match in matches:
+                    home = match.get("home")
+                    away = match.get("away")
+                    home_pts = results.get(home, {}).get("points", 0)
+                    away_pts = results.get(away, {}).get("points", 0)
 
-                match_update = {
-                    "homePoints": home_pts,
-                    "awayPoints": away_pts,
-                    "finished": True,
-                }
+                    if home_pts > away_pts:
+                        h_result, a_result = "W", "L"
+                    elif home_pts < away_pts:
+                        h_result, a_result = "L", "W"
+                    else:
+                        h_result, a_result = "D", "D"
 
-            scores_ref.set({"h2hResults": h2h_results}, merge=True)
-            schedule_doc.reference.set({"matches": [
-                {**m, "homePoints": results.get(m["home"], {}).get("points", 0),
-                 "awayPoints": results.get(m["away"], {}).get("points", 0),
-                 "finished": True}
-                for m in matches
-            ]}, merge=True)
+                    h2h_results[home] = {
+                        "opponent": away, "result": h_result,
+                        "pointsFor": home_pts, "pointsAgainst": away_pts,
+                    }
+                    h2h_results[away] = {
+                        "opponent": home, "result": a_result,
+                        "pointsFor": away_pts, "pointsAgainst": home_pts,
+                    }
+
+                scores_ref.set({"h2hResults": h2h_results}, merge=True)
+                schedule_doc.reference.set({"matches": [
+                    {**m, "homePoints": results.get(m["home"], {}).get("points", 0),
+                     "awayPoints": results.get(m["away"], {}).get("points", 0),
+                     "finished": True}
+                    for m in matches
+                ]}, merge=True)
+
+    # Step 3b: award +1 H2H bonus to top fantasy scorer(s) this GW
+    if gw in league_phase_gws:
+        _award_gw_bonus(results, scores_ref)
 
     # Step 4: update standings
     _update_standings(lid, db)
@@ -584,15 +602,23 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
         from fpl_predictor.game.wc_knockout import advance_knockout_bracket
         advance_knockout_bracket(lid, gw, db)
 
+    # Step 9b: apply predictions bonus at GW8 (end of tournament)
+    if gw == 8:
+        _apply_predictions_bonus(lid, db, wc_client)
+
     # Step 10: advance currentGw
     next_gw = gw + 1
     league_ref.update({"currentGw": next_gw})
 
-    return {"gw": gw, "finalized": True, "nextGw": next_gw, "memberCount": len(uid_list)}
+    return {"gw": gw, "finalized": True, "nextGw": next_gw, "memberCount": n_members}
 
 
 def _update_standings(lid: str, db):
-    """Recompute H2H standings from all scores documents."""
+    """
+    Recompute H2H standings from all scores documents.
+    Handles: normal H2H (W/D/L), all-against-all GW6 (AAA), bonus points,
+    and prediction bonus doc (isPredictionBonus=True → fpts only).
+    """
     league_ref = db.collection("leagues").document(lid)
     members = list(league_ref.collection("members").get())
     stats = {m.id: {
@@ -600,21 +626,34 @@ def _update_standings(lid: str, db):
         "displayName": m.to_dict().get("displayName", ""),
         "teamName": m.to_dict().get("teamName", ""),
         "hw": 0, "hd": 0, "hl": 0, "hpts": 0, "fpts": 0,
+        "bonusPoints": 0,
         "gwPoints": {},
     } for m in members}
 
     score_docs = league_ref.collection("scores").get()
     for doc in score_docs:
-        gw_int = int(doc.id)
+        doc_id = doc.id
         data = doc.to_dict()
         h2h = data.get("h2hResults", {})
         results = data.get("results", {})
 
+        # Try to parse gw_int; prediction bonus doc has id="predictions"
+        try:
+            gw_int = int(doc_id)
+        except ValueError:
+            gw_int = None
+
         for uid, res in results.items():
             if uid not in stats:
                 continue
-            stats[uid]["fpts"] += res.get("points", 0)
-            stats[uid]["gwPoints"][str(gw_int)] = res.get("points", 0)
+            pts = res.get("points", 0)
+            stats[uid]["fpts"] += pts
+            if gw_int is not None and not res.get("isPredictionBonus"):
+                stats[uid]["gwPoints"][str(gw_int)] = pts
+            # GW top-scorer bonus point (stored per-score-doc)
+            if res.get("bonusPoint"):
+                stats[uid]["hpts"] += 1
+                stats[uid]["bonusPoints"] += 1
 
         for uid, h in h2h.items():
             if uid not in stats:
@@ -628,6 +667,9 @@ def _update_standings(lid: str, db):
                 stats[uid]["hpts"] += 1
             elif r == "L":
                 stats[uid]["hl"] += 1
+            elif r == "AAA":
+                # All-against-all GW6: h2hPoints directly stored
+                stats[uid]["hpts"] += h.get("h2hPoints", 0)
 
     league_ref.collection("standings").document("current").set({
         "managers": list(stats.values()),
@@ -645,20 +687,17 @@ def _check_eliminations_after_gw(gw: int, db, wc_client):
 
 
 def _open_transfer_window(lid: str, gw: int, db):
-    """Open transfer window after GW finalization."""
+    """Open transfer window after GW finalization (GWs 1-6 only)."""
     from fpl_predictor.game.wc_gameweeks import get_window_dates
     window_open, window_close = get_window_dates(gw)
     if window_open is None:
         return
 
-    league_ref = db.collection("leagues").document(lid)
-    league = league_ref.get().to_dict()
-    knockout_start = league.get("knockoutStartGw", 4)
-    n_members = len(list(league_ref.collection("members").get()))
-
-    if n_members > 8 and gw >= knockout_start:
+    # No transfer windows during knockout phase (GW7+)
+    if gw >= 7:
         return
 
+    league_ref = db.collection("leagues").document(lid)
     window_ref = league_ref.collection("transfer_windows").document()
     window_ref.set({
         "windowNumber": gw,
@@ -668,3 +707,102 @@ def _open_transfer_window(lid: str, gw: int, db):
         "transfersUsed": {},
         "freeTransfers": 2,
     })
+
+
+# ---------------------------------------------------------------------------
+# GW bonus helpers
+# ---------------------------------------------------------------------------
+
+def _award_gw_bonus(results: Dict[str, Dict], scores_ref) -> List[str]:
+    """
+    +1 H2H bonus to manager(s) with the highest fantasy score this GW.
+    All managers tied at the maximum score each receive the bonus.
+    Returns the list of UIDs who received it.
+    """
+    if not results:
+        return []
+    max_pts = max(r.get("points", 0) for r in results.values())
+    bonus_uids = [uid for uid, r in results.items() if r.get("points", 0) == max_pts]
+    for uid in bonus_uids:
+        scores_ref.set({f"results.{uid}.bonusPoint": True}, merge=True)
+    return bonus_uids
+
+
+def compute_all_against_all_standings(results: Dict[str, Dict]) -> Dict[str, int]:
+    """
+    All-against-all H2H points for 6-player GW6.
+    Managers ranked by descending fantasy score.
+    Points awarded: 1st=6, 2nd=4, 3rd=3, 4th=2, 5th=1, 6th=0.
+    Ties: all tied managers receive the higher rank's points.
+
+    Returns {uid: h2h_points}.
+    """
+    pts_table = [6, 4, 3, 2, 1, 0]
+    sorted_uids = sorted(results, key=lambda u: -results[u].get("points", 0))
+
+    aaa_pts: Dict[str, int] = {}
+    i = 0
+    while i < len(sorted_uids):
+        cur_score = results[sorted_uids[i]].get("points", 0)
+        # Collect all managers tied at this score
+        tied = [u for u in sorted_uids[i:] if results[u].get("points", 0) == cur_score]
+        rank_pts = pts_table[i] if i < len(pts_table) else 0
+        for u in tied:
+            aaa_pts[u] = rank_pts
+        i += len(tied)
+
+    return aaa_pts
+
+
+def _apply_predictions_bonus(lid: str, db, wc_client) -> Dict[str, int]:
+    """
+    Applied once at GW8 finalization.
+    Reads actual WC winner + top scorer from wc_config/tournament,
+    awards +15 (correct winner) / +10 (correct top scorer) to qualifying managers.
+    Stored as a special 'predictions' score doc (counted in season fpts).
+
+    wc_config/tournament must have fields:
+      winner: str   — national team id matching predictedWinner
+      topScorer: int — player id matching predictedTopScorer
+    """
+    config_doc = db.collection("wc_config").document("tournament").get()
+    if not config_doc.exists:
+        print("[warn] wc_config/tournament not found — skipping predictions bonus")
+        return {}
+
+    config = config_doc.to_dict()
+    actual_winner = config.get("winner")         # team id string
+    actual_top_scorer = config.get("topScorer")  # player id int
+
+    if not actual_winner and not actual_top_scorer:
+        print("[warn] No winner/topScorer set in wc_config/tournament — skipping predictions bonus")
+        return {}
+
+    league_ref = db.collection("leagues").document(lid)
+    members = list(league_ref.collection("members").get())
+    bonuses: Dict[str, int] = {}
+
+    for m in members:
+        md = m.to_dict()
+        preds = md.get("predictions") or {}
+        pts = 0
+        if actual_winner and preds.get("predictedWinner") == actual_winner:
+            pts += 15
+        if actual_top_scorer and preds.get("predictedTopScorer") == actual_top_scorer:
+            pts += 10
+        if pts:
+            bonuses[m.id] = pts
+
+    if bonuses:
+        pred_ref = league_ref.collection("scores").document("predictions")
+        pred_ref.set({
+            "results": {
+                uid: {"points": pts, "isPredictionBonus": True}
+                for uid, pts in bonuses.items()
+            },
+            "processedAt": SERVER_TIMESTAMP,
+        })
+        # Recompute standings so fpts includes prediction bonuses
+        _update_standings(lid, db)
+
+    return bonuses

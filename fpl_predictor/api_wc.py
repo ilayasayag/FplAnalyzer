@@ -857,3 +857,82 @@ def admin_expire_trades(lid: str):
         return err
     _trade_mgr.expire_stale_trades(lid)
     return _ok({"status": "done"})
+
+
+# ---------------------------------------------------------------------------
+# Predictions
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/leagues/<lid>/predictions", methods=["PUT"])
+def set_predictions(lid: str):
+    """
+    Set a manager's pre-tournament predictions.
+    Locked once GW1 starts (at GW1 lockAt).
+    Body: {"predictedWinner": "team_id", "predictedTopScorer": 12345}
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+
+    if is_locked(1):
+        return _err("Predictions are locked once GW1 starts", 400)
+
+    data = request.get_json(silent=True) or {}
+    predicted_winner = data.get("predictedWinner")         # team id (string)
+    predicted_top_scorer = data.get("predictedTopScorer")  # player id (int)
+
+    league_ref = _db.collection("leagues").document(lid)
+    member_ref = league_ref.collection("members").document(uid)
+    if not member_ref.get().exists:
+        return _err("Not a member of this league", 403)
+
+    member_ref.update({
+        "predictions.predictedWinner": predicted_winner,
+        "predictions.predictedTopScorer": predicted_top_scorer,
+        "predictions.predictionsLockedAt": SERVER_TIMESTAMP,
+    })
+    return _ok({
+        "predictedWinner": predicted_winner,
+        "predictedTopScorer": predicted_top_scorer,
+    })
+
+
+# ---------------------------------------------------------------------------
+# Live fixture polling
+# ---------------------------------------------------------------------------
+
+@wc_bp.route("/admin/process-live-fixtures", methods=["POST"])
+def admin_process_live_fixtures():
+    """
+    Poll api-sports.io for live fixtures; process any that just went FT.
+    Run every 5 minutes on match days (Cloud Scheduler or cron).
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+
+    try:
+        live = _wc.get_live_fixtures()
+    except Exception as exc:
+        return _err(f"Failed to fetch live fixtures: {exc}", 500)
+
+    processed = []
+    errors = []
+    for f in live:
+        status = f.get("fixture", {}).get("status", {}).get("short", "")
+        fid = f.get("fixture", {}).get("id")
+        if not fid:
+            continue
+        if status in ("FT", "AET", "PEN"):
+            doc = _db.collection("wc_fixtures").document(str(fid)).get()
+            if doc.exists and doc.to_dict().get("processedForFantasy"):
+                continue
+            try:
+                raw_stats = _wc.get_fixture_player_stats(fid, use_cache=False)
+                process_fixture(fid, raw_stats, _wc, _db)
+                processed.append(fid)
+            except Exception as exc:
+                errors.append({"fid": fid, "error": str(exc)})
+                print(f"[warn] process-live fixture {fid}: {exc}")
+
+    return _ok({"processed": processed, "count": len(processed), "errors": errors})

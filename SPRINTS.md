@@ -86,6 +86,21 @@ curl http://localhost:5000/api/v1/wc/players?limit=5 | python3 -m json.tool
 
 **Goal:** One complete league from creation to GW1 lineups.
 
+### 2.0 Create league + set predictions before GW1
+
+After joining, **every manager must set their predictions before GW1 kickoff** (predictions lock at GW1 `lockAt`):
+
+```bash
+curl -X PUT http://localhost:5000/api/v1/wc/leagues/{lid}/predictions \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"predictedWinner": "team_id_here", "predictedTopScorer": 12345}'
+```
+
+- `predictedWinner`: national team id from `GET /api/v1/wc/teams`
+- `predictedTopScorer`: player id from `GET /api/v1/wc/players`
+- Bonus applied at GW8 finalization: +15 correct winner, +10 correct top scorer
+
 ### 2.1 Create a league
 
 ```bash
@@ -95,7 +110,7 @@ curl -X POST http://localhost:5000/api/v1/wc/leagues \
   -d '{"name": "El Clásico Friends", "displayName": "Admin", "maxMembers": 8, "pickTimer": 60}'
 ```
 
-Share the `inviteCode` from the response with your friends.
+**League size must be 6–8 players.** Share the `inviteCode` from the response with your friends.
 
 ### 2.2 Friends join
 
@@ -183,45 +198,14 @@ curl -X POST http://localhost:5000/api/v1/wc/admin/process-fixture/12345 \
   -H "Authorization: Bearer <admin-token>"
 ```
 
-### 3.2 Implement the live polling helper (TODO)
+### 3.2 Live polling endpoint ✅ (implemented)
 
-> This method is not yet implemented — it's the only missing piece in the pipeline.
+`POST /api/v1/wc/admin/process-live-fixtures` is now implemented in `fpl_predictor/api_wc.py`.
 
-Add to `fpl_predictor/api_wc.py`:
-
-```python
-@wc_bp.route("/admin/process-live-fixtures", methods=["POST"])
-def admin_process_live_fixtures():
-    """
-    1. GET /fixtures/live from api-sports
-    2. For each fixture that just went FT: call process_fixture()
-    3. Returns count of fixtures processed
-    """
-    uid, err = _require_auth()
-    if err:
-        return err
-    
-    live = _wc.get_live_fixtures()
-    processed = []
-    
-    for f in live:
-        status = f["fixture"]["status"]["short"]
-        fid = f["fixture"]["id"]
-        
-        if status in ("FT", "AET", "PEN"):
-            # Check if already processed
-            doc = _db.collection("wc_fixtures").document(str(fid)).get()
-            if doc.exists and doc.to_dict().get("processedForFantasy"):
-                continue
-            try:
-                raw_stats = _wc.get_fixture_player_stats(fid, use_cache=False)
-                process_fixture(fid, raw_stats, _wc, _db)
-                processed.append(fid)
-            except Exception as exc:
-                pass  # log + continue
-    
-    return _ok({"processed": processed, "count": len(processed)})
-```
+It:
+1. Calls `wc_client.get_live_fixtures()` (api-sports `/fixtures/live`)
+2. For each fixture with status `FT`, `AET`, or `PEN`: processes it via `process_fixture()` (skips if already `processedForFantasy=true`)
+3. Returns `{"processed": [fid, ...], "count": N, "errors": [...]}`
 
 ### 3.3 GW finalization (admin)
 
@@ -351,10 +335,11 @@ api-sports.io
 | 1 | api-sports WC 2026 squads not available yet | Re-run `sync-squads` daily from May 28; draft after June 3 |
 | 2 | api-sports 100 req/day free limit | Only poll live fixtures; permanent cache for FT matches |
 | 3 | Draft engine (`draft.py`) still expects FPL player shape | `WC2026Client` passed as `wc_client` — verify `get_player_map()` signature matches |
-| 4 | `process-live-fixtures` endpoint is a TODO stub | Add the 15-line implementation from Sprint 3.2 above |
+| 4 | ~~`process-live-fixtures` endpoint is a TODO stub~~ | ✅ **DONE** — implemented in `api_wc.py` |
 | 5 | No frontend auth flow | Use Firebase Console to get ID tokens for testing |
 | 6 | Firestore security rules need WC collections added | Update `firestore.rules` to allow `wc_teams`, `wc_players`, `wc_fixtures` |
+| 7 | Admin must set `wc_config/tournament.winner` + `topScorer` after the Final | Use Firestore Console or add an admin endpoint; predictions bonus won't apply until this is set |
 
 ---
 
-*Last updated: 2026-05-29 · WC 2026 kicks off June 11*
+*Last updated: 2026-05-29 (rule update) · WC 2026 kicks off June 11*

@@ -13,17 +13,15 @@ from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 def seed_knockout(lid: str, db) -> dict:
     """
-    Called after the last league-phase GW finalizes.
+    Called after the last league-phase GW (GW6) finalizes.
 
-    N > 8 → QF bracket: top 8 → seeds 1–4 (best H2H) + seeds 5–8 (best fpts)
-             Matchups: 1v8, 2v7, 3v6, 4v5
-    N ≤ 8 → SF bracket: top 4 → seeds 1–2 (best H2H) + seeds 3–4 (best fpts)
-             Matchups: 1v4, 2v3
+    Always SF bracket (6-8 player leagues):
+      Top 4 qualifiers → 1v4, 2v3 in GW7.
+      Seeds 1-2 = best H2H (overlap-resolution), 3-4 filled from fpts.
     """
     league_ref = db.collection("leagues").document(lid)
     league = league_ref.get().to_dict()
-    qualifiers = league.get("knockoutQualifiers", 8)
-    knockout_start_gw = league.get("knockoutStartGw", 4)
+    knockout_start_gw = league.get("knockoutStartGw", 7)
 
     standings_doc = league_ref.collection("standings").document("current").get()
     if not standings_doc.exists:
@@ -37,16 +35,11 @@ def seed_knockout(lid: str, db) -> dict:
         m.id: m.to_dict().get("draftPosition", 99) for m in member_docs
     }
 
-    seeds = _compute_seeds(managers, qualifiers, draft_positions)
+    seeds = _compute_seeds(managers, 4, draft_positions)
 
-    if qualifiers == 8:
-        bracket_type = "qf_start"
-        first_round_key = "qf"
-        matchups = [(1, 8), (2, 7), (3, 6), (4, 5)]
-    else:
-        bracket_type = "sf_start"
-        first_round_key = "sf"
-        matchups = [(1, 4), (2, 3)]
+    bracket_type = "sf_start"
+    first_round_key = "sf"
+    matchups = [(1, 4), (2, 3)]
 
     matches = []
     for seed_home, seed_away in matchups:
@@ -55,7 +48,7 @@ def seed_knockout(lid: str, db) -> dict:
         if not home or not away:
             continue
         matches.append({
-            "id": f"{first_round_key}_{seed_home}v{seed_away}",
+            "id": f"sf_{seed_home}v{seed_away}",
             "seedHome": seed_home,
             "seedAway": seed_away,
             "home": home,
@@ -71,22 +64,13 @@ def seed_knockout(lid: str, db) -> dict:
         "seededAt": SERVER_TIMESTAMP,
         "seeds": seeds,
         "rounds": {
-            first_round_key: matches,
-            "sf": [] if bracket_type == "qf_start" else matches,
+            "sf": matches,
             "final": [],
         },
         "champion": None,
     }
-    if bracket_type == "qf_start":
-        bracket["rounds"]["qf"] = matches
-        bracket["rounds"]["sf"] = []
-        bracket["rounds"]["final"] = []
-    else:
-        bracket["rounds"]["sf"] = matches
-        bracket["rounds"]["final"] = []
 
     league_ref.collection("knockout").document("bracket").set(bracket)
-
     league_ref.update({"status": "knockout"})
 
     return {
@@ -119,18 +103,11 @@ def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
         raise ValueError(f"No scores for GW {gw}")
     scores = scores_doc.to_dict().get("results", {})
 
-    # Determine which bracket round this GW corresponds to
-    if qualifiers == 8:
-        round_gw_map = {
-            knockout_start_gw: "qf",
-            knockout_start_gw + 1: "sf",
-            knockout_start_gw + 2: "final",
-        }
-    else:
-        round_gw_map = {
-            knockout_start_gw: "sf",
-            knockout_start_gw + 1: "final",
-        }
+    # Always SF bracket: GW7=SF, GW8=Final
+    round_gw_map = {
+        knockout_start_gw: "sf",
+        knockout_start_gw + 1: "final",
+    }
 
     current_round_key = round_gw_map.get(gw)
     if not current_round_key:
@@ -252,41 +229,56 @@ def get_bracket(lid: str, db) -> dict:
 
 def _compute_seeds(
     managers: List[Dict],
-    qualifiers: int,
+    qualifiers: int,          # always 4
     draft_positions: Dict[str, int],
 ) -> List[Dict]:
     """
-    Assign seeds 1..qualifiers.
+    Seed 4 qualifiers using overlap-resolution algorithm:
+      1. Fill 2 H2H slots (best hpts, tiebreak: fpts → draft order).
+      2. Fill remaining 2 from fpts-sorted list, skipping already-qualified.
 
-    N > 8: seeds 1–4 = best H2H record → tiebreak: fpts → mutual H2H → draft order
-           seeds 5–8 = next 4 by total fpts (from non-top-4 H2H)
-    N ≤ 8: seeds 1–2 = best H2H record → same tiebreak
-           seeds 3–4 = next 2 by total fpts
+    This handles all overlap scenarios (e.g. same person leads both lists)
+    naturally without special cases.
     """
-    h2h_slots = qualifiers // 2
-    fpts_slots = qualifiers - h2h_slots
+    qualified: List[Dict] = []
+    qualified_uids: set = set()
 
-    def sort_key_h2h(m):
-        return (
+    by_h2h = sorted(
+        managers,
+        key=lambda m: (
             -m.get("hpts", 0),
             -m.get("fpts", 0),
             draft_positions.get(m["uid"], 99),
-        )
-
-    sorted_by_h2h = sorted(managers, key=sort_key_h2h)
-    h2h_qualifiers = sorted_by_h2h[:h2h_slots]
-    remaining = sorted_by_h2h[h2h_slots:]
-
-    def sort_key_fpts(m):
-        return (
+        ),
+    )
+    by_fpts = sorted(
+        managers,
+        key=lambda m: (
             -m.get("fpts", 0),
+            -m.get("hpts", 0),
             draft_positions.get(m["uid"], 99),
-        )
+        ),
+    )
 
-    fpts_qualifiers = sorted(remaining, key=sort_key_fpts)[:fpts_slots]
+    # Fill 2 H2H slots
+    for m in by_h2h:
+        if m["uid"] not in qualified_uids:
+            qualified.append({**m, "qualifiedVia": "h2h"})
+            qualified_uids.add(m["uid"])
+        if sum(1 for q in qualified if q.get("qualifiedVia") == "h2h") == 2:
+            break
 
+    # Fill remaining 2 slots from fpts (skip already qualified)
+    for m in by_fpts:
+        if m["uid"] not in qualified_uids:
+            qualified.append({**m, "qualifiedVia": "fpts"})
+            qualified_uids.add(m["uid"])
+        if len(qualified) == 4:
+            break
+
+    # Assign seeds 1-4 in order of qualification
     seeds = []
-    for i, m in enumerate(h2h_qualifiers, start=1):
+    for i, m in enumerate(qualified, start=1):
         seeds.append({
             "seed": i,
             "uid": m["uid"],
@@ -294,19 +286,8 @@ def _compute_seeds(
             "teamName": m.get("teamName", ""),
             "hpts": m.get("hpts", 0),
             "fpts": m.get("fpts", 0),
-            "qualifiedVia": "h2h",
+            "qualifiedVia": m.get("qualifiedVia", "h2h"),
         })
-    for i, m in enumerate(fpts_qualifiers, start=h2h_slots + 1):
-        seeds.append({
-            "seed": i,
-            "uid": m["uid"],
-            "displayName": m.get("displayName", ""),
-            "teamName": m.get("teamName", ""),
-            "hpts": m.get("hpts", 0),
-            "fpts": m.get("fpts", 0),
-            "qualifiedVia": "fpts",
-        })
-
     return seeds
 
 

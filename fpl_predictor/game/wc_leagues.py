@@ -43,8 +43,8 @@ class WCLeagueManager:
             raise ValueError(f"tradeApproval must be one of {VALID_TRADE_MODES}")
         if pick_timer not in VALID_PICK_TIMERS:
             raise ValueError(f"pickTimer must be one of {VALID_PICK_TIMERS}")
-        if not 4 <= max_members <= 16:
-            raise ValueError("maxMembers must be between 4 and 16")
+        if not 6 <= max_members <= 8:
+            raise ValueError("maxMembers must be between 6 and 8")
         if len(name.strip()) < 2:
             raise ValueError("League name must be at least 2 characters")
 
@@ -52,9 +52,10 @@ class WCLeagueManager:
         while self._code_exists(invite_code):
             invite_code = _generate_invite_code()
 
-        knockout_start = compute_knockout_start_gw(max_members)
-        league_phase_gws = compute_league_phase_gws(max_members)
-        qualifiers = compute_knockout_qualifiers(max_members)
+        # Always fixed — league is 6-8 players, knockout always starts GW7
+        knockout_start = 7
+        league_phase_gws = list(range(1, 7))
+        qualifiers = 4
 
         league_ref = self.db.collection("leagues").document()
         league_data = {
@@ -86,6 +87,11 @@ class WCLeagueManager:
             "kickedAt": None,
             "leftAt": None,
             "joinedAt": SERVER_TIMESTAMP,
+            "predictions": {
+                "predictedWinner": None,
+                "predictedTopScorer": None,
+                "predictionsLockedAt": None,
+            },
         })
 
         self._add_league_to_user(uid, league_ref.id)
@@ -140,6 +146,11 @@ class WCLeagueManager:
             "kickedAt": None,
             "leftAt": None,
             "joinedAt": SERVER_TIMESTAMP,
+            "predictions": {
+                "predictedWinner": None,
+                "predictedTopScorer": None,
+                "predictionsLockedAt": None,
+            },
         })
 
         self._add_league_to_user(uid, lid)
@@ -287,13 +298,13 @@ class WCLeagueManager:
             if not m.to_dict().get("kickedAt") and not m.to_dict().get("leftAt")
         ]
         n = len(members)
-        if n < 4:
-            raise ValueError(f"Need at least 4 managers; have {n}")
+        if n < 6:
+            raise ValueError(f"Need at least 6 managers; have {n}")
 
-        # Recalculate with actual member count
-        knockout_start = compute_knockout_start_gw(n)
-        league_phase_gws = compute_league_phase_gws(n)
-        qualifiers = compute_knockout_qualifiers(n)
+        # Always fixed — league is 6-8 players, knockout always starts GW7
+        knockout_start = 7
+        league_phase_gws = list(range(1, 7))
+        qualifiers = 4
 
         doc.reference.update({
             "status": "drafting",

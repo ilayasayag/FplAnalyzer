@@ -2,7 +2,7 @@
 
 > **Single source of truth.** This document supersedes all previous versions.
 > Reconciled against `PRODUCT_SPEC.md` (UI design package), live API tests, and confirmed rules.
-> Last updated: 2026-05-27.
+> Last updated: 2026-05-29.
 
 ---
 
@@ -12,56 +12,90 @@ WC 2026: **48 teams, 12 groups of 4.** Each team plays 3 group stage matches. To
 
 ### Gameweek Calendar
 
-| GW | WC Round | Approx Dates | N > 8 Phase | N ≤ 8 Phase |
-|---|---|---|---|---|
-| GW1 | Group Stage Round 1 | Jun 11–15 | H2H League | H2H League |
-| GW2 | Group Stage Round 2 | Jun 16–21 | H2H League | H2H League |
-| GW3 | Group Stage Round 3 | Jun 22–26 | H2H League | H2H League |
-| GW4 | Round of 32 | Jul 1–4 | **Knockout QF** | H2H League |
-| GW5 | Round of 16 | Jul 5–8 | Knockout SF | H2H League |
-| GW6 | Quarter-finals (R8) | Jul 10–12 | Knockout Final | H2H League |
-| GW7 | Semi-finals | Jul 14–15 | — | **Knockout SF** |
-| GW8 | Final + 3rd Place | Jul 18–19 | — | Knockout Final |
+| GW | WC Round | Approx Dates | Fantasy Phase |
+|---|---|---|---|
+| GW1 | Group Stage Round 1 | Jun 11–15 | H2H League |
+| GW2 | Group Stage Round 2 | Jun 16–21 | H2H League |
+| GW3 | Group Stage Round 3 | Jun 22–26 | H2H League |
+| GW4 | Round of 32 | Jun 27–Jul 4 | H2H League |
+| GW5 | Round of 16 | Jul 5–9 | H2H League |
+| GW6 | Quarter-finals | Jul 10–12 | H2H League (AAA for 6-player leagues) |
+| GW7 | Semi-finals | Jul 14–15 | **Knockout SF** |
+| GW8 | Final + 3rd Place | Jul 18–19 | **Knockout Final** |
 
-> **GW6 rationale for N ≤ 8**: The real-WC QF has exactly 8 national teams playing. All fantasy managers in a ≤8 league still have active squads with live players, so this round belongs in the league phase.
+> **League size is always 6–8 players.** The knockout phase is always GW7 (SF) + GW8 (Final). No QF bracket.
 
 ---
 
 ## 2. League Format & Knockout Rules
 
-### League Phase (all GWs before knockout)
+### League Size
+**Always 6–8 players.** `maxMembers` must be in this range when creating a league.
 
-All managers play a **round-robin H2H league**. Every manager plays one H2H match per GW. Points system: W = 3, D = 1, L = 0.
+### League Phase (GWs 1–6)
 
-| League Size | League GWs | League Ends | Knockout Starts | Qualifiers | Bracket |
-|---|---|---|---|---|---|
-| **N > 8** | GWs 1–3 | After GW3 | GW4 | Top 8 | QF → SF → Final |
-| **N ≤ 8** | GWs 1–6 | After GW6 | GW7 | Top 4 | SF → Final |
+All managers play a **round-robin H2H league** for GWs 1–6. Points system:
 
-Stored per league: `knockoutStartGw` (4 or 7), `leaguePhaseGws` ([1,2,3] or [1,2,3,4,5,6]).
+| Result | H2H Points |
+|---|---|
+| Win | 3 |
+| Draw | 1 |
+| Loss | 0 |
+| **GW top-scorer bonus** | **+1 (additive)** |
 
-### Knockout Seeding (fires on finalize of last league GW)
+**GW top-scorer bonus**: After each GW, the manager(s) with the highest fantasy score in the league earn +1 additional H2H point. This stacks on top of the W/D/L result (e.g., win + bonus = 4 pts, draw + bonus = 2 pts). All managers tied at the highest score each receive the bonus.
 
-**N > 8 — top 8 qualify:**
-- Seeds 1–4: managers sorted by H2H points (W×3+D×1) → tiebreak: total fantasy points
-- Seeds 5–8: highest total fantasy points from the remaining managers
-- Bracket: 1v8, 2v7, 3v6, 4v5
+**7-player leagues — bye week**: The odd manager out each GW has no H2H opponent. Bye = 0 H2H points. Their fantasy score still counts toward season total (`fpts`). They are still eligible for the top-scorer bonus.
 
-**N ≤ 8 — top 4 qualify:**
-- Seeds 1–2: best H2H record → tiebreak: total fantasy points
-- Seeds 3–4: highest total fantasy points from remaining
-- Bracket: 1v4, 2v3
+**6-player leagues — GW6 all-against-all**: GW6 uses a ranking-based system instead of pairwise H2H:
 
-**Seeding tiebreaker chain** (applied at each step):
-1. H2H points (W×3 + D×1)
-2. Total fantasy points scored all season
-3. Head-to-head record *between the tied managers specifically*
-4. Higher seed in draft order (earlier pick = lower seed number = advantage)
+| Rank | H2H Points |
+|---|---|
+| 1st (highest fpts) | 6 |
+| 2nd | 4 |
+| 3rd | 3 |
+| 4th | 2 |
+| 5th | 1 |
+| 6th (lowest fpts) | 0 |
+
+Ties: both tied managers receive the higher rank's points. GW top-scorer bonus still applies (all tied managers at the top also get +1).
+
+Stored per league: `knockoutStartGw: 7`, `leaguePhaseGws: [1,2,3,4,5,6]`, `knockoutQualifiers: 4`.
+
+### Knockout Seeding (fires on finalize of GW6)
+
+**Always top 4 qualify. Always SF bracket: 1v4, 2v3.**
+
+Qualification algorithm (overlap-resolution):
+1. Take the top-2 by H2H points (`hpts`) — call them **H2H qualifiers**
+   - Tiebreak: total fantasy points → draft order
+2. From the remaining managers, take the top-2 by total fantasy points (`fpts`) — **fpts qualifiers**
+   - Tiebreak: H2H points → draft order
+   - Skip any manager already in step 1
+
+This handles all overlap scenarios naturally. Example: if the same manager leads both H2H and fpts lists, they get H2H slot 1, and the "fpts quota" is filled from the next-best fpts manager not already qualified.
+
+**Seeding tiebreaker chain:**
+1. H2H points (`hpts`)
+2. Total season fantasy points (`fpts`)
+3. Draft order (earlier pick = seed priority)
 
 ### Knockout Match Rules
 - Manager with more GW fantasy points advances
-- **Tie → higher seed advances** (not coin flip — more deterministic, less arbitrary)
-- If seeds are equal (can happen in same-round ties): total season fpts → then draft order seed
+- **Tie → higher seed (lower seed number) advances** — deterministic, no coin flip
+- If seeds equal: total season fpts → draft order
+
+### Predictions (virtual bonus players)
+
+Each manager can submit two predictions before GW1 lockAt:
+- `predictedWinner`: national team they think will win the WC
+- `predictedTopScorer`: player they think will be the WC top scorer
+
+These act as **two virtual bonus players** on each manager's profile. Bonuses applied at GW8 finalization:
+- Correct winner: **+15 fpts** added to season total
+- Correct top scorer: **+10 fpts** added to season total
+
+Predictions lock at GW1 kickoff. Stored in `members/{uid}.predictions`.
 
 ---
 
@@ -146,13 +180,13 @@ leagues/{lid}:
   inviteCode: str                # 8-char base32, server-generated, unique
   adminUid: str
   status: "pre_draft" | "drafting" | "group_phase" | "knockout" | "complete"
-  maxMembers: int                # 4–16
+  maxMembers: int                # 6–8 (always)
   pickTimer: int                 # seconds: 30|60|90|120|180|300
   tradeApproval: "instant"|"vote"|"admin"|"none"
   currentGw: int
-  knockoutStartGw: int           # 4 if N>8, 7 if N≤8 — computed at creation
-  leaguePhaseGws: int[]          # [1,2,3] or [1,2,3,4,5,6]
-  knockoutQualifiers: int        # 8 or 4
+  knockoutStartGw: int           # always 7
+  leaguePhaseGws: int[]          # always [1,2,3,4,5,6]
+  knockoutQualifiers: int        # always 4
   draftAt: timestamp             # scheduled draft time
   seasonStartedAt: timestamp
 
@@ -164,6 +198,10 @@ leagues/{lid}/members/{uid}:
   kickedAt: timestamp | null     # set if admin kicked; blocks re-join
   leftAt: timestamp | null       # set if manager voluntarily left
   squadFrozen: bool              # true if manager left mid-tournament
+  predictions:
+    predictedWinner: str | null         # national team id
+    predictedTopScorer: int | null      # player id
+    predictionsLockedAt: timestamp | null
 
 leagues/{lid}/draft/state:
   status: "pending"|"active"|"paused"|"complete"
@@ -209,18 +247,27 @@ leagues/{lid}/scores/{gw}:
       points: int                # final GW score (after auto-subs + captain bonus)
       rawPoints: int             # before captain bonus
       captainBonus: int          # extra points from captain
+      bonusPoint: bool           # true if this manager had highest GW fpts in league
       playerScores: [{ playerId, points, stats, autSubbedOut: bool }]
       autoSubs: [{ out, in }]
       captain: playerId
       viceCaptain: playerId
       effectiveCaptain: playerId
   h2hResults:
-    {uid}: { opponent: uid, result: "W"|"D"|"L", pointsFor, pointsAgainst }
+    {uid}: { opponent: uid, result: "W"|"D"|"L"|"AAA", pointsFor, pointsAgainst }
+    # result "AAA" = all-against-all (GW6, 6-player leagues only)
+    # AAA entries additionally have: h2hPoints: int (the rank-based points)
+  gwType: "h2h" | "all_against_all"   # present only for GW6 6-player leagues
   processed: bool
   processedAt: timestamp
   auditLog: [{ changedAt, changedBy, reason, delta }]  # admin overrides only
 
-leagues/{lid}/schedule/{gw}:    # for all league-phase GWs
+leagues/{lid}/scores/predictions:   # special doc written at GW8 finalization
+  results:
+    {uid}: { points: int, isPredictionBonus: true }
+  processedAt: timestamp
+
+leagues/{lid}/schedule/{gw}:    # for all league-phase GWs (GW6 of 6-player leagues has no schedule doc)
   gw: int
   matches: [{ home: uid, away: uid, homePoints, awayPoints, finished }]
 
@@ -228,17 +275,19 @@ leagues/{lid}/standings:
   managers: [{
     uid, displayName, teamName,
     hw, hd, hl,                  # H2H wins / draws / losses
-    hpts,                        # H2H points (W×3 + D×1)
-    fpts,                        # total fantasy points all season
+    hpts,                        # H2H points (W×3 + D×1 + bonus + AAA)
+    fpts,                        # total fantasy points all season (incl. prediction bonuses)
+    bonusPoints,                 # count of GW top-scorer bonuses received
     gwPoints: { "1": 45, "2": 60, ... }
   }]
 
 leagues/{lid}/knockout/bracket:
-  type: "qf_start" | "sf_start"
+  type: "sf_start"               # always (leagues are 6-8 players)
   seededAt: timestamp
+  seeds: [{ seed, uid, displayName, teamName, hpts, fpts, qualifiedVia }]
+    # qualifiedVia: "h2h" (top-2 H2H) | "fpts" (filled from fpts list)
   rounds:
-    qf: [{ id, seed_home, seed_away, home, away, homePoints, awayPoints, winner, gw }]
-    sf: [{ id, seed_home, seed_away, home, away, homePoints, awayPoints, winner, gw }]
+    sf: [{ id, seedHome, seedAway, home, away, homePoints, awayPoints, winner, gw }]
     final: [{ id, home, away, homePoints, awayPoints, winner, gw }]
   champion: uid | null
 
@@ -406,6 +455,29 @@ Applied AFTER regular point calculation:
 - If both captain AND vice-captain played 0 minutes: `captainBonus = 0`
 - Bonus applies in **both league phase and knockout phase**
 
+### 5.5 GW Top-Scorer Bonus
+
+After each league-phase GW finalizes, the manager(s) with the **highest fantasy score** in the league earn **+1 H2H point**. This bonus is additive with the W/D/L result.
+
+- Stored as `results.{uid}.bonusPoint = true` in the scores doc
+- Counted in `_update_standings()` when accumulating `hpts`
+- If multiple managers are tied at the top score, **all tied managers** receive the +1 bonus
+- Applies to bye-week managers (if they happen to have the highest score, they still earn +1)
+
+### 5.6 Predictions Bonus (applied at GW8 finalization)
+
+Managers who predicted correctly receive bonus fantasy points added to their season total:
+
+| Prediction | Bonus |
+|---|---|
+| Correct WC winner (national team) | +15 fpts |
+| Correct WC top scorer (player) | +10 fpts |
+
+- Both bonuses can apply to the same manager (max +25)
+- Stored as a special `leagues/{lid}/scores/predictions` document (counted in fpts standings)
+- Set via `wc_config/tournament.winner` (team id) and `wc_config/tournament.topScorer` (player id) — admin sets these after Final
+- Predictions lock at GW1 `lockAt`. Set via `PUT /leagues/{lid}/predictions`
+
 ### 5.3 process_fixture flow
 
 ```python
@@ -537,16 +609,16 @@ If manager's squad has < 15 players (during drop grace period), `PUT /lineup/{gw
 
 ### Window Schedule
 
-| Window | Opens | Closes | N > 8 | N ≤ 8 |
-|---|---|---|---|---|
-| 1 | After GW1 finalized | GW2 lockAt | ✅ | ✅ |
-| 2 | After GW2 finalized | GW3 lockAt | ✅ | ✅ |
-| 3 | After GW3 finalized | GW4 lockAt | ✅ **Big** (16 teams elim.) | ✅ **Big** (16 teams elim.) |
-| 4 | After GW4 finalized | GW5 lockAt | ❌ KO phase | ✅ |
-| 5 | After GW5 finalized | GW6 lockAt | ❌ KO phase | ✅ |
-| 6 | After GW6 finalized | GW7 lockAt | ❌ | ✅ pre-SF (~48h) |
+| Window | Opens | Closes | Notes |
+|---|---|---|---|
+| 1 | After GW1 finalized | GW2 lockAt | ✅ |
+| 2 | After GW2 finalized | GW3 lockAt | ✅ |
+| 3 | After GW3 finalized | GW4 lockAt | ✅ **Big** (16 WC teams eliminated after Group Stage) |
+| 4 | After GW4 finalized | GW5 lockAt | ✅ |
+| 5 | After GW5 finalized | GW6 lockAt | ✅ |
+| 6 | After GW6 finalized | GW7 lockAt | ✅ pre-SF (~48h) |
 
-> For N > 8, transfers are **closed** during the knockout phase (GW4 onwards). The bracket is set; squad changes mid-KO would be unfair.
+Transfer windows open after all league-phase GWs (1–6). No windows during knockout phase (GW7+).
 
 ### Transfer Rules
 
