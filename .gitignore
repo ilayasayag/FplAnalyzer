@@ -44,7 +44,8 @@ firebase-debug.log
 firebase-debug.*.log
 .firebase/
 functions/venv/
-functions/fpl_predictor/# Netlify
+functions/fpl_predictor/
+# Netlify
 .netlify/
 dist/
 

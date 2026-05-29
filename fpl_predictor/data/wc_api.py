@@ -16,11 +16,16 @@ import requests
 
 _SECRETS_PATH = os.path.join(os.path.dirname(__file__), "..", "..", "secrets.json")
 
-with open(_SECRETS_PATH) as _f:
-    _secrets = json.load(_f)
+_secrets = {}
+if os.path.exists(_SECRETS_PATH):
+    try:
+        with open(_SECRETS_PATH) as _f:
+            _secrets = json.load(_f)
+    except Exception as e:
+        print(f"[wc_api] Failed to load secrets.json: {e}")
 
-API_KEY = _secrets["FOOTBALL_API_KEY"]
-API_BASE = _secrets.get("FOOTBALL_API_BASE", "https://v3.football.api-sports.io")
+API_KEY = os.environ.get("FOOTBALL_API_KEY") or _secrets.get("FOOTBALL_API_KEY", "")
+API_BASE = os.environ.get("FOOTBALL_API_BASE") or _secrets.get("FOOTBALL_API_BASE", "https://v3.football.api-sports.io")
 
 WC_LEAGUE = 1       # api-sports league_id for FIFA World Cup
 WC_SEASON = 2026

@@ -32,7 +32,7 @@
         ".git",
         "*.pyc"
       ],
-      "predeploy": "rm -rf functions/fpl_predictor && cp -r fpl_predictor functions/fpl_predictor"
+      "predeploy": "rm -rf functions/fpl_predictor && cp -r fpl_predictor functions/fpl_predictor && ([ -f secrets.json ] && cp secrets.json functions/secrets.json || true)"
     }
   ],
   "emulators": {
