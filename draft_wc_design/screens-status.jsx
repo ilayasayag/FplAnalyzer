@@ -7,31 +7,54 @@ function StatusScreen({ onTab }) {
   const myStanding = STANDINGS.find(s => s.uid === ME);
   const top5 = STANDINGS.slice(0, 8);
 
-  // KO match for me
-  const myQf = BRACKET.qf.find(m => m.home === ME || m.away === ME);
-  const myOpponent = myQf ? managerById(myQf.home === ME ? myQf.away : myQf.home) : null;
+  const rounds = BRACKET.rounds || BRACKET;
+  const myMatch = (rounds.qf || []).find(m => m.home === ME || m.away === ME) ||
+                  (rounds.sf || []).find(m => m.home === ME || m.away === ME) ||
+                  (rounds.final || []).find(m => m.home === ME || m.away === ME);
+  
+  const myOpponent = myMatch ? (myMatch.home === ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
+  const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === ME);
+  const mySeed = mySeedObj ? mySeedObj.seed : (myStanding ? myStanding.rank : "?");
+
+  const getRoundName = (matchId) => {
+    if (!matchId) return "";
+    if (matchId.startsWith("qf_")) return "Quarter-Final";
+    if (matchId.startsWith("sf_")) return "Semi-Final";
+    if (matchId.startsWith("final_")) return "Final";
+    return "Knockout Match";
+  };
+
+  const getRoundPhase = (matchId) => {
+    if (!matchId) return "";
+    if (matchId.startsWith("qf_")) return "Quarter-Finals phase";
+    if (matchId.startsWith("sf_")) return "Semi-Finals phase";
+    if (matchId.startsWith("final_")) return "Final phase";
+    return "Knockout phase";
+  };
 
   return (
     <div className="col" style={{ gap: 20 }}>
       {/* Phase transition banner */}
-      <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
-        <div style={{
-          background: "linear-gradient(94deg, #14104a 0%, #2a2080 50%, #1be8d4 130%)",
-          padding: "22px 28px",
-          display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 24,
-        }}>
-          <div>
-            <div className="pill pill--green" style={{ marginBottom: 10 }}>● Group Stage Complete</div>
-            <div className="h-display" style={{ fontSize: 26, color: "white", marginBottom: 6 }}>
-              Knockout phase begins · Round of 32
+      {LEAGUE.status === "knockout" && myMatch && (
+        <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
+          <div style={{
+            background: "linear-gradient(94deg, #14104a 0%, #2a2080 50%, #1be8d4 130%)",
+            padding: "22px 28px",
+            display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 24,
+          }}>
+            <div>
+              <div className="pill pill--green" style={{ marginBottom: 10 }}>● Group Stage Complete</div>
+              <div className="h-display" style={{ fontSize: 26, color: "white", marginBottom: 6 }}>
+                Knockout Phase Active
+              </div>
+              <div style={{ color: "rgba(255,255,255,0.78)", fontSize: 14 }}>
+                You qualified <strong style={{ color: "var(--gold-500)" }}>Seed #{mySeed}</strong>. Your {getRoundName(myMatch.id)} vs <strong>{myOpponent ? myOpponent.team : "TBD"}</strong> kicks off soon.
+              </div>
             </div>
-            <div style={{ color: "rgba(255,255,255,0.78)", fontSize: 14 }}>
-              You qualified <strong style={{ color: "var(--gold-500)" }}>Seed #7</strong> on points-tiebreak. Your Quarter-Final vs <strong>{myOpponent?.team}</strong> kicks off in 36 hours.
-            </div>
+            <button className="btn btn--primary" onClick={() => onTab("bracket")}>View Bracket →</button>
           </div>
-          <button className="btn btn--primary" onClick={() => onTab("bracket")}>View Bracket →</button>
         </div>
-      </div>
+      )}
 
       {/* GW summary card */}
       <div className="card-dark">
@@ -78,28 +101,30 @@ function StatusScreen({ onTab }) {
         </div>
       </div>
 
-      {/* Your QF preview */}
-      {myQf && (
+      {/* Your KO preview */}
+      {LEAGUE.status === "knockout" && myMatch && (
         <div className="card" style={{ padding: 0, overflow: "hidden" }}>
           <div style={{ background: "var(--navy-900)", color: "white", padding: "12px 20px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <span style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>Your QF · GW4</span>
-            <span className="pill pill--gold">Round of 32 phase</span>
+            <span style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>Your {getRoundName(myMatch.id)} · GW{myMatch.gw}</span>
+            <span className="pill pill--gold">{getRoundPhase(myMatch.id)}</span>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", padding: "24px 28px", alignItems: "center", gap: 24 }}>
             <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Seed #7</div>
-              <div className="h-display" style={{ fontSize: 22 }}>Hapoel Eliyahu</div>
-              <div className="muted" style={{ fontSize: 13 }}>Ilay · 179 fpts</div>
+              <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Seed #{mySeed}</div>
+              <div className="h-display" style={{ fontSize: 22 }}>{myStanding ? myStanding.team : "My Team"}</div>
+              <div className="muted" style={{ fontSize: 13 }}>{myStanding ? myStanding.displayName || myStanding.name : "Manager"} · {myStanding ? myStanding.fpts : 0} fpts</div>
             </div>
             <div style={{ textAlign: "center" }}>
               <div className="h-display" style={{ fontSize: 32, color: "var(--ink-500)" }}>vs.</div>
-              <div className="muted" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>Quarter-Final</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Jul 1 – 4</div>
+              <div className="muted" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>{getRoundName(myMatch.id)}</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>GW {myMatch.gw}</div>
             </div>
             <div>
-              <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Seed #2</div>
-              <div className="h-display" style={{ fontSize: 22 }}>{myOpponent.team}</div>
-              <div className="muted" style={{ fontSize: 13 }}>{myOpponent.name} · 201 fpts</div>
+              <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Seed #{myMatch.home === ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.seedHome ?? "?")}
+              </div>
+              <div className="h-display" style={{ fontSize: 22 }}>{myOpponent ? myOpponent.team : "TBD"}</div>
+              <div className="muted" style={{ fontSize: 13 }}>{myOpponent ? myOpponent.name : "Awaiting Seeding"}</div>
             </div>
           </div>
         </div>
