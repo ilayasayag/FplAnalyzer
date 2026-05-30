@@ -450,7 +450,8 @@ const managerById = uid => {
 };
 const playerById  = id => {
   if (!id) return undefined;
-  return PLAYER_MAP[id] || {
+  const activeMap = window.PLAYER_MAP || PLAYER_MAP;
+  return activeMap[id] || {
     id: id,
     name: "Player " + String(id).replace("p_", ""),
     pos: 3,

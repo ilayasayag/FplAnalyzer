@@ -30,7 +30,8 @@ function DraftRoomScreen({ onTab }) {
 
   // Players already picked
   const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
-  const pool = PLAYERS.filter(p => {
+  const activePlayers = window.PLAYERS || PLAYERS;
+  const pool = activePlayers.filter(p => {
     if (taken.has(p.id)) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;

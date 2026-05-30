@@ -307,6 +307,15 @@ function PickTeamScreen({ onTab }) {
       return;
     }
     if (selected === id) { setSelected(null); return; }
+
+    const pA = playerById(selected);
+    const pB = playerById(id);
+    if (pA && pB && pA.pos !== pB.pos) {
+      alert(`Cannot swap: ${pA.name} is a ${POS_NAMES[pA.pos]} and ${pB.name} is a ${POS_NAMES[pB.pos]}. Substitutions must be made between players of the same position.`);
+      setSelected(null);
+      return;
+    }
+
     // swap selected with clicked
     const isStartingA = lineup.starting.includes(selected);
     const isStartingB = lineup.starting.includes(id);

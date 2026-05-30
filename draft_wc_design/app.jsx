@@ -30,7 +30,7 @@ function App() {
   const [displayName, setDisplayName] = React.useState("");
   const [authError, setAuthError] = React.useState("");
   const [isSignUp, setIsSignUp] = React.useState(false);
-  const [activeLid, setActiveLid] = React.useState("lg_clasico");
+  const [activeLid, setActiveLid] = React.useState("lg_mock_draft");
 
   // Expose global league switch/refresh handlers
   React.useEffect(() => {
@@ -39,7 +39,11 @@ function App() {
       try {
         const list = await apiCall("GET", "/leagues/my");
         if (list && list.length > 0) {
-          setActiveLid(list[0].leagueId);
+          if (list.some(l => l.leagueId === "lg_mock_draft")) {
+            setActiveLid("lg_mock_draft");
+          } else {
+            setActiveLid(list[0].leagueId);
+          }
         }
       } catch (e) {
         console.warn("Failed to refresh active league", e);
@@ -66,8 +70,10 @@ function App() {
           // Fetch my leagues to determine the active league ID
           const list = await apiCall("GET", "/leagues/my");
           if (list && list.length > 0) {
-            if (list.some(l => l.leagueId === "lg_clasico")) {
-              setActiveLid("lg_clasico");
+            if (list.some(l => l.leagueId === "lg_mock_draft")) {
+              setActiveLid("lg_mock_draft");
+            } else if (list.some(l => l.leagueId === "lg_pre_draft")) {
+              setActiveLid("lg_pre_draft");
             } else {
               setActiveLid(list[0].leagueId);
             }
@@ -242,7 +248,7 @@ function App() {
             id: String(p.id),
             name: p.name,
             pos: p.position,
-            team: p.teamShort || String(p.teamId),
+            team: p.teamIso || p.teamShort || String(p.teamId),
             pts: p.totalPoints || 0,
             dr: p.draftRank || 999,
           }));
@@ -349,7 +355,7 @@ function App() {
               id: String(p.id),
               name: p.name,
               pos: p.position,
-              team: p.teamShort || String(p.teamId),
+              team: p.teamIso || p.teamShort || String(p.teamId),
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));

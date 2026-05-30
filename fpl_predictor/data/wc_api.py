@@ -262,7 +262,8 @@ class WC2026Client:
             return p
         p["element_type"] = p.get("position")
         p["web_name"] = p.get("name", "?")
-        p["team"] = p.get("teamId", 0)
+        p["team"] = p.get("teamIso") or p.get("teamId", 0)
+        p["teamShort"] = p.get("teamIso")
         p["draft_rank"] = p.get("draftRank", 0)
         p["total_points"] = p.get("totalPoints", 0)
         p["form"] = p.get("form", "0")

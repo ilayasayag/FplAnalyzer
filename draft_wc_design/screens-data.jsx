@@ -16,7 +16,8 @@ function PlayerBrowserScreen() {
     if (m.uid === ME) MY_SQUAD_IDS.forEach(id => owners[id] = m.uid);
   });
 
-  const filtered = PLAYERS.filter(p => {
+  const activePlayers = window.PLAYERS || PLAYERS;
+  const filtered = activePlayers.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (pos !== "all" && p.pos !== Number(pos)) return false;
     const t = teamById(p.team);

@@ -76,7 +76,7 @@ function PlayerStatsModal() {
           <StatCard label="Form" value={form} sub="(2 GW avg)" />
           <StatCard label="GW3" value={p.pts > 0 ? `${history[2].pts}pts` : "0pts"} sub={history[2].opp} />
           <StatCard label="Total" value={`${p.pts}pts`} sub="all season" />
-          <StatCard label="Draft rank" value={`#${p.dr}`} sub={`of ${PLAYERS.length}`} />
+          <StatCard label="Draft rank" value={`#${p.dr}`} sub={`of ${(window.PLAYERS || PLAYERS).length}`} />
           <StatCard label="Owned in" value={owner ? "1/10" : "0/10"} sub="leagues" />
         </div>
 
@@ -94,7 +94,7 @@ function PlayerStatsModal() {
           <div className="player-modal__ict-section">
             <div className="player-modal__ict-title">Overall ICT Rank</div>
             <div className="player-modal__ict-row">
-              <ICTCell label="ICT Index" rank={ict.ictOverall} total={PLAYERS.length} large />
+              <ICTCell label="ICT Index" rank={ict.ictOverall} total={(window.PLAYERS || PLAYERS).length} large />
             </div>
           </div>
         </div>
@@ -248,7 +248,8 @@ function FixturesTab({ fixtures }) {
 
 function CompareTab({ player }) {
   // Compare with top 3 same-position players
-  const peers = PLAYERS
+  const activePlayers = window.PLAYERS || PLAYERS;
+  const peers = activePlayers
     .filter(p => p.pos === player.pos && p.id !== player.id && !p.elim)
     .sort((a, b) => b.pts - a.pts)
     .slice(0, 3);
@@ -354,11 +355,12 @@ function synthFixtures(p, t) {
 
 function synthICT(p) {
   // Synthesize ranks: higher pts → better rank
-  const posPeers = PLAYERS.filter(x => x.pos === p.pos);
+  const activePlayers = window.PLAYERS || PLAYERS;
+  const posPeers = activePlayers.filter(x => x.pos === p.pos);
   const allRanked = [...posPeers].sort((a, b) => b.pts - a.pts);
   const rank = allRanked.findIndex(x => x.id === p.id) + 1;
   const totalPos = posPeers.length;
-  const overallSorted = [...PLAYERS].sort((a, b) => b.pts - a.pts);
+  const overallSorted = [...activePlayers].sort((a, b) => b.pts - a.pts);
   const overall = overallSorted.findIndex(x => x.id === p.id) + 1;
 
   // Slight scatter for individual ICT components
