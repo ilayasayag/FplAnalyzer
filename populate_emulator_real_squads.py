@@ -16,8 +16,11 @@ if not firebase_admin._apps:
 
 db = firestore.client(database_id="gamedb")
 
-# API Keys
-API_KEY = "73314c7b7198d9a5f4248e44a1fb63c9"
+# API Keys — sourced from the single source of truth (env / secrets.json),
+# never hardcoded.
+from fpl_predictor.data.wc_api import API_KEY
+if not API_KEY:
+    sys.exit("FOOTBALL_API_KEY not set (env or secrets.json). Cannot fetch squads.")
 HEADERS = {
     "x-apisports-key": API_KEY,
     "Accept": "application/json",

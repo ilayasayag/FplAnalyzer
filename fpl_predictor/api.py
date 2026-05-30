@@ -1566,9 +1566,14 @@ def init_background_scheduler(interval_seconds=300):
     print("[Background Poller] Started background polling daemon thread.")
 
 
-# Automatically attempt to initialize when imported (e.g. under gunicorn)
-# but skip if we are running standard test suites.
-if os.environ.get("FPL_TESTING") != "true":
+# Import-time auto-start is OPT-IN only. On serverless (Cloud Functions),
+# `functions/main.py` imports this module on every cold start; a daemon
+# thread there can't run reliably (instances freeze between requests) and
+# every cold start would spawn another. Live scoring in that deployment is
+# driven by Cloud Scheduler -> POST /admin/process-live-fixtures instead.
+# Long-running hosts (gunicorn/Cloud Run, single instance) can opt in by
+# setting WC_ENABLE_POLLER=true. `run_server` (local dev) starts it directly.
+if os.environ.get("FPL_TESTING") != "true" and os.environ.get("WC_ENABLE_POLLER") == "true":
     init_background_scheduler(300)
 
 

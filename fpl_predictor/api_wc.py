@@ -8,6 +8,7 @@ All endpoints return {"data": ..., "error": null} or {"data": null, "error": "..
 """
 
 import math
+import os
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, g
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
@@ -66,6 +67,23 @@ def _require_auth():
         return decoded["uid"], None
     except Exception:
         return None, _err("Invalid token", 401)
+
+
+def _require_admin():
+    """Auth + admin-allowlist gate. Fails closed: a caller must be in
+    wc_config/tournament.adminUids. The sole exception is a fresh emulator
+    with no admins configured yet (bootstrap), so local dev can seed."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    cfg = _db.collection("wc_config").document("tournament").get()
+    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
+    if admin_uids:
+        if uid not in admin_uids:
+            return None, _err("Admin only", 403)
+    elif not os.environ.get("FIRESTORE_EMULATOR_HOST"):
+        return None, _err("Admin only", 403)
+    return uid, None
 
 
 # ---------------------------------------------------------------------------
@@ -184,15 +202,9 @@ def get_config():
 
 @wc_bp.route("/config", methods=["POST", "PUT"])
 def save_config():
-    uid, err = _require_auth()
+    uid, err = _require_admin()
     if err:
         return err
-
-    # admin gate — tournament config is global, not per-league.
-    cfg = _db.collection("wc_config").document("tournament").get()
-    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
-    if admin_uids and uid not in admin_uids:
-        return _err("Admin only", 403)
 
     # Freeze config once the tournament starts
     from fpl_predictor.game.wc_gameweeks import is_locked
@@ -1506,18 +1518,14 @@ def seed_mock_league(USER_UID, USER_NAME, db):
 
 @wc_bp.route("/admin/seed-test-leagues", methods=["POST"])
 def admin_seed_test_leagues():
-    secret = request.args.get("secret")
-    is_admin = False
-    if secret == "73314c7b7198d9a5f4248e44a1fb63c9":
-        is_admin = True
-        uid = "u_roy"
-        
-    if not is_admin:
-        uid, err = _require_auth()
-        if err:
-            return err
+    uid, err = _require_admin()
+    if err:
+        return err
+    # Refuse to (re)seed — which wipes leagues — against production unless
+    # explicitly overridden. Emulator is always allowed.
+    if not os.environ.get("FIRESTORE_EMULATOR_HOST") and os.environ.get("WC_ALLOW_PROD_SEED") != "true":
+        return _err("Seeding is disabled against production. Set WC_ALLOW_PROD_SEED=true to override.", 403)
     try:
-        import os
         import json
         json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
         if not os.path.exists(json_path):
@@ -1528,7 +1536,15 @@ def admin_seed_test_leagues():
             
         teams = data.get("teams", [])
         players = data.get("players", [])
-        
+
+        # Register the seeding user as an admin so the bootstrap gate in
+        # _require_admin self-closes after the first run.
+        cfg_ref = _db.collection("wc_config").document("tournament")
+        cfg_snap = cfg_ref.get()
+        existing_admins = (cfg_snap.to_dict() or {}).get("adminUids", []) if cfg_snap.exists else []
+        if uid not in existing_admins:
+            cfg_ref.set({"adminUids": existing_admins + [uid]}, merge=True)
+
         # Write teams to production
         for t in teams:
             _db.collection("wc_teams").document(str(t["id"])).set(t)
