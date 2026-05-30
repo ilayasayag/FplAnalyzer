@@ -163,11 +163,29 @@ function PointsScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
   const lineup = MY_LINEUP_GW3;
 
+  // Calculate total points dynamically, doubling the captain's score
+  let totalPts = 0;
+  if (lineup && lineup.starting) {
+    lineup.starting.forEach(id => {
+      const pts = GW3_POINTS[id] ?? 0;
+      if (id === lineup.captain) {
+        totalPts += 2 * pts;
+      } else {
+        totalPts += pts;
+      }
+    });
+  } else {
+    totalPts = 65; // fallback
+  }
+
+  // Get current user's team name dynamically
+  const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === (window.ME || ME))?.team || "My Squad";
+
   return (
     <div className="col" style={{ gap: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>
-          Points · <span className="muted" style={{ fontWeight: 500 }}>Hapoel Eliyahu</span>
+          Points · <span className="muted" style={{ fontWeight: 500 }}>{myTeamName}</span>
         </h2>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn--ghost-dark" style={{ padding: "8px 14px", fontSize: 12 }}>← GW2</button>
@@ -183,7 +201,7 @@ function PointsScreen({ onTab }) {
           </div>
           <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", borderRadius: 12, padding: "12px 22px", textAlign: "center", flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>FINAL POINTS</div>
-            <div className="mono" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1 }}>65</div>
+            <div className="mono" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1 }}>{totalPts}</div>
           </div>
         </div>
 
@@ -193,7 +211,7 @@ function PointsScreen({ onTab }) {
         </div>
 
         {view === "pitch" ? (
-          <Pitch lineup={lineup} mode="points" captain="p_kane" />
+          <Pitch lineup={lineup} mode="points" captain={lineup.captain || "p_kane"} />
         ) : (
           <PointsListView lineup={lineup} />
         )}
@@ -279,6 +297,15 @@ function PickTeamScreen({ onTab }) {
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [captain, setCaptain] = React.useState("p_kane");
   const [selected, setSelected] = React.useState(null);
+
+  React.useEffect(() => {
+    if (MY_LINEUP_GW3) {
+      setLineup(MY_LINEUP_GW3);
+      if (MY_LINEUP_GW3.captain) {
+        setCaptain(MY_LINEUP_GW3.captain);
+      }
+    }
+  }, [MY_LINEUP_GW3]);
 
   const handleSaveLineup = async () => {
     try {

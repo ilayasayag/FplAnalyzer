@@ -231,7 +231,7 @@ function App() {
                 uid: m.uid,
                 name: m.displayName || m.uid.substring(0, 8),
                 team: m.teamName || "Unnamed Team",
-                flag: "GER",
+                flag: m.flag || "GER",
                 draftPos: m.draftPosition || 99,
                 waiverPri: m.waiverPriority || 99,
               }));
@@ -253,6 +253,12 @@ function App() {
             dr: p.draftRank || 999,
           }));
           window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
+
+          // Dynamically populate GW3_POINTS from players total points in mock database!
+          window.GW3_POINTS = {};
+          window.PLAYERS.forEach(p => {
+            window.GW3_POINTS[p.id] = p.pts;
+          });
         }
 
         // Fetch bracket

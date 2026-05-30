@@ -1054,18 +1054,14 @@ def select_lineup(squad):
 def seed_mock_league(USER_UID, USER_NAME, db):
     import os
     import json
+    import unicodedata
     from google.cloud.firestore_v1 import SERVER_TIMESTAMP
     
-    json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    teams = data.get("teams", [])
-    players = data.get("players", [])
-    
+    # 1. Setup the mock league document
     mock_lid = "lg_mock_draft"
     db.collection("leagues").document(mock_lid).set({
         "leagueId": mock_lid,
-        "name": "El Clásico Friends (Mock)",
+        "name": "WC 2026 Expert Mock Draft",
         "inviteCode": "MOCKWC26",
         "adminUid": "u_roy",
         "format": "h2h",
@@ -1082,14 +1078,15 @@ def seed_mock_league(USER_UID, USER_NAME, db):
         "createdAt": SERVER_TIMESTAMP,
     })
     
+    # 2. Setup mock managers with custom names, teams, and flags
     mock_managers = [
-        {"uid": "u_roy", "name": "Roy", "team": "La Liga Loca", "flag": "SPA", "draftPos": 1, "waiverPri": 6},
-        {"uid": "u_yonatan", "name": "Yonatan", "team": "Tiki-Taka FC", "flag": "ARG", "draftPos": 2, "waiverPri": 5},
-        {"uid": "u_nadav", "name": "Nadav", "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
-        {"uid": "u_yuval", "name": "Yuval", "team": "The Gunners", "flag": "ENG", "draftPos": 4, "waiverPri": 3},
-        {"uid": "u_ido", "name": "Ido", "team": "Tel Aviv United", "flag": "FRA", "draftPos": 5, "waiverPri": 2},
-        {"uid": "u_shai", "name": "Shai", "team": "McShaike's XI", "flag": "MEX", "draftPos": 6, "waiverPri": 1},
-        {"uid": USER_UID, "name": USER_NAME, "team": "Hapoel Eliyahu", "flag": "POR", "draftPos": 7, "waiverPri": 7},
+        {"uid": "u_roy", "name": "GoldenGoalFF", "team": "GoldenGoalFF's Squad", "flag": "EGY", "draftPos": 1, "waiverPri": 7},
+        {"uid": "u_yonatan", "name": "FPLtfs", "team": "FPLtfs's Squad", "flag": "BRA", "draftPos": 2, "waiverPri": 6},
+        {"uid": USER_UID, "name": USER_NAME, "team": "FPLFRAN's Squad", "flag": "SPA", "draftPos": 3, "waiverPri": 5},
+        {"uid": "u_nadav", "name": "LloydHassell", "team": "LloydHassell's Squad", "flag": "ENG", "draftPos": 4, "waiverPri": 4},
+        {"uid": "u_yuval", "name": "nordburfor", "team": "nordburfor's Squad", "flag": "TUN", "draftPos": 5, "waiverPri": 3},
+        {"uid": "u_ido", "name": "FPLMate", "team": "FPLMate's Squad", "flag": "SCO", "draftPos": 6, "waiverPri": 2},
+        {"uid": "u_shai", "name": "CantWinFPL", "team": "CantWinFPL's Squad", "flag": "TUR", "draftPos": 7, "waiverPri": 1},
         {"uid": "u_opponent", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
     ]
     
@@ -1097,102 +1094,332 @@ def seed_mock_league(USER_UID, USER_NAME, db):
         db.collection("leagues").document(mock_lid).collection("members").document(m["uid"]).set({
             "displayName": m["name"],
             "teamName": m["team"],
+            "flag": m["flag"],
             "draftPosition": m["draftPos"],
             "waiverPriority": m["waiverPri"],
             "joinedAt": SERVER_TIMESTAMP,
         })
         
-    def get_player_quality(p):
-        pid = p.get("id")
-        premium = {
-            154: 1,      # Messi
-            278: 2,      # Mbappe
-            762: 3,      # Vinicius Jr
-            129718: 4,   # Bellingham
-            386828: 5,   # Yamal
-            1485: 6,     # Bruno Fernandes
-            203224: 7,   # Wirtz
-            133609: 8,   # Pedri
-            280: 9,      # Alisson
-            22221: 10,   # Maignan
-            730: 11,     # Courtois
-            290: 12,     # van Dijk
-            2285: 13,    # Rudiger
-            9: 14,       # Hakimi
-            257: 15,     # Marquinhos
-            629: 16,     # De Bruyne
-            631: 17,     # Foden
-            152982: 18,  # Palmer
-            754: 19,     # Modric
-            756: 20,     # Valverde
-            907: 21,     # Lukaku
-            247: 22,     # Gakpo
-            51617: 23,   # Nunez
-            377122: 24,  # Endrick
-            44: 25       # Rodri
-        }
-        if pid in premium:
-            return premium[pid]
-        return p.get("draftRank", 999) * 100000 + pid
-
-    gks = sorted([p for p in players if p["position"] == 1], key=get_player_quality)
-    defs = sorted([p for p in players if p["position"] == 2], key=get_player_quality)
-    mids = sorted([p for p in players if p["position"] == 3], key=get_player_quality)
-    fwds = sorted([p for p in players if p["position"] == 4], key=get_player_quality)
+    # 3. Load mapped squad IDs from json
+    squad_ids_path = os.path.join(os.path.dirname(__file__), "data", "squad_ids.json")
+    with open(squad_ids_path, "r", encoding="utf-8") as f:
+        squad_data_raw = json.load(f)
+        
+    squads = {}
+    for k, v in squad_data_raw.items():
+        uid = USER_UID if k == "USER_UID" else k
+        squads[uid] = v
+        
+    # 4. Generate high-quality squad for Opponent XI using leftovers from wc_seeded_data.json
+    seeded_json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
+    with open(seeded_json_path, "r", encoding="utf-8") as f:
+        seeded_data = json.load(f)
+    all_players = seeded_data.get("players", [])
     
-    draft_order = []
-    for round_idx in range(1, 16):
-        managers_round = ["u_roy", "u_yonatan", "u_nadav", "u_yuval", "u_ido", "u_shai", USER_UID, "u_opponent"]
-        if round_idx % 2 == 0:
-            managers_round.reverse()
-        draft_order.extend(managers_round)
-        
-    squads = {m["uid"]: [] for m in mock_managers}
-    pos_counts = {m["uid"]: {1: 0, 2: 0, 3: 0, 4: 0} for m in mock_managers}
-    pos_limits = {1: 2, 2: 5, 3: 5, 4: 3}
-    pools = {1: list(gks), 2: list(defs), 3: list(mids), 4: list(fwds)}
-    
-    for turn_idx, uid in enumerate(draft_order):
-        round_num = (turn_idx // 8) + 1
-        needed_pos = [pos for pos, limit in pos_limits.items() if pos_counts[uid][pos] < limit]
-        
-        best_player = None
-        best_quality = float('inf')
-        best_pos = None
-        
-        for pos in needed_pos:
-            if pools[pos]:
-                p = pools[pos][0]
-                q = get_player_quality(p)
-                if q < best_quality:
-                    best_quality = q
-                    best_player = p
-                    best_pos = pos
-                    
-        if best_player:
-            pools[best_pos].pop(0)
-            squads[uid].append({
-                "playerId": str(best_player["id"]),
-                "draftedRound": round_num,
-                "position": best_player["position"],
-                "name": best_player["name"],
-                "teamIso": best_player["teamIso"]
-            })
-            pos_counts[uid][best_pos] += 1
+    drafted_player_ids = set()
+    for squad in squads.values():
+        for p in squad:
+            drafted_player_ids.add(int(p["id"]))
             
+    available_players = [p for p in all_players if int(p["id"]) not in drafted_player_ids]
+    available_players.sort(key=lambda p: p.get("draftRank", 999))
+    
+    opp_gks = [p for p in available_players if p["position"] == 1][:2]
+    opp_defs = [p for p in available_players if p["position"] == 2][:5]
+    opp_mids = [p for p in available_players if p["position"] == 3][:5]
+    opp_fwds = [p for p in available_players if p["position"] == 4][:3]
+    
+    opp_squad = opp_gks + opp_defs + opp_mids + opp_fwds
+    squads["u_opponent"] = []
+    for idx, p in enumerate(opp_squad):
+        squads["u_opponent"].append({
+            "id": int(p["id"]),
+            "name": p["name"],
+            "position": p["position"],
+            "positionName": p["positionName"],
+            "teamIso": p["teamIso"]
+        })
+        
+    # 5. Write squad allocations to Firestore
     for uid, squad in squads.items():
-        squad_list = [{"playerId": p["playerId"], "draftedRound": p["draftedRound"]} for p in squad]
+        squad_list = []
+        for idx, p in enumerate(squad):
+            squad_list.append({
+                "playerId": int(p["id"]),
+                "draftedRound": (idx // 8) + 1,
+                "position": int(p["position"]),
+                "name": p["name"],
+                "positionName": p["positionName"],
+                "teamIso": p["teamIso"],
+                "eliminated": False,
+                "teamId": p.get("teamId", 0),
+                "teamName": p.get("teamName", "")
+            })
         db.collection("leagues").document(mock_lid).collection("squads").document(uid).set({
             "players": squad_list
         })
         
-    lineups_by_manager_gw = {m["uid"]: {} for m in mock_managers}
+    # 6. Ensure missing star players are explicitly added to wc_players in Firestore
+    missing_stars = [
+        {
+            "draftRank": 11, "name": "Bukayo Saka", "position": 3, "teamIso": "ENG",
+            "id": 99901, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99901.png",
+            "teamId": 10, "positionName": "MID", "teamName": "England"
+        },
+        {
+            "draftRank": 18, "name": "Cristiano Ronaldo", "position": 4, "teamIso": "POR",
+            "id": 99902, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99902.png",
+            "teamId": 27, "positionName": "FWD", "teamName": "Portugal"
+        },
+        {
+            "draftRank": 7, "name": "Harry Kane", "position": 4, "teamIso": "ENG",
+            "id": 99903, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99903.png",
+            "teamId": 10, "positionName": "FWD", "teamName": "England"
+        }
+    ]
+    for star in missing_stars:
+        db.collection("wc_players").document(str(star["id"])).set(star)
+        
+    # 7. Setup fixtures for GW1, GW2, GW3 (16 matches per gameweek)
+    fixtures_data = {
+        1: [
+            {"id": 101, "home": "GER", "away": "CUW", "score": {"home": 5, "away": 0}},
+            {"id": 102, "home": "SPA", "away": "CPV", "score": {"home": 4, "away": 1}},
+            {"id": 103, "home": "NOR", "away": "IRQ", "score": {"home": 3, "away": 1}},
+            {"id": 104, "home": "COL", "away": "UZB", "score": {"home": 5, "away": 0}},
+            {"id": 105, "home": "FRA", "away": "SEN", "score": {"home": 5, "away": 0}},
+            {"id": 106, "home": "URU", "away": "KSA", "score": {"home": 4, "away": 1}},
+            {"id": 107, "home": "BRA", "away": "MOR", "score": {"home": 5, "away": 0}},
+            {"id": 108, "home": "POR", "away": "COD", "score": {"home": 6, "away": 0}},
+            {"id": 109, "home": "SWI", "away": "QAT", "score": {"home": 2, "away": 1}},
+            {"id": 110, "home": "MEX", "away": "RSA", "score": {"home": 2, "away": 2}},
+            {"id": 111, "home": "ENG", "away": "HAI", "score": {"home": 4, "away": 1}},
+            {"id": 112, "home": "ARG", "away": "JOR", "score": {"home": 4, "away": 0}},
+            {"id": 113, "home": "NED", "away": "TUN", "score": {"home": 4, "away": 1}},
+            {"id": 114, "home": "BEL", "away": "ALG", "score": {"home": 5, "away": 1}},
+            {"id": 115, "home": "USA", "away": "PAR", "score": {"home": 3, "away": 1}},
+            {"id": 116, "home": "CAN", "away": "ECU", "score": {"home": 2, "away": 0}}
+        ],
+        2: [
+            {"id": 201, "home": "GER", "away": "NOR", "score": {"home": 3, "away": 1}},
+            {"id": 202, "home": "SPA", "away": "COL", "score": {"home": 3, "away": 0}},
+            {"id": 203, "home": "FRA", "away": "URU", "score": {"home": 4, "away": 0}},
+            {"id": 204, "home": "BRA", "away": "POR", "score": {"home": 1, "away": 1}},
+            {"id": 205, "home": "ENG", "away": "ARG", "score": {"home": 1, "away": 0}},
+            {"id": 206, "home": "NED", "away": "BEL", "score": {"home": 2, "away": 2}},
+            {"id": 207, "home": "USA", "away": "CAN", "score": {"home": 0, "away": 2}},
+            {"id": 208, "home": "CUW", "away": "IRQ", "score": {"home": 2, "away": 0}},
+            {"id": 209, "home": "CPV", "away": "UZB", "score": {"home": 0, "away": 1}},
+            {"id": 210, "home": "SEN", "away": "KSA", "score": {"home": 4, "away": 2}},
+            {"id": 211, "home": "MOR", "away": "COD", "score": {"home": 2, "away": 0}},
+            {"id": 212, "home": "SWI", "away": "MEX", "score": {"home": 2, "away": 2}},
+            {"id": 213, "home": "QAT", "away": "RSA", "score": {"home": 2, "away": 2}},
+            {"id": 214, "home": "HAI", "away": "JOR", "score": {"home": 2, "away": 1}},
+            {"id": 215, "home": "TUN", "away": "ALG", "score": {"home": 0, "away": 1}},
+            {"id": 216, "home": "PAR", "away": "ECU", "score": {"home": 2, "away": 0}}
+        ],
+        3: [
+            {"id": 301, "home": "GER", "away": "IRQ", "score": {"home": 4, "away": 1}},
+            {"id": 302, "home": "SPA", "away": "UZB", "score": {"home": 5, "away": 0}},
+            {"id": 303, "home": "FRA", "away": "KSA", "score": {"home": 6, "away": 0}},
+            {"id": 304, "home": "BRA", "away": "COD", "score": {"home": 6, "away": 1}},
+            {"id": 305, "home": "ENG", "away": "JOR", "score": {"home": 4, "away": 1}},
+            {"id": 306, "home": "NED", "away": "ALG", "score": {"home": 3, "away": 0}},
+            {"id": 307, "home": "USA", "away": "ECU", "score": {"home": 2, "away": 1}},
+            {"id": 308, "home": "NOR", "away": "CUW", "score": {"home": 4, "away": 0}},
+            {"id": 309, "home": "COL", "away": "CPV", "score": {"home": 5, "away": 0}},
+            {"id": 310, "home": "URU", "away": "SEN", "score": {"home": 4, "away": 0}},
+            {"id": 311, "home": "POR", "away": "MOR", "score": {"home": 4, "away": 0}},
+            {"id": 312, "home": "SWI", "away": "RSA", "score": {"home": 0, "away": 1}},
+            {"id": 313, "home": "MEX", "away": "QAT", "score": {"home": 2, "away": 1}},
+            {"id": 314, "home": "CAN", "away": "PAR", "score": {"home": 2, "away": 0}},
+            {"id": 315, "home": "BEL", "away": "TUN", "score": {"home": 3, "away": 0}},
+            {"id": 316, "home": "CRO", "away": "JPN", "score": {"home": 3, "away": 0}}
+        ]
+    }
+    
+    # Write fixtures to wc_fixtures in Firestore
+    for gw, f_list in fixtures_data.items():
+        for f in f_list:
+            db.collection("wc_fixtures").document(str(f["id"])).set({
+                "id": f["id"],
+                "gw": gw,
+                "wcRound": f"Group Stage · MD{gw}",
+                "homeTeam": {"isoCode": f["home"], "name": f["home"]},
+                "awayTeam": {"isoCode": f["away"], "name": f["away"]},
+                "kickoff": SERVER_TIMESTAMP,
+                "status": "FT",
+                "score": f["score"],
+                "processedForFantasy": True
+            })
+            
+    # 8. Setup concession and event maps for organic point calculations
+    conceded_gw1 = {
+        "GER": 0, "CUW": 5, "SPA": 1, "CPV": 4, "NOR": 1, "IRQ": 3, "COL": 0, "UZB": 5,
+        "FRA": 0, "SEN": 5, "URU": 1, "KSA": 4, "BRA": 0, "MOR": 5, "POR": 0, "COD": 6,
+        "SWI": 1, "QAT": 2, "MEX": 2, "RSA": 2, "ENG": 1, "HAI": 4, "ARG": 0, "JOR": 4,
+        "NED": 1, "TUN": 4, "BEL": 1, "ALG": 5, "USA": 1, "PAR": 3, "CAN": 0, "ECU": 2
+    }
+    conceded_gw2 = {
+        "GER": 1, "NOR": 3, "SPA": 0, "COL": 3, "FRA": 0, "URU": 4, "BRA": 1, "POR": 1,
+        "ENG": 0, "ARG": 1, "NED": 2, "BEL": 2, "USA": 2, "CAN": 0, "CUW": 0, "IRQ": 2,
+        "CPV": 1, "UZB": 0, "SEN": 2, "KSA": 4, "MOR": 0, "COD": 2, "SWI": 2, "MEX": 2,
+        "QAT": 2, "RSA": 2, "HAI": 1, "JOR": 2, "TUN": 1, "ALG": 0, "PAR": 0, "ECU": 2
+    }
+    conceded_gw3 = {
+        "GER": 1, "IRQ": 4, "SPA": 0, "UZB": 5, "FRA": 0, "KSA": 6, "BRA": 1, "COD": 6,
+        "ENG": 1, "JOR": 4, "NED": 0, "ALG": 3, "USA": 1, "ECU": 2, "NOR": 0, "CUW": 4,
+        "COL": 0, "CPV": 5, "URU": 0, "SEN": 4, "POR": 0, "MOR": 4, "SWI": 1, "RSA": 0,
+        "MEX": 1, "QAT": 2, "CAN": 0, "PAR": 2, "BEL": 0, "TUN": 3, "CRO": 0, "JPN": 3
+    }
+    
+    events_gw1 = [
+        ("Pedri", "goal"), ("Aymeric Laporte", "goal"), ("Borja Iglesias", "goal"),
+        ("Borja Iglesias", "assist"), ("Willy Semedo", "goal"), ("E. Haaland", "goal"),
+        ("Amir Al Ammari", "assist"), ("J. Rodríguez", "assist"), ("A. Tchouaméni", "assist"),
+        ("Kylian Mbappé", "goal"), ("O. Dembélé", "assist"), ("A. Rabiot", "goal"),
+        ("A. Rabiot", "assist"), ("D. Núñez", "goal"), ("Gabriel Martinelli", "goal"),
+        ("Raphinha", "goal"), ("Gonçalo Ramos", "goal"), ("Gonçalo Ramos", "goal"),
+        ("João Neves", "goal"), ("João Neves", "assist"), ("Rúben Neves", "goal"),
+        ("A. Jashari", "assist"), ("P. Foden", "goal"), ("E. Anderson", "assist")
+    ]
+    events_gw2 = [
+        ("Borja Iglesias", "goal"), ("Aymeric Laporte", "goal"), ("Mikel Oyarzabal", "goal"),
+        ("A. Tchouaméni", "goal"), ("A. Rabiot", "assist"), ("Gabriel Martinelli", "goal"),
+        ("Gabriel Magalhães", "assist"), ("A. Amenda", "assist"), ("B. Dia", "goal"),
+        ("O. O'runov", "goal")
+    ]
+    events_gw3 = [
+        ("Borja Iglesias", "goal"), ("Yeremy Pino", "goal"), ("Lamine Yamal", "goal"),
+        ("O. Dembélé", "goal"), ("O. Dembélé", "goal"), ("O. Dembélé", "assist"),
+        ("M. Olise", "assist"), ("A. Rabiot", "assist"), ("A. Tchouaméni", "assist"),
+        ("Vinícius Júnior", "goal"), ("Vinícius Júnior", "assist"), ("Endrick", "goal"),
+        ("Raphinha", "goal"), ("J. Stones", "goal"), ("J. Bowen", "goal"),
+        ("J. Bowen", "assist"), ("C. Gakpo", "goal"), ("B. Aaronson", "assist"),
+        ("E. Haaland", "goal"), ("J. Rodríguez", "goal"), ("J. Rodríguez", "assist"),
+        ("A. Canobbio", "goal"), ("A. Canobbio", "goal"), ("Gonçalo Ramos", "goal"),
+        ("Gonçalo Ramos", "goal"), ("Rúben Neves", "assist"), ("António Silva", "goal")
+    ]
+    
+    def normalize_name(name):
+        name = name.replace("&apos;", "'").replace("’", "'").replace("ʻ", "'").replace("ʻ", "'")
+        normalized = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('utf-8')
+        return normalized.lower().strip()
+        
+    def match_player_event(p_name, ev_name):
+        n_p = normalize_name(p_name)
+        n_e = normalize_name(ev_name)
+        if n_e == n_p or n_e in n_p or n_p in n_e:
+            return True
+        parts_p = n_p.split()
+        parts_e = n_e.split()
+        if len(parts_p) > 0 and len(parts_e) > 0:
+            if parts_p[-1] == parts_e[-1] and parts_p[0][0] == parts_e[0][0]:
+                return True
+        return False
+        
+    def compute_player_points(gw, player, events, conceded_map):
+        pts = 2
+        team = player["teamIso"]
+        conceded = conceded_map.get(team, 0)
+        pos = player["position"]
+        
+        if conceded == 0:
+            if pos in (1, 2): pts += 4
+            elif pos == 3: pts += 1
+            
+        if pos in (1, 2) and conceded >= 2:
+            pts -= (conceded // 2)
+            
+        goals_scored = 0
+        assists_scored = 0
+        for ev_name, ev_type in events:
+            if match_player_event(player["name"], ev_name):
+                if ev_type == "goal":
+                    goals_scored += 1
+                    if pos in (1, 2): pts += 6
+                    elif pos == 3: pts += 5
+                    elif pos == 4: pts += 4
+                elif ev_type == "assist":
+                    assists_scored += 1
+                    pts += 3
+                    
+        return max(0, pts), goals_scored, assists_scored, (conceded == 0 and pos in (1, 2, 3))
+
+    # Calculate points for all players across GW1-GW3
+    player_gw_scores = {1: {}, 2: {}, 3: {}}
+    player_total_points = {}
+    
+    gw_params = {
+        1: (events_gw1, conceded_gw1, 100),
+        2: (events_gw2, conceded_gw2, 200),
+        3: (events_gw3, conceded_gw3, 300)
+    }
+    
+    # Gather all player models in squads
+    all_drafted_players = {}
     for uid, squad in squads.items():
+        for p in squad:
+            all_drafted_players[int(p["id"])] = p
+            
+    for gw in (1, 2, 3):
+        events, conceded_map, offset = gw_params[gw]
+        for pid, p in all_drafted_players.items():
+            pts, goals, assists, cs = compute_player_points(gw, p, events, conceded_map)
+            player_gw_scores[gw][pid] = pts
+            player_total_points[pid] = player_total_points.get(pid, 0) + pts
+            
+            # Map player to their team's fixture
+            assigned_fid = offset + 1
+            for f in fixtures_data[gw]:
+                if f["home"] == p["teamIso"] or f["away"] == p["teamIso"]:
+                    assigned_fid = f["id"]
+                    break
+                    
+            db.collection("wc_fixtures").document(str(assigned_fid)).collection("playerScores").document(str(pid)).set({
+                "fantasyPoints": pts,
+                "stats": {
+                    "minutes": 90,
+                    "goals": goals,
+                    "assists": assists,
+                    "cleanSheet": cs,
+                    "yellowCard": 0,
+                    "redCard": 0
+                }
+            })
+            
+    # Update totalPoints in wc_players
+    for pid, tot_pts in player_total_points.items():
+        db.collection("wc_players").document(str(pid)).update({
+            "totalPoints": tot_pts
+        })
+        
+    # 9. Generate and write starting XI / Lineups & aggregate scores
+    lineups_by_manager_gw = {m["uid"]: {} for m in mock_managers}
+    manager_scores_by_gw = {1: {}, 2: {}, 3: {}}
+    
+    for uid, squad in squads.items():
+        # Map to playerId position representation
+        squad_rich = [{"playerId": int(p["id"]), "position": p["position"]} for p in squad]
         for gw in (1, 2, 3):
-            lineup = select_lineup(squad)
+            lineup = select_lineup(squad_rich)
             lineups_by_manager_gw[uid][gw] = lineup
             db.collection("leagues").document(mock_lid).collection("lineups").document(f"{uid}_{gw}").set(lineup)
             
+            # Compute total score
+            tot = 0
+            starting = lineup["starting"]
+            cap = lineup["captain"]
+            for pid in starting:
+                pid_int = int(pid)
+                pts = player_gw_scores[gw].get(pid_int, 2) # Default 2 appearance pts
+                if pid == cap:
+                    tot += 2 * pts
+                else:
+                    tot += pts
+            manager_scores_by_gw[gw][uid] = tot
+            
+    # Write H2H Match Schedule
     schedule_by_gw = {
         1: [("u_roy", "u_shai"), ("u_yonatan", "u_opponent"), ("u_nadav", "u_ido"), (USER_UID, "u_yuval")],
         2: [("u_roy", "u_opponent"), ("u_yonatan", "u_ido"), ("u_nadav", "u_yuval"), (USER_UID, "u_shai")],
@@ -1205,151 +1432,70 @@ def seed_mock_league(USER_UID, USER_NAME, db):
             "matches": match_list
         })
         
-    iso_to_team = {t["isoCode"]: t for t in teams}
-    def get_team_or_default(iso, name):
-        if iso in iso_to_team:
-            return iso_to_team[iso]
-        return {"id": 999, "name": name, "logo": "", "isoCode": iso}
-        
-    fixtures_data = {
-        1: [
-            {"id": 101, "home": "BRA", "away": "GER", "score": {"home": 2, "away": 1}},
-            {"id": 102, "home": "FRA", "away": "ENG", "score": {"home": 1, "away": 1}},
-            {"id": 103, "home": "ARG", "away": "SPA", "score": {"home": 2, "away": 2}}
-        ],
-        2: [
-            {"id": 201, "home": "POR", "away": "NED", "score": {"home": 3, "away": 2}},
-            {"id": 202, "home": "USA", "away": "URU", "score": {"home": 1, "away": 2}},
-            {"id": 203, "home": "BEL", "away": "MEX", "score": {"home": 2, "away": 0}}
-        ],
-        3: [
-            {"id": 301, "home": "BRA", "away": "FRA", "score": {"home": 1, "away": 2}},
-            {"id": 302, "home": "ARG", "away": "ENG", "score": {"home": 2, "away": 1}},
-            {"id": 303, "home": "SPA", "away": "POR", "score": {"home": 3, "away": 3}}
-        ]
-    }
-    
-    for gw, f_list in fixtures_data.items():
-        for f in f_list:
-            h_team = get_team_or_default(f["home"], f["home"])
-            a_team = get_team_or_default(f["away"], f["away"])
-            db.collection("wc_fixtures").document(str(f["id"])).set({
-                "id": f["id"],
-                "gw": gw,
-                "wcRound": f"Group Stage · MD{gw}",
-                "homeTeam": {"id": h_team["id"], "name": h_team["name"], "isoCode": h_team["isoCode"]},
-                "awayTeam": {"id": a_team["id"], "name": a_team["name"], "isoCode": a_team["isoCode"]},
-                "kickoff": SERVER_TIMESTAMP,
-                "status": "FT",
-                "score": f["score"],
-                "processedForFantasy": True
-            })
-            
-    player_gw_scores = {1: {}, 2: {}, 3: {}}
+    # Write Scores to Firestore
     for gw in (1, 2, 3):
-        targets = {
-            "u_roy": {1: 57, 2: 64, 3: 71}[gw],
-            "u_yonatan": {1: 64, 2: 71, 3: 78}[gw],
-            "u_nadav": {1: 71, 2: 78, 3: 58}[gw],
-            "u_yuval": {1: 58, 2: 69, 3: 69}[gw],
-            "u_ido": {1: 58, 2: 58, 3: 58}[gw],
-            "u_shai": {1: 61, 2: 62, 3: 55}[gw],
-            USER_UID: {1: 65, 2: 58, 3: 65}[gw],
-            "u_opponent": {1: 72, 2: 72, 3: 55}[gw]
-        }
-        for uid, target in targets.items():
-            lineup = lineups_by_manager_gw[uid][gw]
-            starting = lineup["starting"]
-            captain = lineup["captain"]
-            
-            cap_base = 8 if target > 60 else 6
-            remaining = target - (2 * cap_base)
-            
-            num_others = len(starting) - 1
-            base_share = remaining // num_others
-            leftover = remaining % num_others
-            
-            for pid in starting:
-                if pid == captain:
-                    player_gw_scores[gw][pid] = cap_base
-                else:
-                    pts = base_share
-                    if leftover > 0:
-                        pts += 1
-                        leftover -= 1
-                    player_gw_scores[gw][pid] = pts
-            for pid in lineup["bench"]:
-                player_gw_scores[gw][pid] = 1 if int(pid) % 2 == 0 else 0
-                
-    for gw in (1, 2, 3):
-        fixtures_in_gw = [101, 102, 103] if gw == 1 else ([201, 202, 203] if gw == 2 else [301, 302, 303])
-        for uid, squad in squads.items():
-            for p in squad:
-                pid = p["playerId"]
-                pts = player_gw_scores[gw].get(pid, 0)
-                pos = p["position"]
-                
-                assigned_fid = fixtures_in_gw[0]
-                for fid in fixtures_in_gw:
-                    f_data = next(f for f in fixtures_data[gw] if f["id"] == fid)
-                    if f_data["home"] == p["teamIso"] or f_data["away"] == p["teamIso"]:
-                        assigned_fid = fid
-                        break
-                        
-                db.collection("wc_fixtures").document(str(assigned_fid)).collection("playerScores").document(str(pid)).set({
-                    "fantasyPoints": pts,
-                    "stats": {
-                        "minutes": 90 if pts > 0 else 0,
-                        "goals": 1 if pts >= 5 else 0,
-                        "assists": 1 if pts >= 4 else 0,
-                        "cleanSheet": True if pts >= 4 and pos == 2 else False,
-                        "yellowCard": 0,
-                        "redCard": 0
-                    }
-                })
-                
-    for gw in (1, 2, 3):
-        results = {
-            "u_roy": {"points": {1: 57, 2: 64, 3: 71}[gw]},
-            "u_yonatan": {"points": {1: 64, 2: 71, 3: 78}[gw]},
-            "u_nadav": {"points": {1: 71, 2: 78, 3: 58}[gw]},
-            "u_yuval": {"points": {1: 58, 2: 69, 3: 69}[gw]},
-            "u_ido": {"points": {1: 58, 2: 58, 3: 58}[gw]},
-            "u_shai": {"points": {1: 61, 2: 62, 3: 55}[gw]},
-            USER_UID: {"points": {1: 65, 2: 58, 3: 65}[gw]},
-            "u_opponent": {"points": {1: 72, 2: 72, 3: 55}[gw]}
-        }
+        results = {}
+        for uid in [m["uid"] for m in mock_managers]:
+            results[uid] = {"points": manager_scores_by_gw[gw][uid]}
         db.collection("leagues").document(mock_lid).collection("scores").document(str(gw)).set({
             "processed": True,
             "processedAt": SERVER_TIMESTAMP,
             "results": results
         })
         
-    standings_data = {
-        "managers": [
-            {"uid": "u_opponent", "rank": 1, "hw": 2, "hd": 1, "hl": 0, "hpts": 7, "fpts": 199, "mv": 0},
-            {"uid": "u_shai", "rank": 2, "hw": 2, "hd": 1, "hl": 0, "hpts": 7, "fpts": 178, "mv": 0},
-            {"uid": "u_yonatan", "rank": 3, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 213, "mv": 0},
-            {"uid": "u_nadav", "rank": 4, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 207, "mv": 0},
-            {"uid": USER_UID, "rank": 5, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 188, "mv": 0},
-            {"uid": "u_roy", "rank": 6, "hw": 1, "hd": 0, "hl": 2, "hpts": 3, "fpts": 192, "mv": 0},
-            {"uid": "u_yuval", "rank": 7, "hw": 0, "hd": 0, "hl": 3, "hpts": 0, "fpts": 196, "mv": 0},
-            {"uid": "u_ido", "rank": 8, "hw": 0, "hd": 0, "hl": 3, "hpts": 0, "fpts": 174, "mv": 0},
-        ]
-    }
-    db.collection("leagues").document(mock_lid).collection("standings").document("current").set(standings_data)
+    # 10. Generate Organic Standings
+    h2h_stats = {m["uid"]: {"hw": 0, "hd": 0, "hl": 0, "hpts": 0, "fpts": 0} for m in mock_managers}
+    for gw in (1, 2, 3):
+        for A, B in schedule_by_gw[gw]:
+            ap = manager_scores_by_gw[gw][A]
+            bp = manager_scores_by_gw[gw][B]
+            h2h_stats[A]["fpts"] += ap
+            h2h_stats[B]["fpts"] += bp
+            if ap > bp:
+                h2h_stats[A]["hw"] += 1
+                h2h_stats[A]["hpts"] += 3
+                h2h_stats[B]["hl"] += 1
+            elif bp > ap:
+                h2h_stats[B]["hw"] += 1
+                h2h_stats[B]["hpts"] += 3
+                h2h_stats[A]["hl"] += 1
+            else:
+                h2h_stats[A]["hd"] += 1
+                h2h_stats[A]["hpts"] += 1
+                h2h_stats[B]["hd"] += 1
+                h2h_stats[B]["hpts"] += 1
+                
+    # Sort managers by H2H points, then fantasy points
+    sorted_managers = sorted(mock_managers, key=lambda m: (h2h_stats[m["uid"]]["hpts"], h2h_stats[m["uid"]]["fpts"]), reverse=True)
+    standings_managers = []
+    for rank, m in enumerate(sorted_managers, 1):
+        uid = m["uid"]
+        stats = h2h_stats[uid]
+        standings_managers.append({
+            "uid": uid,
+            "rank": rank,
+            "hw": stats["hw"],
+            "hd": stats["hd"],
+            "hl": stats["hl"],
+            "hpts": stats["hpts"],
+            "fpts": stats["fpts"],
+            "mv": 0,
+            "knockedOut": False
+        })
+    db.collection("leagues").document(mock_lid).collection("standings").document("current").set({"managers": standings_managers})
     
+    # 11. Seed Knockout Bracket with Top 4 Qualifiers
     bracket_data = {
         "seeds": [
-            {"uid": "u_opponent", "seed": 1},
-            {"uid": "u_shai", "seed": 2},
-            {"uid": "u_yonatan", "seed": 3},
-            {"uid": USER_UID, "seed": 4},
+            {"uid": standings_managers[0]["uid"], "seed": 1},
+            {"uid": standings_managers[1]["uid"], "seed": 2},
+            {"uid": standings_managers[2]["uid"], "seed": 3},
+            {"uid": standings_managers[3]["uid"], "seed": 4},
         ],
         "rounds": {
             "sf": [
-                {"id": "sf1", "home": "u_opponent", "away": USER_UID, "homeSeed": 1, "awaySeed": 4, "gw": 4},
-                {"id": "sf2", "home": "u_shai", "away": "u_yonatan", "homeSeed": 2, "awaySeed": 3, "gw": 4},
+                {"id": "sf1", "home": standings_managers[0]["uid"], "away": standings_managers[3]["uid"], "homeSeed": 1, "awaySeed": 4, "gw": 4},
+                {"id": "sf2", "home": standings_managers[1]["uid"], "away": standings_managers[2]["uid"], "homeSeed": 2, "awaySeed": 3, "gw": 4},
             ],
             "final": [
                 {"id": "f1", "home": None, "away": None, "homeSrc": "sf1", "awaySrc": "sf2", "gw": 5}

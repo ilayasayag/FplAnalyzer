@@ -1,0 +1,709 @@
+{
+  "Al Mahdi Soliman": {
+    "id": 16831,
+    "name": "Al Mahdi Soliman",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "EGY"
+  },
+  "B. Ergashev": {
+    "id": 72120,
+    "name": "B. Ergashev",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "UZB"
+  },
+  "M. Gu\u00e9hi": {
+    "id": 67971,
+    "name": "M. Gu\u00e9hi",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "ENG"
+  },
+  "A. Abdi": {
+    "id": 49583,
+    "name": "A. Abdi",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "TUN"
+  },
+  "A. Kaplan": {
+    "id": 278159,
+    "name": "A. Kaplan",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "TUR"
+  },
+  "A. Ralston": {
+    "id": 1115,
+    "name": "A. Ralston",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SCO"
+  },
+  "A. Trusty": {
+    "id": 50737,
+    "name": "A. Trusty",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "USA"
+  },
+  "J. Kimmich": {
+    "id": 502,
+    "name": "J. Kimmich",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "GER"
+  },
+  "A. Adli": {
+    "id": 129682,
+    "name": "A. Adli",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "MOR"
+  },
+  "A. Karazor": {
+    "id": 24963,
+    "name": "A. Karazor",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "TUR"
+  },
+  "A. Rabiot": {
+    "id": 272,
+    "name": "A. Rabiot",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "FRA"
+  },
+  "A. Tchouam\u00e9ni": {
+    "id": 1271,
+    "name": "A. Tchouam\u00e9ni",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "FRA"
+  },
+  "Kylian Mbapp\u00e9": {
+    "id": 278,
+    "name": "Kylian Mbapp\u00e9",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "FRA"
+  },
+  "A. Diallo": {
+    "id": 157997,
+    "name": "A. Diallo",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "CIV"
+  },
+  "A. El Kaabi": {
+    "id": 2722,
+    "name": "A. El Kaabi",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "MOR"
+  },
+  "Alisson Becker": {
+    "id": 280,
+    "name": "Alisson Becker",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "BRA"
+  },
+  "A. Pierre": {
+    "id": 174768,
+    "name": "A. Pierre",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "HAI"
+  },
+  "I. Konat\u00e9": {
+    "id": 1145,
+    "name": "I. Konat\u00e9",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "FRA"
+  },
+  "Pedro Porro": {
+    "id": 47519,
+    "name": "Pedro Porro",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SPA"
+  },
+  "A. Khusanov": {
+    "id": 360114,
+    "name": "A. Khusanov",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "UZB"
+  },
+  "A. Robertson": {
+    "id": 289,
+    "name": "A. Robertson",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SCO"
+  },
+  "Aymeric Laporte": {
+    "id": 622,
+    "name": "Aymeric Laporte",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SPA"
+  },
+  "A. Ahmed": {
+    "id": 362145,
+    "name": "A. Ahmed",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "CAN"
+  },
+  "A. Jasim": {
+    "id": 542644,
+    "name": "A. Jasim",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "IRQ"
+  },
+  "A. Stiller": {
+    "id": 137210,
+    "name": "A. Stiller",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "GER"
+  },
+  "A. Wharton": {
+    "id": 288102,
+    "name": "A. Wharton",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "ENG"
+  },
+  "B. Aaronson": {
+    "id": 50739,
+    "name": "B. Aaronson",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "USA"
+  },
+  "Lamine Yamal": {
+    "id": 386828,
+    "name": "Lamine Yamal",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "SPA"
+  },
+  "A. Canobbio": {
+    "id": 51603,
+    "name": "A. Canobbio",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "URU"
+  },
+  "A. Elanga": {
+    "id": 153430,
+    "name": "A. Elanga",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "SWE"
+  },
+  "Unai Sim\u00f3n": {
+    "id": 47270,
+    "name": "Unai Sim\u00f3n",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "SPA"
+  },
+  "A. Lafont": {
+    "id": 30393,
+    "name": "A. Lafont",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "CIV"
+  },
+  "Gabriel Magalh\u00e3es": {
+    "id": 22224,
+    "name": "Gabriel Magalh\u00e3es",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "BRA"
+  },
+  "A. Ait Boudlal": {
+    "id": 417830,
+    "name": "A. Ait Boudlal",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "MOR"
+  },
+  "A. Robinson": {
+    "id": 19549,
+    "name": "A. Robinson",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "USA"
+  },
+  "Ant\u00f3nio Silva": {
+    "id": 331832,
+    "name": "Ant\u00f3nio Silva",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "POR"
+  },
+  "B. Karimov": {
+    "id": 416964,
+    "name": "B. Karimov",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "UZB"
+  },
+  "M. Olise": {
+    "id": 19617,
+    "name": "M. Olise",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "FRA"
+  },
+  "J. Rodr\u00edguez": {
+    "id": 517,
+    "name": "J. Rodr\u00edguez",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "COL"
+  },
+  "A. Ounahi": {
+    "id": 129678,
+    "name": "A. Ounahi",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "MOR"
+  },
+  "A. Stach": {
+    "id": 177665,
+    "name": "A. Stach",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "GER"
+  },
+  "A. Witsel": {
+    "id": 20,
+    "name": "A. Witsel",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "BEL"
+  },
+  "A. Budimir": {
+    "id": 46746,
+    "name": "A. Budimir",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "CRO"
+  },
+  "A. Ezzalzouli": {
+    "id": 181421,
+    "name": "A. Ezzalzouli",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "MOR"
+  },
+  "A. Gonz\u00e1lez": {
+    "id": 291713,
+    "name": "A. Gonz\u00e1lez",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "MEX"
+  },
+  "A. Ramsdale": {
+    "id": 20355,
+    "name": "A. Ramsdale",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "ENG"
+  },
+  "Ahmed El Shenawy": {
+    "id": 2648,
+    "name": "Ahmed El Shenawy",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "EGY"
+  },
+  "A. Amenda": {
+    "id": 162414,
+    "name": "A. Amenda",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SWI"
+  },
+  "A. Freeman": {
+    "id": 355994,
+    "name": "A. Freeman",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "USA"
+  },
+  "A. Theate": {
+    "id": 204043,
+    "name": "A. Theate",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "BEL"
+  },
+  "Ahmed Abou El Fotouh": {
+    "id": 2649,
+    "name": "Ahmed Abou El Fotouh",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "EGY"
+  },
+  "B. Mechele": {
+    "id": 69,
+    "name": "B. Mechele",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "BEL"
+  },
+  "Bruno Fernandes": {
+    "id": 1485,
+    "name": "Bruno Fernandes",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "POR"
+  },
+  "A. Jashari": {
+    "id": 264705,
+    "name": "A. Jashari",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "SWI"
+  },
+  "A. Mac Allister": {
+    "id": 6716,
+    "name": "A. Mac Allister",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "ARG"
+  },
+  "A. Onana": {
+    "id": 162714,
+    "name": "A. Onana",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "BEL"
+  },
+  "Gabriel Martinelli": {
+    "id": 127769,
+    "name": "Gabriel Martinelli",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "BRA"
+  },
+  "A. Bonny": {
+    "id": 275651,
+    "name": "A. Bonny",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "CIV"
+  },
+  "A. Dahmen": {
+    "id": 49424,
+    "name": "A. Dahmen",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "TUN"
+  },
+  "A. N\u00fcbel": {
+    "id": 399,
+    "name": "A. N\u00fcbel",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "GER"
+  },
+  "Marc Cucurella": {
+    "id": 47380,
+    "name": "Marc Cucurella",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SPA"
+  },
+  "A. Arous": {
+    "id": 393977,
+    "name": "A. Arous",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "TUN"
+  },
+  "A. Giay": {
+    "id": 306706,
+    "name": "A. Giay",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "ARG"
+  },
+  "A. Martha": {
+    "id": 162199,
+    "name": "A. Martha",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "CUW"
+  },
+  "A. R\u00fcdiger": {
+    "id": 2285,
+    "name": "A. R\u00fcdiger",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "GER"
+  },
+  "A. Irving": {
+    "id": 68466,
+    "name": "A. Irving",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "SCO"
+  },
+  "A. Sher": {
+    "id": 48129,
+    "name": "A. Sher",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "IRQ"
+  },
+  "Ahmed Koka": {
+    "id": 292695,
+    "name": "Ahmed Koka",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "EGY"
+  },
+  "Amir Al Ammari": {
+    "id": 47792,
+    "name": "Amir Al Ammari",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "IRQ"
+  },
+  "B. El Khannouss": {
+    "id": 340573,
+    "name": "B. El Khannouss",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "MOR"
+  },
+  "O. Demb\u00e9l\u00e9": {
+    "id": 153,
+    "name": "O. Demb\u00e9l\u00e9",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "FRA"
+  },
+  "L. Messi": {
+    "id": 154,
+    "name": "L. Messi",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "ARG"
+  },
+  "Endrick": {
+    "id": 377122,
+    "name": "Endrick",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "BRA"
+  },
+  "A. Gunn": {
+    "id": 18933,
+    "name": "A. Gunn",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "SCO"
+  },
+  "A. Hakimi": {
+    "id": 9,
+    "name": "A. Hakimi",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "MOR"
+  },
+  "A. Bardakc\u0131": {
+    "id": 61837,
+    "name": "A. Bardakc\u0131",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "TUR"
+  },
+  "A. Mendy": {
+    "id": 313937,
+    "name": "A. Mendy",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SEN"
+  },
+  "A. Seck": {
+    "id": 8450,
+    "name": "A. Seck",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "SEN"
+  },
+  "Ahmed Eid": {
+    "id": 190576,
+    "name": "Ahmed Eid",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "EGY"
+  },
+  "A. Ben Slimane": {
+    "id": 199310,
+    "name": "A. Ben Slimane",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "TUN"
+  },
+  "A. G\u02bbaniyev": {
+    "id": 73520,
+    "name": "A. G\u02bbaniyev",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "UZB"
+  },
+  "A. Saelemaekers": {
+    "id": 1417,
+    "name": "A. Saelemaekers",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "BEL"
+  },
+  "Akam Rahman": {
+    "id": 453073,
+    "name": "Akam Rahman",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "IRQ"
+  },
+  "B. Gilmour": {
+    "id": 130423,
+    "name": "B. Gilmour",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "SCO"
+  },
+  "E. Haaland": {
+    "id": 1100,
+    "name": "E. Haaland",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "NOR"
+  },
+  "Vin\u00edcius J\u00fanior": {
+    "id": 762,
+    "name": "Vin\u00edcius J\u00fanior",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "BRA"
+  },
+  "Mikel Oyarzabal": {
+    "id": 47323,
+    "name": "Mikel Oyarzabal",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "SPA"
+  },
+  "A. Bay\u0131nd\u0131r": {
+    "id": 50132,
+    "name": "A. Bay\u0131nd\u0131r",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "TUR"
+  },
+  "Ahmed Basil": {
+    "id": 197933,
+    "name": "Ahmed Basil",
+    "position": 1,
+    "positionName": "GK",
+    "teamIso": "IRQ"
+  },
+  "Nuno Mendes": {
+    "id": 263482,
+    "name": "Nuno Mendes",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "POR"
+  },
+  "A. Ben Hmida": {
+    "id": 135059,
+    "name": "A. Ben Hmida",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "TUN"
+  },
+  "A. Salah-Eddine": {
+    "id": 162451,
+    "name": "A. Salah-Eddine",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "MOR"
+  },
+  "Ahmed Hasan Al Reeshawee": {
+    "id": 292253,
+    "name": "Ahmed Hasan Al Reeshawee",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "IRQ"
+  },
+  "B. White": {
+    "id": 19959,
+    "name": "B. White",
+    "position": 2,
+    "positionName": "DEF",
+    "teamIso": "ENG"
+  },
+  "A. Guti\u00e9rrez": {
+    "id": 35573,
+    "name": "A. Guti\u00e9rrez",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "MEX"
+  },
+  "A. G\u00fcler": {
+    "id": 291964,
+    "name": "A. G\u00fcler",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "TUR"
+  },
+  "A. Morris": {
+    "id": 201714,
+    "name": "A. Morris",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "USA"
+  },
+  "A. Mozgovoy": {
+    "id": 73522,
+    "name": "A. Mozgovoy",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "UZB"
+  },
+  "A. Sanches": {
+    "id": 290646,
+    "name": "A. Sanches",
+    "position": 3,
+    "positionName": "MID",
+    "teamIso": "SWI"
+  },
+  "Raphinha": {
+    "id": 1496,
+    "name": "Raphinha",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "BRA"
+  },
+  "J. \u00c1lvarez": {
+    "id": 6009,
+    "name": "J. \u00c1lvarez",
+    "position": 4,
+    "positionName": "FWD",
+    "teamIso": "ARG"
+  }
+}
