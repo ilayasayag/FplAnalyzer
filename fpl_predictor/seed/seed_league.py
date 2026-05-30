@@ -1,0 +1,516 @@
+import os
+import json
+import unicodedata
+import firebase_admin
+from firebase_admin import firestore
+from google.cloud.firestore_v1 import SERVER_TIMESTAMP
+from fpl_predictor.game.wc_scoring import process_fixture, finalize_gw
+
+POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+
+def normalize_name(name):
+    name = name.replace("&apos;", "'").replace("’", "'").replace("ʻ", "'").replace("ʻ", "'")
+    normalized = unicodedata.normalize('NFKD', name).encode('ASCII', 'ignore').decode('utf-8')
+    return normalized.lower().strip()
+
+def match_player_event(p_name, ev_name):
+    n_p = normalize_name(p_name)
+    n_e = normalize_name(ev_name)
+    if n_e == n_p or n_e in n_p or n_p in n_e:
+        return True
+    parts_p = n_p.split()
+    parts_e = n_e.split()
+    if len(parts_p) > 0 and len(parts_e) > 0:
+        if parts_p[-1] == parts_e[-1] and parts_p[0][0] == parts_e[0][0]:
+            return True
+    return False
+
+def select_lineup(squad):
+    gks = [p for p in squad if p["position"] == 1]
+    defs = [p for p in squad if p["position"] == 2]
+    mids = [p for p in squad if p["position"] == 3]
+    fwds = [p for p in squad if p["position"] == 4]
+    
+    starting = [
+        gks[0]["playerId"],
+        defs[0]["playerId"], defs[1]["playerId"], defs[2]["playerId"], defs[3]["playerId"],
+        mids[0]["playerId"], mids[1]["playerId"], mids[2]["playerId"], mids[3]["playerId"],
+        fwds[0]["playerId"], fwds[1]["playerId"]
+    ]
+    bench = [
+        gks[1]["playerId"],
+        defs[4]["playerId"],
+        mids[4]["playerId"],
+        fwds[2]["playerId"]
+    ]
+    
+    def get_player_quality(p):
+        pid = int(p["playerId"])
+        premium = {
+            154: 1,      # Messi
+            278: 2,      # Mbappe
+            762: 3,      # Vinicius Jr
+            129718: 4,   # Bellingham
+            386828: 5,   # Yamal
+            1485: 6,     # Bruno Fernandes
+            203224: 7,   # Wirtz
+            133609: 8,   # Pedri
+            280: 9,      # Alisson
+            22221: 10,   # Maignan
+            730: 11,     # Courtois
+            290: 12,     # van Dijk
+            2285: 13,    # Rudiger
+            9: 14,       # Hakimi
+            257: 15,     # Marquinhos
+            629: 16,     # De Bruyne
+            631: 17,     # Foden
+            152982: 18,  # Palmer
+            754: 19,     # Modric
+            756: 20,     # Valverde
+            907: 21,     # Lukaku
+            247: 22,     # Gakpo
+            51617: 23,   # Nunez
+            377122: 24,  # Endrick
+            44: 25       # Rodri
+        }
+        if pid in premium:
+            return premium[pid]
+        return pid + 1000000
+
+    starting_players = [p for p in squad if p["playerId"] in starting]
+    starting_attackers = [p for p in starting_players if p["position"] in (3, 4)]
+    starting_attackers.sort(key=get_player_quality)
+    
+    captain = starting_attackers[0]["playerId"] if starting_attackers else starting[0]
+    vice = starting_attackers[1]["playerId"] if len(starting_attackers) > 1 else starting[1]
+    
+    return {
+        "starting": starting,
+        "bench": bench,
+        "formation": [1, 4, 4, 2],
+        "captain": captain,
+        "viceCaptain": vice,
+        "locked": True,
+        "autoSubsMade": []
+    }
+
+def seed_tournament_data(db):
+    print("🌱 Seeding tournament teams and players from wc_seeded_data.json...")
+    json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wc_seeded_data.json")
+    with open(json_path, "r", encoding="utf-8") as f:
+        data = json.load(f)
+        
+    teams = data.get("teams", [])
+    players = data.get("players", [])
+    
+    for t in teams:
+        db.collection("wc_teams").document(str(t["id"])).set(t)
+        
+    for p in players:
+        db.collection("wc_players").document(str(p["id"])).set(p)
+        
+    # missing stars
+    missing_stars = [
+        {
+            "draftRank": 11, "name": "Bukayo Saka", "position": 3, "teamIso": "ENG",
+            "id": 99901, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99901.png",
+            "teamId": 10, "positionName": "MID", "teamName": "England"
+        },
+        {
+            "draftRank": 18, "name": "Cristiano Ronaldo", "position": 4, "teamIso": "POR",
+            "id": 99902, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99902.png",
+            "teamId": 27, "positionName": "FWD", "teamName": "Portugal"
+        },
+        {
+            "draftRank": 7, "name": "Harry Kane", "position": 4, "teamIso": "ENG",
+            "id": 99903, "eliminated": False, "photo": "https://media.api-sports.io/football/players/99903.png",
+            "teamId": 10, "positionName": "FWD", "teamName": "England"
+        }
+    ]
+    for star in missing_stars:
+        db.collection("wc_players").document(str(star["id"])).set(star)
+        
+    # Write tournament config if not present
+    cfg_ref = db.collection("wc_config").document("tournament")
+    if not cfg_ref.get().exists:
+        cfg_ref.set({
+            "rules": {
+                "scoring": {
+                    "appearUnder60": 1,
+                    "appear60Plus": 2,
+                    "goalPoints": {"1": 6, "2": 6, "3": 5, "4": 4},
+                    "assistPoints": 3,
+                    "csPoints": {"1": 4, "2": 4, "3": 1, "4": 0},
+                    "gcPointsPer2": {"1": -1, "2": -1, "3": 0, "4": 0},
+                    "yellowCardPoints": -1,
+                    "redCardPoints": -3,
+                    "ownGoalPoints": -2,
+                    "penaltyMissPoints": -2,
+                    "penaltySavePoints": 5,
+                    "savesPerPointGk": 3
+                }
+            },
+            "adminUids": []
+        })
+
+def seed_mock_league(db, USER_UID, USER_NAME):
+    mock_lid = "lg_mock_draft"
+    print(f"🏆 Seeding Mock League {mock_lid}...")
+    
+    # 1. Setup Mock League metadata
+    db.collection("leagues").document(mock_lid).set({
+        "leagueId": mock_lid,
+        "name": "WC 2026 Expert Mock Draft",
+        "inviteCode": "MOCKWC26",
+        "adminUid": "u_roy",
+        "format": "h2h",
+        "status": "group_phase",  # Starts in group_phase, finalized sequentially
+        "maxMembers": 8,
+        "pickTimer": 60,
+        "tradeApproval": "vote",
+        "knockoutStartGw": 4,
+        "leaguePhaseGws": [1, 2, 3],
+        "knockoutQualifiers": 4,
+        "currentGw": 1,
+        "draftAt": None,
+        "seasonStartedAt": None,
+        "createdAt": SERVER_TIMESTAMP,
+    })
+    
+    # 2. Setup mock managers
+    mock_managers = [
+        {"uid": "u_roy", "name": "GoldenGoalFF", "team": "GoldenGoalFF's Squad", "flag": "EGY", "draftPos": 1, "waiverPri": 7},
+        {"uid": "u_yonatan", "name": "FPLtfs", "team": "FPLtfs's Squad", "flag": "BRA", "draftPos": 2, "waiverPri": 6},
+        {"uid": USER_UID, "name": USER_NAME, "team": "FPLFRAN's Squad", "flag": "SPA", "draftPos": 3, "waiverPri": 5},
+        {"uid": "u_nadav", "name": "LloydHassell", "team": "LloydHassell's Squad", "flag": "ENG", "draftPos": 4, "waiverPri": 4},
+        {"uid": "u_yuval", "name": "nordburfor", "team": "nordburfor's Squad", "flag": "TUN", "draftPos": 5, "waiverPri": 3},
+        {"uid": "u_ido", "name": "FPLMate", "team": "FPLMate's Squad", "flag": "SCO", "draftPos": 6, "waiverPri": 2},
+        {"uid": "u_shai", "name": "CantWinFPL", "team": "CantWinFPL's Squad", "flag": "TUR", "draftPos": 7, "waiverPri": 1},
+        {"uid": "u_opponent", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
+    ]
+    
+    for m in mock_managers:
+        db.collection("leagues").document(mock_lid).collection("members").document(m["uid"]).set({
+            "displayName": m["name"],
+            "teamName": m["team"],
+            "flag": m["flag"],
+            "draftPosition": m["draftPos"],
+            "waiverPriority": m["waiverPri"],
+            "joinedAt": SERVER_TIMESTAMP,
+        })
+        
+    # 3. Load mapped squads
+    squad_ids_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "squad_ids.json")
+    with open(squad_ids_path, "r", encoding="utf-8") as f:
+        squad_data_raw = json.load(f)
+        
+    squads = {}
+    for k, v in squad_data_raw.items():
+        uid = USER_UID if k == "USER_UID" else k
+        squads[uid] = v
+        
+    # Generate squad for Opponent XI
+    seeded_json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wc_seeded_data.json")
+    with open(seeded_json_path, "r", encoding="utf-8") as f:
+        seeded_data = json.load(f)
+    all_players = seeded_data.get("players", [])
+    
+    drafted_player_ids = set()
+    for squad in squads.values():
+        for p in squad:
+            drafted_player_ids.add(int(p["id"]))
+            
+    available_players = [p for p in all_players if int(p["id"]) not in drafted_player_ids]
+    available_players.sort(key=lambda p: p.get("draftRank", 999))
+    
+    opp_gks = [p for p in available_players if p["position"] == 1][:2]
+    opp_defs = [p for p in available_players if p["position"] == 2][:5]
+    opp_mids = [p for p in available_players if p["position"] == 3][:5]
+    opp_fwds = [p for p in available_players if p["position"] == 4][:3]
+    
+    opp_squad = opp_gks + opp_defs + opp_mids + opp_fwds
+    squads["u_opponent"] = []
+    for idx, p in enumerate(opp_squad):
+        squads["u_opponent"].append({
+            "id": int(p["id"]),
+            "name": p["name"],
+            "position": p["position"],
+            "positionName": p["positionName"],
+            "teamIso": p["teamIso"]
+        })
+        
+    # Write squads to Firestore
+    for uid, squad in squads.items():
+        squad_list = []
+        for idx, p in enumerate(squad):
+            squad_list.append({
+                "playerId": int(p["id"]),
+                "draftedRound": (idx // 8) + 1,
+                "position": int(p["position"]),
+                "name": p["name"],
+                "positionName": p["positionName"],
+                "teamIso": p["teamIso"],
+                "eliminated": False,
+                "teamId": p.get("teamId", 0),
+                "teamName": p.get("teamName", "")
+            })
+        db.collection("leagues").document(mock_lid).collection("squads").document(uid).set({
+            "players": squad_list
+        })
+        
+    # 4. H2H schedule & events mapping
+    schedule_by_gw = {
+        1: [("u_roy", "u_shai"), ("u_yonatan", "u_opponent"), ("u_nadav", "u_ido"), (USER_UID, "u_yuval")],
+        2: [("u_roy", "u_opponent"), ("u_yonatan", "u_ido"), ("u_nadav", "u_yuval"), (USER_UID, "u_shai")],
+        3: [("u_roy", "u_ido"), ("u_yonatan", "u_yuval"), ("u_opponent", "u_shai"), (USER_UID, "u_nadav")]
+    }
+    
+    for gw, matches in schedule_by_gw.items():
+        match_list = [{"home": m[0], "away": m[1]} for m in matches]
+        db.collection("leagues").document(mock_lid).collection("schedule").document(str(gw)).set({
+            "gw": gw,
+            "matches": match_list
+        })
+        
+    fixtures_data = {
+        1: [
+            {"id": 101, "home": "GER", "away": "CUW", "score": {"home": 5, "away": 0}},
+            {"id": 102, "home": "SPA", "away": "CPV", "score": {"home": 4, "away": 1}},
+            {"id": 103, "home": "NOR", "away": "IRQ", "score": {"home": 3, "away": 1}},
+            {"id": 104, "home": "COL", "away": "UZB", "score": {"home": 5, "away": 0}},
+            {"id": 105, "home": "FRA", "away": "SEN", "score": {"home": 5, "away": 0}},
+            {"id": 106, "home": "URU", "away": "KSA", "score": {"home": 4, "away": 1}},
+            {"id": 107, "home": "BRA", "away": "MOR", "score": {"home": 5, "away": 0}},
+            {"id": 108, "home": "POR", "away": "COD", "score": {"home": 6, "away": 0}},
+            {"id": 109, "home": "SWI", "away": "QAT", "score": {"home": 2, "away": 1}},
+            {"id": 110, "home": "MEX", "away": "RSA", "score": {"home": 2, "away": 2}},
+            {"id": 111, "home": "ENG", "away": "HAI", "score": {"home": 4, "away": 1}},
+            {"id": 112, "home": "ARG", "away": "JOR", "score": {"home": 4, "away": 0}},
+            {"id": 113, "home": "NED", "away": "TUN", "score": {"home": 4, "away": 1}},
+            {"id": 114, "home": "BEL", "away": "ALG", "score": {"home": 5, "away": 1}},
+            {"id": 115, "home": "USA", "away": "PAR", "score": {"home": 3, "away": 1}},
+            {"id": 116, "home": "CAN", "away": "ECU", "score": {"home": 2, "away": 0}}
+        ],
+        2: [
+            {"id": 201, "home": "GER", "away": "NOR", "score": {"home": 3, "away": 1}},
+            {"id": 202, "home": "SPA", "away": "COL", "score": {"home": 3, "away": 0}},
+            {"id": 203, "home": "FRA", "away": "URU", "score": {"home": 4, "away": 0}},
+            {"id": 204, "home": "BRA", "away": "POR", "score": {"home": 1, "away": 1}},
+            {"id": 205, "home": "ENG", "away": "ARG", "score": {"home": 1, "away": 0}},
+            {"id": 206, "home": "NED", "away": "BEL", "score": {"home": 2, "away": 2}},
+            {"id": 207, "home": "USA", "away": "CAN", "score": {"home": 0, "away": 2}},
+            {"id": 208, "home": "CUW", "away": "IRQ", "score": {"home": 2, "away": 0}},
+            {"id": 209, "home": "CPV", "away": "UZB", "score": {"home": 0, "away": 1}},
+            {"id": 210, "home": "SEN", "away": "KSA", "score": {"home": 4, "away": 2}},
+            {"id": 211, "home": "MOR", "away": "COD", "score": {"home": 2, "away": 0}},
+            {"id": 212, "home": "SWI", "away": "MEX", "score": {"home": 2, "away": 2}},
+            {"id": 213, "home": "QAT", "away": "RSA", "score": {"home": 2, "away": 2}},
+            {"id": 214, "home": "HAI", "away": "JOR", "score": {"home": 2, "away": 1}},
+            {"id": 215, "home": "TUN", "away": "ALG", "score": {"home": 0, "away": 1}},
+            {"id": 216, "home": "PAR", "away": "ECU", "score": {"home": 2, "away": 0}}
+        ],
+        3: [
+            {"id": 301, "home": "GER", "away": "IRQ", "score": {"home": 4, "away": 1}},
+            {"id": 302, "home": "SPA", "away": "UZB", "score": {"home": 5, "away": 0}},
+            {"id": 303, "home": "FRA", "away": "KSA", "score": {"home": 6, "away": 0}},
+            {"id": 304, "home": "BRA", "away": "COD", "score": {"home": 6, "away": 1}},
+            {"id": 305, "home": "ENG", "away": "JOR", "score": {"home": 4, "away": 1}},
+            {"id": 306, "home": "NED", "away": "ALG", "score": {"home": 3, "away": 0}},
+            {"id": 307, "home": "USA", "away": "ECU", "score": {"home": 2, "away": 1}},
+            {"id": 308, "home": "NOR", "away": "CUW", "score": {"home": 4, "away": 0}},
+            {"id": 309, "home": "COL", "away": "CPV", "score": {"home": 5, "away": 0}},
+            {"id": 310, "home": "URU", "away": "SEN", "score": {"home": 4, "away": 0}},
+            {"id": 311, "home": "POR", "away": "MOR", "score": {"home": 4, "away": 0}},
+            {"id": 312, "home": "SWI", "away": "RSA", "score": {"home": 0, "away": 1}},
+            {"id": 313, "home": "MEX", "away": "QAT", "score": {"home": 2, "away": 1}},
+            {"id": 314, "home": "CAN", "away": "PAR", "score": {"home": 2, "away": 0}},
+            {"id": 315, "home": "BEL", "away": "TUN", "score": {"home": 3, "away": 0}},
+            {"id": 316, "home": "CRO", "away": "JPN", "score": {"home": 3, "away": 0}}
+        ]
+    }
+    
+    conceded_gw1 = {
+        "GER": 0, "CUW": 5, "SPA": 1, "CPV": 4, "NOR": 1, "IRQ": 3, "COL": 0, "UZB": 5,
+        "FRA": 0, "SEN": 5, "URU": 1, "KSA": 4, "BRA": 0, "MOR": 5, "POR": 0, "COD": 6,
+        "SWI": 1, "QAT": 2, "MEX": 2, "RSA": 2, "ENG": 1, "HAI": 4, "ARG": 0, "JOR": 4,
+        "NED": 1, "TUN": 4, "BEL": 1, "ALG": 5, "USA": 1, "PAR": 3, "CAN": 0, "ECU": 2
+    }
+    conceded_gw2 = {
+        "GER": 1, "NOR": 3, "SPA": 0, "COL": 3, "FRA": 0, "URU": 4, "BRA": 1, "POR": 1,
+        "ENG": 0, "ARG": 1, "NED": 2, "BEL": 2, "USA": 2, "CAN": 0, "CUW": 0, "IRQ": 2,
+        "CPV": 1, "UZB": 0, "SEN": 2, "KSA": 4, "MOR": 0, "COD": 2, "SWI": 2, "MEX": 2,
+        "QAT": 2, "RSA": 2, "HAI": 1, "JOR": 2, "TUN": 1, "ALG": 0, "PAR": 0, "ECU": 2
+    }
+    conceded_gw3 = {
+        "GER": 1, "IRQ": 4, "SPA": 0, "UZB": 5, "FRA": 0, "KSA": 6, "BRA": 1, "COD": 6,
+        "ENG": 1, "JOR": 4, "NED": 0, "ALG": 3, "USA": 1, "ECU": 2, "NOR": 0, "CUW": 4,
+        "COL": 0, "CPV": 5, "URU": 0, "SEN": 4, "POR": 0, "MOR": 4, "SWI": 1, "RSA": 0,
+        "MEX": 1, "QAT": 2, "CAN": 0, "PAR": 2, "BEL": 0, "TUN": 3, "CRO": 0, "JPN": 3
+    }
+    
+    events_gw1 = [
+        ("Pedri", "goal"), ("Aymeric Laporte", "goal"), ("Borja Iglesias", "goal"),
+        ("Borja Iglesias", "assist"), ("Willy Semedo", "goal"), ("E. Haaland", "goal"),
+        ("Amir Al Ammari", "assist"), ("J. Rodríguez", "assist"), ("A. Tchouaméni", "assist"),
+        ("Kylian Mbappé", "goal"), ("O. Dembélé", "assist"), ("A. Rabiot", "goal"),
+        ("A. Rabiot", "assist"), ("D. Núñez", "goal"), ("Gabriel Martinelli", "goal"),
+        ("Raphinha", "goal"), ("Gonçalo Ramos", "goal"), ("Gonçalo Ramos", "goal"),
+        ("João Neves", "goal"), ("João Neves", "assist"), ("Rúben Neves", "goal"),
+        ("A. Jashari", "assist"), ("P. Foden", "goal"), ("E. Anderson", "assist")
+    ]
+    events_gw2 = [
+        ("Borja Iglesias", "goal"), ("Aymeric Laporte", "goal"), ("Mikel Oyarzabal", "goal"),
+        ("A. Tchouaméni", "goal"), ("A. Rabiot", "assist"), ("Gabriel Martinelli", "goal"),
+        ("Gabriel Magalhães", "assist"), ("A. Amenda", "assist"), ("B. Dia", "goal"),
+        ("O. O'runov", "goal")
+    ]
+    events_gw3 = [
+        ("Borja Iglesias", "goal"), ("Yeremy Pino", "goal"), ("Lamine Yamal", "goal"),
+        ("O. Dembélé", "goal"), ("O. Dembélé", "goal"), ("O. Dembélé", "assist"),
+        ("M. Olise", "assist"), ("A. Rabiot", "assist"), ("A. Tchouaméni", "assist"),
+        ("Vinícius Júnior", "goal"), ("Vinícius Júnior", "assist"), ("Endrick", "goal"),
+        ("Raphinha", "goal"), ("J. Stones", "goal"), ("J. Bowen", "goal"),
+        ("J. Bowen", "assist"), ("C. Gakpo", "goal"), ("B. Aaronson", "assist"),
+        ("E. Haaland", "goal"), ("J. Rodríguez", "goal"), ("J. Rodríguez", "assist"),
+        ("A. Canobbio", "goal"), ("A. Canobbio", "goal"), ("Gonçalo Ramos", "goal"),
+        ("Gonçalo Ramos", "goal"), ("Rúben Neves", "assist"), ("António Silva", "goal")
+    ]
+
+    all_drafted_players = {}
+    for uid, squad in squads.items():
+        for p in squad:
+            all_drafted_players[int(p["id"])] = p
+
+    # Set up lineups for GW1, GW2, GW3
+    for uid, squad in squads.items():
+        squad_rich = [{"playerId": int(p["id"]), "position": p["position"]} for p in squad]
+        for gw in (1, 2, 3):
+            lineup = select_lineup(squad_rich)
+            db.collection("leagues").document(mock_lid).collection("lineups").document(f"{uid}_{gw}").set(lineup)
+
+    gw_params = {
+        1: (events_gw1, conceded_gw1),
+        2: (events_gw2, conceded_gw2),
+        3: (events_gw3, conceded_gw3)
+    }
+
+    # Run game engine sequential finalization
+    for gw in (1, 2, 3):
+        print(f"🎬 Processing GW {gw}...")
+        events, conceded_map = gw_params[gw]
+        
+        # Write un-processed fixtures first
+        for f in fixtures_data[gw]:
+            db.collection("wc_fixtures").document(str(f["id"])).set({
+                "id": f["id"],
+                "gw": gw,
+                "wcRound": f"Group Stage · MD{gw}",
+                "homeTeam": {"isoCode": f["home"], "name": f["home"]},
+                "awayTeam": {"isoCode": f["away"], "name": f["away"]},
+                "kickoff": SERVER_TIMESTAMP,
+                "status": "FT",
+                "score": f["score"],
+                "processedForFantasy": False
+            })
+            
+            # Construct raw_stats for process_fixture
+            home_team = f["home"]
+            away_team = f["away"]
+            
+            home_players = [p for p in all_drafted_players.values() if p["teamIso"] == home_team]
+            away_players = [p for p in all_drafted_players.values() if p["teamIso"] == away_team]
+            
+            def get_team_raw_stats(t_id, players_list):
+                plist = []
+                for p in players_list:
+                    pid = int(p["id"])
+                    goals_scored = sum(1 for ev in events if ev[1] == "goal" and match_player_event(p["name"], ev[0]))
+                    assists_scored = sum(1 for ev in events if ev[1] == "assist" and match_player_event(p["name"], ev[0]))
+                    
+                    # synthetic BPS
+                    total_base = 2
+                    pos = p["position"]
+                    if conceded_map.get(p["teamIso"], 0) == 0:
+                        if pos in (1, 2): total_base += 4
+                        elif pos == 3: total_base += 1
+                    total_base += goals_scored * (6 if pos in (1, 2) else (5 if pos == 3 else 4))
+                    total_base += assists_scored * 3
+                    
+                    plist.append({
+                        "player": {"id": pid, "name": p["name"]},
+                        "statistics": [
+                            {
+                                "games": {"minutes": 90},
+                                "goals": {"total": goals_scored, "assists": assists_scored, "saves": 0, "owngoals": 0},
+                                "cards": {"yellow": 0, "red": 0},
+                                "penalty": {"missed": 0, "saved": 0},
+                                "bps": total_base * 3
+                            }
+                        ]
+                    })
+                return {"team": {"id": t_id}, "players": plist}
+            
+            raw_stats = [
+                get_team_raw_stats(1, home_players),
+                get_team_raw_stats(2, away_players)
+            ]
+            
+            # Call process_fixture
+            process_fixture(f["id"], raw_stats, None, db)
+
+        # Set league currentGw to gw so finalize_gw runs on the correct gw
+        db.collection("leagues").document(mock_lid).update({"currentGw": gw})
+        
+        # Call finalize_gw
+        finalize_gw(mock_lid, gw, db, None)
+        
+    print(f"✅ Mock League {mock_lid} successfully seeded via the real engine!")
+
+def seed_pre_draft_league(db, USER_UID, USER_NAME):
+    pre_lid = "lg_pre_draft"
+    print(f"📅 Seeding Pre-Draft League {pre_lid}...")
+    
+    db.collection("leagues").document(pre_lid).set({
+        "leagueId": pre_lid,
+        "name": "World Cup Real Draft (7 Managers)",
+        "inviteCode": "REALWC26",
+        "adminUid": "u_roy",
+        "format": "h2h",
+        "status": "pre_draft",
+        "maxMembers": 7,
+        "pickTimer": 90,
+        "tradeApproval": "vote",
+        "knockoutStartGw": 7,
+        "leaguePhaseGws": [1, 2, 3, 4, 5, 6],
+        "knockoutQualifiers": 4,
+        "currentGw": None,
+        "draftAt": "2026-06-08T18:00:00Z",
+        "seasonStartedAt": None,
+        "createdAt": SERVER_TIMESTAMP,
+    })
+    
+    mock_managers = [
+        {"uid": "u_roy",     "name": "Roy",       "team": "La Liga Loca",     "flag": "ESP", "draftPos": 1, "waiverPri": 6},
+        {"uid": "u_yonatan", "name": "Yonatan",   "team": "Tiki-Taka FC",     "flag": "ARG", "draftPos": 2, "waiverPri": 5},
+        {"uid": "u_nadav",   "name": "Nadav",     "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
+        {"uid": "u_yuval",   "name": "Yuval",     "team": "The Gunners",      "flag": "ENG", "draftPos": 4, "waiverPri": 3},
+        {"uid": "u_ido",     "name": "Ido",       "team": "Tel Aviv United",  "flag": "FRA", "draftPos": 5, "waiverPri": 2},
+        {"uid": "u_shai",    "name": "Shai",      "team": "McShaike's XI",   "flag": "MEX", "draftPos": 6, "waiverPri": 1},
+    ]
+    
+    for m in mock_managers:
+        db.collection("leagues").document(pre_lid).collection("members").document(m["uid"]).set({
+            "displayName": m["name"],
+            "teamName": m["team"],
+            "flag": m["flag"],
+            "draftPosition": m["draftPos"],
+            "waiverPriority": m["waiverPri"],
+            "joinedAt": SERVER_TIMESTAMP,
+        })
+        
+    print(f"✅ Pre-Draft League {pre_lid} successfully seeded!")
+
+def seed_everything(db, user_uid, user_name):
+    seed_tournament_data(db)
+    seed_mock_league(db, user_uid, user_name)
+    seed_pre_draft_league(db, user_uid, user_name)
