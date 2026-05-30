@@ -130,6 +130,11 @@ def seed_tournament_data(db):
     for star in missing_stars:
         db.collection("wc_players").document(str(star["id"])).set(star)
         
+    # Seed the wc_gameweeks collection
+    from fpl_predictor.game.wc_gameweeks import gw_as_dict
+    for gw in range(1, 9):
+        db.collection("wc_gameweeks").document(str(gw)).set(gw_as_dict(gw))
+        
     # Write tournament config if not present
     cfg_ref = db.collection("wc_config").document("tournament")
     if not cfg_ref.get().exists:

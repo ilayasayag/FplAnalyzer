@@ -359,6 +359,8 @@ def process_fixture(
     config_doc = db.collection("wc_config").document("tournament").get()
     rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
 
+    gw = fixture_doc.to_dict().get("gw", 1) if fixture_doc.exists else 1
+
     # Compute points and persist
     results: Dict[int, Dict] = {}
     batch = db.batch()
@@ -372,6 +374,8 @@ def process_fixture(
 
         pdata["stats"]["bonusPoints"] = bonus
         result = {
+            "playerId": pid,
+            "gw": gw,
             "fantasyPoints": total_pts,
             "bonusPoints": bonus,
             "stats": pdata["stats"],

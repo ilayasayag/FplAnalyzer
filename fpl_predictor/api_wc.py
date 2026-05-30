@@ -264,6 +264,14 @@ def get_player(player_id: int):
     return _ok(player)
 
 
+@wc_bp.route("/players/<int:player_id>/scores", methods=["GET"])
+def get_player_scores(player_id: int):
+    docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
+    scores = [d.to_dict() for d in docs]
+    scores.sort(key=lambda x: x.get("gw", 0))
+    return _ok(scores)
+
+
 # ---------------------------------------------------------------------------
 # §2 — Fixtures
 # ---------------------------------------------------------------------------
@@ -294,6 +302,21 @@ def fixture_scores(fixture_id: int):
             .collection("playerScores").get())
     scores = {int(d.id): d.to_dict() for d in docs}
     return _ok(scores)
+
+
+@wc_bp.route("/gameweeks", methods=["GET"])
+def list_gameweeks():
+    docs = _db.collection("wc_gameweeks").get()
+    gws = [d.to_dict() for d in docs]
+    gws.sort(key=lambda x: x.get("gw", 0))
+    return _ok(gws)
+
+
+@wc_bp.route("/group-standings", methods=["GET"])
+def list_group_standings():
+    docs = _db.collection("wc_group_standings").get()
+    result = {d.id: d.to_dict().get("teams", []) for d in docs}
+    return _ok(result)
 
 
 # ---------------------------------------------------------------------------
@@ -1221,7 +1244,7 @@ def background_poll_and_process_fixtures():
             lid = ldoc.id
             league = ldoc.to_dict()
             status = league.get("status")
-            if status in ("complete", "pre_draft", "drafting"):
+            if status not in ("group_phase", "knockout"):
                 continue
             cgw = league.get("currentGw")
             if not cgw:
