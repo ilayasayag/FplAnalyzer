@@ -4,7 +4,7 @@
 
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: STANDINGS.length + 1, fpts: 0 };
+  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
   const top5 = STANDINGS.slice(0, 8);
 
   const rounds = BRACKET.rounds || BRACKET || {};
@@ -38,6 +38,18 @@ function StatusScreen({ onTab }) {
     return "Knockout phase";
   };
 
+  const currentGw = TOURNAMENT.currentGw;
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  
+  const getOrdinal = n => {
+    const num = Number(n);
+    if (isNaN(num)) return "";
+    const s = ["th", "st", "nd", "rd"], v = num % 100;
+    return s[(v - 20) % 10] || s[v] || s[0];
+  };
+
+  const hasLeague = LEAGUE && LEAGUE.inviteCode;
+
   return (
     <div className="col" style={{ gap: 20 }}>
       {/* Phase transition banner */}
@@ -65,45 +77,24 @@ function StatusScreen({ onTab }) {
       {/* GW summary card */}
       <div className="card-dark">
         <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>Gameweek 3 · Group Stage Round 3</span>
-          <span className="pill pill--dark" style={{ background: "rgba(0,0,0,0.18)" }}>FINAL</span>
+          <span>Gameweek {currentGw} · {hasLeague ? (LEAGUE.knockoutStartGw <= currentGw ? "Knockout Phase" : "Group Stage Phase") : "Fantasy League"}</span>
+          <span className="pill pill--dark" style={{ background: "rgba(0,0,0,0.18)" }}>ACTIVE</span>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderTop: "1px solid var(--border-dark)" }}>
           <div style={{ padding: "22px 24px", borderRight: "1px solid var(--border-dark)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW3 Points</div>
-            <div className="h-display" style={{ fontSize: 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>65</div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>vs. avg <strong style={{ color: "white" }}>63.1</strong> · <span style={{ color: "var(--green-400)" }}>+1.9</span></div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW{currentGw} Points</div>
+            <div className="h-display" style={{ fontSize: 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>{String(gwPoints)}</div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Live performance points</div>
           </div>
           <div style={{ padding: "22px 24px" }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>League Rank</div>
-            <div className="h-display" style={{ fontSize: 56, color: "var(--gold-500)", lineHeight: 1.1, marginTop: 4 }}>7<span style={{ fontSize: 22, color: "rgba(255,255,255,0.5)" }}>th</span></div>
-            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)" }}>3 H2H pts · 179 fantasy pts · qualified</div>
+            <div className="h-display" style={{ fontSize: 56, color: "var(--gold-500)", lineHeight: 1.1, marginTop: 4 }}>
+              {myStanding.rank}{myStanding.rank !== "—" && <span style={{ fontSize: 22, color: "rgba(255,255,255,0.5)", verticalAlign: "super" }}>{getOrdinal(myStanding.rank)}</span>}
+            </div>
+            <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>
+              {myStanding.hpts !== "—" ? `${myStanding.hpts} H2H pts` : "—"} · {myStanding.fpts !== "—" ? `${myStanding.fpts} total fpts` : "—"}
+            </div>
           </div>
-        </div>
-
-        {/* day-by-day mini timeline */}
-        <div style={{ display: "grid", gridTemplateColumns: "120px 1fr 120px", padding: "14px 24px", borderTop: "1px solid var(--border-dark)", color: "rgba(255,255,255,0.75)", fontSize: 12 }}>
-          <span style={{ fontWeight: 600 }}>Day</span>
-          <span style={{ fontWeight: 600, textAlign: "center" }}>Match Points</span>
-          <span style={{ fontWeight: 600, textAlign: "right" }}>Bonus</span>
-        </div>
-        {[
-          { day: "Wed 22 Jun", res: "CONFIRMED", bonus: "ADDED" },
-          { day: "Thu 23 Jun", res: "CONFIRMED", bonus: "ADDED" },
-          { day: "Fri 24 Jun", res: "CONFIRMED", bonus: "ADDED" },
-          { day: "Sat 25 Jun", res: "CONFIRMED", bonus: "ADDED" },
-        ].map((d, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr 120px", padding: "10px 24px", borderTop: "1px solid var(--border-dark)", alignItems: "center", fontSize: 12 }}>
-            <span>{d.day}</span>
-            <span style={{ display: "flex", justifyContent: "center" }}>
-              <span className="pill pill--green">{d.res}</span>
-            </span>
-            <span style={{ textAlign: "right", color: "var(--green-400)", fontWeight: 700, letterSpacing: "0.04em" }}>{d.bonus}</span>
-          </div>
-        ))}
-        <div style={{ padding: "10px 24px", borderTop: "1px solid var(--border-dark)", fontSize: 12, display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>Final standings</span>
-          <span className="pill pill--teal">UPDATED</span>
         </div>
       </div>
 
@@ -138,19 +129,23 @@ function StatusScreen({ onTab }) {
 
       {/* Top performer of GW3 */}
       <div className="card-dark">
-        <div className="card-dark__title">GW3 Standout XI</div>
+        <div className="card-dark__title">GW{currentGw} Standout XI</div>
         <div style={{ padding: 18, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
-          {[
-            { id: "p_yamal", pts: 14 },
-            { id: "p_bellingham", pts: 12 },
-            { id: "p_ronaldo", pts: 11 },
-            { id: "p_musiala", pts: 8 },
-            { id: "p_mbappe", pts: 7 },
-          ].map(({ id, pts }) => (
-            <div key={id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
-              <PlayerSlot playerId={id} points={pts} mode="points" />
-            </div>
-          ))}
+          {[...(window.PLAYERS || PLAYERS || [])]
+            .sort((a, b) => b.pts - a.pts)
+            .slice(0, 5).length > 0 ? (
+              [...(window.PLAYERS || PLAYERS || [])]
+                .sort((a, b) => b.pts - a.pts)
+                .slice(0, 5).map(p => (
+                  <div key={p.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                    <PlayerSlot playerId={p.id} points={p.pts} mode="points" />
+                  </div>
+                ))
+            ) : (
+              <div style={{ gridColumn: "span 5", textAlign: "center", padding: 10, color: "rgba(255,255,255,0.45)" }}>
+                No performance data yet.
+              </div>
+            )}
         </div>
       </div>
     </div>
@@ -416,40 +411,6 @@ function PickTeamScreen({ onTab }) {
         </div>
       </div>
 
-      {/* Fixtures preview */}
-      <div className="card">
-        <div style={{ padding: "16px 20px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <strong style={{ fontSize: 14, letterSpacing: "-0.01em" }}>Your players GW4 fixtures</strong>
-          <span className="muted" style={{ fontSize: 12 }}>R32 · Jul 1–4</span>
-        </div>
-        <div style={{ padding: "12px 20px", display: "flex", flexDirection: "column", gap: 8 }}>
-          {[
-            { player: "p_kane",      vs: "URU", home: true },
-            { player: "p_mbappe",    vs: "POR2", home: true },
-            { player: "p_bellingham",vs: "URU", home: true },
-            { player: "p_yamal",     vs: "JPN", home: true },
-            { player: "p_musiala",   vs: "MEX2", home: true },
-            { player: "p_ronaldo",   vs: "FRA", home: false },
-            { player: "p_bruno",     vs: "FRA", home: false },
-            { player: "p_dias",      vs: "FRA", home: false },
-          ].map(f => {
-            const p = playerById(f.player);
-            const t = teamById(p.team);
-            const opp = teamById(f.vs);
-            return (
-              <div key={f.player} style={{ display: "grid", gridTemplateColumns: "180px 1fr 80px", alignItems: "center", gap: 12, padding: "6px 0", fontSize: 13 }}>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <Flag team={t} /> <strong>{p.name}</strong>
-                </span>
-                <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                  <span className="muted">{f.home ? "vs" : "@"}</span>
-                  <Flag team={opp} /> {opp.name}
-                </span>
-                <span className="pill pill--teal" style={{ justifySelf: "end", fontSize: 10 }}>R32</span>
-              </div>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

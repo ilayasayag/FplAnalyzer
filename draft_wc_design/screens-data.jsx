@@ -378,20 +378,22 @@ function ScheduleTable() {
               const A = managerById(a), B = managerById(b);
               if (!A || !B) return null;
               const aT = teamById(A.flag), bT = teamById(B.flag);
-              const ap = gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[a] || 0) : 50 + ((gw + i) * 7) % 30;
-              const bp = gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : 50 + ((gw + i) * 11) % 25;
-              const aWin = ap > bp;
+              const gwScores = (window.ALL_GW_SCORES || {})[gw];
+              const ap = gwScores && gwScores[a] !== undefined ? gwScores[a] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[a] || 0) : "—");
+              const bp = gwScores && gwScores[b] !== undefined ? gwScores[b] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : "—");
+              const hasScore = ap !== "—" && bp !== "—";
+              const aWin = hasScore && Number(ap) > Number(bp);
               const isMe = a === ME || b === ME;
               return (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: aWin ? 700 : 500 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: hasScore && aWin ? 700 : 500 }}>
                     <span>{A.team}</span>
                     <Flag team={aT} />
                   </div>
                   <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 16 }}>
-                    <span style={{ color: aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
+                    <span style={{ color: hasScore && aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
                     <span style={{ color: "var(--ink-300)", margin: "0 8px" }}>–</span>
-                    <span style={{ color: !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
+                    <span style={{ color: hasScore && !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: !aWin ? 700 : 500 }}>
                     <Flag team={bT} />

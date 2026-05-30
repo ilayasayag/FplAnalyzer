@@ -208,6 +208,7 @@ function App() {
 
     // 5. Initial HTTP fetches (Bracket, Schedule, Squad, Lineup, Players)
     const loadInitialData = async () => {
+      let criticalFailed = false;
       try {
         // Fetch active league details
         try {
@@ -236,29 +237,39 @@ function App() {
                 waiverPri: m.waiverPriority || 99,
               }));
             }
+          } else {
+            criticalFailed = true;
           }
         } catch (e) {
           console.warn("Failed to fetch league details, using mock defaults", e);
+          criticalFailed = true;
         }
 
         // Fetch players list
-        const players = await apiCall("GET", "/players");
-        if (players && players.length > 0) {
-          window.PLAYERS = players.map(p => ({
-            id: String(p.id),
-            name: p.name,
-            pos: p.position,
-            team: p.teamIso || p.teamShort || String(p.teamId),
-            pts: p.totalPoints || 0,
-            dr: p.draftRank || 999,
-          }));
-          window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
+        try {
+          const players = await apiCall("GET", "/players");
+          if (players && players.length > 0) {
+            window.PLAYERS = players.map(p => ({
+              id: String(p.id),
+              name: p.name,
+              pos: p.position,
+              team: p.teamIso || p.teamShort || String(p.teamId),
+              pts: p.totalPoints || 0,
+              dr: p.draftRank || 999,
+            }));
+            window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
 
-          // Dynamically populate GW3_POINTS from players total points in mock database!
-          window.GW3_POINTS = {};
-          window.PLAYERS.forEach(p => {
-            window.GW3_POINTS[p.id] = p.pts;
-          });
+            // Dynamically populate GW3_POINTS from players total points in mock database!
+            window.GW3_POINTS = {};
+            window.PLAYERS.forEach(p => {
+              window.GW3_POINTS[p.id] = p.pts;
+            });
+          } else {
+            criticalFailed = true;
+          }
+        } catch (e) {
+          console.warn("Failed to fetch players", e);
+          criticalFailed = true;
         }
 
         // Fetch bracket
@@ -383,13 +394,42 @@ function App() {
               status: w.status || "pending"
             }));
           }
+        // Fetch all gameweek scores
+        window.ALL_GW_SCORES = {};
+        try {
+          const gws = leagueDetails.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
+          await Promise.all(gws.map(async (gw) => {
+            try {
+              const scoreData = await apiCall("GET", `/leagues/${lid}/scores/${gw}`);
+              if (scoreData && scoreData.results) {
+                window.ALL_GW_SCORES[gw] = {};
+                Object.entries(scoreData.results).forEach(([uid, res]) => {
+                  window.ALL_GW_SCORES[gw][uid] = res.points || 0;
+                });
+              }
+            } catch (e) {
+              // ignore unplayed GWs
+            }
+          }));
         } catch (e) {
-          console.warn("Failed to fetch waivers", e);
+          console.warn("Failed to fetch all gameweek scores", e);
         }
 
+        if (criticalFailed) {
+          window.__DATA_SOURCE__ = "down";
+        } else {
+          const lidLower = String(lid || "").toLowerCase();
+          if (lidLower.includes("mock") || lidLower.includes("sim")) {
+            window.__DATA_SOURCE__ = "simulated";
+          } else {
+            window.__DATA_SOURCE__ = "live";
+          }
+        }
         forceUpdate();
       } catch (err) {
         console.error("Failed to load initial live data:", err);
+        window.__DATA_SOURCE__ = "down";
+        forceUpdate();
       }
     };
 

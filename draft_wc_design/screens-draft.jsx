@@ -287,6 +287,11 @@ function SquadCount({ label, cur, max }) {
 // ---------- CREATE / JOIN LEAGUE ----------
 function CreateLeagueScreen({ onTab }) {
   const [mode, setMode] = React.useState("home"); // home | create | join
+  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const currentGw = TOURNAMENT.currentGw;
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
   if (mode === "create") return <CreateForm onBack={() => setMode("home")} onTab={onTab} />;
   if (mode === "join") return <JoinForm onBack={() => setMode("home")} onTab={onTab} />;
@@ -301,18 +306,18 @@ function CreateLeagueScreen({ onTab }) {
         <div style={{ padding: 22, marginRight: 140 }}>
           <div className="h-display" style={{ fontSize: 24, marginBottom: 4 }}>{LEAGUE.name}</div>
           <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginBottom: 14 }}>
-            10 managers · Snake draft · H2H league with Round of 32 knockout
+            {hasLeague ? `${LEAGUE.size} managers · Snake draft · H2H league with knockout` : "—"}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            <MetricChip label="Your rank" value="#7 / 10" accent="var(--gold-500)" />
-            <MetricChip label="Total points" value="179" />
-            <MetricChip label="GW3 points" value="65" accent="var(--green-400)" />
-            <MetricChip label="Status" value="QF Qualified" accent="var(--gold-500)" />
+            <MetricChip label="Your rank" value={hasLeague ? `#${myStanding.rank} / ${LEAGUE.size}` : "—"} accent="var(--gold-500)" />
+            <MetricChip label="Total points" value={String(myStanding.fpts)} />
+            <MetricChip label="GW Points" value={String(gwPoints)} accent="var(--green-400)" />
+            <MetricChip label="Status" value={hasLeague ? (LEAGUE.knockoutStartGw <= currentGw ? "Knockout" : "Group Stage") : "—"} accent="var(--gold-500)" />
           </div>
           <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button className="btn btn--primary" onClick={() => onTab("status")}>Open League →</button>
             <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.6)" }}>Invite code:</span>
-            <span className="pill pill--ghost" style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", fontFamily: "var(--font-num)" }}>{LEAGUE.inviteCode}</span>
+            <span className="pill pill--ghost" style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", fontFamily: "var(--font-num)" }}>{LEAGUE.inviteCode || "—"}</span>
           </div>
         </div>
       </div>
@@ -353,27 +358,6 @@ function CreateLeagueScreen({ onTab }) {
         </div>
       </div>
 
-      {/* Friends activity */}
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <strong>Friends are playing</strong>
-          <span className="muted" style={{ fontSize: 12 }}>Public leagues with open spots</span>
-        </div>
-        {[
-          { name: "Telegram Group Cup", size: "8/10", admin: "Yonatan", state: "Drafting Mon" },
-          { name: "Office Pool 2026", size: "12/12", admin: "Roy", state: "Full" },
-          { name: "Random Internet Strangers", size: "4/8", admin: "—", state: "Pre-draft" },
-        ].map((l, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 120px 100px", padding: "12px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12 }}>
-            <strong style={{ fontSize: 14 }}>{l.name}</strong>
-            <span className="mono" style={{ fontSize: 13 }}>{l.size}</span>
-            <span className="muted" style={{ fontSize: 12 }}>Admin · {l.admin}</span>
-            <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }} disabled={l.state === "Full"}>
-              {l.state === "Full" ? "Full" : "Join"}
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }
