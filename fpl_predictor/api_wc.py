@@ -565,7 +565,9 @@ def start_draft(lid: str):
     try:
         from .game.draft import DraftEngine
         draft = DraftEngine(_db, _wc)
-        result = draft.start_draft(lid, uid)
+        cfg_doc = _db.collection("wc_config").document("tournament").get()
+        current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
+        result = draft.start_draft(lid, uid, current_gw)
         return _ok(result)
     except ValueError as exc:
         return _err(str(exc))

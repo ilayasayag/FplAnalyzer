@@ -8,6 +8,7 @@ function DraftRoomScreen({ onTab }) {
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
   const [watchlist, setWatchlist] = React.useState(new Set(["p_alvarez", "p_modric", "p_courtois"]));
+  const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
     try {
@@ -30,11 +31,27 @@ function DraftRoomScreen({ onTab }) {
 
   // Players already picked
   const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
+  // Get unique nations list
   const activePlayers = window.PLAYERS || PLAYERS;
+  const nationsList = React.useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    activePlayers.forEach(p => {
+      const code = p.team;
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        const t = teamById(code) || { name: code };
+        list.push({ code, name: t.name || code });
+      }
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [activePlayers]);
+
   const pool = activePlayers.filter(p => {
     if (taken.has(p.id)) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
+    if (nationFilter !== "all" && p.team !== nationFilter) return false;
     return true;
   }).sort((a, b) => a.dr - b.dr);
 
@@ -147,7 +164,7 @@ function DraftRoomScreen({ onTab }) {
 
         {/* Filters + player pool */}
         <div className="card-dark" style={{ padding: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto auto", gap: 12, marginBottom: 14 }}>
             <input
               type="text"
               placeholder="Search players…"
@@ -155,6 +172,24 @@ function DraftRoomScreen({ onTab }) {
               onChange={e => setSearch(e.target.value)}
               style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid var(--border-dark-strong)", background: "rgba(255,255,255,0.08)", color: "white" }}
             />
+            <select
+              value={nationFilter}
+              onChange={e => setNationFilter(e.target.value)}
+              style={{
+                padding: "10px 18px", borderRadius: 999,
+                border: "1px solid var(--border-dark-strong)",
+                background: "rgba(255,255,255,0.08)", color: "white",
+                cursor: "pointer", outline: "none",
+                fontSize: 12, fontWeight: 700
+              }}
+            >
+              <option value="all" style={{ background: "var(--navy-900)" }}>All Nations</option>
+              {nationsList.map(n => (
+                <option key={n.code} value={n.code} style={{ background: "var(--navy-900)" }}>
+                  {n.name} ({n.code})
+                </option>
+              ))}
+            </select>
             <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.25)", borderRadius: 999 }}>
               {["all", "1", "2", "3", "4"].map(p => (
                 <button key={p}

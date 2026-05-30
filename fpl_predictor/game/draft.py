@@ -29,8 +29,8 @@ class DraftEngine:
         league = league_doc.to_dict()
         if league["adminUid"] != uid:
             raise ValueError("Only the admin can start the draft")
-        if league["status"] not in ("recruiting",):
-            raise ValueError("Draft can only be started from recruiting status")
+        if league["status"] not in ("recruiting", "pre_draft", "drafting"):
+            raise ValueError("Draft can only be started from recruiting or pre_draft status")
 
         members = list(league_ref.collection("members").get())
         if len(members) < 2:
@@ -107,6 +107,7 @@ class DraftEngine:
             "picks": picks,
             "currentDrafter": drafter_uid,
             "currentRound": (state["currentPick"] // num_members) + 1 if num_members else 0,
+            "pickedPlayerIds": state.get("pickedPlayerIds", []),
         }
 
     def make_pick(self, lid: str, uid: str, player_id: int,
