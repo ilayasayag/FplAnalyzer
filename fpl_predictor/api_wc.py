@@ -724,8 +724,10 @@ def get_standings(lid: str):
     uid, err = _require_auth()
     if err:
         return err
+    gw = request.args.get("gw")
+    doc_id = str(gw) if gw else "current"
     doc = (_db.collection("leagues").document(lid)
-           .collection("standings").document("current").get())
+           .collection("standings").document(doc_id).get())
     if not doc.exists:
         return _ok({"leagueId": lid, "managers": []})
     return _ok({"leagueId": lid, **doc.to_dict()})
@@ -968,6 +970,14 @@ def get_knockout(lid: str):
     uid, err = _require_auth()
     if err:
         return err
+    gw = request.args.get("gw")
+    if gw:
+        doc = (_db.collection("leagues").document(lid)
+               .collection("knockout").document(f"bracket_gw{gw}").get())
+        if doc.exists:
+            return _ok({"leagueId": lid, **doc.to_dict()})
+        else:
+            return _ok({"leagueId": lid, "rounds": {}})
     bracket = get_bracket(lid, _db)
     return _ok(bracket)
 

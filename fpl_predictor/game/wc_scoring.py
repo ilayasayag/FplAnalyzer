@@ -620,7 +620,7 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
         _award_gw_bonus(results, scores_ref)
 
     # Step 4: update standings
-    _update_standings(lid, db)
+    _update_standings(lid, db, gw)
 
     # Step 5: mark GW complete
     scores_ref.set({"processed": True, "processedAt": SERVER_TIMESTAMP}, merge=True)
@@ -645,6 +645,12 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     if gw == 8:
         _apply_predictions_bonus(lid, db, wc_client)
 
+    # Step 9c: Snapshot bracket per GW
+    bracket_ref = league_ref.collection("knockout").document("bracket")
+    bracket_snap = bracket_ref.get()
+    if bracket_snap.exists:
+        league_ref.collection("knockout").document(f"bracket_gw{gw}").set(bracket_snap.to_dict())
+
     # Step 10: advance currentGw
     next_gw = gw + 1
     league_ref.update({"currentGw": next_gw})
@@ -652,7 +658,7 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     return {"gw": gw, "finalized": True, "nextGw": next_gw, "memberCount": n_members}
 
 
-def _update_standings(lid: str, db):
+def _update_standings(lid: str, db, gw: Optional[int] = None):
     """
     Recompute H2H standings from all scores documents.
     Handles: normal H2H (W/D/L), all-against-all GW6 (AAA), bonus points,
@@ -716,10 +722,14 @@ def _update_standings(lid: str, db):
                 # All-against-all GW6: h2hPoints directly stored
                 stats[uid]["hpts"] += h.get("h2hPoints", 0)
 
-    league_ref.collection("standings").document("current").set({
+    standings_data = {
         "managers": list(stats.values()),
         "updatedAt": SERVER_TIMESTAMP,
-    })
+    }
+    league_ref.collection("standings").document("current").set(standings_data)
+    
+    current_gw = gw or league_ref.get().to_dict().get("currentGw", 1)
+    league_ref.collection("standings").document(str(current_gw)).set(standings_data)
 
 
 def _check_eliminations_after_gw(gw: int, db, wc_client):

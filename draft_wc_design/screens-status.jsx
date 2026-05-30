@@ -39,6 +39,8 @@ function StatusScreen({ onTab }) {
   };
 
   const currentGw = TOURNAMENT.currentGw;
+  const viewingGw = window.VIEWING_GW || currentGw;
+  const setViewingGw = window.setViewingGw;
   const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
   
   const getOrdinal = n => {
@@ -76,13 +78,51 @@ function StatusScreen({ onTab }) {
 
       {/* GW summary card */}
       <div className="card-dark">
-        <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <span>Gameweek {currentGw} · {hasLeague ? (LEAGUE.knockoutStartGw <= currentGw ? "Knockout Phase" : "Group Stage Phase") : "Fantasy League"}</span>
-          <span className="pill pill--dark" style={{ background: "rgba(0,0,0,0.18)" }}>ACTIVE</span>
+        <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div className="row" style={{ gap: 8, alignItems: "center" }}>
+            <span>Gameweek {viewingGw} · {hasLeague ? (LEAGUE.knockoutStartGw <= viewingGw ? "Knockout Phase" : "Group Stage Phase") : "Fantasy League"}</span>
+          </div>
+          
+          <div className="row" style={{ gap: 12, alignItems: "center" }}>
+            {/* Time Machine Selector */}
+            <div className="row" style={{
+              gap: 8, alignItems: "center",
+              background: "rgba(255, 255, 255, 0.08)", padding: "4px 10px",
+              borderRadius: 8, border: "1px solid rgba(255, 255, 255, 0.1)"
+            }}>
+              <button
+                disabled={viewingGw <= 1}
+                onClick={() => setViewingGw(viewingGw - 1)}
+                style={{
+                  background: "transparent", border: "none", color: viewingGw <= 1 ? "rgba(255,255,255,0.2)" : "white",
+                  cursor: viewingGw <= 1 ? "not-allowed" : "pointer", padding: "2px 6px", fontWeight: 700
+                }}
+              >
+                ◀
+              </button>
+              <span className="mono" style={{ fontSize: 12, fontWeight: 800, minWidth: 44, textAlign: "center" }}>
+                GW {viewingGw}
+              </span>
+              <button
+                disabled={viewingGw >= currentGw}
+                onClick={() => setViewingGw(viewingGw + 1)}
+                style={{
+                  background: "transparent", border: "none", color: viewingGw >= currentGw ? "rgba(255,255,255,0.2)" : "white",
+                  cursor: viewingGw >= currentGw ? "not-allowed" : "pointer", padding: "2px 6px", fontWeight: 700
+                }}
+              >
+                ▶
+              </button>
+            </div>
+
+            <span className={`pill ${viewingGw === currentGw ? "pill--green" : "pill--dark"}`} style={{ padding: "4px 8px", fontSize: 10, fontWeight: 700 }}>
+              {viewingGw === currentGw ? "LIVE" : "PAST"}
+            </span>
+          </div>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderTop: "1px solid var(--border-dark)" }}>
           <div style={{ padding: "22px 24px", borderRight: "1px solid var(--border-dark)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW{currentGw} Points</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW{viewingGw} Points</div>
             <div className="h-display" style={{ fontSize: 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>{String(gwPoints)}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Live performance points</div>
           </div>

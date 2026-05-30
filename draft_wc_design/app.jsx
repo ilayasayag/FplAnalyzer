@@ -31,6 +31,13 @@ function App() {
   const [authError, setAuthError] = React.useState("");
   const [isSignUp, setIsSignUp] = React.useState(false);
   const [activeLid, setActiveLid] = React.useState("lg_mock_draft");
+  const [viewingGw, setViewingGw] = React.useState(1);
+
+  React.useEffect(() => {
+    window.VIEWING_GW = viewingGw;
+    window.setViewingGw = setViewingGw;
+  }, [viewingGw]);
+
 
   // Expose global league switch/refresh handlers
   React.useEffect(() => {
@@ -125,12 +132,36 @@ function App() {
 
     const lid = activeLid; // active league ID
 
-    // 1. Sync Standings live
-    const unsubStandings = _db.collection("leagues").doc(lid)
-      .collection("standings").doc("current")
-      .onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
+    // 1. Sync Standings live or past
+    let unsubStandings = () => {};
+    const curGw = window.TOURNAMENT.currentGw || 1;
+    if (viewingGw === curGw) {
+      unsubStandings = _db.collection("leagues").doc(lid)
+        .collection("standings").doc("current")
+        .onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && data.managers) {
+              window.STANDINGS = data.managers.map(m => ({
+                uid: m.uid,
+                rank: m.rank || 1,
+                hw: m.hw || 0,
+                hd: m.hd || 0,
+                hl: m.hl || 0,
+                hpts: m.hpts || 0,
+                fpts: m.fpts || 0,
+                mv: m.mv || 0,
+                bonusPoints: m.bonusPoints || 0,
+                knockedOut: m.knockedOut || false,
+                ptsSeed: m.ptsSeed || false,
+              })).sort((a, b) => a.rank - b.rank);
+              forceUpdate();
+            }
+          }
+        }, (err) => console.error("Standings listen error:", err));
+    } else {
+      apiCall("GET", `/leagues/${lid}/standings?gw=${viewingGw}`)
+        .then(data => {
           if (data && data.managers) {
             window.STANDINGS = data.managers.map(m => ({
               uid: m.uid,
@@ -147,16 +178,29 @@ function App() {
             })).sort((a, b) => a.rank - b.rank);
             forceUpdate();
           }
-        }
-      }, (err) => console.error("Standings listen error:", err));
+        }).catch(err => console.error("Past standings fetch error:", err));
+    }
 
-    // 2. Sync Live Scores / GW Totals live
-    const curGw = window.TOURNAMENT.currentGw;
-    const unsubScores = _db.collection("leagues").doc(lid)
-      .collection("scores").doc(String(curGw))
-      .onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
+    // 2. Sync Live Scores / GW Totals live or past
+    let unsubScores = () => {};
+    if (viewingGw === curGw) {
+      unsubScores = _db.collection("leagues").doc(lid)
+        .collection("scores").doc(String(curGw))
+        .onSnapshot((doc) => {
+          if (doc.exists) {
+            const data = doc.data();
+            if (data && data.results) {
+              window.GW3_TOTALS = {};
+              Object.entries(data.results).forEach(([uid, res]) => {
+                window.GW3_TOTALS[uid] = res.points || 0;
+              });
+              forceUpdate();
+            }
+          }
+        }, (err) => console.error("Scores listen error:", err));
+    } else {
+      apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
+        .then(data => {
           if (data && data.results) {
             window.GW3_TOTALS = {};
             Object.entries(data.results).forEach(([uid, res]) => {
@@ -164,8 +208,8 @@ function App() {
             });
             forceUpdate();
           }
-        }
-      }, (err) => console.error("Scores listen error:", err));
+        }).catch(err => console.error("Past scores fetch error:", err));
+    }
 
     // 3. Sync Draft State live
     const unsubDraft = _db.collection("leagues").doc(lid)
@@ -210,10 +254,54 @@ function App() {
     const loadInitialData = async () => {
       let criticalFailed = false;
       try {
+        // Fetch gameweeks
+        try {
+          const gws = await apiCall("GET", "/gameweeks");
+          if (gws && gws.length > 0) {
+            window.TOURNAMENT.gwDates = {};
+            const formatIso = (isoStr) => {
+              if (!isoStr) return "";
+              const d = new Date(isoStr);
+              const months = ["Jun", "Jul"];
+              const m = months[d.getUTCMonth() - 5] || "Jun";
+              const date = d.getUTCDate();
+              const hrs = String(d.getUTCHours()).padStart(2, '0');
+              const mins = String(d.getUTCMinutes()).padStart(2, '0');
+              return `${m} ${date} ${hrs}:${mins}`;
+            };
+            const formatDateOnly = (isoStr) => {
+              if (!isoStr) return "";
+              const d = new Date(isoStr);
+              const months = ["Jun", "Jul"];
+              const m = months[d.getUTCMonth() - 5] || "Jun";
+              const date = d.getUTCDate();
+              return `${m} ${date}`;
+            };
+            gws.forEach(g => {
+              window.TOURNAMENT.gwDates[g.gw] = {
+                wcRound: g.wcRound || g.label,
+                start: formatDateOnly(g.start),
+                end: formatDateOnly(g.end),
+                lockAt: formatIso(g.lockAt)
+              };
+            });
+          }
+        } catch (e) {
+          console.warn("Failed to fetch gameweeks", e);
+        }
+
         // Fetch active league details
         try {
           const leagueDetails = await apiCall("GET", `/leagues/${lid}`);
           if (leagueDetails) {
+            window.TOURNAMENT.currentGw = leagueDetails.currentGw || 1;
+            window.TOURNAMENT.status = leagueDetails.status || "pre_draft";
+
+            if (window.LAST_ACTIVE_LID !== lid) {
+              window.LAST_ACTIVE_LID = lid;
+              setViewingGw(leagueDetails.currentGw || 1);
+            }
+
             window.LEAGUE = {
               id: leagueDetails.leagueId,
               name: leagueDetails.name,
@@ -272,9 +360,9 @@ function App() {
           criticalFailed = true;
         }
 
-        // Fetch bracket
+        // Fetch bracket matching viewingGw
         try {
-          const bracket = await apiCall("GET", `/leagues/${lid}/knockout`);
+          const bracket = await apiCall("GET", `/leagues/${lid}/knockout?gw=${viewingGw}`);
           if (bracket) {
             const roundsSource = bracket.rounds || bracket;
             const parsedSf = (roundsSource.sf || []).map(m => ({
@@ -299,15 +387,16 @@ function App() {
               }));
             }
 
-            if (parsedSf.length > 0 || parsedFinal.length > 0) {
-              window.BRACKET = {
-                sf: parsedSf,
-                final: parsedFinal,
-              };
-            }
+            window.BRACKET = {
+              sf: parsedSf,
+              final: parsedFinal,
+            };
+          } else {
+            window.BRACKET = { sf: [], final: [] };
           }
         } catch(e) {
-          console.warn("Knockout bracket not seeded yet, using mock placeholder", e);
+          console.warn("Knockout bracket not seeded yet", e);
+          window.BRACKET = { sf: [], final: [] };
         }
 
         // Fetch Schedule
@@ -333,9 +422,9 @@ function App() {
           console.warn("Failed to fetch my squad", e);
         }
 
-        // Fetch my Lineup
+        // Fetch my Lineup matching viewingGw
         try {
-          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${curGw}`);
+          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${viewingGw}`);
           if (lineup && lineup.starting && lineup.starting.length > 0) {
             window.MY_LINEUP_GW3 = {
               starting: (lineup.starting || []).map(String),
@@ -343,9 +432,12 @@ function App() {
               formation: lineup.formation || [1, 4, 4, 2],
               autoSubs: lineup.autoSubsMade || [],
             };
+          } else {
+            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
+          window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
         }
 
         // Fetch transfer window
@@ -441,7 +533,7 @@ function App() {
       unsubDraft();
       unsubDraftPicks();
     };
-  }, [user, activeLid]);
+  }, [user, activeLid, viewingGw]);
 
   // Apply theme accent via CSS custom props
   React.useEffect(() => {
