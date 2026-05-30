@@ -328,12 +328,96 @@ function CreateLeagueScreen({ onTab }) {
   const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
   const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
+  const [leaguesList, setLeaguesList] = React.useState([]);
+  const [loadingLeagues, setLoadingLeagues] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchLeagues = async () => {
+      setLoadingLeagues(true);
+      try {
+        const res = await apiCall("GET", "/leagues/my");
+        if (res) {
+          setLeaguesList(res);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch my leagues list", err);
+      } finally {
+        setLoadingLeagues(false);
+      }
+    };
+    fetchLeagues();
+  }, []);
+
   if (mode === "create") return <CreateForm onBack={() => setMode("home")} onTab={onTab} />;
   if (mode === "join") return <JoinForm onBack={() => setMode("home")} onTab={onTab} />;
 
   return (
     <div className="col" style={{ gap: 20 }}>
       <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Leagues</h2>
+
+      {/* Switch Platforms Section */}
+      {leaguesList.length > 1 && (
+        <div className="col" style={{ gap: 12, marginTop: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {leaguesList.map(l => {
+              const isActive = l.leagueId === LEAGUE.id;
+              const isSim = l.leagueId.includes("mock") || l.leagueId.includes("sim");
+              return (
+                <div 
+                  key={l.leagueId} 
+                  className="card-dark" 
+                  style={{ 
+                    padding: 20, 
+                    border: isActive ? "2px solid var(--green-400)" : "1px solid var(--border-dark)",
+                    background: isActive ? "rgba(26, 210, 196, 0.08)" : "rgba(255,255,255,0.02)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    borderRadius: 12,
+                    position: "relative"
+                  }}
+                >
+                  {isActive && (
+                    <span 
+                      style={{ 
+                        position: "absolute", top: 12, right: 12, 
+                        background: "var(--green-400)", color: "var(--navy-900)", 
+                        fontSize: 9, fontWeight: 800, padding: "3px 8px", borderRadius: 4,
+                        letterSpacing: "0.05em"
+                      }}
+                    >
+                      ACTIVE
+                    </span>
+                  )}
+                  <div>
+                    <div style={{ fontSize: 11, color: isSim ? "#a78bfa" : "var(--gold-500)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      {isSim ? "Platform A · Simulation Time-Machine" : "Platform B · 7-Manager Live Draft"}
+                    </div>
+                    <div className="h-display" style={{ fontSize: 20, marginTop: 6, color: "white" }}>{l.name}</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 6 }}>
+                      Status: <strong style={{ color: "white", textTransform: "capitalize" }}>{l.status.replace("_", " ")}</strong> · {l.memberCount}/{l.maxMembers} Managers
+                    </div>
+                  </div>
+                  {!isActive ? (
+                    <button 
+                      className="btn btn--primary" 
+                      style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: 11 }}
+                      onClick={() => {
+                        window.setActiveLeagueId(l.leagueId);
+                      }}
+                    >
+                      Switch to this Platform →
+                    </button>
+                  ) : (
+                    <div style={{ fontSize: 11, color: "var(--green-400)", fontWeight: 600 }}>Currently viewing this environment</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* My league */}
       <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>

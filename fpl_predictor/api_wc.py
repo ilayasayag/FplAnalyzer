@@ -241,7 +241,7 @@ def list_players():
     position = request.args.get("position", type=int)
     team_id = request.args.get("teamId", type=int)
     search = request.args.get("q", "").strip()
-    limit = request.args.get("limit", 200, type=int)
+    limit = request.args.get("limit", 2000, type=int)
 
     players = _wc.get_all_players(_db)
 
