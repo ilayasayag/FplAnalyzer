@@ -315,12 +315,25 @@ function App() {
               admin: leagueDetails.adminUid,
             };
 
+            const normalizeIso = iso => {
+              if (!iso) return "GER";
+              const mapped = {
+                SPA: "ESP",
+                JAP: "JPN",
+                MOR: "MAR",
+                TUR: "POR2",
+                IRA: "IRN",
+                SWI: "SUI"
+              };
+              return mapped[iso.toUpperCase()] || iso.toUpperCase();
+            };
+
             if (leagueDetails.members) {
               window.MANAGERS = leagueDetails.members.map(m => ({
                 uid: m.uid,
                 name: m.displayName || m.uid.substring(0, 8),
                 team: m.teamName || "Unnamed Team",
-                flag: m.flag || "GER",
+                flag: normalizeIso(m.flag),
                 draftPos: m.draftPosition || 99,
                 waiverPri: m.waiverPriority || 99,
               }));
@@ -341,7 +354,7 @@ function App() {
               id: String(p.id),
               name: p.name,
               pos: p.position,
-              team: p.teamIso || p.teamShort || String(p.teamId),
+              team: normalizeIso(p.teamIso || p.teamShort || String(p.teamId)),
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));

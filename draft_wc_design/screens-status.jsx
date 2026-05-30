@@ -370,31 +370,65 @@ function PickTeamScreen({ onTab }) {
     }
     if (selected === id) { setSelected(null); return; }
 
-    const pA = playerById(selected);
-    const pB = playerById(id);
-    if (pA && pB && pA.pos !== pB.pos) {
-      alert(`Cannot swap: ${pA.name} is a ${POS_NAMES[pA.pos]} and ${pB.name} is a ${POS_NAMES[pB.pos]}. Substitutions must be made between players of the same position.`);
+    const isStartingA = lineup.starting.includes(selected);
+    const isStartingB = lineup.starting.includes(id);
+
+    // Hypothetically perform swap
+    let newStarting = [...lineup.starting];
+    let newBench = [...lineup.bench];
+
+    const idxA = (isStartingA ? newStarting : newBench).indexOf(selected);
+    const idxB = (isStartingB ? newStarting : newBench).indexOf(id);
+
+    if (isStartingA && isStartingB) {
+      [newStarting[idxA], newStarting[idxB]] = [newStarting[idxB], newStarting[idxA]];
+    } else if (!isStartingA && !isStartingB) {
+      [newBench[idxA], newBench[idxB]] = [newBench[idxB], newBench[idxA]];
+    } else {
+      const aArr = isStartingA ? newStarting : newBench;
+      const bArr = isStartingB ? newStarting : newBench;
+      aArr[idxA] = id;
+      bArr[idxB] = selected;
+    }
+
+    // Dynamic formation validation
+    const countPos = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    newStarting.forEach(pId => {
+      const p = playerById(pId);
+      if (p) {
+        countPos[p.pos] = (countPos[p.pos] || 0) + 1;
+      }
+    });
+
+    const gk = countPos[1];
+    const def = countPos[2];
+    const mid = countPos[3];
+    const fwd = countPos[4];
+
+    const formationKey = `${gk}-${def}-${mid}-${fwd}`;
+    const VALID_FORMATIONS = [
+      "1-3-5-2", "1-3-4-3", "1-4-5-1", "1-4-4-2", "1-4-3-3", "1-5-4-1", "1-5-3-2"
+    ];
+
+    if (!VALID_FORMATIONS.includes(formationKey)) {
+      alert(`Invalid Formation: Swapping would result in a ${def}-${mid}-${fwd} formation. Legal formations must have 1 Goalkeeper, between 3 and 5 Defenders, between 2 and 5 Midfielders, and between 1 and 3 Forwards.`);
       setSelected(null);
       return;
     }
 
-    // swap selected with clicked
-    const isStartingA = lineup.starting.includes(selected);
-    const isStartingB = lineup.starting.includes(id);
-    const next = { ...lineup, starting: [...lineup.starting], bench: [...lineup.bench] };
-    const idxA = (isStartingA ? next.starting : next.bench).indexOf(selected);
-    const idxB = (isStartingB ? next.starting : next.bench).indexOf(id);
-    if (isStartingA && isStartingB) {
-      [next.starting[idxA], next.starting[idxB]] = [next.starting[idxB], next.starting[idxA]];
-    } else if (!isStartingA && !isStartingB) {
-      [next.bench[idxA], next.bench[idxB]] = [next.bench[idxB], next.bench[idxA]];
-    } else {
-      const aArr = isStartingA ? next.starting : next.bench;
-      const bArr = isStartingB ? next.starting : next.bench;
-      aArr[idxA] = id;
-      bArr[idxB] = selected;
-    }
-    setLineup(next);
+    // Sort starters so the Pitch component places players in their correct rows
+    newStarting.sort((a, b) => {
+      const posA = playerById(a)?.pos ?? 3;
+      const posB = playerById(b)?.pos ?? 3;
+      return posA - posB;
+    });
+
+    setLineup({
+      ...lineup,
+      starting: newStarting,
+      bench: newBench,
+      formation: [gk, def, mid, fwd]
+    });
     setSelected(null);
   };
 
