@@ -157,6 +157,11 @@ function App() {
               })).sort((a, b) => a.rank - b.rank);
               forceUpdate();
             }
+          } else {
+            // No standings yet (e.g. pre-draft league). Show an empty table
+            // rather than silently keeping the static mock standings.
+            window.STANDINGS = [];
+            forceUpdate();
           }
         }, (err) => console.error("Standings listen error:", err));
     } else {
@@ -176,6 +181,9 @@ function App() {
               knockedOut: m.knockedOut || false,
               ptsSeed: m.ptsSeed || false,
             })).sort((a, b) => a.rank - b.rank);
+            forceUpdate();
+          } else {
+            window.STANDINGS = [];
             forceUpdate();
           }
         }).catch(err => console.error("Past standings fetch error:", err));
@@ -420,6 +428,9 @@ function App() {
             schedule.schedule.forEach(g => {
               window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
             });
+          } else {
+            // No schedule yet (pre-draft / pre-season). Don't fall back to mock.
+            window.SCHEDULE = {};
           }
         } catch (e) {
           console.warn("Failed to fetch schedule", e);
@@ -430,6 +441,9 @@ function App() {
           const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
           if (squad && squad.players && squad.players.length > 0) {
             window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
+          } else {
+            // No squad yet (draft not complete). Don't show the mock squad.
+            window.MY_SQUAD_IDS = [];
           }
         } catch (e) {
           console.warn("Failed to fetch my squad", e);
@@ -481,6 +495,8 @@ function App() {
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));
+          } else {
+            window.FREE_AGENTS = [];
           }
         } catch (e) {
           console.warn("Failed to fetch free agents", e);
@@ -499,6 +515,10 @@ function App() {
               status: w.status || "pending"
             }));
           }
+        } catch (e) {
+          console.warn("Failed to fetch active waivers", e);
+        }
+
         // Fetch all gameweek scores
         window.ALL_GW_SCORES = {};
         try {
@@ -522,13 +542,12 @@ function App() {
 
         if (criticalFailed) {
           window.__DATA_SOURCE__ = "down";
+        } else if (leagueDetails && leagueDetails.simulated === true) {
+          // The backend marks each league explicitly: Platform A (mock) carries
+          // simulated:true, the real 7-player draft carries simulated:false.
+          window.__DATA_SOURCE__ = "simulated";
         } else {
-          const lidLower = String(lid || "").toLowerCase();
-          if (lidLower.includes("mock") || lidLower.includes("sim")) {
-            window.__DATA_SOURCE__ = "simulated";
-          } else {
-            window.__DATA_SOURCE__ = "live";
-          }
+          window.__DATA_SOURCE__ = "live";
         }
         forceUpdate();
       } catch (err) {

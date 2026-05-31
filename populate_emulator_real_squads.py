@@ -12,7 +12,7 @@ os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client(database_id="gamedb")
+db = firestore.client()
 
 # Clear collections
 print("🧹 Cleaning local emulator collections...")

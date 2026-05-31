@@ -5,8 +5,20 @@ import firebase_admin
 from firebase_admin import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from fpl_predictor.game.wc_scoring import process_fixture, finalize_gw
+from fpl_predictor.data.wc_api import WC2026Client
 
 POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+
+# Cache a single offline-safe client for seeding so elimination detection
+# (which runs at GW3 inside finalize_gw) can read wc_teams from Firestore.
+_SEED_WC_CLIENT = None
+
+
+def _seed_wc_client(db):
+    global _SEED_WC_CLIENT
+    if _SEED_WC_CLIENT is None:
+        _SEED_WC_CLIENT = WC2026Client(db=db)
+    return _SEED_WC_CLIENT
 
 def normalize_name(name):
     name = name.replace("&apos;", "'").replace("’", "'").replace("ʻ", "'").replace("ʻ", "'")
@@ -170,6 +182,9 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         "adminUid": "u_roy",
         "format": "h2h",
         "status": "group_phase",  # Starts in group_phase, finalized sequentially
+        # Platform A is the SIMULATION / time-machine. Drives the data-source
+        # banner so the UI honestly shows "Simulated Data Mode".
+        "simulated": True,
         "maxMembers": 8,
         "pickTimer": 60,
         "tradeApproval": "vote",
@@ -465,9 +480,10 @@ def seed_mock_league(db, USER_UID, USER_NAME):
 
         # Set league currentGw to gw so finalize_gw runs on the correct gw
         db.collection("leagues").document(mock_lid).update({"currentGw": gw})
-        
-        # Call finalize_gw
-        finalize_gw(mock_lid, gw, db, None)
+
+        # Call finalize_gw with a real client so group-stage elimination
+        # detection (runs at GW3) can populate wc_teams.status = "eliminated".
+        finalize_gw(mock_lid, gw, db, _seed_wc_client(db))
         
     print(f"✅ Mock League {mock_lid} successfully seeded via the real engine!")
 
@@ -479,9 +495,14 @@ def seed_pre_draft_league(db, USER_UID, USER_NAME):
         "leagueId": pre_lid,
         "name": "World Cup Real Draft (7 Managers)",
         "inviteCode": "REALWC26",
-        "adminUid": "u_roy",
+        # The logged-in user owns/admins their real draft league so they can
+        # start the draft and the season themselves.
+        "adminUid": USER_UID,
         "format": "h2h",
         "status": "pre_draft",
+        # Platform B is the REAL draft — its results are not simulated. Drives
+        # the data-source banner (down | simulated | live) on the frontend.
+        "simulated": False,
         "maxMembers": 7,
         "pickTimer": 90,
         "tradeApproval": "vote",
@@ -493,16 +514,29 @@ def seed_pre_draft_league(db, USER_UID, USER_NAME):
         "seasonStartedAt": None,
         "createdAt": SERVER_TIMESTAMP,
     })
-    
-    mock_managers = [
-        {"uid": "u_roy",     "name": "Roy",       "team": "La Liga Loca",     "flag": "ESP", "draftPos": 1, "waiverPri": 6},
-        {"uid": "u_yonatan", "name": "Yonatan",   "team": "Tiki-Taka FC",     "flag": "ARG", "draftPos": 2, "waiverPri": 5},
-        {"uid": "u_nadav",   "name": "Nadav",     "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
-        {"uid": "u_yuval",   "name": "Yuval",     "team": "The Gunners",      "flag": "ENG", "draftPos": 4, "waiverPri": 3},
-        {"uid": "u_ido",     "name": "Ido",       "team": "Tel Aviv United",  "flag": "FRA", "draftPos": 5, "waiverPri": 2},
-        {"uid": "u_shai",    "name": "Shai",      "team": "McShaike's XI",   "flag": "MEX", "draftPos": 6, "waiverPri": 1},
+
+    # 7 managers for the real draft: the logged-in user (also admin, drafts
+    # first) plus 6 friends. We dedupe against USER_UID so the production seed
+    # (which logs in as one of the named friends, e.g. u_roy/Roy) still yields
+    # exactly 7 DISTINCT members instead of silently collapsing to 6.
+    friend_pool = [
+        {"uid": "u_roy",     "name": "Roy",     "team": "La Liga Loca",     "flag": "ESP"},
+        {"uid": "u_yonatan", "name": "Yonatan", "team": "Tiki-Taka FC",     "flag": "ARG"},
+        {"uid": "u_nadav",   "name": "Nadav",   "team": "Red Devils 2026",  "flag": "BRA"},
+        {"uid": "u_yuval",   "name": "Yuval",   "team": "The Gunners",      "flag": "ENG"},
+        {"uid": "u_ido",     "name": "Ido",     "team": "Tel Aviv United",  "flag": "FRA"},
+        {"uid": "u_shai",    "name": "Shai",    "team": "McShaike's XI",    "flag": "MEX"},
+        {"uid": "u_omer",    "name": "Omer",    "team": "Catenaccio Kings", "flag": "ITA"},
     ]
-    
+    friends = [f for f in friend_pool if f["uid"] != USER_UID][:6]
+    roster = [{"uid": USER_UID, "name": USER_NAME,
+               "team": f"{USER_NAME}'s XI", "flag": "POR"}] + friends
+
+    mock_managers = []
+    n = len(roster)
+    for i, m in enumerate(roster):
+        mock_managers.append({**m, "draftPos": i + 1, "waiverPri": n - i})
+
     for m in mock_managers:
         db.collection("leagues").document(pre_lid).collection("members").document(m["uid"]).set({
             "displayName": m["name"],

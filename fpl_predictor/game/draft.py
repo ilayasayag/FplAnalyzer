@@ -331,4 +331,12 @@ class DraftEngine:
                 "players": players,
             })
 
-        league_ref.update({"status": "active"})
+        # Draft is done, but the SEASON has not started yet. Leave the league
+        # in "drafting" so start_season() can transition drafting -> group_phase
+        # (the canonical playing state recognized by scoring/propagation/squads/
+        # trades/waivers). Do NOT set "active" — it is an orphan status that
+        # every gameplay subsystem ignores and that start_season rejects.
+        league_ref.update({
+            "draftComplete": True,
+            "draftCompletedAt": SERVER_TIMESTAMP,
+        })

@@ -18,7 +18,7 @@ from firebase_admin import firestore
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client(database_id="gamedb")
+db = firestore.client()
 
 from fpl_predictor.game.wc_scoring import finalize_gw, process_fixture
 from fpl_predictor.game.wc_knockout import seed_knockout, advance_knockout_bracket, get_bracket
@@ -1119,7 +1119,23 @@ def run_draft_stress_test_simulation():
         assert defs == 5, f"Manager {uid} must have exactly 5 DEFs, got {defs}"
         assert mids == 5, f"Manager {uid} must have exactly 5 MIDs, got {mids}"
         assert fwds == 3, f"Manager {uid} must have exactly 3 FWDs, got {fwds}"
-        
+
+    # 8. CRITICAL: a completed live draft must be able to START THE SEASON.
+    # Previously _finalize_draft set league status to "active", which
+    # start_season rejected (and every gameplay guard ignored), stranding the
+    # league. Verify the real end-to-end path works now.
+    league_after_draft = db.collection("leagues").document(lid).get().to_dict()
+    assert league_after_draft["status"] == "drafting", (
+        f"After draft, league should be 'drafting' (awaiting season start), "
+        f"got {league_after_draft['status']!r}"
+    )
+    season_res = league_mgr.start_season(lid, admin_uid)
+    assert season_res["status"] == "group_phase", "start_season must transition to group_phase"
+    league_live = db.collection("leagues").document(lid).get().to_dict()
+    assert league_live["status"] == "group_phase", "League must be group_phase after start_season"
+    assert league_live["currentGw"] == 1, "Season must start at GW1"
+    print("🚀 Season started after live draft: status=group_phase, currentGw=1")
+
     print("🏆 Simulation 6 passed perfectly!")
 
 def main():

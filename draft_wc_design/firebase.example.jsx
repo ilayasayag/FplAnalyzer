@@ -11,7 +11,7 @@ const _firebaseConfig = {
 };
 
 firebase.initializeApp(_firebaseConfig);
-const _db   = firebase.app().firestore("gamedb");
+const _db   = firebase.firestore();
 const _auth = firebase.auth();
 
 // Point to local emulators when running on localhost

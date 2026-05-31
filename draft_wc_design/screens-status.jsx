@@ -484,8 +484,6 @@ function PickTeamScreen({ onTab }) {
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining
         </div>
       </div>
-
-      </div>
     </div>
   );
 }

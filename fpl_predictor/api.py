@@ -14,7 +14,7 @@ import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
 
 firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
-db = fb_firestore.client(database_id="gamedb")
+db = fb_firestore.client()
 log = logging.getLogger(__name__)
 
 from .data.fpl_api import FPLClient
