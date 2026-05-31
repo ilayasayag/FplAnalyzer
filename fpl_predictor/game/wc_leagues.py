@@ -237,6 +237,7 @@ class WCLeagueManager:
                 "maxMembers": d["maxMembers"],
                 "knockoutStartGw": d.get("knockoutStartGw"),
                 "currentGw": d.get("currentGw"),
+                "simulated": d.get("simulated", False),
                 "isAdmin": d["adminUid"] == uid,
             })
         return result

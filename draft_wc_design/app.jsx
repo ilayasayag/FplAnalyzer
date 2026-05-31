@@ -17,6 +17,113 @@ const ACCENT_THEMES = {
   forest:{ grad: "linear-gradient(94deg, #0d2818 0%, #1f6b3e 35%, #2eb05c 65%, #ffc844 100%)", pill: "linear-gradient(94deg, #00e87b 0%, #ffd56b 100%)" },
 };
 
+// =====================================================================
+// Platform-selector LOBBY — the home page after sign-in.
+// The user explicitly chooses which league/platform to enter; no league is
+// auto-selected, so the simulated showcase never overrides their real league.
+// =====================================================================
+function LobbyScreen({ leagues, loading, onEnter, onSignOut }) {
+  const [mode, setMode] = React.useState("home"); // home | create | join
+
+  const wrap = (inner) => (
+    <div style={{
+      minHeight: "100vh",
+      background: "radial-gradient(circle at top left, #2a2080, #0c0a3e 70%)",
+      color: "white", padding: "48px 20px"
+    }}>
+      <div style={{ maxWidth: 880, margin: "0 auto" }}>{inner}</div>
+    </div>
+  );
+
+  if (mode === "create") {
+    return wrap(
+      <div className="col" style={{ gap: 16 }}>
+        <button onClick={() => setMode("home")} style={{ background: "transparent", border: "none", color: "var(--green-400)", fontWeight: 700, cursor: "pointer", padding: 0, alignSelf: "flex-start" }}>← Back to platforms</button>
+        <CreateForm onBack={() => setMode("home")} onTab={() => setMode("home")} />
+      </div>
+    );
+  }
+  if (mode === "join") {
+    return wrap(
+      <div className="col" style={{ gap: 16 }}>
+        <button onClick={() => setMode("home")} style={{ background: "transparent", border: "none", color: "var(--green-400)", fontWeight: 700, cursor: "pointer", padding: 0, alignSelf: "flex-start" }}>← Back to platforms</button>
+        <JoinForm onBack={() => setMode("home")} onTab={() => setMode("home")} />
+      </div>
+    );
+  }
+
+  const platformMeta = (l) => {
+    const isSim = (l.simulated === true) || l.leagueId.includes("mock") || l.leagueId.includes("sim");
+    if (isSim) return { tag: "Platform A · Simulated Showcase", color: "#a78bfa", note: "A finished demo season to explore the UI" };
+    if (l.leagueId === "lg_pre_draft") return { tag: "Platform B · Live 7-Manager Draft", color: "var(--green-400)", note: "The real league with your friends" };
+    return { tag: "Your League", color: "var(--gold-500)", note: "A league you created or joined" };
+  };
+
+  return wrap(
+    <div className="col" style={{ gap: 28 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+        <div>
+          <h1 className="h-display" style={{ fontSize: 32, margin: 0, letterSpacing: "-0.02em" }}>Choose your platform</h1>
+          <p className="muted" style={{ fontSize: 14, marginTop: 6, color: "rgba(255,255,255,0.6)" }}>
+            Each league is fully separate. Pick which one to manage — you can switch any time.
+          </p>
+        </div>
+        {onSignOut && (
+          <button onClick={onSignOut} style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.12)", color: "rgba(255,255,255,0.8)", fontWeight: 600, fontSize: 12, padding: "8px 14px", borderRadius: 8, cursor: "pointer" }}>Sign Out</button>
+        )}
+      </div>
+
+      {loading ? (
+        <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 14 }}>Loading your leagues…</div>
+      ) : leagues.length === 0 ? (
+        <div className="card-dark" style={{ padding: 28, borderRadius: 14, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}>
+          <div className="h-display" style={{ fontSize: 20, marginBottom: 6 }}>No leagues yet</div>
+          <div style={{ fontSize: 13, color: "rgba(255,255,255,0.65)" }}>Create a new league or join one with an invite code to get started.</div>
+        </div>
+      ) : (
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(340px, 1fr))", gap: 18 }}>
+          {leagues.map(l => {
+            const meta = platformMeta(l);
+            return (
+              <div key={l.leagueId} className="card-dark" style={{
+                padding: 22, borderRadius: 14,
+                background: "rgba(255,255,255,0.03)",
+                border: "1px solid rgba(255,255,255,0.08)",
+                borderLeft: `4px solid ${meta.color}`,
+                display: "flex", flexDirection: "column", gap: 14
+              }}>
+                <div>
+                  <div style={{ fontSize: 11, color: meta.color, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>{meta.tag}</div>
+                  <div className="h-display" style={{ fontSize: 22, marginTop: 6, color: "white" }}>{l.name}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.55)", marginTop: 4 }}>{meta.note}</div>
+                  <div style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginTop: 10 }}>
+                    Status: <strong style={{ color: "white", textTransform: "capitalize" }}>{String(l.status || "").replace(/_/g, " ") || "—"}</strong>
+                    {(l.memberCount != null || l.maxMembers != null) && <> · {l.memberCount ?? "?"}/{l.maxMembers ?? "?"} managers</>}
+                  </div>
+                </div>
+                <button className="btn btn--primary" style={{ alignSelf: "flex-start", padding: "8px 18px", fontSize: 12, fontWeight: 700 }} onClick={() => onEnter(l.leagueId)}>
+                  Enter platform →
+                </button>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, maxWidth: 560 }}>
+        <button className="card-dark" style={{ padding: 20, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "white", cursor: "pointer", textAlign: "left" }} onClick={() => setMode("create")}>
+          <div className="h-display" style={{ fontSize: 16 }}>+ Create a league</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>Start a new draft and invite friends</div>
+        </button>
+        <button className="card-dark" style={{ padding: 20, borderRadius: 12, background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)", color: "white", cursor: "pointer", textAlign: "left" }} onClick={() => setMode("join")}>
+          <div className="h-display" style={{ fontSize: 16 }}>→ Join with code</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 4 }}>Enter an invite code to join</div>
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
@@ -30,7 +137,11 @@ function App() {
   const [displayName, setDisplayName] = React.useState("");
   const [authError, setAuthError] = React.useState("");
   const [isSignUp, setIsSignUp] = React.useState(false);
-  const [activeLid, setActiveLid] = React.useState("lg_mock_draft");
+  // activeLid === null means we are on the platform-selector lobby (home page).
+  // No league data is synced until the user explicitly enters a platform.
+  const [activeLid, setActiveLid] = React.useState(null);
+  const [myLeagues, setMyLeagues] = React.useState([]);
+  const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
 
   React.useEffect(() => {
@@ -42,18 +153,16 @@ function App() {
   // Expose global league switch/refresh handlers
   React.useEffect(() => {
     window.setActiveLeagueId = setActiveLid;
+    // Return to the platform-selector lobby (used by the TopBar "Switch league" button).
+    window.goToLobby = () => setActiveLid(null);
+    // Re-fetch the user's league list WITHOUT auto-selecting one. Callers that
+    // want to enter a specific league (create/join) call setActiveLeagueId themselves.
     window.refreshActiveLeague = async () => {
       try {
         const list = await apiCall("GET", "/leagues/my");
-        if (list && list.length > 0) {
-          if (list.some(l => l.leagueId === "lg_mock_draft")) {
-            setActiveLid("lg_mock_draft");
-          } else {
-            setActiveLid(list[0].leagueId);
-          }
-        }
+        setMyLeagues(list || []);
       } catch (e) {
-        console.warn("Failed to refresh active league", e);
+        console.warn("Failed to refresh leagues", e);
       }
     };
   }, []);
@@ -74,19 +183,16 @@ function App() {
             console.warn("POST /auth/me profile sync failed, continuing", e);
           }
 
-          // Fetch my leagues to determine the active league ID
+          // Fetch my leagues for the platform-selector lobby. We do NOT
+          // auto-select a league: the user picks which platform to enter from
+          // the home page, so the simulated showcase never silently overrides
+          // their real league.
           const list = await apiCall("GET", "/leagues/my");
-          if (list && list.length > 0) {
-            if (list.some(l => l.leagueId === "lg_mock_draft")) {
-              setActiveLid("lg_mock_draft");
-            } else if (list.some(l => l.leagueId === "lg_pre_draft")) {
-              setActiveLid("lg_pre_draft");
-            } else {
-              setActiveLid(list[0].leagueId);
-            }
-          }
+          setMyLeagues(list || []);
         } catch (e) {
           console.warn("Failed to fetch leagues in auth sync", e);
+        } finally {
+          setLeaguesLoading(false);
         }
       } else {
         setUser(null);
@@ -125,6 +231,9 @@ function App() {
   // Firestore & API dynamic synchronization
   React.useEffect(() => {
     if (!user) return;
+    // No league selected yet → we're on the platform-selector lobby. Don't sync
+    // any per-league data (this is what keeps the two platforms isolated).
+    if (!activeLid) return;
 
     // Update ME global variable to logged-in user's UID
     window.ME = user.uid;
@@ -195,28 +304,29 @@ function App() {
       unsubScores = _db.collection("leagues").doc(lid)
         .collection("scores").doc(String(curGw))
         .onSnapshot((doc) => {
-          if (doc.exists) {
-            const data = doc.data();
-            if (data && data.results) {
-              window.GW3_TOTALS = {};
-              Object.entries(data.results).forEach(([uid, res]) => {
-                window.GW3_TOTALS[uid] = res.points || 0;
-              });
-              forceUpdate();
-            }
+          if (doc.exists && doc.data() && doc.data().results) {
+            window.GW3_TOTALS = {};
+            Object.entries(doc.data().results).forEach(([uid, res]) => {
+              window.GW3_TOTALS[uid] = res.points || 0;
+            });
+          } else {
+            // No scores for this GW/league yet → clear so a previous league's
+            // totals never persist after a switch.
+            window.GW3_TOTALS = {};
           }
+          forceUpdate();
         }, (err) => console.error("Scores listen error:", err));
     } else {
       apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
         .then(data => {
+          window.GW3_TOTALS = {};
           if (data && data.results) {
-            window.GW3_TOTALS = {};
             Object.entries(data.results).forEach(([uid, res]) => {
               window.GW3_TOTALS[uid] = res.points || 0;
             });
-            forceUpdate();
           }
-        }).catch(err => console.error("Past scores fetch error:", err));
+          forceUpdate();
+        }).catch(err => { window.GW3_TOTALS = {}; console.error("Past scores fetch error:", err); });
     }
 
     // 3. Sync Draft State live
@@ -236,6 +346,15 @@ function App() {
             pickTimer: data.pickTimer || 60,
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
             isMyTurn: data.currentDrafter === user.uid,
+          };
+          forceUpdate();
+        } else {
+          // No draft has been created for this league (e.g. a pre_draft league).
+          // Clear DRAFT_STATE so we never render a stale/other league's draft.
+          window.DRAFT_STATE = {
+            round: 0, pickOverall: 0, pickInRound: 0, onTheClock: "",
+            totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
+            isMyTurn: false, notStarted: true,
           };
           forceUpdate();
         }
@@ -345,6 +464,10 @@ function App() {
                 draftPos: m.draftPosition || 99,
                 waiverPri: m.waiverPriority || 99,
               }));
+            } else {
+              // No members returned → clear so a previous league's managers
+              // (or the data.jsx demo roster) can never bleed through.
+              window.MANAGERS = [];
             }
           } else {
             criticalFailed = true;
@@ -710,6 +833,18 @@ function App() {
           </div>
         </div>
       </div>
+    );
+  }
+
+  // Signed in but no platform selected → show the lobby / platform selector.
+  if (!activeLid) {
+    return (
+      <LobbyScreen
+        leagues={myLeagues}
+        loading={leaguesLoading}
+        onEnter={(lid) => setActiveLid(lid)}
+        onSignOut={() => _auth.signOut()}
+      />
     );
   }
 

@@ -52,6 +52,14 @@ function TopBar({ tweak }) {
           <span><strong>GW{TOURNAMENT.currentGw}</strong> · {(TOURNAMENT.gwDates && TOURNAMENT.gwDates[TOURNAMENT.currentGw]) ? TOURNAMENT.gwDates[TOURNAMENT.currentGw].wcRound : "GW"}</span>
         </div>
         <span style={{ width: 1, height: 14, background: "var(--border)" }} />
+        <button
+          onClick={() => window.goToLobby && window.goToLobby()}
+          title="Switch to another league"
+          style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", color: "white", fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 6, cursor: "pointer" }}
+        >
+          ⇄ Switch league
+        </button>
+        <span style={{ width: 1, height: 14, background: "var(--border)" }} />
         <span>{displayName}</span>
         <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--grad-hero)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 12 }}>{initials || "ME"}</span>
       </div>
@@ -93,7 +101,13 @@ function SubNav({ tab, onTab }) {
         </button>
       ))}
       <div style={{ flex: 1 }} />
-      <button className="subnav__tab" style={{ color: "rgba(255,255,255,0.78)" }}>Sign Out</button>
+      <button
+        className="subnav__tab"
+        style={{ color: "rgba(255,255,255,0.78)" }}
+        onClick={() => window._auth && window._auth.signOut()}
+      >
+        Sign Out
+      </button>
     </div>
   );
 }

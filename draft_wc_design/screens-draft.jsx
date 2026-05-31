@@ -4,10 +4,14 @@
 
 // ---------- DRAFT ROOM ----------
 function DraftRoomScreen({ onTab }) {
-  const [secondsLeft, setSecondsLeft] = React.useState(38);
+  // The clock reflects the REAL server deadline (DRAFT_STATE.secondsLeft), not a
+  // hardcoded countdown. 0 when no draft is running for the active league.
+  const serverSeconds = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.secondsLeft) ? DRAFT_STATE.secondsLeft : 0;
+  const [secondsLeft, setSecondsLeft] = React.useState(serverSeconds);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
-  const [watchlist, setWatchlist] = React.useState(new Set(["p_alvarez", "p_modric", "p_courtois"]));
+  // Watchlist starts empty — it is the user's own picks, never demo players.
+  const [watchlist, setWatchlist] = React.useState(new Set());
   const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
@@ -20,6 +24,9 @@ function DraftRoomScreen({ onTab }) {
       alert("Draft pick failed: " + (err.error || err.detail || JSON.stringify(err)));
     }
   };
+
+  // Re-sync the clock whenever the server-provided deadline changes.
+  React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
 
   React.useEffect(() => {
     const t = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
@@ -77,8 +84,17 @@ function DraftRoomScreen({ onTab }) {
 
   const formatTime = s => `0:${String(s).padStart(2, "0")}`;
 
+  // A league whose draft doc is absent/empty (e.g. a pre_draft league) has no
+  // live draft. Show a clear notice instead of a misleading "running" board.
+  const draftNotStarted = (typeof DRAFT_STATE !== "undefined") && (DRAFT_STATE.notStarted || !DRAFT_STATE.round) && DRAFT_HISTORY.length === 0;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: 16, minHeight: 700 }}>
+      {draftNotStarted && (
+        <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
+          ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
+        </div>
+      )}
       {/* LEFT — Draft order */}
       <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
         <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
