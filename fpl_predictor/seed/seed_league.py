@@ -179,7 +179,7 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         "leagueId": mock_lid,
         "name": "WC 2026 Expert Mock Draft",
         "inviteCode": "MOCKWC26",
-        "adminUid": "u_roy",
+        "adminUid": "u_mk_golden",
         "format": "h2h",
         "status": "group_phase",  # Starts in group_phase, finalized sequentially
         # Platform A is the SIMULATION / time-machine. Drives the data-source
@@ -197,16 +197,22 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         "createdAt": SERVER_TIMESTAMP,
     })
     
-    # 2. Setup mock managers
+    # 2. Setup mock managers.
+    # Platform A is a SIMULATED showcase: its 7 AI opponents use dedicated
+    # u_mk_* identities that can NEVER collide with a real logged-in user
+    # (real friends own u_roy/u_yonatan/... in the Platform B draft). Only the
+    # logged-in user (USER_UID) is a real participant here. Keeping these
+    # namespaces separate guarantees the showcase always has 8 DISTINCT members
+    # and an uncorrupted H2H schedule regardless of who seeds it.
     mock_managers = [
-        {"uid": "u_roy", "name": "GoldenGoalFF", "team": "GoldenGoalFF's Squad", "flag": "EGY", "draftPos": 1, "waiverPri": 7},
-        {"uid": "u_yonatan", "name": "FPLtfs", "team": "FPLtfs's Squad", "flag": "BRA", "draftPos": 2, "waiverPri": 6},
+        {"uid": "u_mk_golden", "name": "GoldenGoalFF", "team": "GoldenGoalFF's Squad", "flag": "EGY", "draftPos": 1, "waiverPri": 7},
+        {"uid": "u_mk_fpltfs", "name": "FPLtfs", "team": "FPLtfs's Squad", "flag": "BRA", "draftPos": 2, "waiverPri": 6},
         {"uid": USER_UID, "name": USER_NAME, "team": "FPLFRAN's Squad", "flag": "SPA", "draftPos": 3, "waiverPri": 5},
-        {"uid": "u_nadav", "name": "LloydHassell", "team": "LloydHassell's Squad", "flag": "ENG", "draftPos": 4, "waiverPri": 4},
-        {"uid": "u_yuval", "name": "nordburfor", "team": "nordburfor's Squad", "flag": "TUN", "draftPos": 5, "waiverPri": 3},
-        {"uid": "u_ido", "name": "FPLMate", "team": "FPLMate's Squad", "flag": "SCO", "draftPos": 6, "waiverPri": 2},
-        {"uid": "u_shai", "name": "CantWinFPL", "team": "CantWinFPL's Squad", "flag": "TUR", "draftPos": 7, "waiverPri": 1},
-        {"uid": "u_opponent", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
+        {"uid": "u_mk_lloyd", "name": "LloydHassell", "team": "LloydHassell's Squad", "flag": "ENG", "draftPos": 4, "waiverPri": 4},
+        {"uid": "u_mk_nord", "name": "nordburfor", "team": "nordburfor's Squad", "flag": "TUN", "draftPos": 5, "waiverPri": 3},
+        {"uid": "u_mk_mate", "name": "FPLMate", "team": "FPLMate's Squad", "flag": "SCO", "draftPos": 6, "waiverPri": 2},
+        {"uid": "u_mk_cant", "name": "CantWinFPL", "team": "CantWinFPL's Squad", "flag": "TUR", "draftPos": 7, "waiverPri": 1},
+        {"uid": "u_mk_opp", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
     ]
     
     for m in mock_managers:
@@ -249,9 +255,9 @@ def seed_mock_league(db, USER_UID, USER_NAME):
     opp_fwds = [p for p in available_players if p["position"] == 4][:3]
     
     opp_squad = opp_gks + opp_defs + opp_mids + opp_fwds
-    squads["u_opponent"] = []
+    squads["u_mk_opp"] = []
     for idx, p in enumerate(opp_squad):
-        squads["u_opponent"].append({
+        squads["u_mk_opp"].append({
             "id": int(p["id"]),
             "name": p["name"],
             "position": p["position"],
@@ -280,9 +286,9 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         
     # 4. H2H schedule & events mapping
     schedule_by_gw = {
-        1: [("u_roy", "u_shai"), ("u_yonatan", "u_opponent"), ("u_nadav", "u_ido"), (USER_UID, "u_yuval")],
-        2: [("u_roy", "u_opponent"), ("u_yonatan", "u_ido"), ("u_nadav", "u_yuval"), (USER_UID, "u_shai")],
-        3: [("u_roy", "u_ido"), ("u_yonatan", "u_yuval"), ("u_opponent", "u_shai"), (USER_UID, "u_nadav")]
+        1: [("u_mk_golden", "u_mk_cant"), ("u_mk_fpltfs", "u_mk_opp"), ("u_mk_lloyd", "u_mk_mate"), (USER_UID, "u_mk_nord")],
+        2: [("u_mk_golden", "u_mk_opp"), ("u_mk_fpltfs", "u_mk_mate"), ("u_mk_lloyd", "u_mk_nord"), (USER_UID, "u_mk_cant")],
+        3: [("u_mk_golden", "u_mk_mate"), ("u_mk_fpltfs", "u_mk_nord"), ("u_mk_opp", "u_mk_cant"), (USER_UID, "u_mk_lloyd")]
     }
     
     for gw, matches in schedule_by_gw.items():

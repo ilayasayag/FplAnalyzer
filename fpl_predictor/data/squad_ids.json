@@ -1,5 +1,5 @@
 {
-  "u_roy": [
+  "u_mk_golden": [
     {
       "id": 16831,
       "name": "Al Mahdi Soliman",
@@ -16,7 +16,7 @@
     },
     {
       "id": 67971,
-      "name": "M. Gu\u00e9hi",
+      "name": "M. Guéhi",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "ENG"
@@ -79,14 +79,14 @@
     },
     {
       "id": 1271,
-      "name": "A. Tchouam\u00e9ni",
+      "name": "A. Tchouaméni",
       "position": 3,
       "positionName": "MID",
       "teamIso": "FRA"
     },
     {
       "id": 278,
-      "name": "Kylian Mbapp\u00e9",
+      "name": "Kylian Mbappé",
       "position": 4,
       "positionName": "FWD",
       "teamIso": "FRA"
@@ -106,7 +106,7 @@
       "teamIso": "MOR"
     }
   ],
-  "u_yonatan": [
+  "u_mk_fpltfs": [
     {
       "id": 280,
       "name": "Alisson Becker",
@@ -123,7 +123,7 @@
     },
     {
       "id": 1145,
-      "name": "I. Konat\u00e9",
+      "name": "I. Konaté",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "FRA"
@@ -216,7 +216,7 @@
   "USER_UID": [
     {
       "id": 47270,
-      "name": "Unai Sim\u00f3n",
+      "name": "Unai Simón",
       "position": 1,
       "positionName": "GK",
       "teamIso": "SPA"
@@ -230,7 +230,7 @@
     },
     {
       "id": 22224,
-      "name": "Gabriel Magalh\u00e3es",
+      "name": "Gabriel Magalhães",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "BRA"
@@ -251,7 +251,7 @@
     },
     {
       "id": 331832,
-      "name": "Ant\u00f3nio Silva",
+      "name": "António Silva",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "POR"
@@ -272,7 +272,7 @@
     },
     {
       "id": 517,
-      "name": "J. Rodr\u00edguez",
+      "name": "J. Rodríguez",
       "position": 3,
       "positionName": "MID",
       "teamIso": "COL"
@@ -314,13 +314,13 @@
     },
     {
       "id": 291713,
-      "name": "A. Gonz\u00e1lez",
+      "name": "A. González",
       "position": 4,
       "positionName": "FWD",
       "teamIso": "MEX"
     }
   ],
-  "u_nadav": [
+  "u_mk_lloyd": [
     {
       "id": 20355,
       "name": "A. Ramsdale",
@@ -427,7 +427,7 @@
       "teamIso": "CIV"
     }
   ],
-  "u_yuval": [
+  "u_mk_nord": [
     {
       "id": 49424,
       "name": "A. Dahmen",
@@ -437,7 +437,7 @@
     },
     {
       "id": 399,
-      "name": "A. N\u00fcbel",
+      "name": "A. Nübel",
       "position": 1,
       "positionName": "GK",
       "teamIso": "GER"
@@ -472,7 +472,7 @@
     },
     {
       "id": 2285,
-      "name": "A. R\u00fcdiger",
+      "name": "A. Rüdiger",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "GER"
@@ -514,7 +514,7 @@
     },
     {
       "id": 153,
-      "name": "O. Demb\u00e9l\u00e9",
+      "name": "O. Dembélé",
       "position": 4,
       "positionName": "FWD",
       "teamIso": "FRA"
@@ -534,7 +534,7 @@
       "teamIso": "BRA"
     }
   ],
-  "u_ido": [
+  "u_mk_mate": [
     {
       "id": 18933,
       "name": "A. Gunn",
@@ -558,7 +558,7 @@
     },
     {
       "id": 61837,
-      "name": "A. Bardakc\u0131",
+      "name": "A. Bardakcı",
       "position": 2,
       "positionName": "DEF",
       "teamIso": "TUR"
@@ -593,7 +593,7 @@
     },
     {
       "id": 73520,
-      "name": "A. G\u02bbaniyev",
+      "name": "A. Gʻaniyev",
       "position": 3,
       "positionName": "MID",
       "teamIso": "UZB"
@@ -628,7 +628,7 @@
     },
     {
       "id": 762,
-      "name": "Vin\u00edcius J\u00fanior",
+      "name": "Vinícius Júnior",
       "position": 4,
       "positionName": "FWD",
       "teamIso": "BRA"
@@ -641,10 +641,10 @@
       "teamIso": "SPA"
     }
   ],
-  "u_shai": [
+  "u_mk_cant": [
     {
       "id": 50132,
-      "name": "A. Bay\u0131nd\u0131r",
+      "name": "A. Bayındır",
       "position": 1,
       "positionName": "GK",
       "teamIso": "TUR"
@@ -693,14 +693,14 @@
     },
     {
       "id": 35573,
-      "name": "A. Guti\u00e9rrez",
+      "name": "A. Gutiérrez",
       "position": 3,
       "positionName": "MID",
       "teamIso": "MEX"
     },
     {
       "id": 291964,
-      "name": "A. G\u00fcler",
+      "name": "A. Güler",
       "position": 3,
       "positionName": "MID",
       "teamIso": "TUR"
@@ -742,7 +742,7 @@
     },
     {
       "id": 6009,
-      "name": "J. \u00c1lvarez",
+      "name": "J. Álvarez",
       "position": 4,
       "positionName": "FWD",
       "teamIso": "ARG"
