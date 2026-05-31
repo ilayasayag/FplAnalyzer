@@ -380,6 +380,14 @@ function App() {
     // 5. Initial HTTP fetches (Bracket, Schedule, Squad, Lineup, Players)
     const loadInitialData = async () => {
       let criticalFailed = false;
+      // Declared at function scope (not inside the league-details block) so the
+      // players / free-agents / scores fetches below can read them. The backend
+      // (api-sports) is the source of truth for country codes: players' teamIso,
+      // manager flags and the /teams isoCode all use the SAME raw codes (e.g.
+      // SPA, JAP, MOR, AUT, TUR). Pass them through unchanged — window.TEAM_MAP
+      // resolves name/group/flag/elimination for every nation.
+      let leagueDetails = null;
+      const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
       try {
         // Fetch gameweeks
         try {
@@ -419,7 +427,7 @@ function App() {
 
         // Fetch active league details
         try {
-          const leagueDetails = await apiCall("GET", `/leagues/${lid}`);
+          leagueDetails = await apiCall("GET", `/leagues/${lid}`);
           if (leagueDetails) {
             window.TOURNAMENT.currentGw = leagueDetails.currentGw || 1;
             window.TOURNAMENT.status = leagueDetails.status || "pre_draft";
@@ -441,15 +449,6 @@ function App() {
               tradeApproval: leagueDetails.tradeApproval,
               admin: leagueDetails.adminUid,
             };
-
-            // The backend (api-sports) is the source of truth for country
-            // codes: players' teamIso, manager flags and the /teams isoCode all
-            // use the SAME raw codes (e.g. SPA, JAP, MOR, AUT, TUR). Pass them
-            // through unchanged — window.TEAM_MAP (built from /teams below)
-            // resolves name/group/flag/elimination for every nation. (The old
-            // remap to FIFA codes mislabelled 13 nations and turned TUR→POR2,
-            // i.e. Türkiye rendered as Portugal.)
-            const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
 
             if (leagueDetails.members) {
               window.MANAGERS = leagueDetails.members.map(m => ({
