@@ -490,7 +490,12 @@ def seed_mock_league(db, USER_UID, USER_NAME):
 def seed_pre_draft_league(db, USER_UID, USER_NAME):
     pre_lid = "lg_pre_draft"
     print(f"📅 Seeding Pre-Draft League {pre_lid}...")
-    
+
+    # Idempotent re-seed: clear any pre-existing members so we never accumulate
+    # stale managers (or duplicate/conflicting draft positions) across runs.
+    for existing in db.collection("leagues").document(pre_lid).collection("members").get():
+        existing.reference.delete()
+
     db.collection("leagues").document(pre_lid).set({
         "leagueId": pre_lid,
         "name": "World Cup Real Draft (7 Managers)",
