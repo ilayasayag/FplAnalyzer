@@ -442,18 +442,14 @@ function App() {
               admin: leagueDetails.adminUid,
             };
 
-            const normalizeIso = iso => {
-              if (!iso) return "GER";
-              const mapped = {
-                SPA: "ESP",
-                JAP: "JPN",
-                MOR: "MAR",
-                TUR: "POR2",
-                IRA: "IRN",
-                SWI: "SUI"
-              };
-              return mapped[iso.toUpperCase()] || iso.toUpperCase();
-            };
+            // The backend (api-sports) is the source of truth for country
+            // codes: players' teamIso, manager flags and the /teams isoCode all
+            // use the SAME raw codes (e.g. SPA, JAP, MOR, AUT, TUR). Pass them
+            // through unchanged — window.TEAM_MAP (built from /teams below)
+            // resolves name/group/flag/elimination for every nation. (The old
+            // remap to FIFA codes mislabelled 13 nations and turned TUR→POR2,
+            // i.e. Türkiye rendered as Portugal.)
+            const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
 
             if (leagueDetails.members) {
               window.MANAGERS = leagueDetails.members.map(m => ({
@@ -475,6 +471,36 @@ function App() {
         } catch (e) {
           console.warn("Failed to fetch league details, using mock defaults", e);
           criticalFailed = true;
+        }
+
+        // Fetch the authoritative team list (names, groups, elimination,
+        // crests) keyed by the backend's raw ISO codes — the same codes used by
+        // players and manager flags. This replaces the hardcoded placeholder
+        // bracket so all 48 nations resolve correctly. A failure here is
+        // non-critical: teamById falls back to the static map.
+        try {
+          const teams = await apiCall("GET", "/teams");
+          if (teams && teams.length > 0) {
+            const staticMap = (typeof TEAM_MAP !== "undefined") ? TEAM_MAP : {};
+            const merged = {};
+            teams.forEach(t => {
+              const iso = (t.isoCode || t.short_name || "").toUpperCase();
+              if (!iso) return;
+              const base = staticMap[iso] || {};
+              merged[iso] = {
+                ...base,
+                id: iso,
+                name: t.name || base.name || iso,
+                grp: t.group || base.grp || "?",
+                elim: (t.eliminated !== undefined ? t.eliminated : base.elim) || false,
+                logo: t.logo || base.logo,
+              };
+            });
+            window.TEAM_MAP = merged;
+            window.TEAMS = Object.values(merged);
+          }
+        } catch (e) {
+          console.warn("Failed to fetch teams; falling back to static team map", e);
         }
 
         // Fetch players list
