@@ -7,6 +7,7 @@ function PlayerBrowserScreen() {
   const [search, setSearch] = React.useState("");
   const [pos, setPos] = React.useState("all");
   const [grp, setGrp] = React.useState("all");
+  const [nation, setNation] = React.useState("all");
   const [owned, setOwned] = React.useState("all");
   const [sort, setSort] = React.useState("pts");
 
@@ -17,9 +18,20 @@ function PlayerBrowserScreen() {
   });
 
   const activePlayers = window.PLAYERS || PLAYERS;
+
+  // Distinct nations actually present in the loaded dataset — drives the
+  // Nation filter and doubles as a data-completeness check (48 = full DB).
+  const nationCounts = {};
+  activePlayers.forEach(p => { nationCounts[p.team] = (nationCounts[p.team] || 0) + 1; });
+  const nationOptions = Object.keys(nationCounts)
+    .map(id => [id, `${teamById(id)?.name || id} (${nationCounts[id]})`])
+    .sort((a, b) => a[1].localeCompare(b[1]));
+  const distinctNations = nationOptions.length;
+
   const filtered = activePlayers.filter(p => {
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (pos !== "all" && p.pos !== Number(pos)) return false;
+    if (nation !== "all" && p.team !== nation) return false;
     const t = teamById(p.team);
     if (grp !== "all" && t.grp !== grp) return false;
     if (owned === "free" && owners[p.id]) return false;
@@ -40,7 +52,7 @@ function PlayerBrowserScreen() {
 
       {/* Filters */}
       <div className="card-dark" style={{ padding: 18 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 160px 160px 200px 140px", gap: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 130px 150px 150px 120px", gap: 12 }}>
           <div>
             <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Search</div>
             <input
@@ -54,6 +66,9 @@ function PlayerBrowserScreen() {
           <FilterSelect label="Position" value={pos} onChange={setPos} options={[
             ["all", "All"], ["1", "GK"], ["2", "DEF"], ["3", "MID"], ["4", "FWD"]
           ]} />
+          <FilterSelect label="Nation" value={nation} onChange={setNation} options={[
+            ["all", `All nations (${distinctNations})`], ...nationOptions
+          ]} />
           <FilterSelect label="Group" value={grp} onChange={setGrp} options={[
             ["all", "All groups"], ...["A","B","C","D","E","F","G","H","I","J","K","L"].map(g => [g, `Group ${g}`])
           ]} />
@@ -65,7 +80,11 @@ function PlayerBrowserScreen() {
           ]} />
         </div>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-          <span><span className="mono" style={{ fontWeight: 800, color: "var(--green-400)" }}>{filtered.length}</span> players shown</span>
+          <span>
+            <span className="mono" style={{ fontWeight: 800, color: "var(--green-400)" }}>{filtered.length}</span> players shown
+            <span style={{ opacity: 0.6 }}> · </span>
+            <span className="mono" style={{ fontWeight: 800, color: distinctNations >= 48 ? "var(--green-400)" : "var(--gold-500)" }}>{distinctNations}</span> nations in dataset
+          </span>
           <div className="row" style={{ gap: 12 }}>
             <span className="row" style={{ gap: 6 }}><span className="dot dot--gray" /> Owned</span>
             <span className="row" style={{ gap: 6 }}><span className="dot dot--green" /> Free agent</span>
