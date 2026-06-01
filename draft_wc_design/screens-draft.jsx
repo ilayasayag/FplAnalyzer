@@ -33,6 +33,28 @@ function DraftRoomScreen({ onTab }) {
     return () => clearInterval(t);
   }, []);
 
+  // Auto-pick watchdog: when the on-screen timer hits 0 AND a draft is active,
+  // fire /draft/auto-pick. Any client in the room can fire this — the engine
+  // gates on time.time() >= pickDeadline and on currentPick (it advances after
+  // the first successful call, so racing clients just get a harmless 400).
+  // Once per deadline epoch: keyed off the server pickDeadline so we don't
+  // re-fire after the pick advances.
+  const lastFiredFor = React.useRef(null);
+  React.useEffect(() => {
+    const deadline = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.pickDeadline : null;
+    const status = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.status : null;
+    if (secondsLeft === 0 && status === "active" && deadline && lastFiredFor.current !== deadline) {
+      lastFiredFor.current = deadline;
+      const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+      if (!lid) return;
+      apiCall("POST", `/leagues/${lid}/draft/auto-pick`).catch((err) => {
+        // Expected: another client already fired it, or the deadline hasn't
+        // actually elapsed on the server clock. Swallow silently.
+        console.debug("auto-pick declined:", err && (err.error || err.detail));
+      });
+    }
+  }, [secondsLeft]);
+
   const onClock = managerById(DRAFT_STATE.onTheClock) || { name: "TBD", team: "Draft Pending", flag: "GER" };
   const onClockTeam = teamById(onClock.flag) || teamById("GER");
 

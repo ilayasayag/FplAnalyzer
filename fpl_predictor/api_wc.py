@@ -597,6 +597,25 @@ def make_pick(lid: str):
         return _err(str(exc))
 
 
+@wc_bp.route("/leagues/<lid>/draft/auto-pick", methods=["POST"])
+def auto_pick(lid: str):
+    """Fire the best-available auto-pick when the on-the-clock manager's
+    deadline has expired. ANY authenticated league member may call this — it's
+    a cooperative watchdog: typically the frontend timer of whoever is watching
+    the room fires it, but a scheduled fallback could too. The engine itself
+    enforces `time.time() >= pickDeadline`, so a premature call returns 400."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        from .game.draft import DraftEngine
+        draft = DraftEngine(_db, _wc)
+        result = draft.auto_pick(lid)
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
 @wc_bp.route("/leagues/<lid>/draft/watchlist", methods=["GET"])
 def get_watchlist(lid: str):
     uid, err = _require_auth()
