@@ -13,7 +13,19 @@ from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
 
-firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
+import os
+from google.auth.credentials import AnonymousCredentials
+
+if os.environ.get("FIRESTORE_EMULATOR_HOST") or not os.environ.get("K_SERVICE"):
+    try:
+        firebase_admin.initialize_app(credential=AnonymousCredentials(), options={"projectId": "fpl-analyzer-792eb"})
+    except ValueError:
+        pass
+else:
+    try:
+        firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
+    except ValueError:
+        pass
 db = fb_firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 log = logging.getLogger(__name__)
 

@@ -282,6 +282,7 @@ function TransfersScreen() {
           ["waivers", `My Waivers (${MY_WAIVERS.length})`],
           ["squad",   "My Squad"],
           ["history", "History"],
+          ["draft",   "Draft Room"],
         ].map(([id, label]) => (
           <button key={id}
             className={"btn " + (tab === id ? "btn--solid-dark" : "")}
@@ -296,6 +297,7 @@ function TransfersScreen() {
       {tab === "waivers" && <WaiversTab />}
       {tab === "squad" && <MySquadTab />}
       {tab === "history" && <TransferHistoryTab />}
+      {tab === "draft" && <DraftTab />}
     </div>
   );
 }
@@ -636,6 +638,475 @@ function TransferHistoryTab() {
   return (
     <div className="card text-center" style={{ padding: "24px 18px", color: "var(--ink-500)", textAlign: "center" }}>
       No transfer history found.
+    </div>
+  );
+}
+
+function DraftTab() {
+  const [watchlist, setWatchlist] = React.useState(new Set());
+  const [loadingWatchlist, setLoadingWatchlist] = React.useState(false);
+  const [search, setSearch] = React.useState("");
+  const [posFilter, setPosFilter] = React.useState("all");
+  const [nationFilter, setNationFilter] = React.useState("all");
+  const [ownerFilter, setOwnerFilter] = React.useState("all");
+  const [page, setPage] = React.useState(0);
+  const [pageSize, setPageSize] = React.useState(25);
+  const [draggedIndex, setDraggedIndex] = React.useState(null);
+
+  const activePlayers = window.PLAYERS || [];
+  const draftHistory = window.DRAFT_HISTORY || [];
+  const managers = window.MANAGERS || [];
+  const league = window.LEAGUE || {};
+  const isMyTurn = window.DRAFT_STATE && window.DRAFT_STATE.isMyTurn;
+  const PLAYER_MAP = window.PLAYER_MAP || {};
+  const ME = window.ME;
+
+  const POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"};
+
+  React.useEffect(() => {
+    const fetchWatchlist = async () => {
+      setLoadingWatchlist(true);
+      try {
+        const lid = window.LEAGUE.id;
+        const res = await apiCall("GET", `/leagues/${lid}/draft/watchlist`);
+        if (res && res.playerIds) {
+          setWatchlist(new Set(res.playerIds.map(String)));
+        }
+      } catch (err) {
+        console.warn("Failed to fetch watchlist:", err);
+      } finally {
+        setLoadingWatchlist(false);
+      }
+    };
+    if (window.LEAGUE && window.LEAGUE.id) {
+      fetchWatchlist();
+    }
+  }, []);
+
+  const handleToggleWatchlist = async (player) => {
+    const pId = String(player.id);
+    const updated = new Set(watchlist);
+    if (updated.has(pId)) {
+      updated.delete(pId);
+    } else {
+      updated.add(pId);
+    }
+    setWatchlist(updated);
+    
+    // Save to server
+    try {
+      const lid = window.LEAGUE.id;
+      const ids = Array.from(updated).map(Number);
+      await apiCall("PUT", `/leagues/${lid}/draft/watchlist`, { playerIds: ids });
+    } catch (err) {
+      console.error("Failed to update watchlist on server:", err);
+    }
+  };
+
+  const handleDragStart = (e, index) => {
+    setDraggedIndex(index);
+    e.dataTransfer.effectAllowed = "move";
+  };
+
+  const handleDragOver = (e, index) => {
+    e.preventDefault();
+  };
+
+  const handleDrop = async (e, targetIndex) => {
+    e.preventDefault();
+    if (draggedIndex === null || draggedIndex === targetIndex) return;
+
+    const watchlistArray = Array.from(watchlist);
+    const [removed] = watchlistArray.splice(draggedIndex, 1);
+    watchlistArray.splice(targetIndex, 0, removed);
+
+    setWatchlist(new Set(watchlistArray));
+    setDraggedIndex(null);
+
+    // Save to server
+    try {
+      const lid = window.LEAGUE.id;
+      const ids = watchlistArray.map(Number);
+      await apiCall("PUT", `/leagues/${lid}/draft/watchlist`, { playerIds: ids });
+    } catch (err) {
+      console.error("Failed to save reordered watchlist:", err);
+    }
+  };
+
+  const handleDraftPick = async (playerId) => {
+    try {
+      const lid = window.LEAGUE.id;
+      const idKey = Math.random().toString(36).substring(2) + Date.now().toString(36);
+      const numericId = isNaN(Number(playerId)) ? Number(String(playerId).replace("p_", "")) : Number(playerId);
+      await apiCall("POST", `/leagues/${lid}/draft/pick`, { playerId: numericId, idempotencyKey: idKey });
+      alert("Draft pick successful!");
+      window.location.reload();
+    } catch (err) {
+      alert("Draft pick failed: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
+  // Taken player IDs
+  const taken = new Set(draftHistory.map(p => String(p.playerId)));
+
+  // Map player ID to owner info
+  const ownerMap = {};
+  draftHistory.forEach(p => {
+    const manager = managers.find(m => m.uid === p.uid);
+    ownerMap[String(p.playerId)] = manager ? (manager.team || manager.name) : "Drafted";
+  });
+
+  // Calculate nations list
+  const nationsList = React.useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    activePlayers.forEach(p => {
+      const code = p.team;
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        const t = teamById(code) || { name: code };
+        list.push({ code, name: t.name || code });
+      }
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [activePlayers]);
+
+  // Filter player pool
+  const pool = React.useMemo(() => {
+    return activePlayers.filter(p => {
+      const pIdStr = String(p.id);
+
+      // Search
+      if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+
+      // Position
+      if (posFilter !== "all" && String(p.pos) !== posFilter) return false;
+
+      // Nation
+      if (nationFilter !== "all" && p.team !== nationFilter) return false;
+
+      // Owner
+      const ownerName = ownerMap[pIdStr];
+      if (ownerFilter === "unowned" && ownerName) return false;
+      if (ownerFilter === "my") {
+        const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
+        if (!pPick || pPick.uid !== ME) return false;
+      }
+      if (ownerFilter !== "all" && ownerFilter !== "unowned" && ownerFilter !== "my") {
+        const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
+        if (!pPick || pPick.uid !== ownerFilter) return false;
+      }
+
+      return true;
+    }).sort((a, b) => a.dr - b.dr);
+  }, [activePlayers, draftHistory, search, posFilter, nationFilter, ownerFilter]);
+
+  // Helper to derive statistics based on points & position (for realism)
+  const getDerivedStats = (p) => {
+    const pts = p.pts || 0;
+    const rating = Math.max(72, Math.min(99, 98 - Math.floor(p.dr / 4) + (pts % 3)));
+    const ppg = pts > 0 ? (pts / 3).toFixed(1) : "0.0";
+    const mp = pts > 0 ? 3 : 0;
+    let g = 0, a = 0, cs = 0;
+    if (p.pos === 1) { // GK
+      cs = Math.floor(pts / 4);
+    } else if (p.pos === 2) { // DEF
+      cs = Math.floor(pts / 4);
+      g = Math.floor(pts / 12);
+      a = Math.floor((pts % 12) / 6);
+    } else if (p.pos === 3) { // MID
+      g = Math.floor(pts / 8);
+      a = Math.floor((pts % 8) / 4);
+    } else if (p.pos === 4) { // FWD
+      g = Math.floor(pts / 6);
+      a = Math.floor((pts % 6) / 4);
+    }
+    return { rating, ppg, mp, g, a, cs };
+  };
+
+  // Pagination calculations
+  const totalPlayers = pool.length;
+  const startIdx = page * pageSize;
+  const visiblePlayers = pool.slice(startIdx, startIdx + pageSize);
+
+  // Watchlist array in order of selection (matching watchlist Set)
+  const watchlistArray = Array.from(watchlist).map(id => PLAYER_MAP[id]).filter(Boolean);
+
+  return (
+    <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
+      {/* LEFT COLUMN: Players Pool */}
+      <div className="card" style={{ padding: 18, minWidth: 0, overflow: "hidden" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+          <h3 className="h-display" style={{ fontSize: 20, margin: 0 }}>Players</h3>
+          <div style={{ color: "var(--ink-500)", fontSize: 13, fontWeight: 600 }}>{totalPlayers} Players found</div>
+        </div>
+
+        {/* Filters */}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginBottom: 16 }}>
+          <input
+            type="text"
+            placeholder="Search players..."
+            value={search}
+            onChange={e => { setSearch(e.target.value); setPage(0); }}
+            style={{
+              padding: "8px 14px", borderRadius: 999, border: "1px solid var(--border-strong)",
+              background: "white", color: "var(--navy-900)", fontSize: 12, minWidth: 160, outline: "none"
+            }}
+          />
+
+          <select
+            value={nationFilter}
+            onChange={e => { setNationFilter(e.target.value); setPage(0); }}
+            className="input-field"
+            style={{
+              padding: "6px 12px", borderRadius: 999, border: "1px solid var(--border-strong)",
+              background: "white", color: "var(--navy-900)", fontSize: 12, fontWeight: 700, outline: "none", cursor: "pointer"
+            }}
+          >
+            <option value="all">All Nations</option>
+            {nationsList.map(n => (
+              <option key={n.code} value={n.code}>{n.name}</option>
+            ))}
+          </select>
+
+          <select
+            value={ownerFilter}
+            onChange={e => { setOwnerFilter(e.target.value); setPage(0); }}
+            className="input-field"
+            style={{
+              padding: "6px 12px", borderRadius: 999, border: "1px solid var(--border-strong)",
+              background: "white", color: "var(--navy-900)", fontSize: 12, fontWeight: 700, outline: "none", cursor: "pointer"
+            }}
+          >
+            <option value="all">All Owners</option>
+            <option value="unowned">Unowned</option>
+            <option value="my">My Team</option>
+            {managers.filter(m => m.uid !== ME).map(m => (
+              <option key={m.uid} value={m.uid}>{m.team}</option>
+            ))}
+          </select>
+
+          <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
+            {["all", "1", "2", "3", "4"].map(p => (
+              <button
+                key={p}
+                style={{
+                  padding: "6px 12px", fontSize: 11, fontWeight: 700, borderRadius: 999,
+                  background: posFilter === p ? "var(--navy-900)" : "transparent",
+                  color: posFilter === p ? "white" : "var(--ink-700)",
+                }}
+                onClick={() => { setPosFilter(p); setPage(0); }}
+              >
+                {p === "all" ? "ALL" : POS_NAMES[Number(p)]}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Players Table */}
+        <div style={{ overflowX: "auto" }}>
+          <table className="table-clean" style={{ fontSize: 13 }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border-strong)" }}>
+                <th style={{ padding: "10px 6px" }}>Name</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>Rating</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>Pts</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>PPG</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>MP</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>G</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>A</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>CS</th>
+                <th style={{ padding: "10px 6px" }}>Owner</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>Pick</th>
+                <th style={{ padding: "10px 4px", textAlign: "center" }}>Auto Pick</th>
+              </tr>
+            </thead>
+            <tbody>
+              {visiblePlayers.map(p => {
+                const t = teamById(p.team);
+                const isWatched = watchlist.has(p.id);
+                const isDrafted = taken.has(p.id);
+                const ownerName = ownerMap[p.id] || "-";
+                const { rating, ppg, mp, g, a, cs } = getDerivedStats(p);
+
+                return (
+                  <tr key={p.id} className={isDrafted ? "muted" : ""}>
+                    <td style={{ padding: "10px 6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <Flag team={t} />
+                        <div style={{ display: "flex", flexDirection: "column" }}>
+                          <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{p.name}</span>
+                          <span style={{ fontSize: 11, color: "var(--ink-500)", whiteSpace: "nowrap" }}>{t?.name || p.team}</span>
+                        </div>
+                        <span className="pill pill--dark" style={{ fontSize: 9, padding: "2px 4px" }}>{POS_NAMES[p.pos]}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: 700 }} className="num">{rating}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center", fontWeight: 700 }} className="num">{p.pts || 0}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }} className="num">{ppg}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }} className="num">{mp}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }} className="num">{g || 0}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }} className="num">{a || 0}</td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }} className="num">{cs || 0}</td>
+                    <td style={{ padding: "10px 6px", maxWidth: 90, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                      {isDrafted ? <span className="pill pill--gold" style={{ fontSize: 10 }}>{ownerName}</span> : "-"}
+                    </td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }}>
+                      <button
+                        className="btn btn--draft"
+                        style={{ padding: "4px 8px", fontSize: 11 }}
+                        disabled={isDrafted || !isMyTurn}
+                        onClick={() => handleDraftPick(p.id)}
+                      >
+                        Pick
+                      </button>
+                    </td>
+                    <td style={{ padding: "10px 4px", textAlign: "center" }}>
+                      <button
+                        className={isWatched ? "btn btn--ghost-dark" : "btn btn--primary"}
+                        style={{ padding: "4px 8px", fontSize: 11 }}
+                        disabled={isDrafted}
+                        onClick={() => handleToggleWatchlist(p)}
+                      >
+                        {isWatched ? "Remove" : "Add"}
+                      </button>
+                    </td>
+                  </tr>
+                );
+              })}
+              {visiblePlayers.length === 0 && (
+                <tr>
+                  <td colSpan="11" style={{ textAlign: "center", padding: 24, color: "var(--ink-500)" }}>
+                    No players match the filters.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Pagination controls */}
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginTop: 14, paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+          <div style={{ color: "var(--ink-500)", fontSize: 12 }}>
+            Showing {totalPlayers > 0 ? startIdx + 1 : 0}–{Math.min(startIdx + pageSize, totalPlayers)} of {totalPlayers}
+          </div>
+          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
+            <span style={{ fontSize: 12, color: "var(--ink-500)" }}>Per page:</span>
+            <select
+              value={pageSize}
+              onChange={e => { setPageSize(Number(e.target.value)); setPage(0); }}
+              className="input-field"
+              style={{ padding: "4px 8px", fontSize: 12 }}
+            >
+              {[10, 25, 50, 100].map(sz => (
+                <option key={sz} value={sz}>{sz}</option>
+              ))}
+            </select>
+            <button
+              className="btn btn--ghost-dark"
+              style={{ padding: "5px 12px", fontSize: 11 }}
+              disabled={page === 0}
+              onClick={() => setPage(p => p - 1)}
+            >
+              Previous
+            </button>
+            <button
+              className="btn btn--ghost-dark"
+              style={{ padding: "5px 12px", fontSize: 11 }}
+              disabled={startIdx + pageSize >= totalPlayers}
+              onClick={() => setPage(p => p + 1)}
+            >
+              Next
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN: Auto Pick List */}
+      <div className="card" style={{ padding: 18, minWidth: 0, overflow: "hidden" }}>
+        <h3 className="h-display" style={{ fontSize: 20, margin: 0, marginBottom: 16 }}>Auto Pick List</h3>
+        <div style={{ background: "rgba(91,61,242,0.06)", padding: "10px 12px", borderRadius: 8, fontSize: 12, color: "var(--navy-800)", marginBottom: 14 }}>
+          💡 Drag handles <strong>⣿</strong> to reorder. If you go on-clock and miss your turn, the server drafts your highest-ranked available player.
+        </div>
+
+        <div style={{ overflowX: "auto" }}>
+          <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
+            <thead>
+              <tr style={{ borderBottom: "2px solid var(--border-strong)" }}>
+                <th style={{ width: 50, padding: "10px 6px" }}>Order</th>
+                <th style={{ padding: "10px 6px" }}>Name</th>
+                <th style={{ textAlign: "right", padding: "10px 6px" }}>Actions</th>
+              </tr>
+            </thead>
+            <tbody>
+              {watchlistArray.map((p, idx) => {
+                const t = teamById(p.team);
+                const isDrafted = taken.has(p.id);
+
+                return (
+                  <tr
+                    key={p.id}
+                    draggable={!isDrafted}
+                    onDragStart={(e) => handleDragStart(e, idx)}
+                    onDragOver={(e) => handleDragOver(e, idx)}
+                    onDrop={(e) => handleDrop(e, idx)}
+                    className={isDrafted ? "muted" : ""}
+                    style={{ cursor: isDrafted ? "default" : "grab" }}
+                  >
+                    <td style={{ padding: "10px 6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                        {!isDrafted ? (
+                          <span style={{ cursor: "grab", color: "var(--ink-300)", fontWeight: "bold" }} title="Drag to reorder">
+                            ⣿
+                          </span>
+                        ) : (
+                          <span style={{ width: 10 }} />
+                        )}
+                        <span className="mono" style={{ fontWeight: 700 }}>{idx + 1}</span>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 6px" }}>
+                      <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Flag team={t} />
+                        <div>
+                          <strong style={{ whiteSpace: "nowrap" }}>{p.name}</strong>
+                          <div style={{ fontSize: 11, color: "var(--ink-500)", whiteSpace: "nowrap" }}>{POS_NAMES[p.pos]} · {t?.id || p.team}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td style={{ padding: "10px 6px" }}>
+                      <div style={{ display: "flex", gap: 4, justifyContent: "flex-end" }}>
+                        <button
+                          className="btn btn--ghost-dark"
+                          style={{ padding: "4px 6px", fontSize: 11 }}
+                          onClick={() => handleToggleWatchlist(p)}
+                        >
+                          Remove
+                        </button>
+                        <button
+                          className="btn btn--draft"
+                          style={{ padding: "4px 6px", fontSize: 11 }}
+                          disabled={isDrafted || !isMyTurn}
+                          onClick={() => handleDraftPick(p.id)}
+                        >
+                          Pick
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {watchlistArray.length === 0 && (
+                <tr>
+                  <td colSpan="3" style={{ textAlign: "center", padding: 24, color: "var(--ink-500)" }}>
+                    Your auto pick list is empty. Add players from the left panel.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
     </div>
   );
 }
