@@ -139,159 +139,34 @@ function ICTCell({ label, rank, total, large }) {
 
 function HistoryTab({ history }) {
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table className="player-modal__table">
-        <thead>
-          <tr>
-            <th>GW</th>
-            <th>Opp</th>
-            <th title="Round">Round</th>
-            <th title="Points">PTS</th>
-            <th title="Minutes played">MP</th>
-            <th title="Goals">GS</th>
-            <th title="Assists">A</th>
-            <th title="Clean sheet">CS</th>
-            <th title="Goals conceded">GC</th>
-            <th title="Own goals">OG</th>
-            <th title="Penalties saved">PS</th>
-            <th title="Penalties missed">PM</th>
-            <th title="Yellow cards">YC</th>
-            <th title="Red cards">RC</th>
-            <th title="Saves">S</th>
-            <th title="Bonus">B</th>
-            <th title="Bonus point system">BPS</th>
-          </tr>
-        </thead>
-        <tbody>
-          {history.map((row, i) => (
-            <tr key={i}>
-              <td className="num"><strong>{row.gw}</strong></td>
-              <td>{row.opp}</td>
-              <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 9 }}>{row.round}</span></td>
-              <td className="num"><strong style={{ color: row.pts > 0 ? "var(--navy-900)" : "var(--ink-500)" }}>{row.pts}</strong></td>
-              <td className="num">{row.mp}</td>
-              <td className="num">{row.gs}</td>
-              <td className="num">{row.a}</td>
-              <td className="num">{row.cs ? "✓" : "—"}</td>
-              <td className="num">{row.gc}</td>
-              <td className="num">{row.og}</td>
-              <td className="num">{row.ps}</td>
-              <td className="num">{row.pm}</td>
-              <td className="num">{row.yc}</td>
-              <td className="num">{row.rc}</td>
-              <td className="num">{row.s}</td>
-              <td className="num">{row.b}</td>
-              <td className="num">{row.bps}</td>
-            </tr>
-          ))}
-          <tr style={{ background: "var(--cream)", fontWeight: 800 }}>
-            <td colSpan="3"><strong>Season totals</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.pts, 0)}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.mp, 0)}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.gs, 0)}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.a, 0)}</strong></td>
-            <td className="num"><strong>{history.filter(r => r.cs).length}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.gc, 0)}</strong></td>
-            <td className="num"><strong>0</strong></td>
-            <td className="num"><strong>0</strong></td>
-            <td className="num"><strong>0</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.yc, 0)}</strong></td>
-            <td className="num"><strong>0</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.s, 0)}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.b, 0)}</strong></td>
-            <td className="num"><strong>{history.reduce((s, r) => s + r.bps, 0)}</strong></td>
-          </tr>
-        </tbody>
-      </table>
+    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>📊</div>
+      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Detailed Stats Coming Soon</div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Live and historical performance data will populate once World Cup matches begin.</div>
     </div>
   );
 }
 
 function FixturesTab({ fixtures }) {
   return (
-    <table className="player-modal__table">
-      <thead>
-        <tr>
-          <th>GW</th>
-          <th>Date</th>
-          <th>Round</th>
-          <th>Fixture</th>
-          <th>Venue</th>
-          <th>Difficulty</th>
-        </tr>
-      </thead>
-      <tbody>
-        {fixtures.map((f, i) => (
-          <tr key={i}>
-            <td className="num"><strong>{f.gw}</strong></td>
-            <td>{f.date}</td>
-            <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 9 }}>{f.round}</span></td>
-            <td>
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-                {f.home ? "vs" : "@"} <Flag team={teamById(f.opp)} /> {teamById(f.opp).name}
-              </span>
-            </td>
-            <td>{f.venue}</td>
-            <td>
-              <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700,
-                background: f.diff <= 2 ? "rgba(0,217,107,0.18)" : f.diff === 3 ? "rgba(255,200,68,0.18)" : "rgba(230,57,70,0.18)",
-                color: f.diff <= 2 ? "#006b35" : f.diff === 3 ? "#7a5a00" : "#a01827" }}>
-                {f.diff <= 2 ? "Easy" : f.diff === 3 ? "Medium" : "Hard"}
-              </span>
-            </td>
-          </tr>
-        ))}
-      </tbody>
-    </table>
+    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
+      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Fixtures Coming Soon</div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Detailed match schedules will be populated once they are confirmed.</div>
+    </div>
   );
 }
 
 function CompareTab({ player }) {
-  // Compare with top 3 same-position players
-  const activePlayers = window.PLAYERS || PLAYERS;
-  const peers = activePlayers
-    .filter(p => p.pos === player.pos && p.id !== player.id && !p.elim)
-    .sort((a, b) => b.pts - a.pts)
-    .slice(0, 3);
   return (
-    <div style={{ padding: "16px 4px" }}>
-      <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>
-        Compared against the top 3 {POS_NAMES[player.pos]}s in the tournament so far.
-      </div>
-      <table className="player-modal__table">
-        <thead>
-          <tr>
-            <th>Player</th>
-            <th>Team</th>
-            <th style={{ textAlign: "right" }}>DR</th>
-            <th style={{ textAlign: "right" }}>Total pts</th>
-            <th style={{ textAlign: "right" }}>vs you</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr style={{ background: "rgba(91,61,242,0.05)" }}>
-            <td><strong>{player.name}</strong> <span className="pill pill--gold" style={{ marginLeft: 6, fontSize: 9 }}>YOU</span></td>
-            <td><Flag team={teamById(player.team)} /> {teamById(player.team).name}</td>
-            <td className="num" style={{ textAlign: "right" }}>{player.dr}</td>
-            <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{player.pts}</td>
-            <td className="num" style={{ textAlign: "right" }}>—</td>
-          </tr>
-          {peers.map(p => (
-            <tr key={p.id}>
-              <td>{p.name}</td>
-              <td><Flag team={teamById(p.team)} /> {teamById(p.team).name}</td>
-              <td className="num" style={{ textAlign: "right" }}>{p.dr}</td>
-              <td className="num" style={{ textAlign: "right" }}>{p.pts}</td>
-              <td className="num" style={{ textAlign: "right", color: p.pts > player.pts ? "var(--red-500)" : "var(--green-500)", fontWeight: 700 }}>
-                {p.pts > player.pts ? "+" : ""}{p.pts - player.pts}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>⚔️</div>
+      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Comparison Coming Soon</div>
+      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Player comparison tool will be activated when live scoring starts.</div>
     </div>
   );
 }
+
 
 // ---------- Synthesizers (deterministic) ----------
 function synthHistory(p) {

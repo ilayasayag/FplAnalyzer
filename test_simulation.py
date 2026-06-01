@@ -18,7 +18,9 @@ from firebase_admin import firestore
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client(database_id="gamedb")
+# Match the Flask backend's database target — see populate_emulator_real_squads.py
+# for why the emulator's database_id matters even in single-project mode.
+db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 
 from fpl_predictor.game.wc_scoring import finalize_gw, process_fixture
 from fpl_predictor.game.wc_knockout import seed_knockout, advance_knockout_bracket, get_bracket
@@ -1029,11 +1031,114 @@ def run_poller_auto_finalize_simulation():
     poller_res = api_wc.background_poll_and_process_fixtures()
     print(f"Poller run result: {poller_res}")
     
-    # Verify that league was finalized!
     league_doc = db.collection("leagues").document(lid).get().to_dict()
-    print(f"🏁 Finalized currentGw: {league_doc.get('currentGw')}")
     assert league_doc.get("currentGw") == 2, "League should have auto-finalized GW1 and advanced currentGw to 2!"
     print("🏆 Simulation 5 passed perfectly!")
+
+def run_draft_stress_test_simulation():
+    print("\n==============================================")
+    print("🏃 RUNNING SIMULATION 6: 7-MANAGER SNAKE DRAFT STRESS TEST")
+    print("==============================================")
+    
+    # 1. Clear and populate mock data
+    clear_emulator_db()
+    
+    from fpl_predictor.seed.seed_league import seed_tournament_data
+    seed_tournament_data(db)
+    
+    # 2. Create a 7-player league
+    admin_uid = "mgr_1"
+    res = league_mgr.create_league(
+        uid=admin_uid,
+        name="Real Draft Stress League",
+        display_name="Manager 1",
+        max_members=7,
+        pick_timer=60
+    )
+    lid = res["leagueId"]
+    invite_code = res["inviteCode"]
+    print(f"🏆 League '{res['name']}' created. ID: {lid}")
+    
+    # 3. Join 6 friends
+    for idx in range(2, 8):
+        league_mgr.join_league(
+            uid=f"mgr_{idx}",
+            invite_code=invite_code,
+            display_name=f"Manager {idx}",
+            team_name=f"Team {idx}"
+        )
+    print("👥 7 managers have joined.")
+    
+    # 4. Lock for draft
+    lock_res = league_mgr.lock_for_draft(lid, admin_uid)
+    print(f"🔒 League locked for draft: actualMemberCount = {lock_res['memberCount']}")
+    
+    # 5. Start the draft
+    from fpl_predictor.game.draft import DraftEngine
+    from fpl_predictor.data.wc_api import WC2026Client
+    client = WC2026Client(db)
+    draft_engine = DraftEngine(db, client)
+    
+    start_res = draft_engine.start_draft(lid, admin_uid, current_gw=1)
+    print("🚀 Live snake draft started!")
+    
+    # 6. Run snake draft loop (7 managers * 15 rounds = 105 picks)
+    total_picks = 7 * 15
+    for pick_idx in range(total_picks):
+        state = draft_engine.get_draft_state(lid)
+        current_pick = state["currentPick"]
+        assert current_pick == pick_idx, f"Current pick ({current_pick}) should match loop index ({pick_idx})"
+        
+        expected_drafter = draft_engine._get_drafter(current_pick, state["order"])
+        best_player_id = draft_engine._find_best_available(lid, expected_drafter, state)
+        assert best_player_id > 0, "Should find a valid player to draft"
+        
+        pick_res = draft_engine.make_pick(
+            lid=lid,
+            uid=expected_drafter,
+            player_id=best_player_id,
+            is_auto=False
+        )
+        
+    # 7. Verify draft completed successfully
+    final_state = draft_engine.get_draft_state(lid)
+    assert final_state["status"] == "complete", "Draft status must be complete"
+    print("🔒 Draft completed successfully through DraftEngine!")
+    
+    # Verify positional quota for each manager
+    for idx in range(1, 8):
+        uid = f"mgr_{idx}"
+        squad_doc = db.collection("leagues").document(lid).collection("squads").document(uid).get().to_dict()
+        squad_players = squad_doc.get("players", [])
+        assert len(squad_players) == 15, f"Manager {uid} must have exactly 15 players, got {len(squad_players)}"
+        
+        gks = sum(1 for p in squad_players if p["position"] == 1)
+        defs = sum(1 for p in squad_players if p["position"] == 2)
+        mids = sum(1 for p in squad_players if p["position"] == 3)
+        fwds = sum(1 for p in squad_players if p["position"] == 4)
+        
+        assert gks == 2, f"Manager {uid} must have exactly 2 GKs, got {gks}"
+        assert defs == 5, f"Manager {uid} must have exactly 5 DEFs, got {defs}"
+        assert mids == 5, f"Manager {uid} must have exactly 5 MIDs, got {mids}"
+        assert fwds == 3, f"Manager {uid} must have exactly 3 FWDs, got {fwds}"
+
+    # 8. CRITICAL: a completed live draft must be able to START THE SEASON.
+    # Previously _finalize_draft set league status to "active", which
+    # start_season rejected (and every gameplay guard ignored), stranding the
+    # league. Verify the real end-to-end path works now.
+    league_after_draft = db.collection("leagues").document(lid).get().to_dict()
+    assert league_after_draft["status"] == "drafting", (
+        f"After draft, league should be 'drafting' (awaiting season start), "
+        f"got {league_after_draft['status']!r}"
+    )
+    season_res = league_mgr.start_season(lid, admin_uid)
+    assert season_res["status"] == "group_phase", "start_season must transition to group_phase"
+    league_live = db.collection("leagues").document(lid).get().to_dict()
+    assert league_live["status"] == "group_phase", "League must be group_phase after start_season"
+    assert league_live["currentGw"] == 1, "Season must start at GW1"
+    print("🚀 Season started after live draft: status=group_phase, currentGw=1")
+
+    print("🏆 Simulation 6 passed perfectly!")
 
 def main():
     clear_emulator_db()
@@ -1043,6 +1148,7 @@ def main():
     run_8_player_schedule_simulation()
     run_10_player_simulation()
     run_poller_auto_finalize_simulation()
+    run_draft_stress_test_simulation()
     print("\n🎉 ALL WORLD CUP FANTASY INTEGRATION TESTS COMPLETED SUCCESSFULLY!")
 
 if __name__ == "__main__":

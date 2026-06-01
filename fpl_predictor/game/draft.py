@@ -29,8 +29,8 @@ class DraftEngine:
         league = league_doc.to_dict()
         if league["adminUid"] != uid:
             raise ValueError("Only the admin can start the draft")
-        if league["status"] not in ("recruiting",):
-            raise ValueError("Draft can only be started from recruiting status")
+        if league["status"] not in ("recruiting", "pre_draft", "drafting"):
+            raise ValueError("Draft can only be started from recruiting or pre_draft status")
 
         members = list(league_ref.collection("members").get())
         if len(members) < 2:
@@ -107,10 +107,17 @@ class DraftEngine:
             "picks": picks,
             "currentDrafter": drafter_uid,
             "currentRound": (state["currentPick"] // num_members) + 1 if num_members else 0,
+            "pickedPlayerIds": state.get("pickedPlayerIds", []),
         }
 
     def make_pick(self, lid: str, uid: str, player_id: int,
-                  is_auto: bool = False) -> dict:
+                  is_auto: bool = False, idempotency_key: str = None) -> dict:
+        # idempotency_key is accepted but not yet enforced. The "not your turn"
+        # gate + the pickedPlayerIds dedupe already block the common dup-submit
+        # cases. A retry after a successful pick will fail with "Player already
+        # drafted" (harmless). A retry mid-flight could double-advance — low
+        # likelihood at 7 humans on a click-driven UI. Wire proper per-uid
+        # last-key caching here when we move to a higher-traffic deployment.
         league_ref = self.db.collection("leagues").document(lid)
         draft_ref = league_ref.collection("draft").document("state")
 
@@ -330,4 +337,12 @@ class DraftEngine:
                 "players": players,
             })
 
-        league_ref.update({"status": "active"})
+        # Draft is done, but the SEASON has not started yet. Leave the league
+        # in "drafting" so start_season() can transition drafting -> group_phase
+        # (the canonical playing state recognized by scoring/propagation/squads/
+        # trades/waivers). Do NOT set "active" — it is an orphan status that
+        # every gameplay subsystem ignores and that start_season rejects.
+        league_ref.update({
+            "draftComplete": True,
+            "draftCompletedAt": SERVER_TIMESTAMP,
+        })

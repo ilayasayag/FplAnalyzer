@@ -8,34 +8,15 @@ function BracketScreen({ onTab }) {
   const hasQf = LEAGUE.knockoutQualifiers === 8 || (rounds.qf && rounds.qf.length > 0);
   const gridColumns = hasQf ? "1fr 1fr 1fr 220px" : "1fr 1fr 220px";
 
-  // QF results: fallback statuses. Currently SF/F empty.
-  const qfResults = {
-    "qf_1v8": { status: "scheduled" },
-    "qf_4v5": { status: "live", liveLabel: "Lock in 36h" },
-    "qf_2v7": { status: "scheduled" },
-    "qf_3v6": { status: "scheduled" },
-    qf1: { status: "scheduled" },
-    qf2: { status: "live", liveLabel: "Lock in 36h" },
-    qf3: { status: "scheduled" },
-    qf4: { status: "scheduled" },
-  };
-
-  const sfResults = {
-    "sf_1v4": { status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
-    "sf_2v3": { status: "scheduled" },
-    sf1: { status: hasQf ? "scheduled" : "live", liveLabel: hasQf ? "Scheduled" : "Lock in 36h" },
-    sf2: { status: "scheduled" },
-  };
-
   return (
     <div className="col" style={{ gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Knockout Bracket</h2>
-          <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{LEAGUE.name} · {LEAGUE.knockoutQualifiers} qualifiers · {hasQf ? "QF → SF → Final" : "SF → Final"}</div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{LEAGUE.name} · {LEAGUE.inviteCode ? `${LEAGUE.knockoutQualifiers} qualifiers` : "—"} · {hasQf ? "QF → SF → Final" : "SF → Final"}</div>
         </div>
         <div className="row" style={{ gap: 8 }}>
-          <span className="pill pill--gold">GW{LEAGUE.knockoutStartGw} · {hasQf ? "Quarter-Finals" : "Semi-Finals"}</span>
+          <span className="pill pill--gold">GW{LEAGUE.knockoutStartGw || "—"} · {hasQf ? "Quarter-Finals" : "Semi-Finals"}</span>
         </div>
       </div>
 
@@ -43,7 +24,7 @@ function BracketScreen({ onTab }) {
       <div className="alert alert--info">
         <div className="alert__icon" style={{ background: "var(--violet-500)", color: "white" }}>i</div>
         <div style={{ fontSize: 13 }}>
-          <strong>Bracket seeded after GW{LEAGUE.knockoutStartGw - 1}.</strong> {hasQf ? "Seeds 1–4 are top H2H records; seeds 5–8 are the next best by fantasy points." : "Seeds 1–2 are top H2H records; seeds 3–4 are the next best by fantasy points."} Higher seeds host the lower seeds. Tiebreakers: total fantasy points, then coin flip.
+          <strong>Bracket seeded after GW{LEAGUE.knockoutStartGw ? (LEAGUE.knockoutStartGw - 1) : "—"}.</strong> {hasQf ? "Seeds 1–4 are top H2H records; seeds 5–8 are the next best by fantasy points." : "Seeds 1–2 are top H2H records; seeds 3–4 are the next best by fantasy points."} Higher seeds host the lower seeds. Tiebreakers: total fantasy points, then coin flip.
         </div>
       </div>
 
@@ -52,7 +33,7 @@ function BracketScreen({ onTab }) {
         {hasQf && (
           <div className="bracket__col">
             <div className="bracket__col-head">Quarter-Finals · GW4</div>
-            {rounds.qf && rounds.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={qfResults[m.id] || qfResults[`qf${i+1}`]} round="qf" />)}
+            {rounds.qf && rounds.qf.map((m, i) => <BracketMatch key={m.id} match={m} result={null} round="qf" />)}
           </div>
         )}
 
@@ -69,7 +50,7 @@ function BracketScreen({ onTab }) {
                   </div>
                 );
               } else {
-                return <BracketMatch key={m.id} match={m} result={sfResults[m.id] || sfResults[`sf${i+1}`]} round="sf" />;
+                return <BracketMatch key={m.id} match={m} result={null} round="sf" />;
               }
             })
           ) : hasQf ? (
@@ -117,34 +98,90 @@ function BracketScreen({ onTab }) {
       {/* Path to glory */}
       <div className="card" style={{ padding: 20 }}>
         <div className="h-display" style={{ fontSize: 16, marginBottom: 12 }}>Your Path to Glory</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(" + (hasQf ? 3 : 2) + ", 1fr)", gap: 12 }}>
-          {hasQf ? [
-            { round: "QF", opp: "Tiki-Taka FC", flag: "ARG", gw: 4, dates: "Jul 1–4" },
-            { round: "SF", opp: "Winner QF1/3", flag: null, gw: 5, dates: "Jul 5–8" },
-            { round: "Final", opp: "TBD", flag: null, gw: 6, dates: "Jul 10–12" },
-          ].map((r, i) => (
-            <div key={i} style={{ padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 8, background: i === 0 ? "rgba(255,200,68,0.10)" : "var(--cream)", borderColor: i === 0 ? "var(--gold-500)" : "var(--border)" }}>
-              <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{r.round} · GW{r.gw}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {r.flag && <Flag team={teamById(r.flag)} />}
-                <strong style={{ fontSize: 14 }}>{r.opp}</strong>
+        {(() => {
+          const isBracketSeeded = (rounds.qf && rounds.qf.length > 0) || (rounds.sf && rounds.sf.length > 0);
+          if (!isBracketSeeded) {
+            return (
+              <div className="muted" style={{ padding: "16px 0", textAlign: "center", fontSize: 13, background: "var(--cream)", borderRadius: 8 }}>
+                Awaiting group phase completion. Knockout bracket will be seeded after GW{LEAGUE.knockoutStartGw ? (LEAGUE.knockoutStartGw - 1) : 3}.
               </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{r.dates}</div>
+            );
+          }
+
+          const myQfMatch = rounds.qf ? rounds.qf.find(m => m.home === ME || m.away === ME) : null;
+          const mySfMatch = rounds.sf ? rounds.sf.find(m => m.home === ME || m.away === ME) : null;
+          const myFinalMatch = rounds.final ? rounds.final.find(m => m.home === ME || m.away === ME) : null;
+
+          const pathItems = [];
+          if (hasQf) {
+            // QF
+            if (myQfMatch) {
+              const oppUid = myQfMatch.home === ME ? myQfMatch.away : myQfMatch.home;
+              const opp = oppUid ? managerById(oppUid) : null;
+              pathItems.push({
+                round: "QF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 4, dates: "Jul 1–4"
+              });
+            } else {
+              pathItems.push({ round: "QF", opp: "Did not qualify", flag: null, gw: LEAGUE.knockoutStartGw || 4, dates: "Jul 1–4" });
+            }
+            // SF
+            if (mySfMatch) {
+              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const opp = oppUid ? managerById(oppUid) : null;
+              pathItems.push({
+                round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 1, dates: "Jul 5–8"
+              });
+            } else {
+              pathItems.push({ round: "SF", opp: myQfMatch ? "Winner QF Match" : "—", flag: null, gw: (LEAGUE.knockoutStartGw || 4) + 1, dates: "Jul 5–8" });
+            }
+            // Final
+            if (myFinalMatch) {
+              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const opp = oppUid ? managerById(oppUid) : null;
+              pathItems.push({
+                round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 2, dates: "Jul 10–12"
+              });
+            } else {
+              pathItems.push({ round: "Final", opp: "TBD", flag: null, gw: (LEAGUE.knockoutStartGw || 4) + 2, dates: "Jul 10–12" });
+            }
+          } else {
+            // SF only
+            if (mySfMatch) {
+              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const opp = oppUid ? managerById(oppUid) : null;
+              pathItems.push({
+                round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 7, dates: "Jul 14–15"
+              });
+            } else {
+              pathItems.push({ round: "SF", opp: "Did not qualify", flag: null, gw: LEAGUE.knockoutStartGw || 7, dates: "Jul 14–15" });
+            }
+            // Final
+            if (myFinalMatch) {
+              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const opp = oppUid ? managerById(oppUid) : null;
+              pathItems.push({
+                round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 7) + 1, dates: "Jul 18–19"
+              });
+            } else {
+              pathItems.push({ round: "Final", opp: "TBD", flag: null, gw: (LEAGUE.knockoutStartGw || 7) + 1, dates: "Jul 18–19" });
+            }
+          }
+
+          return (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(" + pathItems.length + ", 1fr)", gap: 12 }}>
+              {pathItems.map((r, i) => (
+                <div key={i} style={{ padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 8, background: i === 0 ? "rgba(255,200,68,0.10)" : "var(--cream)", borderColor: i === 0 ? "var(--gold-500)" : "var(--border)" }}>
+                  <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{r.round} · GW{r.gw}</div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    {r.flag && <Flag team={teamById(r.flag)} />}
+                    <strong style={{ fontSize: 14 }}>{r.opp}</strong>
+                  </div>
+                  <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{r.dates}</div>
+                </div>
+              ))}
             </div>
-          )) : [
-            { round: "SF", opp: "Tiki-Taka FC", flag: "ARG", gw: 7, dates: "Jul 14–15" },
-            { round: "Final", opp: "TBD", flag: null, gw: 8, dates: "Jul 18–19" },
-          ].map((r, i) => (
-            <div key={i} style={{ padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 8, background: i === 0 ? "rgba(255,200,68,0.10)" : "var(--cream)", borderColor: i === 0 ? "var(--gold-500)" : "var(--border)" }}>
-              <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{r.round} · GW{r.gw}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                {r.flag && <Flag team={teamById(r.flag)} />}
-                <strong style={{ fontSize: 14 }}>{r.opp}</strong>
-              </div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>{r.dates}</div>
-            </div>
-          ))}
-        </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -197,6 +234,8 @@ function BracketMatch({ match, result, round }) {
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
+  const activeWindow = window.WINDOW || WINDOW;
+  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -215,24 +254,24 @@ function TransfersScreen() {
         }}>
           <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20 }}>
             <div>
-              <div className="pill pill--gold" style={{ marginBottom: 8 }}>⏳ WINDOW 3 · THE BIG ONE</div>
+              <div className="pill pill--gold" style={{ marginBottom: 8 }}>⏳ WINDOW {activeWindow.number || activeWindow.windowNumber || "—"}</div>
               <div className="h-display" style={{ fontSize: 22, color: "white", marginBottom: 4 }}>
-                16 nations eliminated. Time to rebuild.
+                {activeWindow.state === "open" ? "Rebuild window is active." : "Rebuild window is closed."}
               </div>
               <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>
-                Window closes <strong>Wed 1 Jul 16:00</strong> · {WINDOW.hoursLeft}h remaining · Waivers process at T+24h (in 12h)
+                Window closes <strong>{activeWindow.closesAt || "—"}</strong> · {activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining
               </div>
             </div>
             <div style={{ display: "flex", gap: 12 }}>
-              <StatBlock label="Free transfers" value="2/2" />
-              <StatBlock label="Waiver priority" value="#4" accent="var(--gold-500)" />
+              <StatBlock label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} />
+              <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
             </div>
           </div>
         </div>
         <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
-          <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers process Mon 27 Jun · 10:00</span>
-          <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available after</span>
-          <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes Wed 1 Jul · 16:00</span>
+          <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
+          <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
+          <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
         </div>
       </div>
 
@@ -594,23 +633,9 @@ function MySquadTab() {
 }
 
 function TransferHistoryTab() {
-  const history = [
-    { type: "auto", date: "Sat 25 Jun", desc: "Italy eliminated — Donnarumma & Barella moved to waivers", state: "Pending claim" },
-    { type: "trade", date: "Fri 24 Jun", desc: "Acquired Bruno Fernandes from Tel Aviv United for Foden", state: "Completed" },
-    { type: "waiver", date: "Wed 22 Jun", desc: "Claimed L. Yamal off waivers (priority #4)", state: "Completed" },
-    { type: "drop", date: "Mon 20 Jun", desc: "Dropped Lewandowski → waiver pool", state: "Completed" },
-    { type: "draft", date: "Wed 8 Jun", desc: "Drafted 15-player squad (Snake · pick #7)", state: "Completed" },
-  ];
   return (
-    <div className="card">
-      {history.map((h, i) => (
-        <div key={i} style={{ display: "grid", gridTemplateColumns: "auto 100px 1fr 120px", padding: "14px 18px", borderTop: i ? "1px solid var(--border)" : "none", alignItems: "center", gap: 14 }}>
-          <span style={{ width: 8, height: 8, borderRadius: 4, background: h.type === "auto" ? "var(--red-500)" : h.type === "trade" ? "var(--violet-500)" : h.type === "waiver" ? "var(--gold-500)" : h.type === "drop" ? "var(--ink-500)" : "var(--green-500)" }} />
-          <span className="muted" style={{ fontSize: 12 }}>{h.date}</span>
-          <span style={{ fontSize: 13 }}>{h.desc}</span>
-          <span className="pill" style={{ background: "rgba(0,0,0,0.06)", color: "var(--ink-700)", fontSize: 10, justifySelf: "end" }}>{h.state}</span>
-        </div>
-      ))}
+    <div className="card text-center" style={{ padding: "24px 18px", color: "var(--ink-500)", textAlign: "center" }}>
+      No transfer history found.
     </div>
   );
 }

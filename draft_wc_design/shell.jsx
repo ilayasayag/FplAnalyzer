@@ -18,9 +18,27 @@ const TABS = [
 ];
 
 function TopBar({ tweak }) {
+  const displayName = window._auth?.currentUser?.displayName || "Me";
+  const initials = displayName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
+  
+  // 3-state banner
+  const dataSource = window.__DATA_SOURCE__ || "down";
+  let bannerBg = "#c52836"; // dark red
+  let bannerText = "⚠️ DEMO DATA — backend not reached";
+  if (dataSource === "simulated") {
+    bannerBg = "#4a1ba8"; // deep purple
+    bannerText = "📊 Simulated Data Mode";
+  } else if (dataSource === "live") {
+    bannerBg = "#10b981"; // emerald green
+    bannerText = "🟢 Live Production Data";
+  }
+
   return (
     <div className="topbar">
       <Logo />
+      <div style={{ marginLeft: 16, padding: "4px 10px", borderRadius: 4, background: bannerBg, color: "white", fontSize: 11, fontWeight: 700 }}>
+        {bannerText}
+      </div>
       <nav className="topbar__nav" style={{ marginLeft: 8 }}>
         <a href="#" className="is-active">Fantasy WC</a>
         <a href="#" style={{ opacity: 0.55 }}>Matches</a>
@@ -31,11 +49,19 @@ function TopBar({ tweak }) {
       <div className="topbar__right">
         <div className="row">
           <span className="dot dot--green" />
-          <span><strong>GW{TOURNAMENT.currentGw}</strong> · {TOURNAMENT.gwDates[TOURNAMENT.currentGw].wcRound}</span>
+          <span><strong>GW{TOURNAMENT.currentGw}</strong> · {(TOURNAMENT.gwDates && TOURNAMENT.gwDates[TOURNAMENT.currentGw]) ? TOURNAMENT.gwDates[TOURNAMENT.currentGw].wcRound : "GW"}</span>
         </div>
         <span style={{ width: 1, height: 14, background: "var(--border)" }} />
-        <span>Ilay Asayag</span>
-        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--grad-hero)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 12 }}>IA</span>
+        <button
+          onClick={() => window.goToLobby && window.goToLobby()}
+          title="Switch to another league"
+          style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", color: "white", fontSize: 11, fontWeight: 700, padding: "5px 11px", borderRadius: 6, cursor: "pointer" }}
+        >
+          ⇄ Switch league
+        </button>
+        <span style={{ width: 1, height: 14, background: "var(--border)" }} />
+        <span>{displayName}</span>
+        <span style={{ width: 28, height: 28, borderRadius: "50%", background: "var(--grad-hero)", display: "inline-flex", alignItems: "center", justifyContent: "center", color: "white", fontWeight: 700, fontSize: 12 }}>{initials || "ME"}</span>
       </div>
     </div>
   );
@@ -62,7 +88,77 @@ function Hero({ tab, manager }) {
   );
 }
 
+function ChangePasswordModal({ onClose }) {
+  const [currentPw, setCurrentPw] = React.useState("");
+  const [newPw, setNewPw] = React.useState("");
+  const [confirmPw, setConfirmPw] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [done, setDone] = React.useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (newPw.length < 6) { setErr("New password must be at least 6 characters."); return; }
+    if (newPw !== confirmPw) { setErr("New passwords don't match."); return; }
+    const user = window._auth?.currentUser;
+    if (!user) { setErr("Not signed in."); return; }
+    setBusy(true);
+    try {
+      const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPw);
+      await user.reauthenticateWithCredential(cred);
+      await user.updatePassword(newPw);
+      setDone(true);
+    } catch (e) {
+      setErr(e.message || "Failed to change password.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
+  const cardStyle = { background: "var(--surface, #1a1738)", color: "white", padding: 24, borderRadius: 12, width: 360, boxShadow: "0 12px 40px rgba(0,0,0,0.4)" };
+  const inputStyle = { width: "100%", padding: "8px 10px", marginTop: 6, borderRadius: 6, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "white", fontSize: 13, boxSizing: "border-box" };
+  const labelStyle = { display: "block", marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.7)" };
+  const btnPrimary = { padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--grad-hero, #4c1d95)", color: "white", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 };
+  const btnSecondary = { padding: "8px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer" };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: 0, fontSize: 16 }}>Change password</h3>
+        {done ? (
+          <div>
+            <p style={{ marginTop: 14, fontSize: 13 }}>✅ Password updated. You'll use the new one next sign-in.</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button style={btnPrimary} onClick={onClose}>Close</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <label style={labelStyle}>Current password
+              <input type="password" autoFocus value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            <label style={labelStyle}>New password
+              <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            <label style={labelStyle}>Confirm new password
+              <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            {err && <div style={{ marginTop: 12, fontSize: 12, color: "#ff8a8a" }}>{err}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+              <button type="button" style={btnSecondary} onClick={onClose} disabled={busy}>Cancel</button>
+              <button type="submit" style={btnPrimary} disabled={busy}>{busy ? "Saving…" : "Update"}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SubNav({ tab, onTab }) {
+  const [pwOpen, setPwOpen] = React.useState(false);
   return (
     <div className="subnav">
       {TABS.map(t => (
@@ -75,7 +171,21 @@ function SubNav({ tab, onTab }) {
         </button>
       ))}
       <div style={{ flex: 1 }} />
-      <button className="subnav__tab" style={{ color: "rgba(255,255,255,0.78)" }}>Sign Out</button>
+      <button
+        className="subnav__tab"
+        style={{ color: "rgba(255,255,255,0.78)" }}
+        onClick={() => setPwOpen(true)}
+      >
+        Change Password
+      </button>
+      <button
+        className="subnav__tab"
+        style={{ color: "rgba(255,255,255,0.78)" }}
+        onClick={() => window._auth && window._auth.signOut()}
+      >
+        Sign Out
+      </button>
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
     </div>
   );
 }
@@ -84,13 +194,20 @@ function SubNav({ tab, onTab }) {
 function Sidebar({ onTab }) {
   const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const myTeam = teamById(me.flag) || teamById("GER");
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: STANDINGS.length + 1, fpts: 0 };
+  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
 
   // count eliminated players in squad
   const elimCount = MY_SQUAD_IDS.filter(id => {
     const p = playerById(id);
     return p && (p.elim || teamById(p.team)?.elim);
   }).length;
+
+  const currentGw = TOURNAMENT.currentGw;
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  
+  const activeWindow = window.WINDOW || WINDOW;
+  const favTeam = teamById(me.flag) || teamById("GER");
+  const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
   return (
     <aside className="col" style={{ gap: 16 }}>
@@ -104,12 +221,12 @@ function Sidebar({ onTab }) {
           </div>
         </div>
         <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", padding: "6px 18px", fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase" }}>
-          Seed #7 · Quarter-Finals
+          {hasLeague ? `Seed #${me.draftPos || "—"} · ${LEAGUE.knockoutStartGw <= currentGw ? "Knockout" : "Group Phase"}` : "—"}
         </div>
         <div className="card-section">
-          <Stat label="GW3 Points" value="65" />
-          <Stat label="Total Points" value="179" />
-          <Stat label="League Rank" value={`#${myStanding.rank} / 10`} accent="var(--gold-500)" />
+          <Stat label={`GW${currentGw} Points`} value={String(gwPoints)} />
+          <Stat label="Total Points" value={String(myStanding.fpts)} />
+          <Stat label="League Rank" value={hasLeague ? `#${myStanding.rank} / ${LEAGUE.size}` : "—"} accent="var(--gold-500)" />
         </div>
       </div>
 
@@ -117,10 +234,10 @@ function Sidebar({ onTab }) {
       <div className="card" style={{ padding: "14px 16px" }}>
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-500)" }}>Favourite Nation</div>
         <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 10 }}>
-          <Flag team={teamById("POR")} size="lg" />
+          <Flag team={favTeam} size="lg" />
           <div>
-            <div style={{ fontWeight: 700 }}>Portugal</div>
-            <div className="muted" style={{ fontSize: 12 }}>Group C · Advanced 2nd</div>
+            <div style={{ fontWeight: 700 }}>{favTeam.name}</div>
+            <div className="muted" style={{ fontSize: 12 }}>Group {favTeam.grp || "—"} · {favTeam.elim ? "Eliminated" : "Active"}</div>
           </div>
         </div>
       </div>
@@ -130,14 +247,14 @@ function Sidebar({ onTab }) {
         <div className="card-dark__title">Transfer Window</div>
         <div className="card-section">
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span className="pill pill--gold">W{WINDOW.number} · The Big One</span>
+            <span className="pill pill--gold">W{activeWindow.number || activeWindow.windowNumber || "—"} · The Big One</span>
           </div>
           <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
-            Closes {WINDOW.closesAt}<br />
-            <strong>{WINDOW.hoursLeft}h remaining</strong>
+            Closes {activeWindow.closesAt || "—"}<br />
+            <strong>{activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining</strong>
           </div>
           <div style={{ marginTop: 10 }}>
-            <Stat label="Free transfers" value={`${WINDOW.freeTransfers - WINDOW.used}/${WINDOW.freeTransfers}`} accent="var(--green-400)" />
+            <Stat label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} accent="var(--green-400)" />
             <Stat label="Waiver priority" value={`#${me.waiverPri}`} />
           </div>
         </div>
@@ -154,7 +271,7 @@ function Sidebar({ onTab }) {
           <div className="alert__icon" style={{ background: "var(--red-500)", color: "white" }}>!</div>
           <div>
             <div style={{ fontWeight: 700, marginBottom: 4 }}>{elimCount} dead players in squad</div>
-            <div style={{ fontSize: 12 }}>Italy and Morocco are out. Drop them before GW4 lock.</div>
+            <div style={{ fontSize: 12 }}>Drop them before GW4 lock.</div>
           </div>
         </div>
       )}
@@ -164,7 +281,7 @@ function Sidebar({ onTab }) {
         <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 8 }}>League Admin</div>
         <button className="muted" style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 0", fontSize: 13 }}>Team Details →</button>
         <button className="muted" style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 0", fontSize: 13 }}>Edit League →</button>
-        <button className="muted" style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 0", fontSize: 13 }}>Invite Code · WC26-Q7XN</button>
+        <button className="muted" style={{ display: "block", width: "100%", textAlign: "left", padding: "6px 0", fontSize: 13 }}>Invite Code · {LEAGUE?.inviteCode || "—"}</button>
       </div>
     </aside>
   );

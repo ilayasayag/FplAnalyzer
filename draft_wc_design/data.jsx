@@ -462,10 +462,13 @@ const playerById  = id => {
 };
 const teamById    = id => {
   if (!id) return undefined;
-  return TEAM_MAP[id] || {
+  // Prefer the live, backend-driven map (set from /teams once loaded); fall
+  // back to the static bracket only when the API hasn't populated it yet.
+  const map = (typeof window !== "undefined" && window.TEAM_MAP) || TEAM_MAP;
+  return map[id] || {
     id: id,
     name: id || "Unknown Team",
-    grp: "A",
+    grp: "?",
     flag: ["#ccc", "#fff", "#ccc"],
     elim: false,
     pos: 4

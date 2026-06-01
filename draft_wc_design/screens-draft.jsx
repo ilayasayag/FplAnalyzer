@@ -4,10 +4,15 @@
 
 // ---------- DRAFT ROOM ----------
 function DraftRoomScreen({ onTab }) {
-  const [secondsLeft, setSecondsLeft] = React.useState(38);
+  // The clock reflects the REAL server deadline (DRAFT_STATE.secondsLeft), not a
+  // hardcoded countdown. 0 when no draft is running for the active league.
+  const serverSeconds = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.secondsLeft) ? DRAFT_STATE.secondsLeft : 0;
+  const [secondsLeft, setSecondsLeft] = React.useState(serverSeconds);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
-  const [watchlist, setWatchlist] = React.useState(new Set(["p_alvarez", "p_modric", "p_courtois"]));
+  // Watchlist starts empty — it is the user's own picks, never demo players.
+  const [watchlist, setWatchlist] = React.useState(new Set());
+  const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
     try {
@@ -20,6 +25,9 @@ function DraftRoomScreen({ onTab }) {
     }
   };
 
+  // Re-sync the clock whenever the server-provided deadline changes.
+  React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
+
   React.useEffect(() => {
     const t = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
@@ -30,11 +38,27 @@ function DraftRoomScreen({ onTab }) {
 
   // Players already picked
   const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
+  // Get unique nations list
   const activePlayers = window.PLAYERS || PLAYERS;
+  const nationsList = React.useMemo(() => {
+    const list = [];
+    const seen = new Set();
+    activePlayers.forEach(p => {
+      const code = p.team;
+      if (code && !seen.has(code)) {
+        seen.add(code);
+        const t = teamById(code) || { name: code };
+        list.push({ code, name: t.name || code });
+      }
+    });
+    return list.sort((a, b) => a.name.localeCompare(b.name));
+  }, [activePlayers]);
+
   const pool = activePlayers.filter(p => {
     if (taken.has(p.id)) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
+    if (nationFilter !== "all" && p.team !== nationFilter) return false;
     return true;
   }).sort((a, b) => a.dr - b.dr);
 
@@ -60,8 +84,17 @@ function DraftRoomScreen({ onTab }) {
 
   const formatTime = s => `0:${String(s).padStart(2, "0")}`;
 
+  // A league whose draft doc is absent/empty (e.g. a pre_draft league) has no
+  // live draft. Show a clear notice instead of a misleading "running" board.
+  const draftNotStarted = (typeof DRAFT_STATE !== "undefined") && (DRAFT_STATE.notStarted || !DRAFT_STATE.round) && DRAFT_HISTORY.length === 0;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: 16, minHeight: 700 }}>
+      {draftNotStarted && (
+        <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
+          ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
+        </div>
+      )}
       {/* LEFT — Draft order */}
       <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
         <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
@@ -147,7 +180,7 @@ function DraftRoomScreen({ onTab }) {
 
         {/* Filters + player pool */}
         <div className="card-dark" style={{ padding: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, marginBottom: 14 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto auto", gap: 12, marginBottom: 14 }}>
             <input
               type="text"
               placeholder="Search players…"
@@ -155,6 +188,24 @@ function DraftRoomScreen({ onTab }) {
               onChange={e => setSearch(e.target.value)}
               style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid var(--border-dark-strong)", background: "rgba(255,255,255,0.08)", color: "white" }}
             />
+            <select
+              value={nationFilter}
+              onChange={e => setNationFilter(e.target.value)}
+              style={{
+                padding: "10px 18px", borderRadius: 999,
+                border: "1px solid var(--border-dark-strong)",
+                background: "rgba(255,255,255,0.08)", color: "white",
+                cursor: "pointer", outline: "none",
+                fontSize: 12, fontWeight: 700
+              }}
+            >
+              <option value="all" style={{ background: "var(--navy-900)" }}>All Nations</option>
+              {nationsList.map(n => (
+                <option key={n.code} value={n.code} style={{ background: "var(--navy-900)" }}>
+                  {n.name} ({n.code})
+                </option>
+              ))}
+            </select>
             <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.25)", borderRadius: 999 }}>
               {["all", "1", "2", "3", "4"].map(p => (
                 <button key={p}
@@ -287,6 +338,31 @@ function SquadCount({ label, cur, max }) {
 // ---------- CREATE / JOIN LEAGUE ----------
 function CreateLeagueScreen({ onTab }) {
   const [mode, setMode] = React.useState("home"); // home | create | join
+  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const currentGw = TOURNAMENT.currentGw;
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const hasLeague = LEAGUE && LEAGUE.inviteCode;
+
+  const [leaguesList, setLeaguesList] = React.useState([]);
+  const [loadingLeagues, setLoadingLeagues] = React.useState(false);
+
+  React.useEffect(() => {
+    const fetchLeagues = async () => {
+      setLoadingLeagues(true);
+      try {
+        const res = await apiCall("GET", "/leagues/my");
+        if (res) {
+          setLeaguesList(res);
+        }
+      } catch (err) {
+        console.warn("Failed to fetch my leagues list", err);
+      } finally {
+        setLoadingLeagues(false);
+      }
+    };
+    fetchLeagues();
+  }, []);
 
   if (mode === "create") return <CreateForm onBack={() => setMode("home")} onTab={onTab} />;
   if (mode === "join") return <JoinForm onBack={() => setMode("home")} onTab={onTab} />;
@@ -295,24 +371,88 @@ function CreateLeagueScreen({ onTab }) {
     <div className="col" style={{ gap: 20 }}>
       <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Leagues</h2>
 
+      {/* Switch Platforms Section */}
+      {leaguesList.length > 1 && (
+        <div className="col" style={{ gap: 12, marginTop: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
+            {leaguesList.map(l => {
+              const isActive = l.leagueId === LEAGUE.id;
+              const isSim = l.leagueId.includes("mock") || l.leagueId.includes("sim");
+              return (
+                <div 
+                  key={l.leagueId} 
+                  className="card-dark" 
+                  style={{ 
+                    padding: 20, 
+                    border: isActive ? "2px solid var(--green-400)" : "1px solid var(--border-dark)",
+                    background: isActive ? "rgba(26, 210, 196, 0.08)" : "rgba(255,255,255,0.02)",
+                    display: "flex",
+                    flexDirection: "column",
+                    justifyContent: "space-between",
+                    gap: 16,
+                    borderRadius: 12,
+                    position: "relative"
+                  }}
+                >
+                  {isActive && (
+                    <span 
+                      style={{ 
+                        position: "absolute", top: 12, right: 12, 
+                        background: "var(--green-400)", color: "var(--navy-900)", 
+                        fontSize: 9, fontWeight: 800, padding: "3px 8px", borderRadius: 4,
+                        letterSpacing: "0.05em"
+                      }}
+                    >
+                      ACTIVE
+                    </span>
+                  )}
+                  <div>
+                    <div style={{ fontSize: 11, color: isSim ? "#a78bfa" : "var(--gold-500)", fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                      {isSim ? "Platform A · Simulation Time-Machine" : "Platform B · 7-Manager Live Draft"}
+                    </div>
+                    <div className="h-display" style={{ fontSize: 20, marginTop: 6, color: "white" }}>{l.name}</div>
+                    <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 6 }}>
+                      Status: <strong style={{ color: "white", textTransform: "capitalize" }}>{l.status.replace("_", " ")}</strong> · {l.memberCount}/{l.maxMembers} Managers
+                    </div>
+                  </div>
+                  {!isActive ? (
+                    <button 
+                      className="btn btn--primary" 
+                      style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: 11 }}
+                      onClick={() => {
+                        window.setActiveLeagueId(l.leagueId);
+                      }}
+                    >
+                      Switch to this Platform →
+                    </button>
+                  ) : (
+                    <div style={{ fontSize: 11, color: "var(--green-400)", fontWeight: 600 }}>Currently viewing this environment</div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
       {/* My league */}
       <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
         <div style={{ position: "absolute", top: 0, right: 0, padding: "6px 14px", background: "var(--green-400)", color: "var(--navy-900)", fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", borderRadius: "0 0 0 10px", whiteSpace: "nowrap" }}>ACTIVE LEAGUE</div>
         <div style={{ padding: 22, marginRight: 140 }}>
           <div className="h-display" style={{ fontSize: 24, marginBottom: 4 }}>{LEAGUE.name}</div>
           <div style={{ color: "rgba(255,255,255,0.75)", fontSize: 13, marginBottom: 14 }}>
-            10 managers · Snake draft · H2H league with Round of 32 knockout
+            {hasLeague ? `${LEAGUE.size} managers · Snake draft · H2H league with knockout` : "—"}
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 12 }}>
-            <MetricChip label="Your rank" value="#7 / 10" accent="var(--gold-500)" />
-            <MetricChip label="Total points" value="179" />
-            <MetricChip label="GW3 points" value="65" accent="var(--green-400)" />
-            <MetricChip label="Status" value="QF Qualified" accent="var(--gold-500)" />
+            <MetricChip label="Your rank" value={hasLeague ? `#${myStanding.rank} / ${LEAGUE.size}` : "—"} accent="var(--gold-500)" />
+            <MetricChip label="Total points" value={String(myStanding.fpts)} />
+            <MetricChip label="GW Points" value={String(gwPoints)} accent="var(--green-400)" />
+            <MetricChip label="Status" value={hasLeague ? (LEAGUE.knockoutStartGw <= currentGw ? "Knockout" : "Group Stage") : "—"} accent="var(--gold-500)" />
           </div>
           <div style={{ marginTop: 16, display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
             <button className="btn btn--primary" onClick={() => onTab("status")}>Open League →</button>
             <span style={{ marginLeft: 8, fontSize: 12, color: "rgba(255,255,255,0.6)" }}>Invite code:</span>
-            <span className="pill pill--ghost" style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", fontFamily: "var(--font-num)" }}>{LEAGUE.inviteCode}</span>
+            <span className="pill pill--ghost" style={{ background: "rgba(255,255,255,0.10)", border: "1px solid rgba(255,255,255,0.18)", fontFamily: "var(--font-num)" }}>{LEAGUE.inviteCode || "—"}</span>
           </div>
         </div>
       </div>
@@ -353,27 +493,6 @@ function CreateLeagueScreen({ onTab }) {
         </div>
       </div>
 
-      {/* Friends activity */}
-      <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-          <strong>Friends are playing</strong>
-          <span className="muted" style={{ fontSize: 12 }}>Public leagues with open spots</span>
-        </div>
-        {[
-          { name: "Telegram Group Cup", size: "8/10", admin: "Yonatan", state: "Drafting Mon" },
-          { name: "Office Pool 2026", size: "12/12", admin: "Roy", state: "Full" },
-          { name: "Random Internet Strangers", size: "4/8", admin: "—", state: "Pre-draft" },
-        ].map((l, i) => (
-          <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 100px 120px 100px", padding: "12px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12 }}>
-            <strong style={{ fontSize: 14 }}>{l.name}</strong>
-            <span className="mono" style={{ fontSize: 13 }}>{l.size}</span>
-            <span className="muted" style={{ fontSize: 12 }}>Admin · {l.admin}</span>
-            <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }} disabled={l.state === "Full"}>
-              {l.state === "Full" ? "Full" : "Join"}
-            </button>
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

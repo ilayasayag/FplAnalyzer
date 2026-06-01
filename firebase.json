@@ -1,6 +1,7 @@
 {
   "firestore": {
-    "rules": "firestore.rules"
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
   },
   "hosting": {
     "public": "dist",
@@ -12,6 +13,10 @@
       },
       {
         "source": "**/*.html",
+        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+      },
+      {
+        "source": "**/*.jsx",
         "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
       }
     ],

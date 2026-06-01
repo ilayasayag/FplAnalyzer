@@ -11,8 +11,10 @@ from fpl_predictor.api import app
 
 from firebase_functions import https_fn
 
-# Expose the api endpoint to handle incoming Flask routes
-@https_fn.on_request()
+# Expose the api endpoint to handle incoming Flask routes.
+# min_instances=1 keeps one warm instance with a primed player cache so the
+# live draft never hits a cold-instance stall on the large wc_players read.
+@https_fn.on_request(min_instances=1)
 def api(req: https_fn.Request) -> https_fn.Response:
     with app.request_context(req.environ):
         return app.full_dispatch_request()

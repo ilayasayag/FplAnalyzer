@@ -8,6 +8,7 @@ All endpoints return {"data": ..., "error": null} or {"data": null, "error": "..
 """
 
 import math
+import os
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, g
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
@@ -23,6 +24,7 @@ from .game.wc_gameweeks import (
     all_gws_as_dict, get_current_gw, is_locked, get_gw_config,
     compute_knockout_start_gw,
 )
+from .seed.seed_league import seed_everything, seed_mock_league
 
 
 wc_bp = Blueprint("wc", __name__)
@@ -66,6 +68,23 @@ def _require_auth():
         return decoded["uid"], None
     except Exception:
         return None, _err("Invalid token", 401)
+
+
+def _require_admin():
+    """Auth + admin-allowlist gate. Fails closed: a caller must be in
+    wc_config/tournament.adminUids. The sole exception is a fresh emulator
+    with no admins configured yet (bootstrap), so local dev can seed."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    cfg = _db.collection("wc_config").document("tournament").get()
+    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
+    if admin_uids:
+        if uid not in admin_uids:
+            return None, _err("Admin only", 403)
+    elif not os.environ.get("FIRESTORE_EMULATOR_HOST"):
+        return None, _err("Admin only", 403)
+    return uid, None
 
 
 # ---------------------------------------------------------------------------
@@ -184,15 +203,9 @@ def get_config():
 
 @wc_bp.route("/config", methods=["POST", "PUT"])
 def save_config():
-    uid, err = _require_auth()
+    uid, err = _require_admin()
     if err:
         return err
-
-    # admin gate — tournament config is global, not per-league.
-    cfg = _db.collection("wc_config").document("tournament").get()
-    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
-    if admin_uids and uid not in admin_uids:
-        return _err("Admin only", 403)
 
     # Freeze config once the tournament starts
     from fpl_predictor.game.wc_gameweeks import is_locked
@@ -228,7 +241,7 @@ def list_players():
     position = request.args.get("position", type=int)
     team_id = request.args.get("teamId", type=int)
     search = request.args.get("q", "").strip()
-    limit = request.args.get("limit", 200, type=int)
+    limit = request.args.get("limit", 2000, type=int)
 
     players = _wc.get_all_players(_db)
 
@@ -249,6 +262,14 @@ def get_player(player_id: int):
     if not player:
         return _err("Player not found", 404)
     return _ok(player)
+
+
+@wc_bp.route("/players/<int:player_id>/scores", methods=["GET"])
+def get_player_scores(player_id: int):
+    docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
+    scores = [d.to_dict() for d in docs]
+    scores.sort(key=lambda x: x.get("gw", 0))
+    return _ok(scores)
 
 
 # ---------------------------------------------------------------------------
@@ -281,6 +302,21 @@ def fixture_scores(fixture_id: int):
             .collection("playerScores").get())
     scores = {int(d.id): d.to_dict() for d in docs}
     return _ok(scores)
+
+
+@wc_bp.route("/gameweeks", methods=["GET"])
+def list_gameweeks():
+    docs = _db.collection("wc_gameweeks").get()
+    gws = [d.to_dict() for d in docs]
+    gws.sort(key=lambda x: x.get("gw", 0))
+    return _ok(gws)
+
+
+@wc_bp.route("/group-standings", methods=["GET"])
+def list_group_standings():
+    docs = _db.collection("wc_group_standings").get()
+    result = {d.id: d.to_dict().get("teams", []) for d in docs}
+    return _ok(result)
 
 
 # ---------------------------------------------------------------------------
@@ -514,11 +550,16 @@ def get_draft_state(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    doc = (_db.collection("leagues").document(lid)
-           .collection("draft").document("state").get())
-    if not doc.exists:
+    # Delegate to the engine so the response includes currentDrafter (snake
+    # position resolved server-side) and the picks subcollection. The frontend
+    # Draft Room reads data.currentDrafter / isMyTurn directly — returning the
+    # raw doc here would leave both undefined and brick the room.
+    from .game.draft import DraftEngine
+    draft = DraftEngine(_db, _wc)
+    state = draft.get_draft_state(lid)
+    if state.get("status") == "pending":
         return _err("Draft not started", 404)
-    return _ok({"leagueId": lid, **doc.to_dict()})
+    return _ok({"leagueId": lid, **state})
 
 
 @wc_bp.route("/leagues/<lid>/draft/start", methods=["POST"])
@@ -529,7 +570,9 @@ def start_draft(lid: str):
     try:
         from .game.draft import DraftEngine
         draft = DraftEngine(_db, _wc)
-        result = draft.start_draft(lid, uid)
+        cfg_doc = _db.collection("wc_config").document("tournament").get()
+        current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
+        result = draft.start_draft(lid, uid, current_gw)
         return _ok(result)
     except ValueError as exc:
         return _err(str(exc))
@@ -688,8 +731,10 @@ def get_standings(lid: str):
     uid, err = _require_auth()
     if err:
         return err
+    gw = request.args.get("gw")
+    doc_id = str(gw) if gw else "current"
     doc = (_db.collection("leagues").document(lid)
-           .collection("standings").document("current").get())
+           .collection("standings").document(doc_id).get())
     if not doc.exists:
         return _ok({"leagueId": lid, "managers": []})
     return _ok({"leagueId": lid, **doc.to_dict()})
@@ -932,6 +977,14 @@ def get_knockout(lid: str):
     uid, err = _require_auth()
     if err:
         return err
+    gw = request.args.get("gw")
+    if gw:
+        doc = (_db.collection("leagues").document(lid)
+               .collection("knockout").document(f"bracket_gw{gw}").get())
+        if doc.exists:
+            return _ok({"leagueId": lid, **doc.to_dict()})
+        else:
+            return _ok({"leagueId": lid, "rounds": {}})
     bracket = get_bracket(lid, _db)
     return _ok(bracket)
 
@@ -983,414 +1036,20 @@ def admin_sync_fixtures():
         return _err(str(exc), 500)
 
 def select_lineup(squad):
-    gks = [p for p in squad if p["position"] == 1]
-    defs = [p for p in squad if p["position"] == 2]
-    mids = [p for p in squad if p["position"] == 3]
-    fwds = [p for p in squad if p["position"] == 4]
-    
-    starting = [
-        gks[0]["playerId"],
-        defs[0]["playerId"], defs[1]["playerId"], defs[2]["playerId"], defs[3]["playerId"],
-        mids[0]["playerId"], mids[1]["playerId"], mids[2]["playerId"], mids[3]["playerId"],
-        fwds[0]["playerId"], fwds[1]["playerId"]
-    ]
-    bench = [
-        gks[1]["playerId"],
-        defs[4]["playerId"],
-        mids[4]["playerId"],
-        fwds[2]["playerId"]
-    ]
-    
-    def get_player_quality(p):
-        pid = int(p["playerId"])
-        premium = {
-            154: 1,      # Messi
-            278: 2,      # Mbappe
-            762: 3,      # Vinicius Jr
-            129718: 4,   # Bellingham
-            386828: 5,   # Yamal
-            1485: 6,     # Bruno Fernandes
-            203224: 7,   # Wirtz
-            133609: 8,   # Pedri
-            280: 9,      # Alisson
-            22221: 10,   # Maignan
-            730: 11,     # Courtois
-            290: 12,     # van Dijk
-            2285: 13,    # Rudiger
-            9: 14,       # Hakimi
-            257: 15,     # Marquinhos
-            629: 16,     # De Bruyne
-            631: 17,     # Foden
-            152982: 18,  # Palmer
-            754: 19,     # Modric
-            756: 20,     # Valverde
-            907: 21,     # Lukaku
-            247: 22,     # Gakpo
-            51617: 23,   # Nunez
-            377122: 24,  # Endrick
-            44: 25       # Rodri
-        }
-        if pid in premium:
-            return premium[pid]
-        return pid + 1000000
-
-    starting_players = [p for p in squad if p["playerId"] in starting]
-    starting_attackers = [p for p in starting_players if p["position"] in (3, 4)]
-    starting_attackers.sort(key=get_player_quality)
-    
-    captain = starting_attackers[0]["playerId"] if starting_attackers else starting[0]
-    vice = starting_attackers[1]["playerId"] if len(starting_attackers) > 1 else starting[1]
-    
-    return {
-        "starting": starting,
-        "bench": bench,
-        "formation": [1, 4, 4, 2],
-        "captain": captain,
-        "viceCaptain": vice,
-        "locked": True,
-        "autoSubsMade": []
-    }
-
-def seed_mock_league(USER_UID, USER_NAME, db):
-    import os
-    import json
-    from google.cloud.firestore_v1 import SERVER_TIMESTAMP
-    
-    json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
-    with open(json_path, "r", encoding="utf-8") as f:
-        data = json.load(f)
-    teams = data.get("teams", [])
-    players = data.get("players", [])
-    
-    mock_lid = "lg_mock_draft"
-    db.collection("leagues").document(mock_lid).set({
-        "leagueId": mock_lid,
-        "name": "El Clásico Friends (Mock)",
-        "inviteCode": "MOCKWC26",
-        "adminUid": "u_roy",
-        "format": "h2h",
-        "status": "active",
-        "maxMembers": 8,
-        "pickTimer": 60,
-        "tradeApproval": "vote",
-        "knockoutStartGw": 4,
-        "leaguePhaseGws": [1, 2, 3],
-        "knockoutQualifiers": 4,
-        "currentGw": 3,
-        "draftAt": None,
-        "seasonStartedAt": None,
-        "createdAt": SERVER_TIMESTAMP,
-    })
-    
-    mock_managers = [
-        {"uid": "u_roy", "name": "Roy", "team": "La Liga Loca", "flag": "SPA", "draftPos": 1, "waiverPri": 6},
-        {"uid": "u_yonatan", "name": "Yonatan", "team": "Tiki-Taka FC", "flag": "ARG", "draftPos": 2, "waiverPri": 5},
-        {"uid": "u_nadav", "name": "Nadav", "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
-        {"uid": "u_yuval", "name": "Yuval", "team": "The Gunners", "flag": "ENG", "draftPos": 4, "waiverPri": 3},
-        {"uid": "u_ido", "name": "Ido", "team": "Tel Aviv United", "flag": "FRA", "draftPos": 5, "waiverPri": 2},
-        {"uid": "u_shai", "name": "Shai", "team": "McShaike's XI", "flag": "MEX", "draftPos": 6, "waiverPri": 1},
-        {"uid": USER_UID, "name": USER_NAME, "team": "Hapoel Eliyahu", "flag": "POR", "draftPos": 7, "waiverPri": 7},
-        {"uid": "u_opponent", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
-    ]
-    
-    for m in mock_managers:
-        db.collection("leagues").document(mock_lid).collection("members").document(m["uid"]).set({
-            "displayName": m["name"],
-            "teamName": m["team"],
-            "draftPosition": m["draftPos"],
-            "waiverPriority": m["waiverPri"],
-            "joinedAt": SERVER_TIMESTAMP,
-        })
-        
-    def get_player_quality(p):
-        pid = p.get("id")
-        premium = {
-            154: 1,      # Messi
-            278: 2,      # Mbappe
-            762: 3,      # Vinicius Jr
-            129718: 4,   # Bellingham
-            386828: 5,   # Yamal
-            1485: 6,     # Bruno Fernandes
-            203224: 7,   # Wirtz
-            133609: 8,   # Pedri
-            280: 9,      # Alisson
-            22221: 10,   # Maignan
-            730: 11,     # Courtois
-            290: 12,     # van Dijk
-            2285: 13,    # Rudiger
-            9: 14,       # Hakimi
-            257: 15,     # Marquinhos
-            629: 16,     # De Bruyne
-            631: 17,     # Foden
-            152982: 18,  # Palmer
-            754: 19,     # Modric
-            756: 20,     # Valverde
-            907: 21,     # Lukaku
-            247: 22,     # Gakpo
-            51617: 23,   # Nunez
-            377122: 24,  # Endrick
-            44: 25       # Rodri
-        }
-        if pid in premium:
-            return premium[pid]
-        return p.get("draftRank", 999) * 100000 + pid
-
-    gks = sorted([p for p in players if p["position"] == 1], key=get_player_quality)
-    defs = sorted([p for p in players if p["position"] == 2], key=get_player_quality)
-    mids = sorted([p for p in players if p["position"] == 3], key=get_player_quality)
-    fwds = sorted([p for p in players if p["position"] == 4], key=get_player_quality)
-    
-    draft_order = []
-    for round_idx in range(1, 16):
-        managers_round = ["u_roy", "u_yonatan", "u_nadav", "u_yuval", "u_ido", "u_shai", USER_UID, "u_opponent"]
-        if round_idx % 2 == 0:
-            managers_round.reverse()
-        draft_order.extend(managers_round)
-        
-    squads = {m["uid"]: [] for m in mock_managers}
-    pos_counts = {m["uid"]: {1: 0, 2: 0, 3: 0, 4: 0} for m in mock_managers}
-    pos_limits = {1: 2, 2: 5, 3: 5, 4: 3}
-    pools = {1: list(gks), 2: list(defs), 3: list(mids), 4: list(fwds)}
-    
-    for turn_idx, uid in enumerate(draft_order):
-        round_num = (turn_idx // 8) + 1
-        needed_pos = [pos for pos, limit in pos_limits.items() if pos_counts[uid][pos] < limit]
-        
-        best_player = None
-        best_quality = float('inf')
-        best_pos = None
-        
-        for pos in needed_pos:
-            if pools[pos]:
-                p = pools[pos][0]
-                q = get_player_quality(p)
-                if q < best_quality:
-                    best_quality = q
-                    best_player = p
-                    best_pos = pos
-                    
-        if best_player:
-            pools[best_pos].pop(0)
-            squads[uid].append({
-                "playerId": str(best_player["id"]),
-                "draftedRound": round_num,
-                "position": best_player["position"],
-                "name": best_player["name"],
-                "teamIso": best_player["teamIso"]
-            })
-            pos_counts[uid][best_pos] += 1
-            
-    for uid, squad in squads.items():
-        squad_list = [{"playerId": p["playerId"], "draftedRound": p["draftedRound"]} for p in squad]
-        db.collection("leagues").document(mock_lid).collection("squads").document(uid).set({
-            "players": squad_list
-        })
-        
-    lineups_by_manager_gw = {m["uid"]: {} for m in mock_managers}
-    for uid, squad in squads.items():
-        for gw in (1, 2, 3):
-            lineup = select_lineup(squad)
-            lineups_by_manager_gw[uid][gw] = lineup
-            db.collection("leagues").document(mock_lid).collection("lineups").document(f"{uid}_{gw}").set(lineup)
-            
-    schedule_by_gw = {
-        1: [("u_roy", "u_shai"), ("u_yonatan", "u_opponent"), ("u_nadav", "u_ido"), (USER_UID, "u_yuval")],
-        2: [("u_roy", "u_opponent"), ("u_yonatan", "u_ido"), ("u_nadav", "u_yuval"), (USER_UID, "u_shai")],
-        3: [("u_roy", "u_ido"), ("u_yonatan", "u_yuval"), ("u_opponent", "u_shai"), (USER_UID, "u_nadav")]
-    }
-    for gw, matches in schedule_by_gw.items():
-        match_list = [{"home": m[0], "away": m[1]} for m in matches]
-        db.collection("leagues").document(mock_lid).collection("schedule").document(str(gw)).set({
-            "gw": gw,
-            "matches": match_list
-        })
-        
-    iso_to_team = {t["isoCode"]: t for t in teams}
-    def get_team_or_default(iso, name):
-        if iso in iso_to_team:
-            return iso_to_team[iso]
-        return {"id": 999, "name": name, "logo": "", "isoCode": iso}
-        
-    fixtures_data = {
-        1: [
-            {"id": 101, "home": "BRA", "away": "GER", "score": {"home": 2, "away": 1}},
-            {"id": 102, "home": "FRA", "away": "ENG", "score": {"home": 1, "away": 1}},
-            {"id": 103, "home": "ARG", "away": "SPA", "score": {"home": 2, "away": 2}}
-        ],
-        2: [
-            {"id": 201, "home": "POR", "away": "NED", "score": {"home": 3, "away": 2}},
-            {"id": 202, "home": "USA", "away": "URU", "score": {"home": 1, "away": 2}},
-            {"id": 203, "home": "BEL", "away": "MEX", "score": {"home": 2, "away": 0}}
-        ],
-        3: [
-            {"id": 301, "home": "BRA", "away": "FRA", "score": {"home": 1, "away": 2}},
-            {"id": 302, "home": "ARG", "away": "ENG", "score": {"home": 2, "away": 1}},
-            {"id": 303, "home": "SPA", "away": "POR", "score": {"home": 3, "away": 3}}
-        ]
-    }
-    
-    for gw, f_list in fixtures_data.items():
-        for f in f_list:
-            h_team = get_team_or_default(f["home"], f["home"])
-            a_team = get_team_or_default(f["away"], f["away"])
-            db.collection("wc_fixtures").document(str(f["id"])).set({
-                "id": f["id"],
-                "gw": gw,
-                "wcRound": f"Group Stage · MD{gw}",
-                "homeTeam": {"id": h_team["id"], "name": h_team["name"], "isoCode": h_team["isoCode"]},
-                "awayTeam": {"id": a_team["id"], "name": a_team["name"], "isoCode": a_team["isoCode"]},
-                "kickoff": SERVER_TIMESTAMP,
-                "status": "FT",
-                "score": f["score"],
-                "processedForFantasy": True
-            })
-            
-    player_gw_scores = {1: {}, 2: {}, 3: {}}
-    for gw in (1, 2, 3):
-        targets = {
-            "u_roy": {1: 57, 2: 64, 3: 71}[gw],
-            "u_yonatan": {1: 64, 2: 71, 3: 78}[gw],
-            "u_nadav": {1: 71, 2: 78, 3: 58}[gw],
-            "u_yuval": {1: 58, 2: 69, 3: 69}[gw],
-            "u_ido": {1: 58, 2: 58, 3: 58}[gw],
-            "u_shai": {1: 61, 2: 62, 3: 55}[gw],
-            USER_UID: {1: 65, 2: 58, 3: 65}[gw],
-            "u_opponent": {1: 72, 2: 72, 3: 55}[gw]
-        }
-        for uid, target in targets.items():
-            lineup = lineups_by_manager_gw[uid][gw]
-            starting = lineup["starting"]
-            captain = lineup["captain"]
-            
-            cap_base = 8 if target > 60 else 6
-            remaining = target - (2 * cap_base)
-            
-            num_others = len(starting) - 1
-            base_share = remaining // num_others
-            leftover = remaining % num_others
-            
-            for pid in starting:
-                if pid == captain:
-                    player_gw_scores[gw][pid] = cap_base
-                else:
-                    pts = base_share
-                    if leftover > 0:
-                        pts += 1
-                        leftover -= 1
-                    player_gw_scores[gw][pid] = pts
-            for pid in lineup["bench"]:
-                player_gw_scores[gw][pid] = 1 if int(pid) % 2 == 0 else 0
-                
-    for gw in (1, 2, 3):
-        fixtures_in_gw = [101, 102, 103] if gw == 1 else ([201, 202, 203] if gw == 2 else [301, 302, 303])
-        for uid, squad in squads.items():
-            for p in squad:
-                pid = p["playerId"]
-                pts = player_gw_scores[gw].get(pid, 0)
-                pos = p["position"]
-                
-                assigned_fid = fixtures_in_gw[0]
-                for fid in fixtures_in_gw:
-                    f_data = next(f for f in fixtures_data[gw] if f["id"] == fid)
-                    if f_data["home"] == p["teamIso"] or f_data["away"] == p["teamIso"]:
-                        assigned_fid = fid
-                        break
-                        
-                db.collection("wc_fixtures").document(str(assigned_fid)).collection("playerScores").document(str(pid)).set({
-                    "fantasyPoints": pts,
-                    "stats": {
-                        "minutes": 90 if pts > 0 else 0,
-                        "goals": 1 if pts >= 5 else 0,
-                        "assists": 1 if pts >= 4 else 0,
-                        "cleanSheet": True if pts >= 4 and pos == 2 else False,
-                        "yellowCard": 0,
-                        "redCard": 0
-                    }
-                })
-                
-    for gw in (1, 2, 3):
-        results = {
-            "u_roy": {"points": {1: 57, 2: 64, 3: 71}[gw]},
-            "u_yonatan": {"points": {1: 64, 2: 71, 3: 78}[gw]},
-            "u_nadav": {"points": {1: 71, 2: 78, 3: 58}[gw]},
-            "u_yuval": {"points": {1: 58, 2: 69, 3: 69}[gw]},
-            "u_ido": {"points": {1: 58, 2: 58, 3: 58}[gw]},
-            "u_shai": {"points": {1: 61, 2: 62, 3: 55}[gw]},
-            USER_UID: {"points": {1: 65, 2: 58, 3: 65}[gw]},
-            "u_opponent": {"points": {1: 72, 2: 72, 3: 55}[gw]}
-        }
-        db.collection("leagues").document(mock_lid).collection("scores").document(str(gw)).set({
-            "processed": True,
-            "processedAt": SERVER_TIMESTAMP,
-            "results": results
-        })
-        
-    standings_data = {
-        "managers": [
-            {"uid": "u_opponent", "rank": 1, "hw": 2, "hd": 1, "hl": 0, "hpts": 7, "fpts": 199, "mv": 0},
-            {"uid": "u_shai", "rank": 2, "hw": 2, "hd": 1, "hl": 0, "hpts": 7, "fpts": 178, "mv": 0},
-            {"uid": "u_yonatan", "rank": 3, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 213, "mv": 0},
-            {"uid": "u_nadav", "rank": 4, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 207, "mv": 0},
-            {"uid": USER_UID, "rank": 5, "hw": 2, "hd": 0, "hl": 1, "hpts": 6, "fpts": 188, "mv": 0},
-            {"uid": "u_roy", "rank": 6, "hw": 1, "hd": 0, "hl": 2, "hpts": 3, "fpts": 192, "mv": 0},
-            {"uid": "u_yuval", "rank": 7, "hw": 0, "hd": 0, "hl": 3, "hpts": 0, "fpts": 196, "mv": 0},
-            {"uid": "u_ido", "rank": 8, "hw": 0, "hd": 0, "hl": 3, "hpts": 0, "fpts": 174, "mv": 0},
-        ]
-    }
-    db.collection("leagues").document(mock_lid).collection("standings").document("current").set(standings_data)
-    
-    bracket_data = {
-        "seeds": [
-            {"uid": "u_opponent", "seed": 1},
-            {"uid": "u_shai", "seed": 2},
-            {"uid": "u_yonatan", "seed": 3},
-            {"uid": USER_UID, "seed": 4},
-        ],
-        "rounds": {
-            "sf": [
-                {"id": "sf1", "home": "u_opponent", "away": USER_UID, "homeSeed": 1, "awaySeed": 4, "gw": 4},
-                {"id": "sf2", "home": "u_shai", "away": "u_yonatan", "homeSeed": 2, "awaySeed": 3, "gw": 4},
-            ],
-            "final": [
-                {"id": "f1", "home": None, "away": None, "homeSrc": "sf1", "awaySrc": "sf2", "gw": 5}
-            ]
-        }
-    }
-    db.collection("leagues").document(mock_lid).collection("knockout").document("bracket").set(bracket_data)
+    # This is a legacy function. The engine uses seed_league's version.
+    from .seed.seed_league import select_lineup as sl
+    return sl(squad)
 
 @wc_bp.route("/admin/seed-test-leagues", methods=["POST"])
 def admin_seed_test_leagues():
-    secret = request.args.get("secret")
-    is_admin = False
-    if secret == "73314c7b7198d9a5f4248e44a1fb63c9":
-        is_admin = True
-        uid = "u_roy"
-        
-    if not is_admin:
-        uid, err = _require_auth()
-        if err:
-            return err
+    uid, err = _require_admin()
+    if err:
+        return err
+    # Refuse to (re)seed — which wipes leagues — against production unless
+    # explicitly overridden. Emulator is always allowed.
+    if not os.environ.get("FIRESTORE_EMULATOR_HOST") and os.environ.get("WC_ALLOW_PROD_SEED") != "true":
+        return _err("Seeding is disabled against production. Set WC_ALLOW_PROD_SEED=true to override.", 403)
     try:
-        import os
-        import json
-        json_path = os.path.join(os.path.dirname(__file__), "data", "wc_seeded_data.json")
-        if not os.path.exists(json_path):
-            return _err("wc_seeded_data.json not found in function package", 404)
-            
-        with open(json_path, "r", encoding="utf-8") as f:
-            data = json.load(f)
-            
-        teams = data.get("teams", [])
-        players = data.get("players", [])
-        
-        # Write teams to production
-        for t in teams:
-            _db.collection("wc_teams").document(str(t["id"])).set(t)
-            
-        # Write players to production
-        for p in players:
-            _db.collection("wc_players").document(str(p["id"])).set(p)
-            
         # Get user UID from auth
         USER_UID = uid
         USER_NAME = "Ilay"
@@ -1401,6 +1060,14 @@ def admin_seed_test_leagues():
         except Exception:
             pass
             
+        # Register the seeding user as an admin so the bootstrap gate in
+        # _require_admin self-closes after the first run.
+        cfg_ref = _db.collection("wc_config").document("tournament")
+        cfg_snap = cfg_ref.get()
+        existing_admins = (cfg_snap.to_dict() or {}).get("adminUids", []) if cfg_snap.exists else []
+        if uid not in existing_admins:
+            cfg_ref.set({"adminUids": existing_admins + [uid]}, merge=True)
+
         # Force complete delete of mock league to trigger fresh seed
         mock_league_ref = _db.collection("leagues").document("lg_mock_draft")
         for sub_name in ["members", "squads", "lineups", "scores", "standings", "knockout", "schedule"]:
@@ -1409,48 +1076,17 @@ def admin_seed_test_leagues():
                 doc.reference.delete()
         mock_league_ref.delete()
         
-        # Now run seed immediately for the current user
-        seed_mock_league(USER_UID, USER_NAME, _db)
+        # Force complete delete of pre draft league
+        pre_league_ref = _db.collection("leagues").document("lg_pre_draft")
+        for sub_name in ["members", "squads", "lineups", "scores", "standings", "knockout", "schedule"]:
+            coll = pre_league_ref.collection(sub_name)
+            for doc in coll.get():
+                doc.reference.delete()
+        pre_league_ref.delete()
+
+        # Run consolidated seed everything
+        seed_everything(_db, USER_UID, USER_NAME)
         
-        # Seed Real Pre-Draft League
-        PRE_LID = "lg_pre_draft"
-        _db.collection("leagues").document(PRE_LID).set({
-            "leagueId": PRE_LID,
-            "name": "World Cup Real Draft (7 Managers)",
-            "inviteCode": "REALWC26",
-            "adminUid": "u_roy",
-            "format": "h2h",
-            "status": "pre_draft",
-            "maxMembers": 7,
-            "pickTimer": 90,
-            "tradeApproval": "vote",
-            "knockoutStartGw": 7,
-            "leaguePhaseGws": [1, 2, 3, 4, 5, 6],
-            "knockoutQualifiers": 4,
-            "currentGw": None,
-            "draftAt": "2026-06-08T18:00:00Z",
-            "seasonStartedAt": None,
-            "createdAt": SERVER_TIMESTAMP,
-        })
-        
-        # Seed 6 mock managers so there is exactly 1 slot left for the real user to join!
-        mock_managers = [
-            {"uid": "u_roy",     "name": "Roy",       "team": "La Liga Loca",     "flag": "SPA", "draftPos": 1, "waiverPri": 6},
-            {"uid": "u_yonatan", "name": "Yonatan",   "team": "Tiki-Taka FC",     "flag": "ARG", "draftPos": 2, "waiverPri": 5},
-            {"uid": "u_nadav",   "name": "Nadav",     "team": "Red Devils 2026", "flag": "BRA", "draftPos": 3, "waiverPri": 4},
-            {"uid": "u_yuval",   "name": "Yuval",     "team": "The Gunners",      "flag": "ENG", "draftPos": 4, "waiverPri": 3},
-            {"uid": "u_ido",     "name": "Ido",       "team": "Tel Aviv United",  "flag": "FRA", "draftPos": 5, "waiverPri": 2},
-            {"uid": "u_shai",    "name": "Shai",      "team": "McShaike's XI",   "flag": "MEX", "draftPos": 6, "waiverPri": 1},
-        ]
-        for m in mock_managers:
-            _db.collection("leagues").document(PRE_LID).collection("members").document(m["uid"]).set({
-                "displayName": m["name"],
-                "teamName": m["team"],
-                "draftPosition": m["draftPos"],
-                "waiverPriority": m["waiverPri"],
-                "joinedAt": SERVER_TIMESTAMP,
-            })
-            
         return _ok({"status": "seeded"})
     except Exception as exc:
         return _err(str(exc), 500)
@@ -1625,7 +1261,7 @@ def background_poll_and_process_fixtures():
             lid = ldoc.id
             league = ldoc.to_dict()
             status = league.get("status")
-            if status in ("complete", "pre_draft", "drafting"):
+            if status not in ("group_phase", "knockout"):
                 continue
             cgw = league.get("currentGw")
             if not cgw:

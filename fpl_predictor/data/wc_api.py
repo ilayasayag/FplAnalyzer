@@ -287,8 +287,26 @@ class WC2026Client:
         db = db or self.db
         if not db:
             return []
-        docs = db.collection("wc_players").stream()
-        return [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+        with self._lock:
+            entry = self._cache.get("__all_players__")
+            if entry and (time.time() - entry["fetched_at"]) < 300:
+                return entry["data"]
+        # Bounded retry: the full wc_players read is a multi-batch gRPC stream
+        # that intermittently stalls in prod; a short deadline + retry turns a
+        # 60s function-timeout hang into a fast re-attempt.
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                docs = db.collection("wc_players").get(timeout=12)
+                players = [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+                if players:
+                    with self._lock:
+                        self._cache["__all_players__"] = {"data": players, "fetched_at": time.time()}
+                return players
+            except Exception as e:  # noqa: BLE001 - transport stalls vary by type
+                print(f"[wc_api] get_all_players attempt {attempt}/3 failed: {e!r}")
+                last_err = e
+        raise last_err from None
 
     def get_players(self, db=None) -> List[Dict]:
         return self.get_all_players(db)
@@ -426,6 +444,112 @@ class WC2026Client:
                                 break
         return result
 
+    def compute_group_standings_from_db(self, db=None) -> Dict[str, List[Dict]]:
+        db = db or self.db
+        if not db:
+            raise RuntimeError("Firestore db required")
+            
+        # 1. Fetch all 48 teams to know their groups
+        teams_docs = db.collection("wc_teams").get()
+        teams_by_iso = {}
+        group_teams = {} # group_letter -> list of team_info
+        for doc in teams_docs:
+            t = doc.to_dict()
+            iso = t.get("isoCode")
+            grp = t.get("group")
+            if iso and grp:
+                teams_by_iso[iso] = t
+                if grp not in group_teams:
+                    group_teams[grp] = []
+                group_teams[grp].append(t)
+                
+        # 2. Fetch all group stage fixtures (GW 1, 2, 3)
+        fixtures_docs = db.collection("wc_fixtures").where("gw", "in", [1, 2, 3]).get()
+        
+        # 3. Accumulate stats
+        stats = {} # team_iso -> {P, W, D, L, GF, GA, GD, Pts}
+        for iso in teams_by_iso:
+            stats[iso] = {"P": 0, "W": 0, "D": 0, "L": 0, "GF": 0, "GA": 0, "GD": 0, "Pts": 0}
+            
+        for doc in fixtures_docs:
+            f = doc.to_dict()
+            score = f.get("score", {})
+            h_score = score.get("home")
+            a_score = score.get("away")
+            h_iso = f.get("homeTeam", {}).get("isoCode")
+            a_iso = f.get("awayTeam", {}).get("isoCode")
+            
+            if h_iso not in stats or a_iso not in stats:
+                continue
+            if h_score is None or a_score is None:
+                continue
+                
+            stats[h_iso]["P"] += 1
+            stats[a_iso]["P"] += 1
+            stats[h_iso]["GF"] += h_score
+            stats[h_iso]["GA"] += a_score
+            stats[a_iso]["GF"] += a_score
+            stats[a_iso]["GA"] += h_score
+            stats[h_iso]["GD"] = stats[h_iso]["GF"] - stats[h_iso]["GA"]
+            stats[a_iso]["GD"] = stats[a_iso]["GF"] - stats[a_iso]["GA"]
+            
+            if h_score > a_score:
+                stats[h_iso]["W"] += 1
+                stats[h_iso]["Pts"] += 3
+                stats[a_iso]["L"] += 1
+            elif a_score > h_score:
+                stats[a_iso]["W"] += 1
+                stats[a_iso]["Pts"] += 3
+                stats[h_iso]["L"] += 1
+            else:
+                stats[h_iso]["D"] += 1
+                stats[h_iso]["Pts"] += 1
+                stats[a_iso]["D"] += 1
+                stats[a_iso]["Pts"] += 1
+                
+        # 4. Sort and build standings per group
+        result = {}
+        for grp, t_list in group_teams.items():
+            grp_standings = []
+            for t in t_list:
+                iso = t["isoCode"]
+                t_stats = stats[iso]
+                grp_standings.append({
+                    "team": {
+                        "id": t["id"],
+                        "name": t["name"],
+                        "logo": t.get("logo"),
+                        "isoCode": iso
+                    },
+                    "group": f"Group {grp}",
+                    "points": t_stats["Pts"],
+                    "goalsDiff": t_stats["GD"],
+                    "all": {
+                        "played": t_stats["P"],
+                        "win": t_stats["W"],
+                        "draw": t_stats["D"],
+                        "lose": t_stats["L"],
+                        "goals": {
+                            "for": t_stats["GF"],
+                            "against": t_stats["GA"]
+                        }
+                    }
+                })
+            # Sort by Pts desc, then GD desc, then GF desc
+            grp_standings.sort(key=lambda x: (-x["points"], -x["goalsDiff"], -x["all"]["goals"]["for"]))
+            # Assign rank
+            for rank, entry in enumerate(grp_standings, 1):
+                entry["rank"] = rank
+            result[grp] = grp_standings
+            
+            # Persist to Firestore: wc_group_standings/{group}
+            db.collection("wc_group_standings").document(grp).set({
+                "group": grp,
+                "teams": grp_standings
+            })
+            
+        return result
+
     def check_team_eliminated(self, team_id: int, db=None) -> bool:
         """Check Firestore for team elimination status."""
         db = db or self.db
@@ -437,18 +561,12 @@ class WC2026Client:
     def detect_group_stage_eliminations(self, db=None) -> Dict[str, List[int]]:
         """
         Run after ALL GW3 fixtures are processedForFantasy.
-
-        WC 2026: 12 groups of 4. Top 2 from each group advance (24 teams).
-        Best 8 third-place teams also advance (8 teams).
-        16 teams eliminated: 12 × 4th place + 4 worst 3rd place teams.
-
-        Returns {"eliminated": [team_ids], "advancing_thirds": [team_ids]}.
         """
         db = db or self.db
         if not db:
             raise RuntimeError("Firestore db required")
 
-        all_standings = self.get_all_group_standings()
+        all_standings = self.compute_group_standings_from_db(db=db)
         if len(all_standings) < 12:
             raise ValueError(
                 f"Only {len(all_standings)} groups found; need all 12 before detecting eliminations"
@@ -483,7 +601,7 @@ class WC2026Client:
             batch = db.batch()
             for tid in eliminated_ids:
                 ref = db.collection("wc_teams").document(str(tid))
-                batch.update(ref, {"eliminated": True, "eliminatedAfterGw": 3})
+                batch.update(ref, {"eliminated": True, "eliminatedAfterGw": 3, "status": "eliminated"})
             batch.commit()
 
             player_docs = db.collection("wc_players").get()
@@ -503,11 +621,13 @@ class WC2026Client:
         db = db or self.db
         if not db:
             return
+        db.collection("wc_teams").document(str(team_id)).update({
+            "eliminated": True,
+            "eliminatedAfterGw": gw,
+            "status": "eliminated"
+        })
 
         batch = db.batch()
-        team_ref = db.collection("wc_teams").document(str(team_id))
-        batch.update(team_ref, {"eliminated": True, "eliminatedAfterGw": gw})
-
         player_docs = (db.collection("wc_players")
                        .where("teamId", "==", team_id).get())
         for doc in player_docs:

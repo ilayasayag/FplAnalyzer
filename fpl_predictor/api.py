@@ -14,7 +14,7 @@ import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
 
 firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
-db = fb_firestore.client(database_id="gamedb")
+db = fb_firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 log = logging.getLogger(__name__)
 
 from .data.fpl_api import FPLClient
@@ -57,7 +57,6 @@ app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
 
 fpl = FPLClient()
-fpl.warm_cache()
 lineup_pred = LineupPredictor(fpl)
 predictor = PlayerPredictor(fpl, lineup_predictor=lineup_pred)
 team_form_analyzer = TeamFormAnalyzer(fpl)
@@ -1566,9 +1565,14 @@ def init_background_scheduler(interval_seconds=300):
     print("[Background Poller] Started background polling daemon thread.")
 
 
-# Automatically attempt to initialize when imported (e.g. under gunicorn)
-# but skip if we are running standard test suites.
-if os.environ.get("FPL_TESTING") != "true":
+# Import-time auto-start is OPT-IN only. On serverless (Cloud Functions),
+# `functions/main.py` imports this module on every cold start; a daemon
+# thread there can't run reliably (instances freeze between requests) and
+# every cold start would spawn another. Live scoring in that deployment is
+# driven by Cloud Scheduler -> POST /admin/process-live-fixtures instead.
+# Long-running hosts (gunicorn/Cloud Run, single instance) can opt in by
+# setting WC_ENABLE_POLLER=true. `run_server` (local dev) starts it directly.
+if os.environ.get("FPL_TESTING") != "true" and os.environ.get("WC_ENABLE_POLLER") == "true":
     init_background_scheduler(300)
 
 

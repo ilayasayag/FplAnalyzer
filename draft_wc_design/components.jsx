@@ -20,6 +20,12 @@ const FLAG_ISO = {
   POR2: "tr",   // Türkiye (was reused id in mock data)
   MEX2: "pe",   // Peru   (was reused id in mock data)
   VEN: "ve", HAI: "ht",
+  // Backend (api-sports) raw ISO codes that differ from the FIFA-style codes
+  // above. With the backend-driven team map, team.id is now the raw code, so
+  // these map every live nation to a clean flag-icons SVG.
+  SPA: "es", JAP: "jp", MOR: "ma", SWI: "ch", IRA: "ir", TUR: "tr",
+  AUT: "at", BOS: "ba", COD: "cd", CPV: "cv", CZE: "cz", IRQ: "iq",
+  NOR: "no", PAN: "pa", RSA: "za", SAU: "sa", SWE: "se",
 };
 
 function Flag({ team, size = "sm" }) {
@@ -34,6 +40,15 @@ function Flag({ team, size = "sm" }) {
           src={`https://cdn.jsdelivr.net/gh/lipis/flag-icons@7.2.3/flags/4x3/${iso}.svg`}
           alt={team.name}
         />
+      </span>
+    );
+  }
+  // Backend-provided crest/flag (api-sports) for any nation without a static
+  // flag-icons mapping — keeps every one of the 48 teams showing a real flag.
+  if (team.logo) {
+    return (
+      <span className={cls} title={team.name}>
+        <img src={team.logo} alt={team.name} style={{ objectFit: "cover" }} />
       </span>
     );
   }
