@@ -550,11 +550,16 @@ def get_draft_state(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    doc = (_db.collection("leagues").document(lid)
-           .collection("draft").document("state").get())
-    if not doc.exists:
+    # Delegate to the engine so the response includes currentDrafter (snake
+    # position resolved server-side) and the picks subcollection. The frontend
+    # Draft Room reads data.currentDrafter / isMyTurn directly — returning the
+    # raw doc here would leave both undefined and brick the room.
+    from .game.draft import DraftEngine
+    draft = DraftEngine(_db, _wc)
+    state = draft.get_draft_state(lid)
+    if state.get("status") == "pending":
         return _err("Draft not started", 404)
-    return _ok({"leagueId": lid, **doc.to_dict()})
+    return _ok({"leagueId": lid, **state})
 
 
 @wc_bp.route("/leagues/<lid>/draft/start", methods=["POST"])

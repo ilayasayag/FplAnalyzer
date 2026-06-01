@@ -18,7 +18,9 @@ from firebase_admin import firestore
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client()
+# Match the Flask backend's database target — see populate_emulator_real_squads.py
+# for why the emulator's database_id matters even in single-project mode.
+db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 
 from fpl_predictor.game.wc_scoring import finalize_gw, process_fixture
 from fpl_predictor.game.wc_knockout import seed_knockout, advance_knockout_bracket, get_bracket

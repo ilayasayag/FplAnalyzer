@@ -174,6 +174,13 @@ def run():
     print(f"    totalPicks={total_picks}  (n={n} × 15 rounds)")
     check("totalPicks == n*15", total_picks == n * 15)
 
+    # Route contract: /draft/state must return currentDrafter + picks so the
+    # frontend Draft Room (onTheClock / isMyTurn) actually works.
+    sc, st0 = api("GET", f"/leagues/{LID}/draft/state", uid=admin_uid)
+    check("/draft/state returns currentDrafter", "currentDrafter" in st0 and st0["currentDrafter"] in order, f"got={st0.get('currentDrafter')!r}")
+    check("/draft/state returns picks list", isinstance(st0.get("picks"), list), f"picks type={type(st0.get('picks')).__name__}")
+    check("/draft/state returns currentRound", isinstance(st0.get("currentRound"), int), f"currentRound={st0.get('currentRound')!r}")
+
     pool = fresh_player_pool()
     # group pool by position for deterministic per-uid quotas
     by_pos = {1: [], 2: [], 3: [], 4: []}

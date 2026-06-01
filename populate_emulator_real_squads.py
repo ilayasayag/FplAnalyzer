@@ -12,7 +12,10 @@ os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client()
+# Match the Flask backend's database target so seeded data is visible to the
+# API (Flask defaults to gamedb; the emulator serves a separate store per
+# database_id, so writing to (default) here would silently diverge).
+db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 
 # Clear collections
 print("🧹 Cleaning local emulator collections...")
