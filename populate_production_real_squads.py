@@ -23,13 +23,13 @@ try:
         USER_NAME = real_user.display_name or real_user.email.split("@")[0]
         print(f"🎯 Found production user: {USER_NAME} (UID: {USER_UID})")
     else:
-        USER_UID = "u_roy"
-        USER_NAME = "Roy"
-        print("⚠️ No production user found. Defaulting to 'u_roy'.")
+        USER_UID = "u_netanel"
+        USER_NAME = "Netanel"
+        print("⚠️ No production user found. Defaulting to 'u_netanel'.")
 except Exception as e:
-    USER_UID = "u_roy"
-    USER_NAME = "Roy"
-    print(f"⚠️ Failed to list auth users ({e}). Defaulting to 'u_roy'.")
+    USER_UID = "u_netanel"
+    USER_NAME = "Netanel"
+    print(f"⚠️ Failed to list auth users ({e}). Defaulting to 'u_netanel'.")
 
 # Force complete delete of mock leagues in production before seeding
 for lid in ["lg_mock_draft", "lg_pre_draft"]:
