@@ -14,7 +14,7 @@ import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
 
 firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
-db = fb_firestore.client()
+db = fb_firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 log = logging.getLogger(__name__)
 
 from .data.fpl_api import FPLClient
@@ -57,7 +57,6 @@ app.json_provider_class = _SafeJSONProvider
 app.json = _SafeJSONProvider(app)
 
 fpl = FPLClient()
-fpl.warm_cache()
 lineup_pred = LineupPredictor(fpl)
 predictor = PlayerPredictor(fpl, lineup_predictor=lineup_pred)
 team_form_analyzer = TeamFormAnalyzer(fpl)

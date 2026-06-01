@@ -287,8 +287,26 @@ class WC2026Client:
         db = db or self.db
         if not db:
             return []
-        docs = db.collection("wc_players").stream()
-        return [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+        with self._lock:
+            entry = self._cache.get("__all_players__")
+            if entry and (time.time() - entry["fetched_at"]) < 300:
+                return entry["data"]
+        # Bounded retry: the full wc_players read is a multi-batch gRPC stream
+        # that intermittently stalls in prod; a short deadline + retry turns a
+        # 60s function-timeout hang into a fast re-attempt.
+        last_err = None
+        for attempt in range(1, 4):
+            try:
+                docs = db.collection("wc_players").get(timeout=12)
+                players = [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+                if players:
+                    with self._lock:
+                        self._cache["__all_players__"] = {"data": players, "fetched_at": time.time()}
+                return players
+            except Exception as e:  # noqa: BLE001 - transport stalls vary by type
+                print(f"[wc_api] get_all_players attempt {attempt}/3 failed: {e!r}")
+                last_err = e
+        raise last_err from None
 
     def get_players(self, db=None) -> List[Dict]:
         return self.get_all_players(db)

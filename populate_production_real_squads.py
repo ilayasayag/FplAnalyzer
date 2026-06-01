@@ -10,7 +10,7 @@ print("📤 Connecting to Production Firebase (fpl-analyzer-792eb)...")
 if not firebase_admin._apps:
     firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
 
-db = firestore.client()
+db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 
 # Retrieve first authenticated production user to seed
 print("👤 Checking production Auth users list...")
