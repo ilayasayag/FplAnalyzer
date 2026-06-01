@@ -88,7 +88,77 @@ function Hero({ tab, manager }) {
   );
 }
 
+function ChangePasswordModal({ onClose }) {
+  const [currentPw, setCurrentPw] = React.useState("");
+  const [newPw, setNewPw] = React.useState("");
+  const [confirmPw, setConfirmPw] = React.useState("");
+  const [busy, setBusy] = React.useState(false);
+  const [err, setErr] = React.useState("");
+  const [done, setDone] = React.useState(false);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setErr("");
+    if (newPw.length < 6) { setErr("New password must be at least 6 characters."); return; }
+    if (newPw !== confirmPw) { setErr("New passwords don't match."); return; }
+    const user = window._auth?.currentUser;
+    if (!user) { setErr("Not signed in."); return; }
+    setBusy(true);
+    try {
+      const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPw);
+      await user.reauthenticateWithCredential(cred);
+      await user.updatePassword(newPw);
+      setDone(true);
+    } catch (e) {
+      setErr(e.message || "Failed to change password.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
+  const cardStyle = { background: "var(--surface, #1a1738)", color: "white", padding: 24, borderRadius: 12, width: 360, boxShadow: "0 12px 40px rgba(0,0,0,0.4)" };
+  const inputStyle = { width: "100%", padding: "8px 10px", marginTop: 6, borderRadius: 6, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "white", fontSize: 13, boxSizing: "border-box" };
+  const labelStyle = { display: "block", marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.7)" };
+  const btnPrimary = { padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--grad-hero, #4c1d95)", color: "white", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 };
+  const btnSecondary = { padding: "8px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer" };
+
+  return (
+    <div style={overlayStyle} onClick={onClose}>
+      <div style={cardStyle} onClick={(e) => e.stopPropagation()}>
+        <h3 style={{ margin: 0, fontSize: 16 }}>Change password</h3>
+        {done ? (
+          <div>
+            <p style={{ marginTop: 14, fontSize: 13 }}>✅ Password updated. You'll use the new one next sign-in.</p>
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: 16 }}>
+              <button style={btnPrimary} onClick={onClose}>Close</button>
+            </div>
+          </div>
+        ) : (
+          <form onSubmit={submit}>
+            <label style={labelStyle}>Current password
+              <input type="password" autoFocus value={currentPw} onChange={(e) => setCurrentPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            <label style={labelStyle}>New password
+              <input type="password" value={newPw} onChange={(e) => setNewPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            <label style={labelStyle}>Confirm new password
+              <input type="password" value={confirmPw} onChange={(e) => setConfirmPw(e.target.value)} style={inputStyle} disabled={busy} />
+            </label>
+            {err && <div style={{ marginTop: 12, fontSize: 12, color: "#ff8a8a" }}>{err}</div>}
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 18 }}>
+              <button type="button" style={btnSecondary} onClick={onClose} disabled={busy}>Cancel</button>
+              <button type="submit" style={btnPrimary} disabled={busy}>{busy ? "Saving…" : "Update"}</button>
+            </div>
+          </form>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function SubNav({ tab, onTab }) {
+  const [pwOpen, setPwOpen] = React.useState(false);
   return (
     <div className="subnav">
       {TABS.map(t => (
@@ -104,10 +174,18 @@ function SubNav({ tab, onTab }) {
       <button
         className="subnav__tab"
         style={{ color: "rgba(255,255,255,0.78)" }}
+        onClick={() => setPwOpen(true)}
+      >
+        Change Password
+      </button>
+      <button
+        className="subnav__tab"
+        style={{ color: "rgba(255,255,255,0.78)" }}
         onClick={() => window._auth && window._auth.signOut()}
       >
         Sign Out
       </button>
+      {pwOpen && <ChangePasswordModal onClose={() => setPwOpen(false)} />}
     </div>
   );
 }
