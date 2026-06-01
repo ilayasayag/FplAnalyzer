@@ -111,7 +111,13 @@ class DraftEngine:
         }
 
     def make_pick(self, lid: str, uid: str, player_id: int,
-                  is_auto: bool = False) -> dict:
+                  is_auto: bool = False, idempotency_key: str = None) -> dict:
+        # idempotency_key is accepted but not yet enforced. The "not your turn"
+        # gate + the pickedPlayerIds dedupe already block the common dup-submit
+        # cases. A retry after a successful pick will fail with "Player already
+        # drafted" (harmless). A retry mid-flight could double-advance — low
+        # likelihood at 7 humans on a click-driven UI. Wire proper per-uid
+        # last-key caching here when we move to a higher-traffic deployment.
         league_ref = self.db.collection("leagues").document(lid)
         draft_ref = league_ref.collection("draft").document("state")
 
