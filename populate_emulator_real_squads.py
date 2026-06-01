@@ -10,7 +10,8 @@ os.environ["FIREBASE_AUTH_EMULATOR_HOST"] = "localhost:9099"
 
 # Initialize Firebase Admin
 if not firebase_admin._apps:
-    firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
+    from google.auth.credentials import AnonymousCredentials
+    firebase_admin.initialize_app(credential=AnonymousCredentials(), options={"projectId": "fpl-analyzer-792eb"})
 
 # Match the Flask backend's database target so seeded data is visible to the
 # API (Flask defaults to gamedb; the emulator serves a separate store per
@@ -30,5 +31,20 @@ for col in ["wc_teams", "wc_players", "wc_fixtures", "leagues", "users", "wc_con
         doc.reference.delete()
 print("✨ Local collections cleared.")
 
-seed_everything(db, "u_roy", "Roy")
+from firebase_admin import auth as fb_auth
+
+# Create local emulator user for Netanel
+try:
+    fb_auth.create_user(
+        uid="u_netanel",
+        email="netanel@wc2026.local",
+        password="password123",
+        display_name="Netanel"
+    )
+    print("👤 Created local emulator user: netanel@wc2026.local")
+except Exception as e:
+    # If the user already exists in the emulator store (e.g. from previous run), ignore the error
+    print(f"ℹ️ Local user netanel@wc2026.local already exists or: {e}")
+
+seed_everything(db, "u_netanel", "Netanel")
 print("✅ Successfully seeded Emulator database!")
