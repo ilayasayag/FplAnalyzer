@@ -317,6 +317,23 @@ def run():
                    uid=first, body={"playerId": third_gk})
     check("3rd GK rejected", sc >= 400 and ("max" in str(body).lower() or "gk" in str(body).lower()), f"sc={sc} body={body}")
 
+    # --- Auto-pick endpoint ---
+    print("\n=== AUTO-PICK: route exists; rejects before deadline, fires after ===")
+    reset_draft_state()
+    sc, body = api("POST", f"/leagues/{LID}/draft/start", uid=admin_uid)
+    assert sc == 200, body
+    order = body["order"]
+    # Before the 90s deadline elapses, auto-pick must refuse.
+    sc, body = api("POST", f"/leagues/{LID}/draft/auto-pick", uid=order[0])
+    check("auto-pick before deadline rejected", sc >= 400 and "timer" in str(body).lower(), f"sc={sc} body={body}")
+    # Push pickDeadline into the past, then auto-pick should advance the draft.
+    _db.collection("leagues").document(LID).collection("draft").document("state").update({"pickDeadline": time.time() - 1})
+    sc, before = api("GET", f"/leagues/{LID}/draft/state", uid=admin_uid)
+    sc, body = api("POST", f"/leagues/{LID}/draft/auto-pick", uid=order[0])
+    check("auto-pick after deadline fires", sc == 200 and body.get("playerId"), f"sc={sc} body={body}")
+    sc, after = api("GET", f"/leagues/{LID}/draft/state", uid=admin_uid)
+    check("auto-pick advanced currentPick", after["currentPick"] == before["currentPick"] + 1, f"before={before['currentPick']} after={after['currentPick']}")
+
     print()
     print("=" * 60)
     print(f"  ✅ {len(PASSES)} passed     ❌ {len(FAILS)} failed")
