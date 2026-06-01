@@ -830,7 +830,8 @@ function DraftTab() {
   const visiblePlayers = pool.slice(startIdx, startIdx + pageSize);
 
   // Watchlist array in order of selection (matching watchlist Set)
-  const watchlistArray = Array.from(watchlist).map(id => PLAYER_MAP[id]).filter(Boolean);
+  // watchlist stores string IDs; PLAYER_MAP is keyed by numbers — convert before lookup
+  const watchlistArray = Array.from(watchlist).map(id => PLAYER_MAP[Number(id)]).filter(Boolean);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
@@ -924,9 +925,9 @@ function DraftTab() {
             <tbody>
               {visiblePlayers.map(p => {
                 const t = teamById(p.team);
-                const isWatched = watchlist.has(p.id);
-                const isDrafted = taken.has(p.id);
-                const ownerName = ownerMap[p.id] || "-";
+                const isWatched = watchlist.has(String(p.id));
+                const isDrafted = taken.has(String(p.id));
+                const ownerName = ownerMap[String(p.id)] || "-";
                 const { rating, ppg, mp, g, a, cs } = getDerivedStats(p);
 
                 return (
@@ -1041,7 +1042,7 @@ function DraftTab() {
             <tbody>
               {watchlistArray.map((p, idx) => {
                 const t = teamById(p.team);
-                const isDrafted = taken.has(p.id);
+                const isDrafted = taken.has(String(p.id));
 
                 return (
                   <tr

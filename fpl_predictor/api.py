@@ -12,8 +12,6 @@ from flask import Flask, jsonify, request, send_from_directory, g
 from flask_cors import CORS
 import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
-
-import os
 from google.auth.credentials import AnonymousCredentials
 
 if os.environ.get("FIRESTORE_EMULATOR_HOST") or not os.environ.get("K_SERVICE"):
