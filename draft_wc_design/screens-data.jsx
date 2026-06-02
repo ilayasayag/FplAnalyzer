@@ -589,7 +589,8 @@ function ManagerSquadModal({ uid, gw, onClose }) {
       try {
         const lid = window.LEAGUE.id;
         const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
-        setPlayers(res.players || []);
+        // API returns players as [{playerId, position, ...}] — normalize to string IDs
+        setPlayers((res.players || []).map(p => String(p.playerId)));
       } catch (e) {
         // Fallback: if we're the manager, use MY_SQUAD_IDS
         setPlayers(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []);
@@ -727,7 +728,8 @@ function ProposeTradeModal({ onClose }) {
     try {
       const lid = window.LEAGUE.id;
       const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
-      setTheirPlayers(res.players || []);
+      // API returns players as [{playerId, position, ...}] — normalize to string IDs
+      setTheirPlayers((res.players || []).map(p => String(p.playerId)));
     } catch (e) {
       setTheirPlayers([]);
     }
