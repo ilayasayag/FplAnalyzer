@@ -118,7 +118,6 @@ function PlayerBrowserScreen() {
               <th>Team</th>
               <th>Grp</th>
               <th>Pos</th>
-              <th style={{ textAlign: "right" }}>DR</th>
               <th style={{ textAlign: "right" }}>Pts</th>
               <th>Owner</th>
               <th></th>
@@ -137,7 +136,8 @@ function PlayerBrowserScreen() {
                         <Jersey team={t} pos={p.pos} />
                       </div>
                       <div style={{ minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, opacity: isElim ? 0.5 : 1, whiteSpace: "nowrap" }}>{p.name}</div>
+                        <div style={{ fontWeight: 700, opacity: isElim ? 0.5 : 1, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline" }}
+                          onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
                         {isElim && <div style={{ fontSize: 10, color: "var(--red-500)", fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>OUT · ELIMINATED</div>}
                       </div>
                     </div>
@@ -149,7 +149,6 @@ function PlayerBrowserScreen() {
                   </td>
                   <td><GroupChip group={t.grp} /></td>
                   <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
-                  <td className="num" style={{ textAlign: "right" }}>{p.dr}</td>
                   <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
                   <td style={{ fontSize: 12 }}>
                     {owner ? (
@@ -382,8 +381,10 @@ function StandingsTable({ onTab }) {
 
 function ScheduleTable() {
   const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
+  const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
   return (
     <div className="card">
+      {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
       {gws.map(gw => {
         const matches = (window.SCHEDULE || {})[gw] || [];
         if (!matches || matches.length === 0) return null;
@@ -403,10 +404,11 @@ function ScheduleTable() {
               const hasScore = ap !== "—" && bp !== "—";
               const aWin = hasScore && Number(ap) > Number(bp);
               const isMe = a === ME || b === ME;
+              const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
               return (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
                   <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: hasScore && aWin ? 700 : 500 }}>
-                    <span>{A.team}</span>
+                    <span style={nameStyle} onClick={() => setSquadModal({ uid: a, gw })}>{A.team}</span>
                     <Flag team={aT} />
                   </div>
                   <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 16 }}>
@@ -416,7 +418,7 @@ function ScheduleTable() {
                   </div>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: !aWin ? 700 : 500 }}>
                     <Flag team={bT} />
-                    <span>{B.team}</span>
+                    <span style={nameStyle} onClick={() => setSquadModal({ uid: b, gw })}>{B.team}</span>
                   </div>
                 </div>
               );
@@ -429,24 +431,27 @@ function ScheduleTable() {
 }
 
 function ResultsTable() {
+  const [squadModal, setSquadModal] = React.useState(null);
   return (
     <div className="card" style={{ padding: 20 }}>
+      {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
       <div className="h-display" style={{ fontSize: 16, marginBottom: 8 }}>Latest Results · GW3</div>
-      <div className="muted" style={{ fontSize: 13 }}>Final H2H results from group stage MD3.</div>
+      <div className="muted" style={{ fontSize: 13 }}>Final H2H results from group stage MD3. Click a name to see their squad breakdown.</div>
       <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
         {SCHEDULE[3].map(([a, b], i) => {
           const A = managerById(a), B = managerById(b);
           const ap = GW3_TOTALS[a], bp = GW3_TOTALS[b];
+          const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
           return (
             <div key={i} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
               <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                <span style={{ fontSize: 13, fontWeight: ap > bp ? 700 : 500 }}>{A.team}</span>
+                <span style={{ fontSize: 13, fontWeight: ap > bp ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: a, gw: 3 })}>{A.team}</span>
                 <Flag team={teamById(A.flag)} />
               </div>
               <div className="mono" style={{ fontWeight: 800, fontSize: 18 }}>{ap}–{bp}</div>
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                 <Flag team={teamById(B.flag)} />
-                <span style={{ fontSize: 13, fontWeight: bp > ap ? 700 : 500 }}>{B.team}</span>
+                <span style={{ fontSize: 13, fontWeight: bp > ap ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: b, gw: 3 })}>{B.team}</span>
               </div>
             </div>
           );
@@ -460,11 +465,13 @@ function ResultsTable() {
 // ---------- TRADES ----------
 function TradesScreen() {
   const [tab, setTab] = React.useState("inbox");
+  const [showPropose, setShowPropose] = React.useState(false);
   return (
     <div className="col" style={{ gap: 16 }}>
+      {showPropose && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Trades</h2>
-        <button className="btn btn--primary">+ Propose Trade</button>
+        <button className="btn btn--primary" onClick={() => setShowPropose(true)}>+ Propose Trade</button>
       </div>
 
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
@@ -567,5 +574,342 @@ function TradeCard({ trade, direction }) {
     </div>
   );
 }
+
+// ---------- MANAGER SQUAD MODAL ----------
+function ManagerSquadModal({ uid, gw, onClose }) {
+  const [players, setPlayers] = React.useState(null); // null = loading
+  const m = managerById(uid);
+  const gwPoints = window.GW3_POINTS || {};
+  const gwTotals = (window.ALL_GW_SCORES || {})[gw] || {};
+  const managerTotal = gwTotals[uid] !== undefined ? gwTotals[uid]
+    : (gw === 3 ? (window.GW3_TOTALS || {})[uid] : "—");
+
+  React.useEffect(() => {
+    const fetchSquad = async () => {
+      try {
+        const lid = window.LEAGUE.id;
+        const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
+        setPlayers(res.players || []);
+      } catch (e) {
+        // Fallback: if we're the manager, use MY_SQUAD_IDS
+        setPlayers(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []);
+      }
+    };
+    fetchSquad();
+  }, [uid]);
+
+  React.useEffect(() => {
+    const k = e => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
+
+  // Group by position
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  if (players) {
+    players.forEach(rawId => {
+      const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+      const p = playerById(id);
+      if (p && byPos[p.pos]) byPos[p.pos].push(p);
+    });
+  }
+
+  const getGwPts = (p) => {
+    if (gw !== 3) return "—";
+    const v = gwPoints[p.id] ?? gwPoints[Number(p.id)] ?? gwPoints[String(p.id)];
+    return v !== undefined ? v : 0;
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: 520, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <button className="modal__close" onClick={onClose}>×</button>
+        <div style={{ padding: "24px 24px 12px", borderBottom: "1px solid var(--border)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Squad Breakdown · GW{gw}</div>
+          <div className="h-display" style={{ fontSize: 24, marginTop: 4 }}>{m?.team || "Squad"}</div>
+          <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{m?.name}</div>
+          <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 10, background: "var(--navy-900)", color: "white", padding: "10px 16px", borderRadius: 10 }}>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>GW{gw} Total</span>
+            <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: "var(--gold-500)" }}>{managerTotal}</span>
+            <span style={{ fontSize: 12, opacity: 0.5 }}>pts</span>
+          </div>
+        </div>
+
+        {players === null ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>Loading squad…</div>
+        ) : players.length === 0 ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>No squad data available.</div>
+        ) : (
+          <div style={{ padding: "12px 24px 24px" }}>
+            {[1, 2, 3, 4].map(pos => {
+              const list = byPos[pos];
+              if (!list.length) return null;
+              const posName = ["", "Goalkeepers", "Defenders", "Midfielders", "Forwards"][pos];
+              return (
+                <div key={pos} style={{ marginTop: 14 }}>
+                  <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
+                    {posName} ({list.length})
+                  </div>
+                  {list.map(p => {
+                    const t = teamById(p.team);
+                    const pts = getGwPts(p);
+                    const isElim = p.elim || t?.elim;
+                    return (
+                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr auto", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                        <div style={{ width: 36, height: 36 }}><Jersey team={t} pos={p.pos} /></div>
+                        <div>
+                          <div style={{ fontWeight: 700 }}>{p.name} {isElim && <span className="pill pill--red" style={{ fontSize: 9, marginLeft: 4 }}>OUT</span>}</div>
+                          <div className="muted" style={{ fontSize: 12 }}>{t?.name} · {POS_NAMES[p.pos]}</div>
+                        </div>
+                        <div className="mono" style={{ fontWeight: 800, fontSize: 20, color: pts > 0 ? "var(--navy-900)" : "var(--ink-300)", minWidth: 32, textAlign: "right" }}>
+                          {pts}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+
+// ---------- PROPOSE TRADE MODAL ----------
+function ProposeTradeModal({ onClose }) {
+  const [step, setStep] = React.useState(1);
+  const [targetUid, setTargetUid] = React.useState(null);
+  const [theirPlayers, setTheirPlayers] = React.useState(null);
+  const [mySelected, setMySelected] = React.useState(new Set());
+  const [theirSelected, setTheirSelected] = React.useState(new Set());
+  const [submitting, setSubmitting] = React.useState(false);
+
+  const managers = (window.MANAGERS || []).filter(m => m.uid !== window.ME);
+  const mySquad = (window.MY_SQUAD_IDS || []).map(rawId => {
+    const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+    return playerById(id);
+  }).filter(Boolean);
+
+  const theirSquad = (theirPlayers || []).map(rawId => {
+    const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+    return playerById(id);
+  }).filter(Boolean);
+
+  const countByPos = (set) => {
+    const c = { 1: 0, 2: 0, 3: 0, 4: 0 };
+    set.forEach(id => {
+      const p = playerById(id) || playerById(Number(id));
+      if (p) c[p.pos] = (c[p.pos] || 0) + 1;
+    });
+    return c;
+  };
+
+  const myPosCounts = countByPos(mySelected);
+  const theirPosCounts = countByPos(theirSelected);
+  const posValid = mySelected.size > 0 && theirSelected.size > 0 &&
+    [1, 2, 3, 4].every(pos => myPosCounts[pos] === theirPosCounts[pos]);
+  const validationMsg = () => {
+    if (mySelected.size === 0 && theirSelected.size === 0) return "Select players from each squad to trade.";
+    if (!posValid) {
+      const diff = [1, 2, 3, 4].filter(pos => myPosCounts[pos] !== theirPosCounts[pos]);
+      return `Position mismatch: ${diff.map(p => POS_NAMES[p]).join(", ")} counts differ between sides.`;
+    }
+    return null;
+  };
+
+  const handleSelectManager = async (uid) => {
+    setTargetUid(uid);
+    setTheirPlayers(null);
+    setStep(2);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
+      setTheirPlayers(res.players || []);
+    } catch (e) {
+      setTheirPlayers([]);
+    }
+  };
+
+  const toggleMy = (id) => {
+    const s = new Set(mySelected);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setMySelected(s);
+  };
+
+  const toggleTheir = (id) => {
+    const s = new Set(theirSelected);
+    s.has(id) ? s.delete(id) : s.add(id);
+    setTheirSelected(s);
+  };
+
+  const handleSubmit = async () => {
+    if (!posValid) return;
+    setSubmitting(true);
+    try {
+      const lid = window.LEAGUE.id;
+      await apiCall("POST", `/leagues/${lid}/trades`, {
+        targetUid,
+        proposerPlayerIds: Array.from(mySelected).map(id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id)),
+        targetPlayerIds: Array.from(theirSelected).map(id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id)),
+      });
+      alert("Trade proposal sent! Awaiting their response.");
+      onClose();
+    } catch (err) {
+      alert("Trade failed: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  React.useEffect(() => {
+    const k = e => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", k);
+    return () => window.removeEventListener("keydown", k);
+  }, []);
+
+  const targetMgr = targetUid ? managerById(targetUid) : null;
+
+  const renderPlayerRow = (p, selected, onToggle, side) => {
+    const t = teamById(p.team);
+    const isElim = p.elim || t?.elim;
+    const isSel = selected.has(p.id) || selected.has(String(p.id));
+    return (
+      <div key={p.id}
+        onClick={() => onToggle(p.id)}
+        style={{
+          display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 8,
+          padding: "8px 10px", cursor: "pointer", borderRadius: 6, marginBottom: 2,
+          background: isSel ? "rgba(91,61,242,0.12)" : "transparent",
+          border: isSel ? "1px solid rgba(91,61,242,0.35)" : "1px solid transparent",
+          opacity: isElim ? 0.55 : 1,
+        }}>
+        <div style={{ width: 28, height: 28 }}><Jersey team={t} pos={p.pos} /></div>
+        <div>
+          <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
+          <div style={{ fontSize: 11, color: "var(--ink-500)" }}>{POS_NAMES[p.pos]} · {t?.name}</div>
+        </div>
+        <div style={{ alignSelf: "center" }}>
+          <span style={{
+            display: "inline-block", width: 18, height: 18, borderRadius: "50%",
+            border: "2px solid " + (isSel ? "var(--violet-500)" : "var(--border-strong)"),
+            background: isSel ? "var(--violet-500)" : "transparent",
+          }} />
+        </div>
+      </div>
+    );
+  };
+
+  return (
+    <div className="modal-backdrop" onClick={onClose}>
+      <div className="modal" style={{ maxWidth: step === 2 ? 760 : 500, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+        <button className="modal__close" onClick={onClose}>×</button>
+
+        {/* Step 1 — pick manager */}
+        {step === 1 && (
+          <div style={{ padding: 24 }}>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Propose Trade · Step 1 of 2</div>
+            <div className="h-display" style={{ fontSize: 22, margin: "6px 0 16px" }}>Who do you want to trade with?</div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
+              {managers.map(m => {
+                const t = teamById(m.flag);
+                return (
+                  <button key={m.uid} onClick={() => handleSelectManager(m.uid)}
+                    style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--cream)", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "box-shadow 0.1s" }}
+                    onMouseOver={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.10)"}
+                    onMouseOut={e => e.currentTarget.style.boxShadow = "none"}>
+                    {t && <Flag team={t} />}
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{m.team}</div>
+                      <div className="muted" style={{ fontSize: 12 }}>{m.name}</div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* Step 2 — pick players */}
+        {step === 2 && (
+          <div style={{ padding: "0 0 0" }}>
+            {/* Header */}
+            <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+              <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => { setStep(1); setMySelected(new Set()); setTheirSelected(new Set()); }}>← Back</button>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Propose Trade · Step 2 of 2</div>
+                <div className="h-display" style={{ fontSize: 18, marginTop: 2 }}>Select players to swap with {targetMgr?.team}</div>
+              </div>
+            </div>
+
+            {/* Squads side by side */}
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+              {/* My squad */}
+              <div style={{ padding: 18, borderRight: "1px solid var(--border)" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+                  Your Squad — you give
+                  {mySelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: 10 }}>{mySelected.size} selected</span>}
+                </div>
+                {[1, 2, 3, 4].map(pos => {
+                  const list = mySquad.filter(p => p.pos === pos);
+                  if (!list.length) return null;
+                  return (
+                    <div key={pos} style={{ marginBottom: 10 }}>
+                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                        {POS_NAMES[pos]}s
+                      </div>
+                      {list.map(p => renderPlayerRow(p, mySelected, toggleMy, "my"))}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Their squad */}
+              <div style={{ padding: 18 }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+                  {targetMgr?.team} — you receive
+                  {theirSelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: 10 }}>{theirSelected.size} selected</span>}
+                </div>
+                {theirPlayers === null ? (
+                  <div style={{ padding: 24, textAlign: "center", color: "var(--ink-500)", fontSize: 13 }}>Loading their squad…</div>
+                ) : theirSquad.length === 0 ? (
+                  <div style={{ padding: 24, textAlign: "center", color: "var(--ink-500)", fontSize: 13 }}>No squad data.</div>
+                ) : (
+                  [1, 2, 3, 4].map(pos => {
+                    const list = theirSquad.filter(p => p.pos === pos);
+                    if (!list.length) return null;
+                    return (
+                      <div key={pos} style={{ marginBottom: 10 }}>
+                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                          {POS_NAMES[pos]}s
+                        </div>
+                        {list.map(p => renderPlayerRow(p, theirSelected, toggleTheir, "their"))}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Validation + Submit */}
+            <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "var(--cream)" }}>
+              <div style={{ fontSize: 13, color: posValid ? "var(--green-600)" : "var(--ink-500)" }}>
+                {validationMsg() || "✓ Trade looks good — positions match!"}
+              </div>
+              <button className="btn btn--primary" style={{ flexShrink: 0 }}
+                disabled={!posValid || submitting}
+                onClick={handleSubmit}>
+                {submitting ? "Sending…" : "Send Trade Proposal →"}
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 
 Object.assign(window, { PlayerBrowserScreen, FixturesScreen, LeagueScreen, TradesScreen });

@@ -387,8 +387,9 @@ function FreeAgentsTab() {
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <div style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{p.name}</div>
-                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>DR {p.dr}</div>
+                      <div style={{ fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+                        onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
+                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{POS_NAMES[p.pos]}</div>
                     </div>
                   </div>
                 </td>
@@ -559,7 +560,7 @@ function WaiversTab() {
                 <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverIn} onChange={e => setWaiverIn(e.target.value)} disabled={!waiverOut}>
                   <option value="">-- Claim player --</option>
                   {eligibleWaiverIn.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} (DR {s.dr})</option>
+                    <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
                   ))}
                 </select>
               </div>
@@ -615,14 +616,15 @@ function MySquadTab() {
             const t = teamById(p.team);
             const isElim = p.elim || t?.elim;
             return (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
                 <div style={{ width: 32, height: 32 }}><Jersey team={t} pos={p.pos} /></div>
                 <div>
-                  <div style={{ fontWeight: 700 }}>{p.name} {isElim && <span className="pill pill--red" style={{ marginLeft: 8, fontSize: 9 }}>OUT</span>}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{t.name} · Group {t.grp}</div>
+                  <div style={{ fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", display: "inline" }}
+                    onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
+                  {isElim && <span className="pill pill--red" style={{ marginLeft: 8, fontSize: 9 }}>OUT</span>}
+                  <div className="muted" style={{ fontSize: 12 }}>{t.name} · {POS_NAMES[p.pos]}</div>
                 </div>
                 <div className="num" style={{ textAlign: "right" }}><span className="muted" style={{ fontSize: 11 }}>Pts</span> <strong>{p.pts}</strong></div>
-                <div className="num" style={{ textAlign: "right" }}><span className="muted" style={{ fontSize: 11 }}>DR</span> {p.dr}</div>
                 <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 11 }}>Drop</button>
                 <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 11 }}>Trade</button>
               </div>
@@ -936,7 +938,8 @@ function DraftTab() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <Flag team={t} />
                         <div style={{ display: "flex", flexDirection: "column" }}>
-                          <span style={{ fontWeight: 700, whiteSpace: "nowrap" }}>{p.name}</span>
+                          <span style={{ fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+                            onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</span>
                           <span style={{ fontSize: 11, color: "var(--ink-500)", whiteSpace: "nowrap" }}>{t?.name || p.team}</span>
                         </div>
                         <span className="pill pill--dark" style={{ fontSize: 9, padding: "2px 4px" }}>{POS_NAMES[p.pos]}</span>
