@@ -186,10 +186,14 @@ class WCLeagueManager:
 
         member_ref = doc.reference.collection("members").document(uid)
         member = member_ref.get()
-        if not member.exists:
-            raise ValueError("You are not a member of this league")
-
         league = doc.to_dict()
+        # Simulated (showcase/demo) leagues are publicly viewable by any
+        # authenticated user. If the caller isn't in the members sub-collection
+        # yet, treat them as a read-only participant so they can still see
+        # the league data and squad breakdown (their own squad fetch will return
+        # empty, which the frontend already handles gracefully).
+        if not member.exists and not league.get("simulated"):
+            raise ValueError("You are not a member of this league")
         member_docs = list(doc.reference.collection("members").get())
 
         members = []
