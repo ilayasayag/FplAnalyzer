@@ -10,8 +10,12 @@ function DraftRoomScreen({ onTab }) {
   const [secondsLeft, setSecondsLeft] = React.useState(serverSeconds);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
-  // Watchlist starts empty — it is the user's own picks, never demo players.
-  const [watchlist, setWatchlist] = React.useState(new Set());
+  // Watchlist: ordered array of player IDs (numbers) — order is the auto-pick priority.
+  // Derived Set used for O(1) membership checks in the pool render.
+  const [watchlistIds, setWatchlistIds] = React.useState([]);
+  const [loadingWatchlist, setLoadingWatchlist] = React.useState(false);
+  const [draggedIdx, setDraggedIdx] = React.useState(null);
+  const watchlistSet = React.useMemo(() => new Set(watchlistIds), [watchlistIds]);
   const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
@@ -24,6 +28,38 @@ function DraftRoomScreen({ onTab }) {
       alert("Draft pick failed: " + (err.error || err.detail || JSON.stringify(err)));
     }
   };
+
+  // Save watchlist order to server.
+  const saveWatchlist = async (ids) => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid) return;
+    try {
+      await apiCall("PUT", `/leagues/${lid}/draft/watchlist`, { playerIds: ids });
+    } catch(err) {
+      console.error("Failed to save watchlist:", err);
+    }
+  };
+
+  // Toggle a player in/out of the watchlist, then persist.
+  const handleToggleWatchlist = async (playerId) => {
+    const id = Number(playerId);
+    const newIds = watchlistSet.has(id)
+      ? watchlistIds.filter(x => x !== id)
+      : [...watchlistIds, id];
+    setWatchlistIds(newIds);
+    await saveWatchlist(newIds);
+  };
+
+  // Load this manager's watchlist from the server on mount.
+  React.useEffect(() => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid) return;
+    setLoadingWatchlist(true);
+    apiCall("GET", `/leagues/${lid}/draft/watchlist`)
+      .then(res => { if (res && res.playerIds) setWatchlistIds(res.playerIds.map(Number)); })
+      .catch(err => console.warn("Failed to load watchlist:", err))
+      .finally(() => setLoadingWatchlist(false));
+  }, []);
 
   // Re-sync the clock whenever the server-provided deadline changes.
   React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
@@ -257,7 +293,7 @@ function DraftRoomScreen({ onTab }) {
           <div style={{ maxHeight: 420, overflowY: "auto", marginTop: 4 }}>
             {pool.slice(0, 30).map(p => {
               const t = teamById(p.team);
-              const isWatched = watchlist.has(p.id);
+              const isWatched = watchlistSet.has(p.id);
               return (
                 <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 100px 80px 80px 100px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
                   <span className="mono" style={{ color: "rgba(255,255,255,0.6)" }}>{p.dr}</span>
@@ -277,8 +313,9 @@ function DraftRoomScreen({ onTab }) {
                   <span className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</span>
                   <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
                     <button
-                      onClick={() => setWatchlist(prev => { const n = new Set(prev); n.has(p.id) ? n.delete(p.id) : n.add(p.id); return n; })}
-                      style={{ padding: "4px 8px", fontSize: 14, background: "transparent", color: isWatched ? "var(--gold-500)" : "rgba(255,255,255,0.4)" }}>
+                      onClick={() => handleToggleWatchlist(p.id)}
+                      style={{ padding: "4px 8px", fontSize: 14, background: "transparent", color: isWatched ? "var(--gold-500)" : "rgba(255,255,255,0.4)" }}
+                      title={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
                       {isWatched ? "★" : "☆"}
                     </button>
                     <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
@@ -324,22 +361,60 @@ function DraftRoomScreen({ onTab }) {
         </div>
 
         <div className="card-dark">
-          <div className="card-dark__title">★ Watchlist ({watchlist.size})</div>
-          {[...watchlist].map(id => {
-            const p = playerById(id);
-            if (!p) return null;
-            const t = teamById(p.team);
-            return (
-              <div key={id} className="card-section" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
-                <div style={{ width: 24, height: 24 }}><Jersey team={t} pos={p.pos} /></div>
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-                  <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>{t.id} · DR {p.dr}</div>
+          <div className="card-dark__title">
+            ★ Watchlist ({watchlistIds.length})
+            {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
+          </div>
+          {watchlistIds.length === 0 ? (
+            <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", fontSize: 12, padding: "14px 16px", lineHeight: 1.5 }}>
+              Star players (☆) to queue them.<br />Auto-pick uses this order.
+            </div>
+          ) : (
+            watchlistIds.map((id, idx) => {
+              const p = playerById(id);
+              if (!p) return null;
+              const t = teamById(p.team);
+              const alreadyPicked = taken.has(id);
+              return (
+                <div
+                  key={id}
+                  draggable={!alreadyPicked}
+                  onDragStart={() => setDraggedIdx(idx)}
+                  onDragOver={e => e.preventDefault()}
+                  onDrop={async () => {
+                    if (draggedIdx === null || draggedIdx === idx) { setDraggedIdx(null); return; }
+                    const reordered = [...watchlistIds];
+                    const [moved] = reordered.splice(draggedIdx, 1);
+                    reordered.splice(idx, 0, moved);
+                    setWatchlistIds(reordered);
+                    setDraggedIdx(null);
+                    await saveWatchlist(reordered);
+                  }}
+                  className="card-section"
+                  style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", opacity: alreadyPicked ? 0.4 : 1, cursor: alreadyPicked ? "default" : "grab" }}
+                >
+                  <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
+                  <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, minWidth: 14, flexShrink: 0 }}>{idx + 1}</span>
+                  <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                  <div style={{ flex: 1, minWidth: 0 }}>
+                    <div style={{ fontWeight: 700, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
+                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                  </div>
+                  <button
+                    onClick={() => handleDraftPick(id)}
+                    className="btn btn--draft"
+                    style={{ padding: "3px 8px", fontSize: 10, flexShrink: 0 }}
+                    disabled={!DRAFT_STATE.isMyTurn || alreadyPicked}
+                  >Pick</button>
+                  <button
+                    onClick={() => handleToggleWatchlist(id)}
+                    style={{ padding: "3px 5px", fontSize: 11, background: "transparent", color: "rgba(255,255,255,0.35)", flexShrink: 0 }}
+                    title="Remove from watchlist"
+                  >✕</button>
                 </div>
-                <button onClick={() => handleDraftPick(id)} className="btn btn--draft" style={{ padding: "4px 10px", fontSize: 10 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
-              </div>
-            );
-          })}
+              );
+            })
+          )}
         </div>
       </div>
     </div>
