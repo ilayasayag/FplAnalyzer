@@ -21,8 +21,17 @@ if ((window.location.hostname === "localhost" || window.location.hostname === "1
   _auth.useEmulator("http://localhost:9099");
 }
 
-// Shared Fetch API fetch wrapper with Auth token injection and automatic refresh
-async function apiCall(method, path, body) {
+// Shared Fetch API fetch wrapper with Auth token injection and automatic refresh.
+//
+// Resilience: each request has a hard timeout (AbortController) and transient
+// NETWORK failures ("TypeError: Failed to fetch", aborted timeouts) are retried
+// with a short backoff. This is the root fix for the "squads disappear" bug —
+// a single dropped connection on the direct Cloud Run endpoint used to surface
+// as a fatal error that blanked already-loaded data. Retries are limited to
+// idempotent GET/HEAD requests so a flaky POST/PUT/PATCH/DELETE can never be
+// silently double-applied. HTTP error responses (4xx/5xx) are NOT retried —
+// they carry a real status and are thrown straight to the caller.
+async function apiCall(method, path, body, _attempt = 0) {
   const user = _auth.currentUser;
   const headers = {
     "Content-Type": "application/json",
@@ -31,7 +40,7 @@ async function apiCall(method, path, body) {
     const token = await user.getIdToken(/* forceRefresh */ false);
     headers["Authorization"] = `Bearer ${token}`;
   }
-  
+
   // Resolve API base URL dynamically: local Flask on localhost, otherwise the
   // direct Cloud Run URL. We bypass the same-origin Hosting rewrite because that
   // proxy intermittently times out (~40%) on the large /players read; the direct
@@ -39,13 +48,34 @@ async function apiCall(method, path, body) {
   const baseUrl = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && !_useProd
     ? "http://localhost:5000"
     : "https://api-4anrfyrdxa-uc.a.run.app";
-  
-  const res = await fetch(`${baseUrl}/api/v1/wc${path}`, {
-    method,
-    headers,
-    body: body ? JSON.stringify(body) : undefined,
-  });
-  
+
+  const MAX_RETRIES = 2;
+  const TIMEOUT_MS = 12000;
+  const isIdempotent = method === "GET" || method === "HEAD";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS);
+  let res;
+  try {
+    res = await fetch(`${baseUrl}/api/v1/wc${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      signal: controller.signal,
+    });
+  } catch (err) {
+    // fetch() rejected before any response: network down, connection reset,
+    // CORS block, or our timeout aborted it. Retry idempotent reads with backoff.
+    clearTimeout(timer);
+    if (isIdempotent && _attempt < MAX_RETRIES) {
+      await new Promise(r => setTimeout(r, 400 * (_attempt + 1)));
+      return apiCall(method, path, body, _attempt + 1);
+    }
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+
   const data = await res.json();
   if (!res.ok) throw { status: res.status, ...data };
   return data.data;
