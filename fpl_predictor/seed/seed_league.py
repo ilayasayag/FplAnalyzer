@@ -100,8 +100,8 @@ def select_lineup(squad):
         "starting": starting,
         "bench": bench,
         "formation": [1, 4, 4, 2],
-        "captain": captain,
-        "viceCaptain": vice,
+        "captain": None,
+        "viceCaptain": None,
         "locked": True,
         "autoSubsMade": []
     }

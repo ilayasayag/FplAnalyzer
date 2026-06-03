@@ -184,7 +184,13 @@ function useTweaks(defaults) {
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
 function TweaksPanel({ title = 'Tweaks', children }) {
-  const [open, setOpen] = React.useState(false);
+  // Dev-only UI. In production (web.app) the Tweaks/debug panel must stay
+  // invisible to end users — it exposes config toggles + the prod DB export.
+  // Auto-open, the Ctrl+M shortcut, and the floating trigger are all gated to
+  // localhost. The design-tool host path (__activate_edit_mode postMessage)
+  // is unaffected and still works in any environment.
+  const _isDevHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const [open, setOpen] = React.useState(_isDevHost && window === window.top);
   const dragRef = React.useRef(null);
   const offsetRef = React.useRef({ x: 16, y: 16 });
   const PAD = 16;
@@ -221,9 +227,21 @@ function TweaksPanel({ title = 'Tweaks', children }) {
       if (t === '__activate_edit_mode') setOpen(true);
       else if (t === '__deactivate_edit_mode') setOpen(false);
     };
+    const onKeyDown = (e) => {
+      // Toggle Tweaks panel with Ctrl+M (dev only — never in production)
+      if (!_isDevHost) return;
+      if (e.ctrlKey && e.key.toLowerCase() === 'm') {
+        e.preventDefault();
+        setOpen(o => !o);
+      }
+    };
     window.addEventListener('message', onMsg);
+    window.addEventListener('keydown', onKeyDown);
     window.parent.postMessage({ type: '__edit_mode_available' }, '*');
-    return () => window.removeEventListener('message', onMsg);
+    return () => {
+      window.removeEventListener('message', onMsg);
+      window.removeEventListener('keydown', onKeyDown);
+    };
   }, []);
 
   const dismiss = () => {
@@ -253,7 +271,31 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     window.addEventListener('mouseup', up);
   };
 
-  if (!open) return null;
+  if (!open) {
+    // No trigger in production — keeps the debug panel fully hidden for users.
+    if (!_isDevHost) return null;
+    return (
+      <>
+        <style>{`
+          .twk-trigger {
+            position: fixed; right: 16px; bottom: 16px; z-index: 2147483646;
+            width: 36px; height: 36px; border-radius: 50%;
+            background: rgba(250, 249, 247, 0.85); color: #29261b;
+            border: 0.5px solid rgba(0, 0, 0, 0.12);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+            display: flex; align-items: center; justify-content: center;
+            font-size: 18px; cursor: pointer; transition: all 0.2s ease;
+            backdrop-filter: blur(10px);
+          }
+          .twk-trigger:hover {
+            transform: scale(1.08); background: #fff;
+            box-shadow: 0 6px 16px rgba(0,0,0,0.22);
+          }
+        `}</style>
+        <button className="twk-trigger" title="Open Tweaks (Ctrl+M)" onClick={() => setOpen(true)}>⚙️</button>
+      </>
+    );
+  }
   return (
     <>
       <style>{__TWEAKS_STYLE}</style>

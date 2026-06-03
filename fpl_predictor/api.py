@@ -14,6 +14,7 @@ import firebase_admin
 from firebase_admin import auth as fb_auth, firestore as fb_firestore
 from google.auth.credentials import AnonymousCredentials
 
+
 if os.environ.get("FIRESTORE_EMULATOR_HOST") or not os.environ.get("K_SERVICE"):
     try:
         firebase_admin.initialize_app(credential=AnonymousCredentials(), options={"projectId": "fpl-analyzer-792eb"})
@@ -52,7 +53,7 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 IS_CLOUD = os.environ.get("K_SERVICE") or os.environ.get("FUNCTION_TARGET")
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api/.*": {"origins": "*"}, r"/api/*": {"origins": "*"}})
 
 from datetime import datetime as _datetime
 from flask.json.provider import DefaultJSONProvider as _DefJP
