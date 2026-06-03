@@ -670,7 +670,7 @@ function App() {
         // Fetch all gameweek scores
         window.ALL_GW_SCORES = {};
         try {
-          const gws = leagueDetails.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
+          const gws = leagueDetails?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
           await Promise.all(gws.map(async (gw) => {
             try {
               const scoreData = await apiCall("GET", `/leagues/${lid}/scores/${gw}`);
@@ -918,6 +918,26 @@ function App() {
         <TweakSection label="Behaviour" />
         <TweakToggle label="Show elim banner" value={t.showElimToast}
           onChange={v => { setTweak('showElimToast', v); setToastDismissed(false); }} />
+
+        <TweakSection label="Database Sync" />
+        <TweakToggle label="Connect to Prod DB" value={localStorage.getItem("firebase_use_prod") === "true"}
+          onChange={v => {
+            localStorage.setItem("firebase_use_prod", v ? "true" : "false");
+            window.location.reload();
+          }} />
+        {localStorage.getItem("firebase_use_prod") === "true" ? (
+          <TweakButton label="Export Prod DB to File" onClick={window.exportFirestore} />
+        ) : (
+          <div style={{ display: "flex", flexDirection: "column", gap: 6, marginTop: 4 }}>
+            <label style={{ fontSize: 10, color: "rgba(41,38,27,0.6)" }}>Import database file into local emulator:</label>
+            <input type="file" accept=".json" onChange={e => {
+              const file = e.target.files[0];
+              if (file && window.confirm("Are you sure you want to overwrite your local emulator database with this file's data?")) {
+                window.importFirestore(file);
+              }
+            }} style={{ fontSize: 10, color: "inherit", width: "100%" }} />
+          </div>
+        )}
       </TweaksPanel>
     </div>
   );
