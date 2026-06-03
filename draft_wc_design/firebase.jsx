@@ -42,12 +42,17 @@ async function apiCall(method, path, body, _attempt = 0) {
   }
 
   // Resolve API base URL dynamically: local Flask on localhost, otherwise the
-  // direct Cloud Run URL. We bypass the same-origin Hosting rewrite because that
-  // proxy intermittently times out (~40%) on the large /players read; the direct
-  // endpoint is reliably ~0.9s. CORS allows the web.app origin + auth header.
+  // SAME-ORIGIN Hosting rewrite ("/api/**" -> the `api` function, configured in
+  // firebase.json). Same-origin is the key fix for the "squads disappear" bug on
+  // some clients: the previous direct Cloud Run URL (api-*.run.app) is a
+  // cross-origin request, which privacy browsers / ad-blockers / tracking
+  // prevention (e.g. Edge InPrivate) silently block as "TypeError: Failed to
+  // fetch". The rewrite was once abandoned for ~40% timeouts, but min_instances
+  // keeps the function warm now (reliably ~0.3s) and the apiCall retry above
+  // absorbs any rare hiccup. Empty base => requests stay on the page's origin.
   const baseUrl = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && !_useProd
     ? "http://localhost:5000"
-    : "https://api-4anrfyrdxa-uc.a.run.app";
+    : "";
 
   const MAX_RETRIES = 2;
   const TIMEOUT_MS = 12000;
