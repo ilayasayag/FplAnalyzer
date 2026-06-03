@@ -51,56 +51,86 @@ async function apiCall(method, path, body) {
   return data.data;
 }
 
-// Data Export/Import functions to sync Prod to local Emulator from the UI
+// ---------------------------------------------------------------------------
+// Dev-only DB sync: export prod Firestore to a JSON file, and import a JSON
+// file into the LOCAL emulator. Intended as a development convenience (e.g.
+// pull a snapshot of prod squads into your emulator to test against real data).
+//
+// NOT a full backup. The Web SDK can only read what the security rules grant
+// the signed-in user, and cannot enumerate (sub)collections. So this captures
+// only client-readable, explicitly-listed collections. It deliberately OMITS:
+//   - users              (rules: a user may read only their OWN doc)
+//   - wc_gameweeks        (no client read rule → permission denied)
+//   - wc_group_standings  (no client read rule → permission denied)
+// For a complete/authoritative backup use `gcloud firestore export` or
+// `firebase emulators:export`.
+//
+// Each exported doc is a node { _data, _subcollections } applied RECURSIVELY,
+// so nested subcollections (e.g. leagues/<id>/draft/<gw>/picks) round-trip.
+// Because we iterate every doc in `leagues`, this covers BOTH leagues
+// (lg_mock_draft and lg_pre_draft) with no league-specific handling.
+
+// Subcollection layout (Web SDK can't list these). {} = no further nesting.
+const _LEAGUE_SUBCOLLECTIONS = {
+  members: {},
+  squads: {},
+  lineups: {},
+  scores: {},
+  schedule: {},
+  knockout: {},
+  standings: {},
+  transfer_windows: {},
+  transactions: {},
+  trades: {},
+  waivers: {},
+  draft: { picks: {} }, // draft docs hold a nested `picks` subcollection
+};
+
+const _ROOT_COLLECTIONS = {
+  wc_config: {},
+  wc_teams: {},
+  wc_players: {},
+  wc_fixtures: { playerScores: {} },
+  leagues: _LEAGUE_SUBCOLLECTIONS,
+};
+
+async function _exportSubcollections(docRef, spec) {
+  const out = {};
+  for (const [name, childSpec] of Object.entries(spec)) {
+    const snap = await docRef.collection(name).get();
+    if (snap.empty) continue;
+    out[name] = {};
+    for (const sdoc of snap.docs) {
+      out[name][sdoc.id] = {
+        _data: sdoc.data(),
+        _subcollections: await _exportSubcollections(sdoc.ref, childSpec),
+      };
+    }
+  }
+  return out;
+}
+
 async function exportFirestore() {
-  alert("Exporting database... This will take a few seconds.");
+  alert("Exporting database... this may take a few seconds.");
   try {
     const data = {};
-    const rootCollections = ["wc_teams", "wc_players", "wc_fixtures", "wc_config", "leagues"];
-    
-    for (const colName of rootCollections) {
-      console.log(`Exporting root collection: ${colName}`);
+    for (const [colName, spec] of Object.entries(_ROOT_COLLECTIONS)) {
+      console.log(`Exporting collection: ${colName}`);
       const snap = await _db.collection(colName).get();
       data[colName] = {};
-      
       for (const doc of snap.docs) {
         data[colName][doc.id] = {
           _data: doc.data(),
-          _subcollections: {}
+          _subcollections: await _exportSubcollections(doc.ref, spec),
         };
-        
-        // If leagues, fetch all subcollections
-        if (colName === "leagues") {
-          const subcols = ["members", "squads", "lineups", "scores", "schedule", "knockout", "transfer_windows", "transactions", "standings", "trades", "waivers"];
-          for (const subcolName of subcols) {
-            const subSnap = await doc.ref.collection(subcolName).get();
-            if (!subSnap.empty) {
-              data[colName][doc.id]._subcollections[subcolName] = {};
-              for (const sdoc of subSnap.docs) {
-                data[colName][doc.id]._subcollections[subcolName][sdoc.id] = sdoc.data();
-              }
-            }
-          }
-        }
-        // If wc_fixtures, fetch playerScores subcollection
-        if (colName === "wc_fixtures") {
-          const subSnap = await doc.ref.collection("playerScores").get();
-          if (!subSnap.empty) {
-            data[colName][doc.id]._subcollections["playerScores"] = {};
-            for (const sdoc of subSnap.docs) {
-              data[colName][doc.id]._subcollections["playerScores"][sdoc.id] = sdoc.data();
-            }
-          }
-        }
       }
     }
-    
-    // Download
+
     const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `firestore_export_${new Date().toISOString().slice(0,10)}.json`;
+    a.download = `firestore_export_${new Date().toISOString().slice(0, 10)}.json`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -112,30 +142,44 @@ async function exportFirestore() {
   }
 }
 
+// Flatten the recursive export tree into a flat list of { ref, data } writes.
+function _collectWrites(ref, node, writes) {
+  writes.push({ ref, data: node._data || {} });
+  const subs = node._subcollections || {};
+  for (const [name, sdocs] of Object.entries(subs)) {
+    for (const [sdocId, childNode] of Object.entries(sdocs)) {
+      _collectWrites(ref.collection(name).doc(sdocId), childNode, writes);
+    }
+  }
+}
+
 async function importFirestore(file) {
   if (!file) return;
   const reader = new FileReader();
   reader.onload = async (e) => {
     try {
       const data = JSON.parse(e.target.result);
-      alert("Importing database... Please wait.");
-      
+      alert("Importing database... please wait.");
+
+      // Flatten every doc (including nested subcollections), then commit in
+      // batches of 500 (Firestore's per-batch write cap) rather than one
+      // awaited write per doc.
+      const writes = [];
       for (const [colName, docs] of Object.entries(data)) {
-        console.log(`Importing collection: ${colName}`);
-        for (const [docId, docObj] of Object.entries(docs)) {
-          const docRef = _db.collection(colName).doc(docId);
-          await docRef.set(docObj._data);
-          
-          if (docObj._subcollections) {
-            for (const [subcolName, subdocs] of Object.entries(docObj._subcollections)) {
-              for (const [sdocId, sdocData] of Object.entries(subdocs)) {
-                await docRef.collection(subcolName).doc(sdocId).set(sdocData);
-              }
-            }
-          }
+        for (const [docId, node] of Object.entries(docs)) {
+          _collectWrites(_db.collection(colName).doc(docId), node, writes);
         }
       }
-      alert("Import completed successfully! Please reload the page to see the new data.");
+
+      const BATCH = 500;
+      for (let i = 0; i < writes.length; i += BATCH) {
+        const batch = _db.batch();
+        for (const w of writes.slice(i, i + BATCH)) batch.set(w.ref, w.data);
+        await batch.commit();
+        console.log(`Imported ${Math.min(i + BATCH, writes.length)} / ${writes.length} docs`);
+      }
+
+      alert(`Import completed (${writes.length} docs). Reloading...`);
       window.location.reload();
     } catch (error) {
       console.error("Import failed:", error);
