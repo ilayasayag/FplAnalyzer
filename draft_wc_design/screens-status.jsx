@@ -198,16 +198,11 @@ function PointsScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
   const lineup = MY_LINEUP_GW3;
 
-  // Calculate total points dynamically, doubling the captain's score
+  // Calculate total points dynamically without captain doubling
   let totalPts = 0;
   if (lineup && lineup.starting) {
     lineup.starting.forEach(id => {
-      const pts = GW3_POINTS[id] ?? 0;
-      if (id === lineup.captain) {
-        totalPts += 2 * pts;
-      } else {
-        totalPts += pts;
-      }
+      totalPts += GW3_POINTS[id] ?? 0;
     });
   } else {
     totalPts = 65; // fallback
@@ -246,7 +241,7 @@ function PointsScreen({ onTab }) {
         </div>
 
         {view === "pitch" ? (
-          <Pitch lineup={lineup} mode="points" captain={lineup.captain || "p_kane"} />
+          <Pitch lineup={lineup} mode="points" />
         ) : (
           <PointsListView lineup={lineup} />
         )}
@@ -330,15 +325,11 @@ function PointsListView({ lineup }) {
 function PickTeamScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
-  const [captain, setCaptain] = React.useState("p_kane");
   const [selected, setSelected] = React.useState(null);
 
   React.useEffect(() => {
     if (MY_LINEUP_GW3) {
       setLineup(MY_LINEUP_GW3);
-      if (MY_LINEUP_GW3.captain) {
-        setCaptain(MY_LINEUP_GW3.captain);
-      }
     }
   }, [MY_LINEUP_GW3]);
 
@@ -352,8 +343,6 @@ function PickTeamScreen({ onTab }) {
         starting: lineup.starting.map(parseId),
         bench: lineup.bench.map(parseId),
         formation: lineup.formation,
-        captain: parseId(captain),
-        viceCaptain: lineup.starting.find(id => id !== captain) ? parseId(lineup.starting.find(id => id !== captain)) : parseId(captain)
       };
       
       await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
@@ -474,7 +463,7 @@ function PickTeamScreen({ onTab }) {
           </div>
         )}
 
-        <Pitch lineup={lineup} mode="pick" captain={captain} onPlayerClick={handlePlayerClick} />
+        <Pitch lineup={lineup} mode="pick" onPlayerClick={handlePlayerClick} />
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>

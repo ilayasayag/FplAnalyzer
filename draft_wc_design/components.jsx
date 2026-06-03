@@ -129,7 +129,7 @@ function Jersey({ team, pos = 3, eliminated = false }) {
 }
 
 // ---------- Player Slot (used on pitch) ----------
-function PlayerSlot({ playerId, points, mode = "points", isCaptain = false, onClick }) {
+function PlayerSlot({ playerId, points, mode = "points", onClick }) {
   const p = playerById(playerId);
   if (!p) {
     return (
@@ -149,7 +149,7 @@ function PlayerSlot({ playerId, points, mode = "points", isCaptain = false, onCl
 
   return (
     <div
-      className={`player-slot ${isCaptain ? "player-slot--captain" : ""} ${isElim ? "player-slot--eliminated" : ""}`}
+      className={`player-slot ${isElim ? "player-slot--eliminated" : ""}`}
       onClick={onClick}
     >
       <button className="player-slot__info" onClick={openStats} title="Player stats">i</button>
@@ -172,7 +172,7 @@ function PlayerSlot({ playerId, points, mode = "points", isCaptain = false, onCl
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", captain = null, onPlayerClick }) {
+function Pitch({ lineup, mode = "points", onPlayerClick }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -196,16 +196,16 @@ function Pitch({ lineup, mode = "points", captain = null, onPlayerClick }) {
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} isCaptain={captain === id} onClick={() => onPlayerClick?.(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} isCaptain={captain === id} onClick={() => onPlayerClick?.(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} isCaptain={captain === id} onClick={() => onPlayerClick?.(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} isCaptain={captain === id} onClick={() => onPlayerClick?.(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
           </div>
         </div>
       </div>

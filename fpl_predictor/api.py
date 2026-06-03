@@ -53,7 +53,7 @@ PROJECT_ROOT = os.path.dirname(BASE_DIR)
 IS_CLOUD = os.environ.get("K_SERVICE") or os.environ.get("FUNCTION_TARGET")
 
 app = Flask(__name__)
-CORS(app, resources={r"/api/*": {"origins": "*"}})
+CORS(app, resources={r"/api/.*": {"origins": "*"}, r"/api/*": {"origins": "*"}})
 
 from datetime import datetime as _datetime
 from flask.json.provider import DefaultJSONProvider as _DefJP

@@ -67,8 +67,8 @@ class WCSquadManager:
         gw: int,
         starting: List[int],
         bench: List[int],
-        captain: int,
-        vice_captain: int,
+        captain: Optional[int] = None,
+        vice_captain: Optional[int] = None,
     ) -> dict:
         from fpl_predictor.game.wc_gameweeks import is_locked
 
@@ -122,16 +122,7 @@ class WCSquadManager:
         if len(starting_gks) != 1:
             raise ValueError("Starting XI must have exactly 1 GK")
 
-        if captain not in squad_ids:
-            raise ValueError("Captain must be in your squad")
-        if vice_captain not in squad_ids:
-            raise ValueError("Vice-captain must be in your squad")
-        if captain == vice_captain:
-            raise ValueError("Captain and vice-captain must be different players")
-        if captain not in set(starting):
-            raise ValueError("Captain must be in the starting XI")
-        if vice_captain not in set(starting):
-            raise ValueError("Vice-captain must be in the starting XI")
+        # Captain/vice-captain validations removed (not used in game)
 
         # Warn about eliminated players (non-blocking)
         warnings = []
@@ -371,8 +362,8 @@ class WCSquadManager:
             starting.extend(pool[:count])
             bench.extend(pool[count:])
 
-        captain = starting[1] if len(starting) > 1 else (starting[0] if starting else None)
-        vice_captain = starting[2] if len(starting) > 2 else None
+        captain = None
+        vice_captain = None
 
         return {
             "starting": starting,
@@ -396,8 +387,8 @@ class WCSquadManager:
                     "starting": d["starting"],
                     "bench": d["bench"],
                     "formation": d["formation"],
-                    "captain": d.get("captain"),
-                    "viceCaptain": d.get("viceCaptain"),
+                    "captain": None,
+                    "viceCaptain": None,
                     "effectiveCaptain": None,
                     "locked": False,
                     "autoSubsMade": [],

@@ -178,24 +178,9 @@ def resolve_captain_bonus(
     player_base_points: Dict[int, int],
 ) -> Tuple[Optional[int], int]:
     """
-    Resolve captain bonus for a manager's lineup.
-
-    Returns (effective_captain_id, captain_bonus_points).
-    effectiveCaptain = captain if played ≥ 1 min, else viceCaptain if played, else None.
-    captainBonus = effectiveCaptain's base points (their score is doubled in total).
+    Resolve captain bonus for a manager's lineup. Disabled in this game.
     """
-    captain = lineup.get("captain")
-    vc = lineup.get("viceCaptain")
-
-    if captain and (player_minutes.get(captain, 0) >= 1):
-        effective = captain
-    elif vc and (player_minutes.get(vc, 0) >= 1):
-        effective = vc
-    else:
-        return None, 0
-
-    bonus = player_base_points.get(effective, 0)
-    return effective, bonus
+    return None, 0
 
 
 # ---------------------------------------------------------------------------
