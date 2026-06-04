@@ -230,6 +230,20 @@ def current_window(
     if upcoming_gw is None and league_doc is not None:
         upcoming_gw = league_doc.get("currentGw")
 
+    # Admin override (see WC2026_WINDOWS_DESIGN.md): an admin can force the
+    # current phase from the UI for testing. A truthy `phase` that names a
+    # valid TransferWindow short-circuits the time-based logic. `phase ==
+    # "none"` is valid and force-closes the window (intended). An absent or
+    # invalid override falls through to the real fixture-clock computation.
+    override = (league_doc or {}).get("windowOverride")
+    if isinstance(override, dict) and override.get("phase"):
+        try:
+            forced = TransferWindow(override["phase"])
+        except ValueError:
+            forced = None
+        if forced is not None:
+            return forced, (override.get("gw") or upcoming_gw)
+
     bounds = compute_window_boundaries(prev_fixtures, fixtures_for_gw, config)
     if bounds is None:
         return TransferWindow.NONE, upcoming_gw
