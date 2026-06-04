@@ -279,7 +279,7 @@ function TransfersScreen() {
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
           ["free",    "Free Agents"],
-          ["waivers", `My Waivers (${MY_WAIVERS.length})`],
+          ["wishlist", `Wishlist (${(window.MY_WISHLIST_BIDS || []).length})`],
           ["squad",   "My Squad"],
           ["history", "History"],
           ["draft",   "Draft Room"],
@@ -294,7 +294,7 @@ function TransfersScreen() {
       </div>
 
       {tab === "free" && <FreeAgentsTab />}
-      {tab === "waivers" && <WaiversTab />}
+      {tab === "wishlist" && <WishlistTab />}
       {tab === "squad" && <MySquadTab />}
       {tab === "history" && <TransferHistoryTab />}
       {tab === "draft" && <DraftTab />}
@@ -433,62 +433,78 @@ function FreeAgentsTab() {
   );
 }
 
-function WaiversTab() {
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [waiverIn, setWaiverIn] = React.useState("");
-  const [waiverOut, setWaiverOut] = React.useState("");
+function WishlistTab() {
+  const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
+    playerIn: Number(b.playerIn),
+    playerOut: Number(b.playerOut),
+    position: b.position,
+  })));
+  const [adding, setAdding] = React.useState(false);
+  const [dropId, setDropId] = React.useState("");
+  const [claimId, setClaimId] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
-  const list = window.MY_WAIVERS || [];
+  const win = window.WINDOW || {};
+  const upcomingGw = win.gw;
+  const phase = win.phase || "none";
+  const isFaWindow = phase === "free_agents";
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
 
-  const eligibleWaiverIn = (window.FREE_AGENTS || []).filter(p => {
-    if (!waiverOut) return true;
-    const sOut = window.PLAYER_MAP[waiverOut];
-    return sOut ? p.pos === sOut.pos : true;
+  // Free agents eligible to claim, filtered to the chosen drop's position and
+  // excluding players already on this manager's wishlist.
+  const dropPlayer = dropId ? window.PLAYER_MAP[String(dropId)] : null;
+  const eligibleClaims = (window.FREE_AGENTS || []).filter(p => {
+    if (bids.some(b => b.playerIn === Number(p.id))) return false;
+    if (!dropPlayer) return true;
+    return p.pos === dropPlayer.pos;
   });
 
-  const handleCancelWaiver = async (waiverId) => {
-    try {
-      const lid = window.LEAGUE.id;
-      await apiCall("DELETE", `/leagues/${lid}/waivers/${waiverId}`);
-      alert("Waiver claim cancelled successfully!");
-      window.location.reload();
-    } catch (err) {
-      alert("Failed to cancel waiver: " + (err.error || err.detail || JSON.stringify(err)));
-    }
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= bids.length) return;
+    const next = bids.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    setBids(next);
+  };
+  const removeBid = (i) => setBids(bids.filter((_, k) => k !== i));
+
+  const addBid = () => {
+    if (!dropId || !claimId) { alert("Pick a player to drop and a free agent to claim."); return; }
+    const dp = window.PLAYER_MAP[String(dropId)];
+    const cp = window.PLAYER_MAP[String(claimId)];
+    if (dp && cp && dp.pos !== cp.pos) { alert("Drop and claim must be the same position."); return; }
+    setBids([...bids, { playerIn: Number(claimId), playerOut: Number(dropId), position: cp ? POS_NAMES[cp.pos] : "?" }]);
+    setAdding(false); setDropId(""); setClaimId("");
   };
 
-  const handleSubmitWaiver = async () => {
-    if (!waiverIn || !waiverOut) {
-      alert("Please select both players.");
-      return;
-    }
+  const save = async () => {
+    if (!upcomingGw) { alert("No upcoming gameweek — the transfer window is closed."); return; }
+    if (!bids.length) { alert("Add at least one bid first."); return; }
+    setSaving(true);
     try {
       const lid = window.LEAGUE.id;
-      const winNum = window.WINDOW.windowNumber || 1;
-      const pIn = isNaN(Number(waiverIn)) ? Number(waiverIn.replace("p_", "")) : Number(waiverIn);
-      const pOut = isNaN(Number(waiverOut)) ? Number(waiverOut.replace("p_", "")) : Number(waiverOut);
-      
-      await apiCall("POST", `/leagues/${lid}/waivers`, {
-        playerIn: pIn,
-        playerOut: pOut,
-        windowNumber: winNum
+      await apiCall("POST", `/leagues/${lid}/wishlist-bids`, {
+        gw: upcomingGw,
+        bids: bids.map(b => ({ playerIn: b.playerIn, playerOut: b.playerOut, position: b.position })),
       });
-      alert("Waiver claim submitted successfully!");
-      setIsSubmitting(false);
-      window.location.reload();
+      window.MY_WISHLIST_BIDS = bids.slice();
+      alert(`Wishlist saved — ${bids.length} bid(s) for GW${upcomingGw}. They'll be resolved by the auction when the window closes.`);
     } catch (err) {
-      alert("Failed to submit waiver: " + (err.error || err.detail || JSON.stringify(err)));
+      alert("Failed to save wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="col" style={{ gap: 12 }}>
-      <div className="alert alert--gold">
-        <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
+      <div className={"alert " + (isFaWindow ? "alert--green" : "alert--gold")}>
+        <div className="alert__icon" style={{ background: isFaWindow ? "var(--green-500)" : "var(--gold-500)" }}>{isFaWindow ? "✓" : "⏳"}</div>
         <div>
-          <strong>Waivers processing window is open</strong> · Priority-based snake queue.
-          Higher-priority managers claim first; after one successful claim, you drop to the back.
+          <strong>Wishlist auction{upcomingGw ? ` · GW${upcomingGw}` : ""}</strong> · Build an ORDERED list of same-position
+          swaps. When the free-agents window closes, a single batch auction resolves all managers' lists by waiver priority —
+          higher priority claims first, one pick per round, cycling until no claims remain. Your <strong>order = your preference</strong> (top tried first).
+          {!isFaWindow && <span className="muted"> Bids can be edited any time; they only resolve during the free-agents window.</span>}
         </div>
       </div>
 
@@ -496,22 +512,23 @@ function WaiversTab() {
         <table className="table-clean">
           <thead>
             <tr>
-              <th style={{ width: 50 }}>#</th>
+              <th style={{ width: 60 }}>Pref</th>
               <th>Claim (in / out)</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th></th>
+              <th style={{ width: 120, textAlign: "right" }}>Reorder</th>
             </tr>
           </thead>
           <tbody>
-            {list.map((w, i) => {
-              const pIn = window.PLAYER_MAP[w.playerIn] || { name: w.playerIn, team: "", pos: 1 };
-              const pOut = window.PLAYER_MAP[w.playerOut] || { name: w.playerOut, team: "", pos: 1 };
+            {bids.length === 0 && (
+              <tr><td colSpan={3} className="muted" style={{ textAlign: "center", padding: 18 }}>No wishlist bids yet — add one below.</td></tr>
+            )}
+            {bids.map((b, i) => {
+              const pIn = window.PLAYER_MAP[String(b.playerIn)] || { name: b.playerIn, team: "", pos: 1 };
+              const pOut = window.PLAYER_MAP[String(b.playerOut)] || { name: b.playerOut, team: "", pos: 1 };
               const tIn = teamById(pIn.team);
               const tOut = teamById(pOut.team);
               return (
-                <tr key={w.id}>
-                  <td className="num" style={{ fontWeight: 700 }}>{i + 1}</td>
+                <tr key={`${b.playerIn}_${b.playerOut}`}>
+                  <td className="num" style={{ fontWeight: 800, fontSize: 16 }}>#{i + 1}</td>
                   <td>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center", maxWidth: 500 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
@@ -531,10 +548,12 @@ function WaiversTab() {
                       </div>
                     </div>
                   </td>
-                  <td className="num">#{w.priority}</td>
-                  <td><span className="pill pill--gold" style={{ fontSize: 10 }}>{w.status}</span></td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => handleCancelWaiver(w.id)}>Cancel</button>
+                    <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 12 }} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 12 }} disabled={i === bids.length - 1} onClick={() => move(i, 1)}>↓</button>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => removeBid(i)}>✕</button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -542,12 +561,12 @@ function WaiversTab() {
           </tbody>
         </table>
 
-        {isSubmitting ? (
+        {adding ? (
           <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
               <div className="col">
                 <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DROP PLAYER</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverOut} onChange={e => { setWaiverOut(e.target.value); setWaiverIn(""); }}>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={dropId} onChange={e => { setDropId(e.target.value); setClaimId(""); }}>
                   <option value="">-- Drop player --</option>
                   {mySquad.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
@@ -556,29 +575,30 @@ function WaiversTab() {
               </div>
               <span className="h-display" style={{ fontSize: 20, color: "var(--ink-400)", marginTop: 16 }}>↔</span>
               <div className="col">
-                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM PLAYER</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverIn} onChange={e => setWaiverIn(e.target.value)} disabled={!waiverOut}>
+                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM FREE AGENT</span>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={claimId} onChange={e => setClaimId(e.target.value)} disabled={!dropId}>
                   <option value="">-- Claim player --</option>
-                  {eligibleWaiverIn.map(s => (
+                  {eligibleClaims.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
                   ))}
                 </select>
               </div>
             </div>
             <div className="row" style={{ gap: 8, justifyContent: "center" }}>
-              <button className="btn btn--ghost-dark" onClick={() => setIsSubmitting(false)}>Cancel</button>
-              <button className="btn btn--primary" onClick={handleSubmitWaiver} disabled={!waiverIn || !waiverOut}>Submit Waiver Claim</button>
+              <button className="btn btn--ghost-dark" onClick={() => { setAdding(false); setDropId(""); setClaimId(""); }}>Cancel</button>
+              <button className="btn btn--primary" onClick={addBid} disabled={!dropId || !claimId}>Add to wishlist</button>
             </div>
           </div>
         ) : (
-          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
-            <button className="btn btn--primary" onClick={() => setIsSubmitting(true)}>+ Submit New Waiver Claim</button>
+          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 10, justifyContent: "center" }}>
+            <button className="btn btn--ghost-dark" onClick={() => setAdding(true)}>+ Add bid</button>
+            <button className="btn btn--primary" onClick={save} disabled={saving || !bids.length}>{saving ? "Saving…" : `Save wishlist (${bids.length})`}</button>
           </div>
         )}
       </div>
 
       <div className="card" style={{ padding: 18 }}>
-        <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Waiver Queue · League-wide priority</div>
+        <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Auction order · League-wide waiver priority</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
           {(window.MANAGERS || []).sort((a, b) => a.waiverPri - b.waiverPri).map((m, i) => (
             <div key={m.uid} style={{
