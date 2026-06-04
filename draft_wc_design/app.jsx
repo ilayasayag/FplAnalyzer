@@ -657,6 +657,7 @@ function App() {
               used: 0,
               state: winData.status,
               phase: winData.window ? winData.window.phase : "none",
+              gw: winData.window ? winData.window.gw : null,
               overridden: !!winData.overridden,
               windowNumber: winData.window ? winData.window.windowNumber : 1
             };
@@ -708,6 +709,21 @@ function App() {
           }
         } catch (e) {
           console.warn("Failed to fetch active waivers", e);
+        }
+
+        // Fetch my wishlist bids for the upcoming GW (drives the Wishlist tab /
+        // the batch auction). The upcoming GW comes from the transfer window.
+        window.MY_WISHLIST_BIDS = [];
+        try {
+          const wgw = window.WINDOW && window.WINDOW.gw;
+          if (wgw) {
+            const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
+            if (wl && Array.isArray(wl.bids)) {
+              window.MY_WISHLIST_BIDS = wl.bids;
+            }
+          }
+        } catch (e) {
+          console.warn("Failed to fetch wishlist bids", e);
         }
 
         // Fetch all gameweek scores
