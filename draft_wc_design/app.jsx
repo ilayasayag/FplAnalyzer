@@ -656,11 +656,22 @@ function App() {
               freeTransfers: 2,
               used: 0,
               state: winData.status,
+              phase: winData.window ? winData.window.phase : "none",
+              overridden: !!winData.overridden,
               windowNumber: winData.window ? winData.window.windowNumber : 1
             };
           }
         } catch (e) {
           console.warn("Failed to fetch transfer window", e);
+        }
+
+        // Fetch admin flag (UI gating only — backend still enforces).
+        try {
+          const adminRes = await apiCall("GET", "/me/admin");
+          window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
+        } catch (e) {
+          window.IS_ADMIN = false;
+          console.warn("Failed to fetch admin flag", e);
         }
 
         // Fetch free agents

@@ -2,6 +2,102 @@
 // WC26 — Screens: Status, Points, Pick Team
 // =====================================================================
 
+// ---------- ADMIN: Transfer Window switcher ----------
+// Admin-only control (gated on backend `IS_ADMIN`, NOT on localhost) that lets
+// an admin force the transfer-window phase of the shared MOCK DRAFT test league
+// for testing. The four phases cycle none -> trade -> free_agents ->
+// next_gw_bid; "Auto" clears the override and returns to the fixture-clock
+// logic. It always targets `lg_mock_draft` (the designated test sandbox) so
+// every admin account controls the same windows regardless of which league
+// they happen to be viewing.
+const WINDOW_TEST_LID = "lg_mock_draft";
+function AdminWindowSwitcher() {
+  const isAdmin = !!window.IS_ADMIN;
+  const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
+  const [busy, setBusy] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
+
+  // Derive the displayed phase from a transfer-window response: when an
+  // override is active show the forced phase; otherwise "auto". A closed
+  // window with no override means the real clock says nothing is open.
+  const phaseFromWin = (win) => {
+    if (!win) return "auto";
+    if (win.overridden) return win.window ? win.window.phase : "none";
+    return "auto";
+  };
+
+  const refresh = React.useCallback(async () => {
+    if (!isAdmin) return;
+    try {
+      const win = await apiCall("GET", `/leagues/${WINDOW_TEST_LID}/transfer-window`);
+      setPhase(phaseFromWin(win));
+    } catch (e) {
+      console.warn("AdminWindowSwitcher: failed to read window", e);
+    }
+  }, [isAdmin]);
+
+  React.useEffect(() => { refresh(); }, [refresh]);
+
+  if (!isAdmin) return null;
+
+  const OPTIONS = [
+    { key: "auto", label: "Auto" },
+    { key: "trade", label: "Trade" },
+    { key: "free_agents", label: "Free Agents" },
+    { key: "next_gw_bid", label: "Next GW Bid" },
+  ];
+  const LABELS = { auto: "Auto", none: "Closed", trade: "Trade", free_agents: "Free Agents", next_gw_bid: "Next GW Bid" };
+
+  const setWindow = async (key) => {
+    if (busy) return;
+    setBusy(true);
+    setMsg("");
+    try {
+      const res = await apiCall("POST", `/leagues/${WINDOW_TEST_LID}/admin/window-override`, { phase: key });
+      const eff = phaseFromWin(res);
+      setPhase(eff);
+      setMsg(`Window set to ${LABELS[eff] || eff}`);
+    } catch (e) {
+      console.warn("AdminWindowSwitcher: failed to set window", e);
+      setMsg(`Failed: ${(e && (e.error || e.message)) || "error"}`);
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="card-dark">
+      <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
+        <span>Transfer Window (admin · mock draft)</span>
+        {msg && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green-400)" }}>{msg}</span>}
+      </div>
+      <div style={{ padding: 18, display: "flex", flexWrap: "wrap", gap: 8 }}>
+        {OPTIONS.map(opt => {
+          const active = phase === opt.key;
+          return (
+            <button
+              key={opt.key}
+              disabled={busy}
+              onClick={() => setWindow(opt.key)}
+              className="btn"
+              style={{
+                background: active ? "var(--green-400)" : "rgba(255,255,255,0.08)",
+                color: active ? "var(--navy-900)" : "white",
+                border: "1px solid " + (active ? "var(--green-400)" : "rgba(255,255,255,0.18)"),
+                fontWeight: 700,
+                cursor: busy ? "wait" : "pointer",
+                opacity: busy ? 0.7 : 1,
+              }}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
   const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
@@ -54,6 +150,9 @@ function StatusScreen({ onTab }) {
 
   return (
     <div className="col" style={{ gap: 20 }}>
+      {/* Admin-only transfer-window switcher (gated on backend IS_ADMIN) */}
+      <AdminWindowSwitcher />
+
       {/* Phase transition banner */}
       {LEAGUE.status === "knockout" && myMatch && (
         <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
