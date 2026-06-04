@@ -322,7 +322,7 @@ function PointsListView({ lineup }) {
 
 
 // ---------- PICK TEAM ----------
-function PickTeamScreen({ onTab }) {
+function PickTeamScreen({ onTab, squadLoading }) {
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [selected, setSelected] = React.useState(null);
@@ -420,6 +420,20 @@ function PickTeamScreen({ onTab }) {
     });
     setSelected(null);
   };
+
+  // While an authenticated user's real squad is still loading, show a
+  // lightweight skeleton instead of the data.jsx demo squad (which would
+  // otherwise flash before /squads/me resolves and overwrites the globals).
+  if (squadLoading) {
+    return (
+      <div className="col" style={{ gap: 16 }}>
+        <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>My Team</h2>
+        <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)", fontSize: 14 }}>
+          Loading your squad…
+        </div>
+      </div>
+    );
+  }
 
   // count eliminated in starting
   const elimStarting = lineup.starting.filter(id => {
