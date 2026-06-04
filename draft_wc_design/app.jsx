@@ -345,16 +345,23 @@ function App() {
         if (doc.exists) {
           const data = doc.data();
           const numMembers = data.order ? data.order.length : 10;
+          let currentDrafter = data.currentDrafter;
+          if (!currentDrafter && data.order && typeof data.currentPick === 'number') {
+            const pick = data.currentPick;
+            const rnd = Math.floor(pick / numMembers);
+            const pos = pick % numMembers;
+            currentDrafter = (rnd % 2 === 0) ? data.order[pos] : data.order[numMembers - 1 - pos];
+          }
           window.DRAFT_STATE = {
             round: data.currentPick ? Math.floor(data.currentPick / numMembers) + 1 : 1,
             pickOverall: (data.currentPick || 0) + 1,
             pickInRound: ((data.currentPick || 0) % numMembers) + 1,
-            onTheClock: data.currentDrafter || "",
+            onTheClock: currentDrafter || "",
             totalRounds: 15,
             totalPicks: data.totalPicks || 150,
             pickTimer: data.pickTimer || 60,
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
-            isMyTurn: data.currentDrafter === user.uid,
+            isMyTurn: currentDrafter === user.uid,
           };
           forceUpdate();
         } else {
