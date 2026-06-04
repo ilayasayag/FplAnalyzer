@@ -761,6 +761,29 @@ def get_scores(lid: str, gw: int):
     return _ok({"leagueId": lid, "gw": gw, **doc.to_dict()})
 
 
+@wc_bp.route("/leagues/<lid>/gw-history/<uid>", methods=["GET"])
+def get_gw_history(lid: str, uid: str):
+    """Per-manager GW snapshot (lineup IDs joined to GW points). ``uid`` may
+    be the literal ``me`` to mean the caller. Requires ?gw=<int>."""
+    caller, err = _require_auth()
+    if err:
+        return err
+    if uid == "me":
+        uid = caller
+    gw_raw = request.args.get("gw")
+    if gw_raw is None:
+        return _err("gw query param required")
+    try:
+        gw = int(gw_raw)
+    except (TypeError, ValueError):
+        return _err("gw must be an integer")
+    doc = (_db.collection("leagues").document(lid)
+           .collection("gw_history").document(f"{uid}_{gw}").get())
+    if not doc.exists:
+        return _err("gw_history not found", 404)
+    return _ok({"leagueId": lid, **doc.to_dict()})
+
+
 @wc_bp.route("/leagues/<lid>/standings", methods=["GET"])
 def get_standings(lid: str):
     uid, err = _require_auth()
