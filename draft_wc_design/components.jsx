@@ -182,8 +182,15 @@ function isSwapLegal(lineup, idA, idB) {
   return VALID_FORMATIONS.includes(formationKey);
 }
 
+function getNextFixtureOpponent(teamIso) {
+  const fixtures = window.WC_FIXTURES_GW4 || [];
+  const fix = fixtures.find(f => f.home === teamIso || f.away === teamIso);
+  if (!fix) return "—";
+  return fix.home === teamIso ? `v ${fix.away}` : `v ${fix.home}`;
+}
+
 // ---------- Player Slot (used on pitch) ----------
-function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onClick }) {
+function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick }) {
   const p = playerById(playerId);
   if (!p) {
     return (
@@ -201,25 +208,32 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
+  const opp = getNextFixtureOpponent(p.team);
+  const displayInfo = mode === "points" 
+    ? `${points != null ? points : (GW3_POINTS[playerId] ?? 0)} PTS` 
+    : opp;
+
   return (
     <div
       className={`player-slot ${isElim ? "player-slot--eliminated" : ""} ${disabled ? "player-slot--disabled" : ""} ${selected ? "player-slot--selected" : ""}`}
       onClick={onClick}
     >
       <button className="player-slot__info" onClick={openStats} title="Player stats">i</button>
-      <div className="player-slot__flag"><Flag team={t} /></div>
       <div className="player-slot__jersey">
         <Jersey team={t} pos={p.pos} eliminated={isElim} />
+        {onBench && (
+          <span className="player-slot__bench-role">
+            {POS_NAMES[p.pos]}
+          </span>
+        )}
+        {onBench && benchOrder > 0 && p.pos !== 1 && (
+          <span className="player-slot__bench-order">
+            {benchOrder}
+          </span>
+        )}
       </div>
       <div className="player-slot__name">{p.name}</div>
-      {mode === "points" && (
-        <div className="player-slot__pts">{points != null ? points : (GW3_POINTS[playerId] ?? 0)}</div>
-      )}
-      {mode === "pick" && p.pos && (
-        <div className="player-slot__pts mono" style={{ background: "rgba(255,255,255,0.85)" }}>
-          {POS_NAMES[p.pos]}
-        </div>
-      )}
+      <div className="player-slot__fixture">{displayInfo}</div>
     </div>
   );
 }
@@ -275,8 +289,7 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <span className="bench-row__order">{i === 0 ? "GK" : i}</span>
-              <PlayerSlot playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />
+              <PlayerSlot playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
             </div>
           ))}
         </div>

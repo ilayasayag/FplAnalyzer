@@ -326,12 +326,20 @@ function PickTeamScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [selected, setSelected] = React.useState(null);
+  const [toast, setToast] = React.useState(null);
 
   React.useEffect(() => {
     if (MY_LINEUP_GW3) {
       setLineup(MY_LINEUP_GW3);
     }
   }, [MY_LINEUP_GW3]);
+
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const handleSaveLineup = async () => {
     try {
@@ -346,9 +354,12 @@ function PickTeamScreen({ onTab }) {
       };
       
       await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
-      alert("Lineup saved successfully!");
+      setToast({ type: "success", message: "Lineup saved successfully!" });
     } catch(err) {
-      alert("Failed to save lineup: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({
+        type: "error",
+        message: "Failed to save lineup: " + (err.error || err.detail || JSON.stringify(err))
+      });
     }
   };
 
@@ -470,6 +481,16 @@ function PickTeamScreen({ onTab }) {
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining
         </div>
       </div>
+
+      {toast && (
+        <div className={`toast-message toast-message--${toast.type}`} onClick={() => setToast(null)}>
+          <span className="toast-message__icon">
+            {toast.type === "success" ? "✓" : "✕"}
+          </span>
+          <span className="toast-message__text">{toast.message}</span>
+          <button className="toast-message__close">×</button>
+        </div>
+      )}
     </div>
   );
 }
