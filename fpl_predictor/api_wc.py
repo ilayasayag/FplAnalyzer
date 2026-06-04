@@ -1275,6 +1275,26 @@ def admin_process_wishlist_auction(lid: str, gw: int):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/open-trade-window/<int:gw>", methods=["POST"])
+def admin_open_trade_window(lid: str, gw: int):
+    """Open the next GW's trade window: deferred trades FIRST, then auction.
+
+    Per WC2026_WINDOWS_DESIGN.md §6, trades auto-approved during the previous
+    NEXT_GW_BID window execute atomically BEFORE the wishlist auction resolves,
+    so a deferred trade can free/poison a player the auction would otherwise
+    contest. Returns a combined summary of both phases.
+    """
+    uid, err = _require_admin()
+    if err:
+        return err
+    try:
+        deferred = _trade_mgr.process_deferred_trades(lid, gw)
+        auction = _wishlist_mgr.run_auction(lid, gw)
+        return _ok({"deferredTrades": deferred, "wishlistAuction": auction})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/detect-eliminations", methods=["POST"])
 def admin_detect_eliminations():
     uid, err = _require_auth()
