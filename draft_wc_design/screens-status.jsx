@@ -164,8 +164,9 @@ function AdminWindowSwitcher() {
 
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
-  const top5 = STANDINGS.slice(0, 8);
+  const _standings = window.STANDINGS || STANDINGS;
+  const myStanding = _standings.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const top5 = _standings.slice(0, 8);
 
   const rounds = BRACKET.rounds || BRACKET || {};
   const qfArray = Array.isArray(rounds.qf) ? rounds.qf : [];
