@@ -20,6 +20,7 @@ from .game.wc_leagues import WCLeagueManager
 from .game.wc_squads import WCSquadManager
 from .game.wc_trades import WCTradeManager
 from .game.wc_waivers import WCWaiverManager
+from .game.wc_wishlist import WCWishlistManager
 from .game.wc_knockout import get_bracket, seed_knockout, advance_knockout_bracket
 from .game.wc_scoring import finalize_gw, process_fixture
 from .game.wc_gameweeks import (
@@ -44,16 +45,18 @@ _league_mgr: WCLeagueManager = None
 _squad_mgr: WCSquadManager = None
 _trade_mgr: WCTradeManager = None
 _waiver_mgr: WCWaiverManager = None
+_wishlist_mgr: WCWishlistManager = None
 
 
 def init_wc(db, firebase_auth=None):
-    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr
+    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr
     _db = db
     _wc = WC2026Client(db=db)
     _league_mgr = WCLeagueManager(db)
     _squad_mgr = WCSquadManager(db, _wc)
     _trade_mgr = WCTradeManager(db, _wc)
     _waiver_mgr = WCWaiverManager(db, _wc)
+    _wishlist_mgr = WCWishlistManager(db, _wc)
 
 
 # ---------------------------------------------------------------------------
@@ -1001,6 +1004,43 @@ def propose_trade(lid: str):
         return _err(code)
 
 
+@wc_bp.route("/leagues/<lid>/wishlist-bids", methods=["POST"])
+def submit_wishlist_bids(lid: str):
+    """Submit an ORDERED list of same-position wishlist swap bids for a GW.
+
+    Body: {gw, bids: [{playerIn, playerOut, position}, ...]}. Index 0 is tried
+    first by the auction. Re-submission overwrites the manager's bid doc.
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = int(body.get("gw"))
+    except (TypeError, ValueError):
+        return _err("gw is required")
+    try:
+        result = _wishlist_mgr.submit_bids(lid, uid, gw, body.get("bids", []))
+        return _ok(result, 201)
+    except ValueError as exc:
+        code = str(exc)
+        if "ALREADY_OWNED" in code:
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/wishlist-bids/me", methods=["GET"])
+def get_my_wishlist_bids(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        gw = int(request.args.get("gw"))
+    except (TypeError, ValueError):
+        return _err("gw query param is required")
+    return _ok(_wishlist_mgr.get_my_bids(lid, uid, gw))
+
+
 @wc_bp.route("/leagues/<lid>/trades/<trade_id>/respond", methods=["POST"])
 def respond_trade(lid: str, trade_id: str):
     uid, err = _require_auth()
@@ -1211,6 +1251,25 @@ def admin_process_waivers(lid: str, window_number: int):
         return err
     try:
         result = _waiver_mgr.process_waivers(lid, window_number)
+        return _ok(result)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/process-wishlist-auction/<int:gw>", methods=["POST"])
+def admin_process_wishlist_auction(lid: str, gw: int):
+    """Run the wishlist auction for ``gw`` and return its summary.
+
+    Auto-triggering on window transition is out of scope for PR 4 — the window
+    switcher only sets an override field with no side-effects. This explicit
+    admin trigger is how the auction is exercised/tested. PR 5 will run deferred
+    trade processing BEFORE calling this resolver.
+    """
+    uid, err = _require_admin()
+    if err:
+        return err
+    try:
+        result = _wishlist_mgr.run_auction(lid, gw)
         return _ok(result)
     except Exception as exc:
         return _err(str(exc), 500)
