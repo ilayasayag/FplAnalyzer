@@ -636,11 +636,106 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     if bracket_snap.exists:
         league_ref.collection("knockout").document(f"bracket_gw{gw}").set(bracket_snap.to_dict())
 
+    # Step 9d: snapshot gw_history (lineup IDs -> playerScores join, per manager)
+    _snapshot_gw_history(
+        league_ref, gw, uid_list, all_player_points, results,
+        league_phase_gws, knockout_start_gw, db,
+    )
+
     # Step 10: advance currentGw
     next_gw = gw + 1
     league_ref.update({"currentGw": next_gw})
 
     return {"gw": gw, "finalized": True, "nextGw": next_gw, "memberCount": n_members}
+
+
+def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
+                         league_phase_gws, knockout_start_gw, db):
+    """Write per-manager gw_history snapshot docs at GW finalize.
+
+    Performs the lineup-IDs -> playerScores points join (the per-manager,
+    per-player breakdown) and resolves opponent/result. Path:
+    ``leagues/{lid}/gw_history/{uid}_{gw}``. Full overwrite via ``.set`` so
+    re-finalizing a GW is idempotent. See WC2026_WINDOWS_DESIGN.md §3.3.
+    """
+    # H2H results for league-phase GWs (opponent/result/opponentPoints).
+    h2h_results = {}
+    if gw in league_phase_gws:
+        scores_ref = league_ref.collection("scores").document(str(gw))
+        scores_doc = scores_ref.get()
+        if scores_doc.exists:
+            h2h_results = scores_doc.to_dict().get("h2hResults", {}) or {}
+
+    # Knockout bracket matches for this GW (opponent/result resolution).
+    bracket_matches = []
+    if gw >= knockout_start_gw:
+        bracket_doc = league_ref.collection("knockout").document("bracket").get()
+        if bracket_doc.exists:
+            for round_matches in (bracket_doc.to_dict().get("rounds", {}) or {}).values():
+                for match in (round_matches or []):
+                    if match.get("gw") == gw:
+                        bracket_matches.append(match)
+
+    for uid in uid_list:
+        doc_id = f"{uid}_{gw}"
+        lineup_doc = league_ref.collection("lineups").document(doc_id).get()
+        if not lineup_doc.exists:
+            continue
+        lineup = lineup_doc.to_dict()
+        fielded = list(lineup.get("starting", [])) + list(lineup.get("bench", []))
+        players = [{"id": pid, "points": all_player_points.get(pid, 0)}
+                   for pid in fielded]
+        total_points = results.get(uid, {}).get("points", 0)
+
+        opponent = None
+        opponent_points = None
+        result = None
+
+        if gw in league_phase_gws:
+            h2h = h2h_results.get(uid)
+            if h2h:
+                result = h2h.get("result")
+                if result == "AAA":
+                    opponent = None
+                    opponent_points = None
+                else:
+                    opponent = h2h.get("opponent")
+                    opponent_points = h2h.get("pointsAgainst")
+        elif gw >= knockout_start_gw:
+            for match in bracket_matches:
+                home = match.get("home")
+                away = match.get("away")
+                if uid == home:
+                    opponent = away
+                elif uid == away:
+                    opponent = home
+                else:
+                    continue
+                if uid == home:
+                    opponent_points = match.get("awayPoints")
+                else:
+                    opponent_points = match.get("homePoints")
+                winner = match.get("winner")
+                if winner is None:
+                    result = None
+                elif winner == uid:
+                    result = "W"
+                elif opponent is not None and winner == opponent:
+                    result = "L"
+                else:
+                    result = "D"
+                break
+
+        payload = {
+            "uid": uid,
+            "gw": gw,
+            "players": players,
+            "totalPoints": total_points,
+            "opponent": opponent,
+            "opponentPoints": opponent_points,
+            "result": result,
+        }
+        league_ref.collection("gw_history").document(doc_id).set(payload)
 
 
 def _update_standings(lid: str, db, gw: Optional[int] = None):
