@@ -322,7 +322,7 @@ function StandingsTable({ onTab }) {
           </tr>
         </thead>
         <tbody>
-          {STANDINGS.map((s, i) => {
+          {(window.STANDINGS || STANDINGS).map((s, i) => {
             const m = managerById(s.uid);
             const t = teamById(m.flag);
             const isMe = s.uid === ME;

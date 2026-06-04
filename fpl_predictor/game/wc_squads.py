@@ -303,12 +303,23 @@ class WCSquadManager:
         return doc.to_dict() if doc.exists else None
 
     def _validate_window_open(self, lid: str):
-        from fpl_predictor.game.wc_gameweeks import is_transfer_window_open
+        """Free-agent pickups/drops are only allowed in the FREE_AGENTS window.
+
+        Routes through the override-aware ``current_window_from_db`` state
+        machine so an admin ``windowOverride`` is honoured (the legacy
+        ``is_transfer_window_open`` helper passed ``league_doc=None`` and so
+        silently ignored overrides — the root cause of "window closed" errors
+        when an admin had explicitly opened the free-agents window).
+        """
+        from fpl_predictor.game.wc_windows import (
+            TransferWindow,
+            current_window_from_db,
+        )
         league_doc = self.db.collection("leagues").document(lid).get()
         if not league_doc.exists:
             raise ValueError("League not found")
-        gw = league_doc.to_dict().get("currentGw", 1)
-        if not is_transfer_window_open(gw - 1 if gw > 1 else 0):
+        window, _ = current_window_from_db(lid, self.db)
+        if window != TransferWindow.FREE_AGENTS:
             raise ValueError("WINDOW_CLOSED")
 
     def _log_transaction(self, lid: str, uid: str, txn_type: str,

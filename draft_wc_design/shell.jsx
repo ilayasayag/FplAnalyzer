@@ -194,7 +194,7 @@ function SubNav({ tab, onTab }) {
 function Sidebar({ onTab }) {
   const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const myTeam = teamById(me.flag) || teamById("GER");
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
 
   // count eliminated players in squad
   const elimCount = MY_SQUAD_IDS.filter(id => {

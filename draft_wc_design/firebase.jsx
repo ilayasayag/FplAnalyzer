@@ -11,7 +11,11 @@ const _firebaseConfig = {
 };
 
 firebase.initializeApp(_firebaseConfig);
-const _db   = firebase.firestore();
+// Use the named "gamedb" database — the real data lives there, NOT in
+// "(default)" (which is empty in prod). The backend admin SDK already targets
+// gamedb; the client must match or standings/scores/draft snapshots come back
+// empty. The emulator also serves gamedb as its canonical store.
+const _db   = firebase.app().firestore("gamedb");
 const _auth = firebase.auth();
 
 // Point to local emulators when running on localhost unless production override is set

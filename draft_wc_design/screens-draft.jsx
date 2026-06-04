@@ -436,7 +436,7 @@ function SquadCount({ label, cur, max }) {
 function CreateLeagueScreen({ onTab }) {
   const [mode, setMode] = React.useState("home"); // home | create | join
   const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
   const currentGw = TOURNAMENT.currentGw;
   const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
   const hasLeague = LEAGUE && LEAGUE.inviteCode;

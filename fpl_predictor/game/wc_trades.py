@@ -518,9 +518,16 @@ class WCTradeManager:
             raise ValueError(f"PLAYER_MID_FIXTURE: teams {blocked} have matches in progress")
 
     def _validate_window_open(self, lid: str, league: dict):
-        from fpl_predictor.game.wc_gameweeks import is_transfer_window_open
-        gw = league.get("currentGw", 1)
-        if not is_transfer_window_open(gw - 1 if gw > 1 else 0):
+        """Trades are only allowed in the TRADE or NEXT_GW_BID windows.
+
+        Routes through the override-aware ``current_window_from_db`` state
+        machine (via ``_window_phase``) so an admin ``windowOverride`` is
+        honoured. The legacy ``is_transfer_window_open`` helper passed
+        ``league_doc=None`` and ignored overrides, which blocked all trades
+        whenever an admin had manually opened a trade window.
+        """
+        window, _ = self._window_phase(lid)
+        if window not in (TransferWindow.TRADE, TransferWindow.NEXT_GW_BID):
             raise ValueError("TRADES_BLOCKED_WINDOW_CLOSED")
 
     def _check_trade_expired(self, trade: dict):
