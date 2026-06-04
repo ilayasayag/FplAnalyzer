@@ -359,6 +359,11 @@ function PickTeamScreen({ onTab }) {
     }
     if (selected === id) { setSelected(null); return; }
 
+    // Check swap legality to prevent clicking disabled/unclickable options
+    if (typeof isSwapLegal === "function" && !isSwapLegal(lineup, selected, id)) {
+      return;
+    }
+
     const isStartingA = lineup.starting.includes(selected);
     const isStartingB = lineup.starting.includes(id);
 
@@ -454,16 +459,8 @@ function PickTeamScreen({ onTab }) {
           </div>
         </div>
 
-        {selected && (
-          <div className="alert alert--info" style={{ marginBottom: 12, background: "rgba(91,61,242,0.18)", color: "white", border: "1px solid rgba(255,255,255,0.18)" }}>
-            <div className="alert__icon" style={{ background: "var(--teal-400)", color: "var(--navy-900)" }}>↔</div>
-            <div style={{ fontSize: 13 }}>
-              <strong>{playerById(selected).name}</strong> selected. Click another player to swap, or click again to cancel.
-            </div>
-          </div>
-        )}
 
-        <Pitch lineup={lineup} mode="pick" onPlayerClick={handlePlayerClick} />
+        <Pitch lineup={lineup} mode="pick" selected={selected} onPlayerClick={handlePlayerClick} />
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
