@@ -16,6 +16,8 @@ function AdminWindowSwitcher() {
   const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
+  const [gw, setGw] = React.useState(4); // upcoming gw the auction/orchestrator run for
+  const [running, setRunning] = React.useState(false);
 
   // Derive the displayed phase from a transfer-window response: when an
   // override is active show the forced phase; otherwise "auto". A closed
@@ -31,6 +33,7 @@ function AdminWindowSwitcher() {
     try {
       const win = await apiCall("GET", `/leagues/${WINDOW_TEST_LID}/transfer-window`);
       setPhase(phaseFromWin(win));
+      if (win && win.window && win.window.gw) setGw(win.window.gw);
     } catch (e) {
       console.warn("AdminWindowSwitcher: failed to read window", e);
     }
@@ -65,6 +68,38 @@ function AdminWindowSwitcher() {
     }
   };
 
+  // Run a backend action for the mock league and report a short summary.
+  // `kind` is "auction" (PR-4 wishlist-only) or "orchestrator" (PR-5: deferred
+  // trades FIRST, then the wishlist auction — the §6 trade-window-open sequence).
+  const runAction = async (kind) => {
+    if (running) return;
+    setRunning(true);
+    setMsg("");
+    try {
+      const path = kind === "orchestrator"
+        ? `/admin/leagues/${WINDOW_TEST_LID}/open-trade-window/${gw}`
+        : `/admin/leagues/${WINDOW_TEST_LID}/process-wishlist-auction/${gw}`;
+      const res = await apiCall("POST", path);
+      if (kind === "orchestrator") {
+        const dt = (res.deferredTrades || {});
+        const wa = (res.wishlistAuction || {});
+        const ndt = (dt.executed || []).length;
+        const nca = (dt.cancelled || []).length;
+        const nwa = (wa.executed || []).length;
+        setMsg(`GW${gw}: ${ndt} trade(s) executed, ${nca} cancelled · ${nwa} wishlist claim(s)`);
+      } else {
+        const n = (res.executed || []).length;
+        const ns = (res.skipped || []).length;
+        setMsg(`GW${gw} auction: ${n} claim(s), ${ns} skipped`);
+      }
+    } catch (e) {
+      console.warn("AdminWindowSwitcher: action failed", e);
+      setMsg(`Failed: ${(e && (e.error || e.message)) || "error"}`);
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <div className="card-dark">
       <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
@@ -93,6 +128,35 @@ function AdminWindowSwitcher() {
             </button>
           );
         })}
+      </div>
+      <div style={{ padding: "0 18px 18px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14 }}>
+        <span style={{ fontSize: 12, opacity: 0.7, marginRight: 4 }}>
+          Run for GW
+        </span>
+        <input
+          type="number"
+          min="1"
+          value={gw}
+          disabled={running}
+          onChange={(e) => setGw(parseInt(e.target.value, 10) || 1)}
+          style={{ width: 56, padding: "6px 8px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.08)", color: "white", fontWeight: 700 }}
+        />
+        <button
+          disabled={running}
+          onClick={() => runAction("auction")}
+          className="btn"
+          style={{ background: "rgba(255,255,255,0.08)", color: "white", border: "1px solid rgba(255,255,255,0.18)", fontWeight: 700, cursor: running ? "wait" : "pointer", opacity: running ? 0.7 : 1 }}
+        >
+          Run Wishlist Auction
+        </button>
+        <button
+          disabled={running}
+          onClick={() => runAction("orchestrator")}
+          className="btn"
+          style={{ background: "var(--teal-400)", color: "var(--navy-900)", border: "1px solid var(--teal-400)", fontWeight: 700, cursor: running ? "wait" : "pointer", opacity: running ? 0.7 : 1 }}
+        >
+          Open Trade Window (deferred + auction)
+        </button>
       </div>
     </div>
   );
