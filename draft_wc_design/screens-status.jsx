@@ -4,9 +4,13 @@
 
 // ---------- ADMIN: Transfer Window switcher ----------
 // Admin-only control (gated on backend `IS_ADMIN`, NOT on localhost) that lets
-// an admin force the league's current transfer-window phase for testing. The
-// four phases cycle none -> trade -> free_agents -> next_gw_bid; "Auto" clears
-// the override and returns to the fixture-clock logic.
+// an admin force the transfer-window phase of the shared MOCK DRAFT test league
+// for testing. The four phases cycle none -> trade -> free_agents ->
+// next_gw_bid; "Auto" clears the override and returns to the fixture-clock
+// logic. It always targets `lg_mock_draft` (the designated test sandbox) so
+// every admin account controls the same windows regardless of which league
+// they happen to be viewing.
+const WINDOW_TEST_LID = "lg_mock_draft";
 function AdminWindowSwitcher() {
   const isAdmin = !!window.IS_ADMIN;
   const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
@@ -23,9 +27,9 @@ function AdminWindowSwitcher() {
   };
 
   const refresh = React.useCallback(async () => {
-    if (!isAdmin || !window.LEAGUE || !window.LEAGUE.id) return;
+    if (!isAdmin) return;
     try {
-      const win = await apiCall("GET", `/leagues/${window.LEAGUE.id}/transfer-window`);
+      const win = await apiCall("GET", `/leagues/${WINDOW_TEST_LID}/transfer-window`);
       setPhase(phaseFromWin(win));
     } catch (e) {
       console.warn("AdminWindowSwitcher: failed to read window", e);
@@ -45,11 +49,11 @@ function AdminWindowSwitcher() {
   const LABELS = { auto: "Auto", none: "Closed", trade: "Trade", free_agents: "Free Agents", next_gw_bid: "Next GW Bid" };
 
   const setWindow = async (key) => {
-    if (busy || !window.LEAGUE || !window.LEAGUE.id) return;
+    if (busy) return;
     setBusy(true);
     setMsg("");
     try {
-      const res = await apiCall("POST", `/leagues/${window.LEAGUE.id}/admin/window-override`, { phase: key });
+      const res = await apiCall("POST", `/leagues/${WINDOW_TEST_LID}/admin/window-override`, { phase: key });
       const eff = phaseFromWin(res);
       setPhase(eff);
       setMsg(`Window set to ${LABELS[eff] || eff}`);
@@ -64,7 +68,7 @@ function AdminWindowSwitcher() {
   return (
     <div className="card-dark">
       <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <span>Transfer Window (admin)</span>
+        <span>Transfer Window (admin · mock draft)</span>
         {msg && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green-400)" }}>{msg}</span>}
       </div>
       <div style={{ padding: 18, display: "flex", flexWrap: "wrap", gap: 8 }}>
