@@ -12,6 +12,7 @@ import math
 import os
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request, g
+from firebase_admin import firestore
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 from .data.wc_api import WC2026Client
@@ -798,14 +799,67 @@ def get_transfer_window(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    windows = (_db.collection("leagues").document(lid)
-               .collection("transfer_windows")
-               .where("status", "==", "open").limit(1).get())
-    if not windows:
-        return _ok({"status": "closed", "window": None})
-    w = windows[0].to_dict()
-    w["windowId"] = windows[0].id
-    return _ok({"status": "open", "window": w})
+    # Live gate: derive from wc_windows.current_window (the single source of
+    # truth) instead of the legacy transfer_windows status flag, which is now
+    # an audit-only record (see WC2026_WINDOWS_DESIGN.md §2.3).
+    from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
+    window, upcoming_gw = current_window_from_db(lid, _db)
+    league_snap = _db.collection("leagues").document(lid).get()
+    league_doc = league_snap.to_dict() if league_snap.exists else {}
+    overridden = bool((league_doc or {}).get("windowOverride"))
+    if window == TransferWindow.NONE:
+        return _ok({"status": "closed", "window": None, "overridden": overridden})
+    return _ok({
+        "status": "open",
+        "window": {"phase": window.value, "gw": upcoming_gw},
+        "overridden": overridden,
+    })
+
+
+@wc_bp.route("/me/admin", methods=["GET"])
+def get_is_admin():
+    """Report whether the caller is an admin, for UI gating only (no 403)."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    cfg = _db.collection("wc_config").document("tournament").get()
+    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
+    return _ok({"isAdmin": uid in admin_uids})
+
+
+@wc_bp.route("/leagues/<lid>/admin/window-override", methods=["POST"])
+def set_window_override(lid: str):
+    """Admin-only: force (or clear) the league's transfer-window phase.
+
+    Body ``{phase, gw}``. ``phase`` of None/""/"auto" clears the override and
+    returns to the time-based fixture-clock logic. A valid phase forces that
+    window. Echoes the resolved effective window so the client can update.
+    """
+    uid, err = _require_admin()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    phase = body.get("phase")
+    gw = body.get("gw")
+    league_ref = _db.collection("leagues").document(lid)
+    if phase in (None, "", "auto"):
+        league_ref.update({"windowOverride": firestore.DELETE_FIELD})
+    elif phase in {"none", "trade", "free_agents", "next_gw_bid"}:
+        league_ref.update({"windowOverride": {"phase": phase, "gw": gw}})
+    else:
+        return _err(f"Invalid phase: {phase}", 400)
+
+    from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
+    window, upcoming_gw = current_window_from_db(lid, _db)
+    league_snap = league_ref.get()
+    overridden = bool((league_snap.to_dict() or {}).get("windowOverride")) if league_snap.exists else False
+    if window == TransferWindow.NONE:
+        return _ok({"status": "closed", "window": None, "overridden": overridden})
+    return _ok({
+        "status": "open",
+        "window": {"phase": window.value, "gw": upcoming_gw},
+        "overridden": overridden,
+    })
 
 
 @wc_bp.route("/leagues/<lid>/free-agent", methods=["POST"])

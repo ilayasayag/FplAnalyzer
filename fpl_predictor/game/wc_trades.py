@@ -314,30 +314,78 @@ class WCTradeManager:
     # ------------------------------------------------------------------
 
     def _execute_trade(self, lid: str, trade: dict):
+        """Swap players between the two squads in a single atomic transaction.
+
+        Both squad docs are read inside the transaction, ownership is
+        re-validated (each side must still own the players it is giving away),
+        the player OBJECTS are swapped (matched by playerId within the squad
+        objects so squad metadata travels with the player), position counts are
+        re-checked, and both ``players`` arrays are committed together. A crash
+        or contention abort leaves BOTH squads untouched — the swap is
+        all-or-nothing.
+        """
+        from google.cloud.firestore_v1 import transactional
+
         prop_uid = trade["proposerUid"]
         tgt_uid = trade["targetUid"]
-        prop_squad_ref = (self.db.collection("leagues").document(lid)
-                          .collection("squads").document(prop_uid))
-        tgt_squad_ref = (self.db.collection("leagues").document(lid)
-                         .collection("squads").document(tgt_uid))
-
-        prop_squad = prop_squad_ref.get().to_dict()["players"]
-        tgt_squad = tgt_squad_ref.get().to_dict()["players"]
+        league_ref = self.db.collection("leagues").document(lid)
+        prop_squad_ref = league_ref.collection("squads").document(prop_uid)
+        tgt_squad_ref = league_ref.collection("squads").document(tgt_uid)
 
         prop_out_ids = {p["playerId"] for p in trade["proposerPlayers"]}
         tgt_out_ids = {p["playerId"] for p in trade["targetPlayers"]}
 
-        # Build incoming player objects (keep squad metadata, swap ownership)
-        prop_incoming = [p for p in tgt_squad if p["playerId"] in tgt_out_ids]
-        tgt_incoming = [p for p in prop_squad if p["playerId"] in prop_out_ids]
+        @transactional
+        def _swap(txn, p_ref, t_ref, p_out, t_out):
+            # --- reads first (Firestore txns require all reads before writes) ---
+            prop_snap = p_ref.get(transaction=txn)
+            tgt_snap = t_ref.get(transaction=txn)
+            if not prop_snap.exists:
+                raise ValueError(f"No squad found for user {prop_uid}")
+            if not tgt_snap.exists:
+                raise ValueError(f"No squad found for user {tgt_uid}")
 
-        new_prop = [p for p in prop_squad if p["playerId"] not in prop_out_ids] + prop_incoming
-        new_tgt = [p for p in tgt_squad if p["playerId"] not in tgt_out_ids] + tgt_incoming
+            prop_squad = (prop_snap.to_dict() or {}).get("players", [])
+            tgt_squad = (tgt_snap.to_dict() or {}).get("players", [])
 
-        prop_squad_ref.update({"players": new_prop})
-        tgt_squad_ref.update({"players": new_tgt})
+            prop_owned = {p["playerId"] for p in prop_squad}
+            tgt_owned = {p["playerId"] for p in tgt_squad}
 
-        league_ref = self.db.collection("leagues").document(lid)
+            # Re-validate ownership inside the txn: squads may have changed since
+            # the trade was proposed/accepted.
+            missing_prop = p_out - prop_owned
+            if missing_prop:
+                raise ValueError(
+                    f"PROPOSER_PLAYERS_NOT_OWNED: {sorted(missing_prop)} no longer in squad"
+                )
+            missing_tgt = t_out - tgt_owned
+            if missing_tgt:
+                raise ValueError(
+                    f"TARGET_PLAYERS_NOT_OWNED: {sorted(missing_tgt)} no longer in squad"
+                )
+
+            # Swap the player OBJECTS (carry squad metadata with each player).
+            prop_incoming = [p for p in tgt_squad if p["playerId"] in t_out]
+            tgt_incoming = [p for p in prop_squad if p["playerId"] in p_out]
+
+            new_prop = [p for p in prop_squad if p["playerId"] not in p_out] + prop_incoming
+            new_tgt = [p for p in tgt_squad if p["playerId"] not in t_out] + tgt_incoming
+
+            # Position integrity: a balanced trade preserves each squad's
+            # per-position counts, so the post-swap distribution must equal the
+            # pre-swap distribution.
+            if _pos_counts(new_prop) != _pos_counts(prop_squad):
+                raise ValueError("TRADE_POSITION_MISMATCH: proposer position counts changed")
+            if _pos_counts(new_tgt) != _pos_counts(tgt_squad):
+                raise ValueError("TRADE_POSITION_MISMATCH: target position counts changed")
+
+            # --- writes (both in the same commit) ---
+            txn.update(p_ref, {"players": new_prop})
+            txn.update(t_ref, {"players": new_tgt})
+
+        _swap(self.db.transaction(), prop_squad_ref, tgt_squad_ref,
+              prop_out_ids, tgt_out_ids)
+
         league_ref.collection("transactions").document().set({
             "type": "trade_accepted",
             "proposerUid": prop_uid,
@@ -397,6 +445,11 @@ class WCTradeManager:
         expires_at = trade.get("expiresAt")
         if expires_at and expires_at <= datetime.now(timezone.utc):
             raise ValueError("Trade has expired")
+
+
+def _pos_counts(players: List[Dict]) -> Counter:
+    """Count squad players by INT position code {1:GK,2:DEF,3:MID,4:FWD}."""
+    return Counter(p["position"] for p in players)
 
 
 def _pos_desc(counter: Counter) -> str:

@@ -143,6 +143,11 @@ function App() {
   const [myLeagues, setMyLeagues] = React.useState([]);
   const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
+  // False until the real /squads/me + lineup fetch resolves (success OR a
+  // definitive "no squad" result). Gates the Pick Team render so an
+  // authenticated user never sees the data.jsx demo squad flash before the
+  // real one loads.
+  const [squadLoaded, setSquadLoaded] = React.useState(false);
 
   React.useEffect(() => {
     window.VIEWING_GW = viewingGw;
@@ -238,6 +243,10 @@ function App() {
     // Update ME global variable to logged-in user's UID
     window.ME = user.uid;
     try { ME = user.uid; } catch(e) {}
+
+    // New league / GW: hide the squad until the real fetch resolves so we never
+    // flash the demo squad seeded by data.jsx.
+    setSquadLoaded(false);
 
     const lid = activeLid; // active league ID
 
@@ -634,6 +643,10 @@ function App() {
           }
         }
 
+        // Real squad + lineup have now resolved (success OR a definitive
+        // "no squad" result). Reveal the Pick Team squad area.
+        setSquadLoaded(true);
+
         // Fetch transfer window
         try {
           const winData = await apiCall("GET", `/leagues/${lid}/transfer-window`);
@@ -643,11 +656,22 @@ function App() {
               freeTransfers: 2,
               used: 0,
               state: winData.status,
+              phase: winData.window ? winData.window.phase : "none",
+              overridden: !!winData.overridden,
               windowNumber: winData.window ? winData.window.windowNumber : 1
             };
           }
         } catch (e) {
           console.warn("Failed to fetch transfer window", e);
+        }
+
+        // Fetch admin flag (UI gating only — backend still enforces).
+        try {
+          const adminRes = await apiCall("GET", "/me/admin");
+          window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
+        } catch (e) {
+          window.IS_ADMIN = false;
+          console.warn("Failed to fetch admin flag", e);
         }
 
         // Fetch free agents
@@ -720,6 +744,9 @@ function App() {
       } catch (err) {
         console.error("Failed to load initial live data:", err);
         window.__DATA_SOURCE__ = "down";
+        // Don't strand the Pick Team screen on the skeleton forever if the
+        // bootstrap threw before the squad fetch ran.
+        setSquadLoaded(true);
         forceUpdate();
       }
     };
@@ -748,7 +775,7 @@ function App() {
     switch (tab) {
       case "status":    return <StatusScreen onTab={setTab} />;
       case "points":    return <PointsScreen onTab={setTab} />;
-      case "pickteam":  return <PickTeamScreen onTab={setTab} />;
+      case "pickteam":  return <PickTeamScreen onTab={setTab} squadLoading={!!user && !squadLoaded} />;
       case "transfers": return <TransfersScreen onTab={setTab} />;
       case "league":    return <LeagueScreen onTab={setTab} />;
       case "bracket":   return <BracketScreen onTab={setTab} />;
