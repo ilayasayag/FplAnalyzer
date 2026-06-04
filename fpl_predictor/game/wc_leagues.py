@@ -215,7 +215,10 @@ class WCLeagueManager:
             **league,
             "memberCount": len(members),
             "members": members,
-            "myRole": member.to_dict().get("role", "manager"),
+            # A non-member viewing a simulated/showcase league (allowed above)
+            # has member.exists == False, so member.to_dict() is None. Guard it
+            # so reading their role can't AttributeError → 500.
+            "myRole": (member.to_dict() or {}).get("role", "manager"),
         }
 
     def get_my_leagues(self, uid: str) -> list:
