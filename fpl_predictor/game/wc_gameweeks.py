@@ -189,12 +189,48 @@ def compute_knockout_qualifiers(member_count: int = 0) -> int:
 
 def is_transfer_window_open(gw: int, now: Optional[datetime] = None) -> bool:
     """
-    True if a transfer window is open right now.
-    Windows are open between GW finalization and next GW lockAt.
-    GW must be active or after active GW.
+    True if any transfer window (trade / free-agents / next-gw-bid) is open now.
+
+    Thin wrapper over the single source of truth, ``wc_windows.current_window``
+    (see WC2026_WINDOWS_DESIGN.md §2.3). ``gw`` is the *just-finalized* GW — the
+    window guards the *upcoming* GW ``gw + 1`` (this is the existing caller
+    contract: callers pass ``currentGw - 1`` / ``0``). Returning the window for
+    the upcoming GW is what fixes the historical off-by-one: with the old
+    ``get_window_dates`` path, passing ``gw=0`` (GW1's window) returned
+    ``(None, None)`` so GW1's window never opened. Now ``gw=0`` resolves to
+    upcoming GW ``1`` and its window opens correctly.
+
+    Window boundaries are derived from the hardcoded GW calendar's ``lockAt``
+    times (= first kickoff per GW) so this stays dependency-free for the
+    existing in-process callers. ``Tprev_end`` is approximated from the previous
+    GW's ``lockAt`` (the only kickoff the calendar stores); the dedicated
+    Firestore wrapper ``wc_windows.current_window_from_db`` uses real per-fixture
+    kickoffs when a ``db`` handle is available.
     """
+    from fpl_predictor.game.wc_windows import TransferWindow, current_window
+
     now = now or datetime.now(timezone.utc)
-    window_open, window_close = get_window_dates(gw)
-    if window_open is None or window_close is None:
+    upcoming_gw = gw + 1
+
+    upcoming_cfg = _GW_CONFIG.get(upcoming_gw)
+    if upcoming_cfg is None:
         return False
-    return window_open <= now < window_close
+
+    # Build synthetic single-fixture lists from the calendar's lockAt (= first
+    # kickoff of the GW) so the pure window function can be reused as-is.
+    upcoming_fixtures = [{"kickoff": upcoming_cfg["lockAt"], "gw": upcoming_gw}]
+    prev_cfg = _GW_CONFIG.get(upcoming_gw - 1)
+    prev_fixtures = (
+        [{"kickoff": prev_cfg["lockAt"], "gw": upcoming_gw - 1}]
+        if prev_cfg else None
+    )
+
+    window, _ = current_window(
+        league_doc=None,
+        fixtures_for_gw=upcoming_fixtures,
+        config=None,  # module defaults (5h / 5h / 150min)
+        now=now,
+        prev_fixtures=prev_fixtures,
+        upcoming_gw=upcoming_gw,
+    )
+    return window != TransferWindow.NONE

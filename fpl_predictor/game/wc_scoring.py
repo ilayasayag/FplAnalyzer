@@ -727,7 +727,19 @@ def _check_eliminations_after_gw(gw: int, db, wc_client):
 
 
 def _open_transfer_window(lid: str, gw: int, db):
-    """Open transfer window after GW finalization (GWs 1-6 only)."""
+    """Record a transfer-window AUDIT doc after GW finalization (GWs 1-6 only).
+
+    NOTE (WC2026_WINDOWS_DESIGN.md §2.3 / §11): this doc is **audit-only and is
+    NOT a gate**. The authoritative "is the window open?" check is
+    ``wc_windows.current_window`` (surfaced via
+    ``wc_gameweeks.is_transfer_window_open``). Previously this wrote
+    ``status:"open"`` and never closed it, creating a 4th, perpetually-open
+    source of truth that the trade/free-agent gates ignored. We now write the
+    doc already ``closed`` with explicit ``openAt``/``closeAt`` so it serves as
+    a historical record + the per-manager ``transfersUsed`` counter
+    (wc_squads._track_transfer keys off ``windowNumber``), without ever acting
+    as an open flag.
+    """
     from fpl_predictor.game.wc_gameweeks import get_window_dates
     window_open, window_close = get_window_dates(gw)
     if window_open is None:
@@ -743,7 +755,10 @@ def _open_transfer_window(lid: str, gw: int, db):
         "windowNumber": gw,
         "openAt": window_open,
         "closeAt": window_close,
-        "status": "open",
+        # Audit-only: stored already-closed so this never gates anything.
+        # The live gate is wc_windows.current_window.
+        "status": "closed",
+        "closedAt": window_close,
         "transfersUsed": {},
         "freeTransfers": 2,
     })
