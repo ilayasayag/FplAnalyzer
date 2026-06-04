@@ -253,61 +253,6 @@ class WCWaiverManager:
     # Free agent phase
     # ------------------------------------------------------------------
 
-    def sign_free_agent(
-        self,
-        lid: str,
-        uid: str,
-        player_in: int,
-        player_out: int,
-        window_number: int,
-    ) -> dict:
-        """FCFS free agent pickup (after waiver processing)."""
-        self._validate_window_open(lid)
-
-        if not self._is_past_waiver_deadline(lid, window_number):
-            raise ValueError(
-                "WINDOW_CLOSED: waiver phase active; submit a waiver claim instead"
-            )
-
-        squad = self._get_squad(lid, uid)
-        squad_map = {p["playerId"]: p for p in squad}
-
-        if player_out not in squad_map:
-            raise ValueError("PLAYER_OUT_NOT_OWNED")
-
-        player_in_doc = self._get_wc_player(player_in)
-        if not player_in_doc:
-            raise ValueError("PLAYER_NOT_FOUND")
-
-        if player_in_doc.get("eliminated", False):
-            raise ValueError("PLAYER_TEAM_ELIMINATED")
-
-        owned = self._get_all_owned(lid)
-        if player_in in owned:
-            raise ValueError("PLAYER_ALREADY_OWNED")
-
-        out_pos = squad_map[player_out]["position"]
-        in_pos = player_in_doc.get("position", 3)
-        if out_pos != in_pos:
-            raise ValueError(
-                f"POSITION_QUOTA_VIOLATED: dropping {POS_NAMES[out_pos]}, "
-                f"signing {POS_NAMES[in_pos]}"
-            )
-
-        self._execute_swap(lid, uid, player_in, player_out, squad, player_in_doc)
-
-        league_ref = self.db.collection("leagues").document(lid)
-        league_ref.collection("transactions").document().set({
-            "type": "free_agent",
-            "uid": uid,
-            "playerIn": player_in,
-            "playerOut": player_out,
-            "windowNumber": window_number,
-            "timestamp": SERVER_TIMESTAMP,
-        })
-
-        return {"status": "ok", "playerIn": player_in, "playerOut": player_out}
-
     def get_free_agents(self, lid: str, position: Optional[int] = None,
                         search: str = "", limit: int = 50) -> list:
         """List unclaimed players available for waiver or free agent pickup."""
