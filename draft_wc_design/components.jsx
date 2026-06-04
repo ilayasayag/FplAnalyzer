@@ -205,6 +205,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
   const openStats = (e) => {
     e.stopPropagation();
+    console.log("Stats button clicked for player ID:", playerId);
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
@@ -218,7 +219,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
       className={`player-slot ${isElim ? "player-slot--eliminated" : ""} ${disabled ? "player-slot--disabled" : ""} ${selected ? "player-slot--selected" : ""}`}
       onClick={onClick}
     >
-      <button className="player-slot__info" onClick={openStats} title="Player stats">i</button>
+      <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
         <Jersey team={t} pos={p.pos} eliminated={isElim} />
         {onBench && (
