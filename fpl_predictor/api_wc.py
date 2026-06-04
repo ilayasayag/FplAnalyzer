@@ -798,14 +798,17 @@ def get_transfer_window(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    windows = (_db.collection("leagues").document(lid)
-               .collection("transfer_windows")
-               .where("status", "==", "open").limit(1).get())
-    if not windows:
+    # Live gate: derive from wc_windows.current_window (the single source of
+    # truth) instead of the legacy transfer_windows status flag, which is now
+    # an audit-only record (see WC2026_WINDOWS_DESIGN.md §2.3).
+    from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
+    window, upcoming_gw = current_window_from_db(lid, _db)
+    if window == TransferWindow.NONE:
         return _ok({"status": "closed", "window": None})
-    w = windows[0].to_dict()
-    w["windowId"] = windows[0].id
-    return _ok({"status": "open", "window": w})
+    return _ok({
+        "status": "open",
+        "window": {"phase": window.value, "gw": upcoming_gw},
+    })
 
 
 @wc_bp.route("/leagues/<lid>/free-agent", methods=["POST"])
