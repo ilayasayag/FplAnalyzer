@@ -14,6 +14,8 @@ from typing import Dict, List, Optional
 
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
+from fpl_predictor.game.wc_windows import TransferWindow
+
 POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
 LIVE_STATUSES = {"1H", "2H", "HT", "ET", "BT"}
 
@@ -199,9 +201,7 @@ class WCTradeManager:
                 raise
 
             if mode == "instant":
-                self._execute_trade(lid, trade)
-                trade_ref.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
-                return {"status": "accepted"}
+                return self._finalize_trade(lid, trade_ref, trade)
             elif mode == "admin":
                 trade_ref.update({"status": "awaiting_admin"})
                 return {"status": "awaiting_admin"}
@@ -225,9 +225,7 @@ class WCTradeManager:
         if trade["status"] != "awaiting_admin":
             raise ValueError("Trade is not awaiting admin approval")
 
-        self._execute_trade(lid, trade)
-        trade_ref.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
-        return {"status": "accepted"}
+        return self._finalize_trade(lid, trade_ref, trade)
 
     def cast_veto(self, lid: str, trade_id: str, uid: str) -> dict:
         league_ref = self.db.collection("leagues").document(lid)
@@ -267,9 +265,7 @@ class WCTradeManager:
         non_participants = len(members) - 2
         remaining_potential = non_participants - len(vetos)
         if remaining_potential < threshold - len(vetos):
-            self._execute_trade(lid, trade)
-            trade_ref.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
-            return {"status": "accepted"}
+            return self._finalize_trade(lid, trade_ref, trade)
 
         return {"status": "awaiting_vote", "vetoCount": len(vetos), "threshold": threshold}
 
@@ -282,7 +278,9 @@ class WCTradeManager:
         trade = trade_doc.to_dict()
         if trade["proposerUid"] != uid:
             raise ValueError("Only the proposer can cancel")
-        if trade["status"] not in ("pending", "awaiting_vote", "awaiting_admin"):
+        if trade["status"] not in (
+            "pending", "awaiting_vote", "awaiting_admin", "deferred_pending"
+        ):
             raise ValueError("Trade cannot be cancelled in its current state")
 
         trade_ref.update({"status": "cancelled", "resolvedAt": SERVER_TIMESTAMP})
@@ -309,9 +307,93 @@ class WCTradeManager:
             if expires_at and expires_at <= now:
                 doc.reference.update({"status": "expired", "resolvedAt": SERVER_TIMESTAMP})
 
+    def process_deferred_trades(self, lid: str, gw: int) -> dict:
+        """Execute every ``deferred_pending`` trade for ``gw``, atomically, FIRST.
+
+        Called by the open-trade-window orchestrator BEFORE the wishlist auction
+        (WC2026_WINDOWS_DESIGN.md §6). Each deferred trade was auto-approved
+        during the previous GW's NEXT_GW_BID window; squads may have changed
+        since, so ``_execute_trade`` re-validates ownership + position counts
+        inside its transaction. A trade that no longer validates is marked
+        ``cancelled`` with a ``cancelReason`` and leaves both squads untouched.
+
+        ``targetGw`` filtering is done in Python (not a compound Firestore
+        query) so docs that predate the field — or were written without it — are
+        still picked up: a deferred trade matches when its ``targetGw`` equals
+        ``gw`` OR is absent/None.
+        """
+        league_ref = self.db.collection("leagues").document(lid)
+        deferred = list(
+            league_ref.collection("trades")
+            .where("status", "==", "deferred_pending")
+            .get()
+        )
+
+        executed: List[dict] = []
+        cancelled: List[dict] = []
+        for doc in deferred:
+            trade = doc.to_dict()
+            target_gw = trade.get("targetGw")
+            if target_gw is not None and target_gw != gw:
+                continue
+            try:
+                self._execute_trade(lid, trade)
+            except ValueError as exc:
+                doc.reference.update({
+                    "status": "cancelled",
+                    "cancelReason": str(exc),
+                    "resolvedAt": SERVER_TIMESTAMP,
+                })
+                cancelled.append({"tradeId": doc.id, "reason": str(exc)})
+                continue
+            doc.reference.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
+            executed.append({"tradeId": doc.id})
+
+        return {"executed": executed, "cancelled": cancelled}
+
     # ------------------------------------------------------------------
     # Private
     # ------------------------------------------------------------------
+
+    def _finalize_trade(self, lid: str, trade_ref, trade: dict) -> dict:
+        """Either execute the trade now or DEFER it to the next gameweek.
+
+        In the NEXT_GW_BID window a trade is "auto-approved for next gameweek"
+        (WC2026_WINDOWS_DESIGN.md §6): instead of swapping squads now, the doc is
+        parked as ``deferred_pending`` with the ``targetGw`` it should run for,
+        and the open-trade-window orchestrator executes it next cycle (re-
+        validating then). In every other window the trade executes immediately.
+
+        This is the single seam every approval path funnels through (instant
+        accept, admin approval, veto-impossible), so the defer rule lives in one
+        place.
+        """
+        window, upcoming_gw = self._window_phase(lid)
+        if window == TransferWindow.NEXT_GW_BID:
+            trade_ref.update({
+                "status": "deferred_pending",
+                "targetGw": upcoming_gw,
+            })
+            return {"status": "deferred_pending", "targetGw": upcoming_gw}
+
+        self._execute_trade(lid, trade)
+        trade_ref.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
+        return {"status": "accepted"}
+
+    def _window_phase(self, lid: str):
+        """Return ``(TransferWindow, upcoming_gw)`` from the windows state machine.
+
+        Localised wrapper around :func:`wc_windows.current_window_from_db` so the
+        approval path doesn't duplicate window logic. On any failure (e.g. no
+        fixtures seeded) it degrades to ``(NONE, None)`` — i.e. execute now —
+        because the legacy ``_validate_window_open`` guard has already gated
+        whether trading is allowed at all.
+        """
+        from fpl_predictor.game.wc_windows import current_window_from_db
+        try:
+            return current_window_from_db(lid, self.db)
+        except Exception:
+            return TransferWindow.NONE, None
 
     def _execute_trade(self, lid: str, trade: dict):
         """Swap players between the two squads in a single atomic transaction.
