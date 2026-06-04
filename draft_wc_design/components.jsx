@@ -128,8 +128,69 @@ function Jersey({ team, pos = 3, eliminated = false }) {
   );
 }
 
+// ---------- Swap Constraints Helper ----------
+function isSwapLegal(lineup, idA, idB) {
+  if (idA === idB) return true;
+
+  const isStartingA = lineup.starting.includes(idA);
+  const isStartingB = lineup.starting.includes(idB);
+
+  let newStarting = [...lineup.starting];
+  let newBench = [...lineup.bench];
+
+  const idxA = (isStartingA ? newStarting : newBench).indexOf(idA);
+  const idxB = (isStartingB ? newStarting : newBench).indexOf(idB);
+
+  if (idxA === -1 || idxB === -1) return false;
+
+  // Perform hypothetical swap
+  if (isStartingA && isStartingB) {
+    [newStarting[idxA], newStarting[idxB]] = [newStarting[idxB], newStarting[idxA]];
+  } else if (!isStartingA && !isStartingB) {
+    [newBench[idxA], newBench[idxB]] = [newBench[idxB], newBench[idxA]];
+  } else {
+    const aArr = isStartingA ? newStarting : newBench;
+    const bArr = isStartingB ? newStarting : newBench;
+    aArr[idxA] = idB;
+    bArr[idxB] = idA;
+  }
+
+  // 1. Bench[0] must be GK (pos 1)
+  const benchGkId = newBench[0];
+  const benchGk = playerById(benchGkId);
+  if (!benchGk || benchGk.pos !== 1) return false;
+
+  // 2. Starting formation validation
+  const countPos = { 1: 0, 2: 0, 3: 0, 4: 0 };
+  newStarting.forEach(pId => {
+    const p = playerById(pId);
+    if (p) {
+      countPos[p.pos] = (countPos[p.pos] || 0) + 1;
+    }
+  });
+
+  const gk = countPos[1];
+  const def = countPos[2];
+  const mid = countPos[3];
+  const fwd = countPos[4];
+
+  const formationKey = `${gk}-${def}-${mid}-${fwd}`;
+  const VALID_FORMATIONS = [
+    "1-3-5-2", "1-3-4-3", "1-4-5-1", "1-4-4-2", "1-4-3-3", "1-5-4-1", "1-5-3-2"
+  ];
+
+  return VALID_FORMATIONS.includes(formationKey);
+}
+
+function getNextFixtureOpponent(teamIso) {
+  const fixtures = window.WC_FIXTURES_GW4 || [];
+  const fix = fixtures.find(f => f.home === teamIso || f.away === teamIso);
+  if (!fix) return "—";
+  return fix.home === teamIso ? `v ${fix.away}` : `v ${fix.home}`;
+}
+
 // ---------- Player Slot (used on pitch) ----------
-function PlayerSlot({ playerId, points, mode = "points", onClick }) {
+function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick }) {
   const p = playerById(playerId);
   if (!p) {
     return (
@@ -147,32 +208,39 @@ function PlayerSlot({ playerId, points, mode = "points", onClick }) {
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
+  const opp = getNextFixtureOpponent(p.team);
+  const displayInfo = mode === "points" 
+    ? `${points != null ? points : (GW3_POINTS[playerId] ?? 0)} PTS` 
+    : opp;
+
   return (
     <div
-      className={`player-slot ${isElim ? "player-slot--eliminated" : ""}`}
+      className={`player-slot ${isElim ? "player-slot--eliminated" : ""} ${disabled ? "player-slot--disabled" : ""} ${selected ? "player-slot--selected" : ""}`}
       onClick={onClick}
     >
-      <button className="player-slot__info" onClick={openStats} title="Player stats">i</button>
-      <div className="player-slot__flag"><Flag team={t} /></div>
+      <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
         <Jersey team={t} pos={p.pos} eliminated={isElim} />
+        {onBench && (
+          <span className="player-slot__bench-role">
+            {POS_NAMES[p.pos]}
+          </span>
+        )}
+        {onBench && benchOrder > 0 && p.pos !== 1 && (
+          <span className="player-slot__bench-order">
+            {benchOrder}
+          </span>
+        )}
       </div>
       <div className="player-slot__name">{p.name}</div>
-      {mode === "points" && (
-        <div className="player-slot__pts">{points != null ? points : (GW3_POINTS[playerId] ?? 0)}</div>
-      )}
-      {mode === "pick" && p.pos && (
-        <div className="player-slot__pts mono" style={{ background: "rgba(255,255,255,0.85)" }}>
-          {POS_NAMES[p.pos]}
-        </div>
-      )}
+      <div className="player-slot__fixture">{displayInfo}</div>
     </div>
   );
 }
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", onPlayerClick }) {
+function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -181,6 +249,11 @@ function Pitch({ lineup, mode = "points", onPlayerClick }) {
   const def = starting.slice(1, 1 + nDef);
   const mid = starting.slice(1 + nDef, 1 + nDef + nMid);
   const fwd = starting.slice(1 + nDef + nMid, 1 + nDef + nMid + nFwd);
+
+  const isPlayerDisabled = (id) => {
+    if (mode !== "pick" || selected === null) return false;
+    return !isSwapLegal(lineup, selected, id);
+  };
 
   return (
     <div className="pitch-wrap">
@@ -196,16 +269,16 @@ function Pitch({ lineup, mode = "points", onPlayerClick }) {
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
         </div>
       </div>
@@ -216,8 +289,7 @@ function Pitch({ lineup, mode = "points", onPlayerClick }) {
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <span className="bench-row__order">{i === 0 ? "GK" : i}</span>
-              <PlayerSlot playerId={id} mode={mode} onClick={() => onPlayerClick?.(id)} />
+              <PlayerSlot playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
             </div>
           ))}
         </div>

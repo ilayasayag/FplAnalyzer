@@ -425,12 +425,20 @@ function PickTeamScreen({ onTab, squadLoading }) {
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [selected, setSelected] = React.useState(null);
+  const [toast, setToast] = React.useState(null);
 
   React.useEffect(() => {
     if (MY_LINEUP_GW3) {
       setLineup(MY_LINEUP_GW3);
     }
   }, [MY_LINEUP_GW3]);
+
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
 
   const handleSaveLineup = async () => {
     try {
@@ -445,9 +453,12 @@ function PickTeamScreen({ onTab, squadLoading }) {
       };
       
       await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
-      alert("Lineup saved successfully!");
+      setToast({ type: "success", message: "Lineup saved successfully!" });
     } catch(err) {
-      alert("Failed to save lineup: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({
+        type: "error",
+        message: "Failed to save lineup: " + (err.error || err.detail || JSON.stringify(err))
+      });
     }
   };
 
@@ -457,6 +468,11 @@ function PickTeamScreen({ onTab, squadLoading }) {
       return;
     }
     if (selected === id) { setSelected(null); return; }
+
+    // Check swap legality to prevent clicking disabled/unclickable options
+    if (typeof isSwapLegal === "function" && !isSwapLegal(lineup, selected, id)) {
+      return;
+    }
 
     const isStartingA = lineup.starting.includes(selected);
     const isStartingB = lineup.starting.includes(id);
@@ -567,16 +583,8 @@ function PickTeamScreen({ onTab, squadLoading }) {
           </div>
         </div>
 
-        {selected && (
-          <div className="alert alert--info" style={{ marginBottom: 12, background: "rgba(91,61,242,0.18)", color: "white", border: "1px solid rgba(255,255,255,0.18)" }}>
-            <div className="alert__icon" style={{ background: "var(--teal-400)", color: "var(--navy-900)" }}>↔</div>
-            <div style={{ fontSize: 13 }}>
-              <strong>{playerById(selected).name}</strong> selected. Click another player to swap, or click again to cancel.
-            </div>
-          </div>
-        )}
 
-        <Pitch lineup={lineup} mode="pick" onPlayerClick={handlePlayerClick} />
+        <Pitch lineup={lineup} mode="pick" selected={selected} onPlayerClick={handlePlayerClick} />
 
         <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
@@ -586,6 +594,16 @@ function PickTeamScreen({ onTab, squadLoading }) {
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining
         </div>
       </div>
+
+      {toast && (
+        <div className={`toast-message toast-message--${toast.type}`} onClick={() => setToast(null)}>
+          <span className="toast-message__icon">
+            {toast.type === "success" ? "✓" : "✕"}
+          </span>
+          <span className="toast-message__text">{toast.message}</span>
+          <button className="toast-message__close">×</button>
+        </div>
+      )}
     </div>
   );
 }
