@@ -7,6 +7,7 @@ Auth: Firebase ID token in Authorization: Bearer <token> header.
 All endpoints return {"data": ..., "error": null} or {"data": null, "error": "..."}.
 """
 
+import logging
 import math
 import os
 from datetime import datetime, timezone
@@ -28,6 +29,8 @@ from .seed.seed_league import seed_everything, seed_mock_league
 
 
 wc_bp = Blueprint("wc", __name__)
+
+log = logging.getLogger("wc_api")
 
 
 # ---------------------------------------------------------------------------
@@ -212,7 +215,7 @@ def save_config():
     if is_locked(1):   # GW1 kickoff has passed → tournament live
         return _err("Config is frozen once the tournament starts", 409)
 
-    data = request.json or {}
+    data = request.get_json(silent=True) or {}
     rules = data.get("rules")
     if not rules:
         return _err("Missing rules object", 400)
@@ -343,7 +346,7 @@ def create_league():
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     try:
         result = _league_mgr.create_league(
             uid=uid,
@@ -363,7 +366,7 @@ def join_league():
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     try:
         result = _league_mgr.join_league(
             uid=uid,
@@ -385,7 +388,7 @@ def auth_me():
     display_name = "Manager"
     photo_url = ""
     if request.method == "POST":
-        body = request.get_json() or {}
+        body = request.get_json(silent=True) or {}
         display_name = body.get("displayName") or display_name
         photo_url = body.get("photoUrl") or photo_url
     else:
@@ -433,7 +436,16 @@ def auth_me():
     if mock_league_doc.exists:
         member_ref = mock_league_ref.collection("members").document(uid)
         if not member_ref.get().exists:
-            seed_mock_league(uid, display_name, _db)
+            # Signature is seed_mock_league(db, USER_UID, USER_NAME). The args
+            # were previously transposed (uid, display_name, _db), which made
+            # this raise on `db.collection(...)` and 500 the whole /auth/me
+            # call — aborting BEFORE the lg_pre_draft hydration below, so the
+            # user ended up a member of NEITHER league and both squads vanished.
+            # Wrapped defensively so any future seed hiccup can't break login.
+            try:
+                seed_mock_league(_db, uid, display_name)
+            except Exception as exc:
+                log.warning("Mock league hydration failed for %s: %s", uid, exc)
 
     # 2. Hydrate lg_pre_draft
     pre_league_ref = _db.collection("leagues").document(pre_lid)
@@ -483,7 +495,7 @@ def update_league(lid: str):
     if err:
         return err
     try:
-        result = _league_mgr.update_league(lid, uid, request.get_json() or {})
+        result = _league_mgr.update_league(lid, uid, request.get_json(silent=True) or {})
         return _ok(result)
     except ValueError as exc:
         return _err(str(exc))
@@ -518,7 +530,7 @@ def kick_member(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     target = body.get("targetUid")
     if not target:
         return _err("targetUid required")
@@ -583,7 +595,7 @@ def make_pick(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     player_id = body.get("playerId")
     idempotency_key = body.get("idempotencyKey")
     if not player_id:
@@ -633,7 +645,7 @@ def update_watchlist(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     player_ids = body.get("playerIds", [])
     (_db.collection("leagues").document(lid)
      .collection("draft").document("watchlists")
@@ -669,7 +681,7 @@ def drop_player(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     player_out = body.get("playerOut")
     if not player_out:
         return _err("playerOut required")
@@ -710,7 +722,7 @@ def set_lineup(lid: str, gw: int):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     try:
         result = _squad_mgr.set_lineup(
             lid=lid,
@@ -801,7 +813,7 @@ def sign_free_agent(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     player_in = body.get("playerIn")
     player_out = body.get("playerOut")
     window_number = body.get("windowNumber", 1)
@@ -838,7 +850,7 @@ def submit_waiver(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     try:
         result = _waiver_mgr.submit_waiver(
             lid=lid,
@@ -917,7 +929,7 @@ def propose_trade(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     try:
         result = _trade_mgr.propose_trade(
             lid=lid,
@@ -940,7 +952,7 @@ def respond_trade(lid: str, trade_id: str):
     uid, err = _require_auth()
     if err:
         return err
-    body = request.get_json() or {}
+    body = request.get_json(silent=True) or {}
     action = body.get("action")
     if action not in ("accept", "decline"):
         return _err("action must be 'accept' or 'decline'")

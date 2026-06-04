@@ -184,7 +184,13 @@ function useTweaks(defaults) {
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
 function TweaksPanel({ title = 'Tweaks', children }) {
-  const [open, setOpen] = React.useState(window === window.top);
+  // Dev-only UI. In production (web.app) the Tweaks/debug panel must stay
+  // invisible to end users — it exposes config toggles + the prod DB export.
+  // Auto-open, the Ctrl+M shortcut, and the floating trigger are all gated to
+  // localhost. The design-tool host path (__activate_edit_mode postMessage)
+  // is unaffected and still works in any environment.
+  const _isDevHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  const [open, setOpen] = React.useState(_isDevHost && window === window.top);
   const dragRef = React.useRef(null);
   const offsetRef = React.useRef({ x: 16, y: 16 });
   const PAD = 16;
@@ -222,7 +228,8 @@ function TweaksPanel({ title = 'Tweaks', children }) {
       else if (t === '__deactivate_edit_mode') setOpen(false);
     };
     const onKeyDown = (e) => {
-      // Toggle Tweaks panel with Ctrl+M
+      // Toggle Tweaks panel with Ctrl+M (dev only — never in production)
+      if (!_isDevHost) return;
       if (e.ctrlKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         setOpen(o => !o);
@@ -265,6 +272,8 @@ function TweaksPanel({ title = 'Tweaks', children }) {
   };
 
   if (!open) {
+    // No trigger in production — keeps the debug panel fully hidden for users.
+    if (!_isDevHost) return null;
     return (
       <>
         <style>{`

@@ -139,20 +139,86 @@ function ICTCell({ label, rank, total, large }) {
 
 function HistoryTab({ history }) {
   return (
-    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>📊</div>
-      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Detailed Stats Coming Soon</div>
-      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Live and historical performance data will populate once World Cup matches begin.</div>
+    <div style={{ overflowX: "auto" }}>
+      <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
+        <thead>
+          <tr style={{ background: "var(--cream)" }}>
+            <th style={{ padding: "8px 10px", textAlign: "left" }}>GW</th>
+            <th style={{ padding: "8px 10px", textAlign: "left" }}>Opponent</th>
+            <th style={{ padding: "8px 10px", textAlign: "left" }}>Round</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>MIN</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>GS</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>A</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>CS</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>GC</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>YC</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>S</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }}>B</th>
+            <th style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800 }}>PTS</th>
+          </tr>
+        </thead>
+        <tbody>
+          {history.map(h => (
+            <tr key={h.gw} style={{ borderTop: "1px solid var(--border)" }}>
+              <td style={{ padding: "10px 10px", fontWeight: 700 }}>GW{h.gw}</td>
+              <td style={{ padding: "10px 10px" }}>{h.opp}</td>
+              <td style={{ padding: "10px 10px" }}><span className="pill pill--dark" style={{ fontSize: 10 }}>{h.round}</span></td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.mp || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.gs}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.a}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.cs ? "✓" : "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.gc > 0 ? "var(--red-500)" : undefined }}>{h.gc || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.yc ? "var(--gold-500)" : undefined }}>{h.yc ? "1" : "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.s || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.b > 0 ? "var(--green-500)" : undefined }}>{h.b || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: h.pts > 0 ? "var(--navy-900)" : "var(--ink-300)", fontSize: 15 }}>{h.pts}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
+        GW1–3 shown. Live per-match breakdown available once World Cup begins.
+      </div>
     </div>
   );
 }
 
 function FixturesTab({ fixtures }) {
+  const diffColor = d => d >= 5 ? "var(--red-500)" : d >= 4 ? "var(--hot-500)" : d >= 3 ? "var(--gold-500)" : "var(--green-500)";
+  const diffLabel = d => d >= 5 ? "Very Hard" : d >= 4 ? "Hard" : d >= 3 ? "Medium" : "Easy";
   return (
-    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>📅</div>
-      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Fixtures Coming Soon</div>
-      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Detailed match schedules will be populated once they are confirmed.</div>
+    <div style={{ overflowX: "auto" }}>
+      <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
+        <thead>
+          <tr style={{ background: "var(--cream)" }}>
+            <th style={{ padding: "8px 10px" }}>GW</th>
+            <th style={{ padding: "8px 10px" }}>Date</th>
+            <th style={{ padding: "8px 10px" }}>Round</th>
+            <th style={{ padding: "8px 10px" }}>Opponent</th>
+            <th style={{ padding: "8px 10px" }}>Venue</th>
+            <th style={{ padding: "8px 10px", textAlign: "right" }}>FDR</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fixtures.map((f, i) => (
+            <tr key={i} style={{ borderTop: "1px solid var(--border)" }}>
+              <td style={{ padding: "10px 10px", fontWeight: 700 }}>{f.gw !== "—" ? `GW${f.gw}` : "—"}</td>
+              <td style={{ padding: "10px 10px", color: "var(--ink-500)", fontSize: 12 }}>{f.date}</td>
+              <td style={{ padding: "10px 10px" }}><span className="pill pill--dark" style={{ fontSize: 10 }}>{f.round}</span></td>
+              <td style={{ padding: "10px 10px", fontWeight: 600 }}>{f.opp}</td>
+              <td style={{ padding: "10px 10px", fontSize: 12, color: "var(--ink-500)" }}>{f.venue}</td>
+              <td style={{ padding: "10px 10px", textAlign: "right" }}>
+                <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: diffColor(f.diff) + "22", color: diffColor(f.diff) }}>
+                  {f.diff} · {diffLabel(f.diff)}
+                </span>
+              </td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+      <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
+        FDR = Fixture Difficulty Rating (1 easy → 5 very hard). Fixtures confirmed after group stage draw.
+      </div>
     </div>
   );
 }

@@ -161,9 +161,9 @@ function PlayerSlot({ playerId, points, mode = "points", onClick }) {
       {mode === "points" && (
         <div className="player-slot__pts">{points != null ? points : (GW3_POINTS[playerId] ?? 0)}</div>
       )}
-      {mode === "pick" && p.dr && (
+      {mode === "pick" && p.pos && (
         <div className="player-slot__pts mono" style={{ background: "rgba(255,255,255,0.85)" }}>
-          DR {p.dr}
+          {POS_NAMES[p.pos]}
         </div>
       )}
     </div>

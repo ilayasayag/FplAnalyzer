@@ -389,10 +389,14 @@ function App() {
       let leagueDetails = null;
       const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
       try {
-        // Fetch gameweeks
+        // Fetch gameweeks — tournament-global, so load once per session. A
+        // league switch or GW change must not re-pull (and risk a transient
+        // failure on) data that never changes between leagues.
+        if (!window.__GW_LOADED__)
         try {
           const gws = await apiCall("GET", "/gameweeks");
           if (gws && gws.length > 0) {
+            window.__GW_LOADED__ = true;
             window.TOURNAMENT.gwDates = {};
             const formatIso = (isoStr) => {
               if (!isoStr) return "";
@@ -469,7 +473,10 @@ function App() {
           }
         } catch (e) {
           console.warn("Failed to fetch league details, using mock defaults", e);
-          criticalFailed = true;
+          // Only flag the app as "down" if we have no previously-loaded league
+          // for this id. A transient blip on a re-run must not wipe the league
+          // the user is already viewing.
+          if (!window.LEAGUE || window.LAST_ACTIVE_LID !== lid) criticalFailed = true;
         }
 
         // Fetch the authoritative team list (names, groups, elimination,
@@ -477,9 +484,11 @@ function App() {
         // players and manager flags. This replaces the hardcoded placeholder
         // bracket so all 48 nations resolve correctly. A failure here is
         // non-critical: teamById falls back to the static map.
+        if (!window.__TEAMS_LOADED__)
         try {
           const teams = await apiCall("GET", "/teams");
           if (teams && teams.length > 0) {
+            window.__TEAMS_LOADED__ = true;
             const staticMap = (typeof TEAM_MAP !== "undefined") ? TEAM_MAP : {};
             const merged = {};
             teams.forEach(t => {
@@ -502,10 +511,12 @@ function App() {
           console.warn("Failed to fetch teams; falling back to static team map", e);
         }
 
-        // Fetch players list
+        // Fetch players list — global pool, load once per session.
+        if (!window.__PLAYERS_LOADED__)
         try {
           const players = await apiCall("GET", "/players");
           if (players && players.length > 0) {
+            window.__PLAYERS_LOADED__ = true;
             window.PLAYERS = players.map(p => ({
               id: String(p.id),
               name: p.name,
@@ -521,12 +532,15 @@ function App() {
             window.PLAYERS.forEach(p => {
               window.GW3_POINTS[p.id] = p.pts;
             });
-          } else {
+          } else if (!window.PLAYERS || !window.PLAYERS.length) {
+            // Server gave us nothing AND we have no prior pool → genuinely down.
             criticalFailed = true;
           }
         } catch (e) {
           console.warn("Failed to fetch players", e);
-          criticalFailed = true;
+          // Transient network failure: only fatal if we never loaded a pool.
+          // A blip on a re-run must not blank an app that already has players.
+          if (!window.PLAYERS || !window.PLAYERS.length) criticalFailed = true;
         }
 
         // Fetch bracket matching viewingGw
@@ -612,7 +626,12 @@ function App() {
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
-          window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+          // Transient failure: KEEP the last-known-good lineup rather than
+          // blanking the pitch (this was the core "squads disappear" bug).
+          // Only initialise to empty if we have nothing at all yet.
+          if (!window.MY_LINEUP_GW3) {
+            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+          }
         }
 
         // Fetch transfer window
