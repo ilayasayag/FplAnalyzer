@@ -466,6 +466,8 @@ function ResultsTable() {
 function TradesScreen() {
   const [tab, setTab] = React.useState("inbox");
   const [showPropose, setShowPropose] = React.useState(false);
+  const inbox = window.TRADES_INBOX || TRADES_INBOX;
+  const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
   return (
     <div className="col" style={{ gap: 16 }}>
       {showPropose && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
@@ -476,8 +478,8 @@ function TradesScreen() {
 
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
-          ["inbox", `Inbox (${TRADES_INBOX.length})`],
-          ["outbox", `Sent (${TRADES_OUTBOX.length})`],
+          ["inbox", `Inbox (${inbox.length})`],
+          ["outbox", `Sent (${outbox.length})`],
           ["history", "History"],
         ].map(([id, label]) => (
           <button key={id}
@@ -489,8 +491,12 @@ function TradesScreen() {
         ))}
       </div>
 
-      {tab === "inbox" && TRADES_INBOX.map(t => <TradeCard key={t.id} trade={t} direction="inbox" />)}
-      {tab === "outbox" && TRADES_OUTBOX.map(t => <TradeCard key={t.id} trade={t} direction="outbox" />)}
+      {tab === "inbox" && (inbox.length
+        ? inbox.map(t => <TradeCard key={t.id} trade={t} direction="inbox" />)
+        : <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>No incoming trade offers.</div>)}
+      {tab === "outbox" && (outbox.length
+        ? outbox.map(t => <TradeCard key={t.id} trade={t} direction="outbox" />)
+        : <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>You haven't sent any trade offers.</div>)}
       {tab === "history" && (
         <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>
           No completed trades yet this season.
@@ -504,6 +510,25 @@ function TradeCard({ trade, direction }) {
   const proposer = managerById(trade.proposer);
   const target = managerById(trade.target);
   const isIncoming = direction === "inbox";
+  const [busy, setBusy] = React.useState(false);
+
+  const act = async (kind) => {
+    if (busy) return;
+    if (kind === "cancel" && !window.confirm("Cancel this trade offer?")) return;
+    setBusy(true);
+    try {
+      const lid = window.LEAGUE.id;
+      if (kind === "cancel") {
+        await apiCall("POST", `/leagues/${lid}/trades/${trade.id}/cancel`, {});
+      } else {
+        await apiCall("POST", `/leagues/${lid}/trades/${trade.id}/respond`, { action: kind });
+      }
+      window.location.reload();
+    } catch (err) {
+      alert("Trade action failed: " + (err.error || err.detail || JSON.stringify(err)));
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -564,11 +589,11 @@ function TradeCard({ trade, direction }) {
         </span>
         {isIncoming ? (
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn--ghost-dark">Decline</button>
-            <button className="btn btn--primary">Accept</button>
+            <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("decline")}>Decline</button>
+            <button className="btn btn--primary" disabled={busy} onClick={() => act("accept")}>{busy ? "…" : "Accept"}</button>
           </div>
         ) : (
-          <button className="btn btn--ghost-dark">Cancel</button>
+          <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : "Cancel"}</button>
         )}
       </div>
     </div>
