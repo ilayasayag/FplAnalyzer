@@ -439,7 +439,11 @@ const LEAGUE = {
 // ---------- Helpers ----------
 const managerById = uid => {
   if (!uid) return undefined;
-  return MANAGERS.find(m => m.uid === uid) || {
+  // Prefer the live, backend-driven roster (set from /leagues/<id> once
+  // loaded); fall back to the static demo roster only before the API has
+  // populated it. Reading bare MANAGERS here meant live trades/standings
+  // never resolved real manager names (same bug class as STANDINGS).
+  return (window.MANAGERS || MANAGERS).find(m => m.uid === uid) || {
     uid: uid,
     name: uid === ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
     team: uid === ME ? "My Team" : "Opponent XI",

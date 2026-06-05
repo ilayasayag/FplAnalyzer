@@ -726,6 +726,41 @@ function App() {
           console.warn("Failed to fetch wishlist bids", e);
         }
 
+        // Fetch trades — split into inbox (offers TO me) and sent (offers FROM
+        // me). Without this the Trades screen rendered the data.jsx demo consts
+        // (TRADES_INBOX/TRADES_OUTBOX), i.e. the "Player zielinski / messi"
+        // placeholder cards.
+        try {
+          const trades = await apiCall("GET", `/leagues/${lid}/trades`);
+          const fmtAgo = (ts) => {
+            if (!ts) return "";
+            const d = new Date(ts);
+            if (isNaN(d.getTime())) return "";
+            const mins = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
+            if (mins < 60) return mins + "m ago";
+            const hrs = Math.floor(mins / 60);
+            if (hrs < 24) return hrs + "h ago";
+            return Math.floor(hrs / 24) + "d ago";
+          };
+          const mapTrade = (t) => ({
+            id: t.tradeId || t.id,
+            proposer: t.proposerUid,
+            target: t.targetUid,
+            proposerPlayers: (t.proposerPlayers || []).map(p => String(p.playerId)),
+            targetPlayers: (t.targetPlayers || []).map(p => String(p.playerId)),
+            status: t.status,
+            createdAt: fmtAgo(t.createdAt),
+            message: t.message || "",
+          });
+          const pending = (trades || []).filter(t => t.status === "pending").map(mapTrade);
+          window.TRADES_INBOX = pending.filter(t => t.target === window.ME);
+          window.TRADES_OUTBOX = pending.filter(t => t.proposer === window.ME);
+        } catch (e) {
+          console.warn("Failed to fetch trades", e);
+          window.TRADES_INBOX = [];
+          window.TRADES_OUTBOX = [];
+        }
+
         // Fetch all gameweek scores
         window.ALL_GW_SCORES = {};
         try {
