@@ -208,10 +208,63 @@ function FilterSelect({ label, value, onChange, options }) {
 
 
 // ---------- FIXTURES ----------
+// Normalize a backend fixture ({homeTeam,awayTeam,kickoff,status,score,wcRound})
+// into the row shape the renderer expects ({day,time,home,away,venue,...}).
+// `home`/`away` are isoCodes so teamById resolves flag/name/group for both the
+// live map and the static bracket.
+function normalizeFixtureRow(fx) {
+  const homeIso = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
+  const awayIso = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
+  let day = "", time = "";
+  if (fx.kickoff) {
+    const d = new Date(fx.kickoff);
+    if (!isNaN(d.getTime())) {
+      day = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+  }
+  const sc = fx.score || {};
+  const hasScore = sc.home != null && sc.away != null;
+  return {
+    home: homeIso || (fx.homeTeam || {}).name || "?",
+    away: awayIso || (fx.awayTeam || {}).name || "?",
+    homeName: (fx.homeTeam || {}).name,
+    awayName: (fx.awayTeam || {}).name,
+    day: day || "Scheduled",
+    time: time || (fx.status || ""),
+    venue: hasScore ? `${sc.home}–${sc.away}` : "",
+    status: fx.status,
+  };
+}
+
 function FixturesScreen() {
   const [gw, setGw] = React.useState(4);
-  const fixtures = WC_FIXTURES_GW4;
+  const [fetched, setFetched] = React.useState(null); // null = not loaded yet
+  const [loading, setLoading] = React.useState(false);
   const round = TOURNAMENT.gwDates[gw];
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiCall("GET", `/fixtures?gw=${gw}`)
+      .then(list => {
+        if (cancelled) return;
+        const rows = (Array.isArray(list) ? list : []).map(normalizeFixtureRow);
+        setFetched(rows);
+        setLoading(false);
+      })
+      .catch(e => {
+        if (cancelled) return;
+        console.warn("Fixtures fetch failed for gw", gw, e);
+        setFetched(null); // fall back to static
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [gw]);
+
+  // Use live fixtures once loaded; otherwise the static GW4 round as a
+  // placeholder (only meaningful for GW4, but harmless elsewhere while loading).
+  const fixtures = fetched != null ? fetched : WC_FIXTURES_GW4;
 
   const byDay = {};
   fixtures.forEach(f => { (byDay[f.day] ||= []).push(f); });
@@ -231,25 +284,36 @@ function FixturesScreen() {
         </div>
 
         <div style={{ padding: "20px 28px", color: "white" }}>
+          {loading && fetched == null && (
+            <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading fixtures…</div>
+          )}
+          {!loading && fetched != null && fixtures.length === 0 && (
+            <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>No fixtures scheduled for GW{gw}.</div>
+          )}
           {Object.entries(byDay).map(([day, ms]) => (
             <div key={day} style={{ marginBottom: 18 }}>
               <div style={{ display: "inline-block", background: "var(--green-400)", color: "var(--navy-900)", padding: "4px 12px", borderRadius: 4, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", marginBottom: 8 }}>{day.toUpperCase()}</div>
               {ms.map((m, i) => {
                 const h = teamById(m.home);
                 const a = teamById(m.away);
+                const hName = (h && h.name && h.grp !== "?") ? h.name : (m.homeName || (h && h.name) || m.home);
+                const aName = (a && a.name && a.grp !== "?") ? a.name : (m.awayName || (a && a.name) || m.away);
+                const grpLabel = round.wcRound.includes("Group")
+                  ? (h && h.grp && h.grp !== "?" ? `Grp ${h.grp}` : "Group")
+                  : round.wcRound;
                 return (
                   <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 1fr 140px", padding: "12px 0", alignItems: "center", borderBottom: "1px solid var(--border-dark)", fontSize: 14 }}>
                     <span className="muted" style={{ fontSize: 12 }}>{m.time} <span style={{ opacity: 0.5 }}>local</span></span>
                     <span style={{ textAlign: "right", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, fontWeight: 700 }}>
-                      {h.name} <Flag team={h} size="lg" />
+                      {hName} <Flag team={h} size="lg" />
                     </span>
                     <span style={{ textAlign: "center" }}>
                       <span className="pill pill--dark" style={{ background: "rgba(255,255,255,0.08)", fontSize: 11, color: "white" }}>
-                        {round.wcRound.includes("Group") ? `Grp ${h.grp}` : round.wcRound}
+                        {grpLabel}
                       </span>
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
-                      <Flag team={a} size="lg" /> {a.name}
+                      <Flag team={a} size="lg" /> {aName}
                     </span>
                     <span className="muted" style={{ fontSize: 11, textAlign: "right", color: "rgba(255,255,255,0.6)" }}>{m.venue}</span>
                   </div>
