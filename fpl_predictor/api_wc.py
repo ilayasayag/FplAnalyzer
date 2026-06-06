@@ -142,7 +142,11 @@ DEFAULT_RULES = {
         "ownGoalPoints": -2,
         "penaltyMissPoints": -2,
         "penaltySavePoints": 5,
-        "savesPerPointGk": 3
+        "savesPerPointGk": 3,
+        "defConPoints": 2,
+        "defConThresholdDef": 10,
+        "defConThresholdMid": 12,
+        "bonusByRatingRank": [3, 2, 1]
     },
     "squadLimit": {
         "totalPlayers": 15,
