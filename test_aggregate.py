@@ -32,229 +32,24 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from google.cloud.firestore_v1 import Increment  # noqa: E402
-
 from fpl_predictor.game.wc_scoring import (  # noqa: E402
     process_fixture,
     _snapshot_gw_history,
 )
 
-
-# ---------------------------------------------------------------------------
-# In-memory path-keyed fake Firestore
-# ---------------------------------------------------------------------------
-
-def _apply_value(store, path, field, value):
-    """Write one field onto store[path], handling Increment + dotted paths."""
-    doc = store.setdefault(path, {})
-    parts = field.split(".")
-    target = doc
-    for p in parts[:-1]:
-        target = target.setdefault(p, {})
-    leaf = parts[-1]
-    if isinstance(value, Increment):
-        target[leaf] = (target.get(leaf) or 0) + value.value
-    else:
-        target[leaf] = value
-
-
-def _merge_into(store, path, data, merge):
-    """Mimic Firestore set(): top-level merge, Increment sentinels resolved."""
-    if not merge:
-        # Overwrite — but still resolve any Increment against nothing (=> value).
-        store[path] = {}
-    for field, value in data.items():
-        if isinstance(value, dict) and not isinstance(value, Increment):
-            # Nested dict merge (used by finalize results.{uid} merges).
-            existing = store.setdefault(path, {})
-            _deep_merge(existing, {field: value})
-        else:
-            _apply_value(store, path, field, value)
-
-
-def _deep_merge(dst, src):
-    for k, v in src.items():
-        if isinstance(v, Increment):
-            dst[k] = (dst.get(k) or 0) + v.value
-        elif isinstance(v, dict):
-            node = dst.get(k)
-            if not isinstance(node, dict):
-                node = {}
-                dst[k] = node
-            _deep_merge(node, v)
-        else:
-            dst[k] = v
-
-
-class _Snap:
-    def __init__(self, doc_id, data):
-        self.id = doc_id
-        self._data = data
-        self.exists = data is not None
-
-    def to_dict(self):
-        return dict(self._data) if self._data is not None else None
-
-    @property
-    def reference(self):
-        return self._ref
-
-    def _bind(self, ref):
-        self._ref = ref
-        return self
-
-
-class _Doc:
-    def __init__(self, store, path):
-        self.store, self.path = store, path
-
-    @property
-    def id(self):
-        return self.path.rsplit("/", 1)[-1]
-
-    def collection(self, name):
-        return _Coll(self.store, f"{self.path}/{name}")
-
-    def get(self):
-        return _Snap(self.id, self.store.get(self.path))._bind(self)
-
-    def set(self, data, merge=False):
-        _merge_into(self.store, self.path, data, merge)
-
-    def update(self, patch):
-        # update == merge semantics for our purposes (creates if missing).
-        _merge_into(self.store, self.path, patch, merge=True)
-
-
-class _Coll:
-    def __init__(self, store, path):
-        self.store, self.path = store, path
-
-    def document(self, doc_id=None):
-        if doc_id is None:
-            n = sum(1 for k in self.store if k.startswith(self.path + "/"))
-            doc_id = f"auto-{n}"
-        return _Doc(self.store, f"{self.path}/{doc_id}")
-
-    def _children(self):
-        depth = self.path.count("/") + 1
-        for key, data in list(self.store.items()):
-            if key.startswith(self.path + "/") and key.count("/") == depth:
-                doc = _Doc(self.store, key)
-                yield _Snap(key.rsplit("/", 1)[-1], data)._bind(doc)
-
-    def stream(self):
-        yield from self._children()
-
-    def get(self):
-        return list(self._children())
-
-    def where(self, field, op, value):
-        assert op == "=="
-        return _Query([s for s in self._children()
-                       if (s.to_dict() or {}).get(field) == value])
-
-
-class _Query:
-    def __init__(self, snaps):
-        self._snaps = snaps
-
-    def where(self, field, op, value):
-        assert op == "=="
-        return _Query([s for s in self._snaps
-                       if (s.to_dict() or {}).get(field) == value])
-
-    def get(self):
-        return list(self._snaps)
-
-
-class _Batch:
-    def __init__(self, store):
-        self.store = store
-        self._ops = []
-
-    def set(self, ref, data, merge=False):
-        self._ops.append(("set", ref.path, data, merge))
-
-    def update(self, ref, patch):
-        self._ops.append(("update", ref.path, patch, True))
-
-    def commit(self):
-        for op, path, data, merge in self._ops:
-            _merge_into(self.store, path, data, merge)
-        self._ops = []
-
-
-class FakeDB:
-    def __init__(self):
-        self.store = {}
-
-    def collection(self, name):
-        return _Coll(self.store, name)
-
-    def collection_group(self, name):
-        # All docs whose immediate parent collection segment == name.
-        snaps = []
-        for key, data in list(self.store.items()):
-            segs = key.split("/")
-            if len(segs) >= 2 and segs[-2] == name:
-                snaps.append(_Snap(segs[-1], data)._bind(_Doc(self.store, key)))
-        return _Query(snaps)
-
-    def batch(self):
-        return _Batch(self.store)
-
-
-# ---------------------------------------------------------------------------
-# Seed helpers — build raw api-sports-shaped stats for process_fixture
-# ---------------------------------------------------------------------------
-
-def _player_block(pid, name, minutes=90, goals=0, assists=0, rating="7.0"):
-    return {
-        "player": {"id": pid, "name": name},
-        "statistics": [{
-            "games": {"minutes": minutes, "rating": rating},
-            "goals": {"total": goals, "assists": assists, "saves": 0, "owngoals": 0},
-            "cards": {"yellow": 0, "red": 0},
-            "penalty": {"missed": 0, "saved": 0},
-            "tackles": {"total": 0, "interceptions": 0, "blocks": 0},
-        }],
-    }
-
-
-def _raw_stats(home_team, away_team, home_players, away_players):
-    return [
-        {"team": {"id": home_team}, "players": home_players},
-        {"team": {"id": away_team}, "players": away_players},
-    ]
-
-
-def _seed_fixture(db, fid, gw, home_team, away_team, home_goals, away_goals):
-    db.store[f"wc_fixtures/{fid}"] = {
-        "id": fid, "gw": gw,
-        "homeTeam": {"id": home_team}, "awayTeam": {"id": away_team},
-        "score": {"home": home_goals, "away": away_goals},
-        "processedForFantasy": False,
-    }
-
-
-def _seed_players(db, players):
-    """players: {pid: position}"""
-    for pid, pos in players.items():
-        db.store[f"wc_players/{pid}"] = {"id": pid, "position": pos, "totalPoints": 0}
-
-
-def _sum_total_points(db):
-    return sum((v.get("totalPoints") or 0)
-               for k, v in db.store.items() if k.startswith("wc_players/"))
-
-
-def _sum_player_scores(db):
-    total = 0
-    for k, v in db.store.items():
-        if "/playerScores/" in k:
-            total += v.get("fantasyPoints", 0)
-    return total
+# The fake-Firestore client + seed helpers used to live inline here; EP6-W1
+# extracted them into a shared test_helpers module so the e2e reconciliation
+# suite can reuse the exact same fake. Import them under the original names so
+# the test bodies below are unchanged.
+from test_helpers import (  # noqa: E402,F401
+    FakeDB,
+    player_block as _player_block,
+    raw_stats as _raw_stats,
+    seed_fixture as _seed_fixture,
+    seed_players as _seed_players,
+    sum_total_points as _sum_total_points,
+    sum_player_scores as _sum_player_scores,
+)
 
 
 def _make_db():
