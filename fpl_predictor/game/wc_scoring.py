@@ -900,8 +900,30 @@ def _update_standings(lid: str, db, gw: Optional[int] = None):
                 # All-against-all GW6: h2hPoints directly stored
                 stats[uid]["hpts"] += h.get("h2hPoints", 0)
 
+    # Sort by H2H points (primary) then fantasy points (tiebreak), assign rank,
+    # and flag qualification. Without this the table rendered every row as "#1"
+    # and "Qualified" because the client relies on a pre-sorted array + rank +
+    # knockedOut (GAP-503/504).
+    league_doc = league_ref.get().to_dict() or {}
+    qualifiers = int(league_doc.get("knockoutQualifiers", 8) or 8)
+
+    ranked = sorted(
+        stats.values(),
+        key=lambda s: (s.get("hpts", 0), s.get("fpts", 0)),
+        reverse=True,
+    )
+    for idx, s in enumerate(ranked, start=1):
+        s["rank"] = idx
+        # A manager is knocked out if their team was eliminated OR they finished
+        # outside the qualifying places. (During the group phase this previews
+        # the cut line; it's authoritative once the knockout bracket is built.)
+        below_line = idx > qualifiers
+        s["qualified"] = not below_line
+        s["knockedOut"] = below_line
+
     standings_data = {
-        "managers": list(stats.values()),
+        "managers": ranked,
+        "qualifiers": qualifiers,
         "updatedAt": SERVER_TIMESTAMP,
     }
     league_ref.collection("standings").document("current").set(standings_data)
