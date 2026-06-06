@@ -183,8 +183,16 @@ function isSwapLegal(lineup, idA, idB) {
 }
 
 function getNextFixtureOpponent(teamIso) {
-  const fixtures = window.WC_FIXTURES_GW4 || [];
-  const fix = fixtures.find(f => f.home === teamIso || f.away === teamIso);
+  // Team-vs-team fixtures. The only team-fixture source currently loaded
+  // client-side is the static WC_FIXTURES_GW4 array in data.jsx, which covers
+  // a single round (16 team ISOs). window.SCHEDULE holds the H2H *manager*
+  // matchup schedule ([uid, uid] pairs), not team fixtures, so it can't drive
+  // this. Until a real per-team fixtures endpoint is loaded, teams outside the
+  // static set resolve to "—" by design — see EP4-W2 report (backend decision).
+  if (!teamIso) return "—";
+  const fixtures = (window.WC_FIXTURES_GW4 || []);
+  if (!Array.isArray(fixtures)) return "—";
+  const fix = fixtures.find(f => f && (f.home === teamIso || f.away === teamIso));
   if (!fix) return "—";
   return fix.home === teamIso ? `v ${fix.away}` : `v ${fix.home}`;
 }
@@ -221,11 +229,9 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
       <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
         <Jersey team={t} pos={p.pos} eliminated={isElim} />
-        {onBench && (
-          <span className="player-slot__bench-role">
-            {POS_NAMES[p.pos]}
-          </span>
-        )}
+        <span className={`player-slot__bench-role${onBench ? "" : " player-slot__bench-role--starter"}`}>
+          {POS_NAMES[p.pos]}
+        </span>
         {onBench && benchOrder > 0 && p.pos !== 1 && (
           <span className="player-slot__bench-order">
             {benchOrder}

@@ -620,6 +620,32 @@ function App() {
           console.warn("Failed to fetch my squad", e);
         }
 
+        // Fetch every manager's squad so ownership can be resolved across the
+        // whole league (Player Browser "Owned by", Transfers free-agent gating).
+        // Without this, only ME's squad is known and every other manager's
+        // players render as "Free agent". Reuses the same per-uid squad
+        // endpoint the Manager Squad modal already calls. Failures per-manager
+        // are non-fatal; we keep whatever resolved.
+        try {
+          const squadsByUid = {};
+          await Promise.all((window.MANAGERS || []).map(async (m) => {
+            if (!m || !m.uid) return;
+            try {
+              const res = m.uid === window.ME
+                ? { players: (window.MY_SQUAD_IDS || []).map(playerId => ({ playerId })) }
+                : await apiCall("GET", `/leagues/${lid}/squads/${m.uid}`);
+              squadsByUid[m.uid] = (res.players || []).map(p => String(p.playerId));
+            } catch (e) {
+              // Leave this manager's squad unknown rather than failing the batch.
+              squadsByUid[m.uid] = squadsByUid[m.uid] || [];
+            }
+          }));
+          window.SQUADS_BY_UID = squadsByUid;
+        } catch (e) {
+          console.warn("Failed to fetch all-manager squads", e);
+          if (!window.SQUADS_BY_UID) window.SQUADS_BY_UID = {};
+        }
+
         // Fetch my Lineup matching viewingGw
         try {
           const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${viewingGw}`);

@@ -11,10 +11,16 @@ function PlayerBrowserScreen() {
   const [owned, setOwned] = React.useState("all");
   const [sort, setSort] = React.useState("pts");
 
-  // squad ownership map
+  // Squad ownership map: playerId -> owning manager uid, across ALL managers.
+  // app.jsx preloads window.SQUADS_BY_UID from the per-manager squad endpoint;
+  // without it, only ME's squad would be known and every other manager's
+  // players (e.g. Haaland) would wrongly render as free agents.
   const owners = {};
-  MANAGERS.forEach(m => {
-    if (m.uid === ME) MY_SQUAD_IDS.forEach(id => owners[id] = m.uid);
+  const squadsByUid = window.SQUADS_BY_UID || {};
+  const activeManagers = window.MANAGERS || MANAGERS;
+  activeManagers.forEach(m => {
+    const ids = squadsByUid[m.uid] || (m.uid === ME ? (window.MY_SQUAD_IDS || MY_SQUAD_IDS) : []);
+    (ids || []).forEach(id => { owners[String(id)] = m.uid; });
   });
 
   const activePlayers = window.PLAYERS || PLAYERS;
@@ -784,6 +790,10 @@ function ProposeTradeModal({ onClose }) {
       });
       alert("Trade proposal sent! Awaiting their response.");
       onClose();
+      // Refetch so the new trade appears in the proposer's outbox (and the
+      // target's inbox). Mirrors TradeCard.act — there's no standalone
+      // trades-loader to call, so a reload is the reliable refresh here.
+      window.location.reload();
     } catch (err) {
       alert("Trade failed: " + (err.error || err.detail || JSON.stringify(err)));
     } finally {
