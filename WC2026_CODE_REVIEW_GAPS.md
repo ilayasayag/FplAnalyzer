@@ -119,13 +119,15 @@ Status legend: ⬜ open · 🔵 in progress · ✅ done · ⏸️ deferred.
 
 ---
 
-## Session-7 live-testing findings (mock-league walkthrough, GW3) ⬜
+## Session-7 live-testing findings (mock-league walkthrough, GW3) — mostly FIXED + deployed (v=30)
 
 Bugs reported while signed into `lg_mock_draft` as a real manager. Each was root-caused in
-code (file:line) below. **None were fully fixed by EP1–EP6 + GAP-301** — they are either new,
-or the parts those epics didn't reach. Severity as before.
+code (file:line) below. **None were fully fixed by EP1–EP6 + GAP-301** — they were either new,
+or the parts those epics didn't reach. **Session-8 update:** GAP-501/502/503/505 are now FIXED
+and deployed (PRs #36/#39/#38/#37, hosting v=30 + functions:api). GAP-504 is code-done but its
+live data re-seed is pending; GAP-506 still needs a runtime repro. Severity as before.
 
-### GAP-501 — Status panel + squad card read bare `ME` ("u_me"), not `window.ME` 🔴 ⬜
+### GAP-501 — Status panel + squad card read bare `ME` ("u_me"), not `window.ME` 🔴 ✅ FIXED (PR #36, deployed v=30)
 - **Symptom:** Status tab GW3 Points / Total Points / League Rank all render "—", and the data
   flickers in then blanks across 2–3 re-renders.
 - **Root cause:** `data.jsx:228` declares `let ME = "u_me"`; login sets `window.ME = uid`
@@ -139,7 +141,12 @@ or the parts those epics didn't reach. Severity as before.
   `draft_wc_design/` for other bare-lexical consumers (same class as the EP5 lineup bug).
 - **Validates:** new VT-110.
 
-### GAP-502 — Player modal: fabricated ICT/“owned in” + history shows an ERROR not empty-state 🟡 ⬜
+### GAP-502 — Player modal: fabricated ICT/“owned in” + history shows an ERROR not empty-state 🟡 ✅ FIXED (PR #39, deployed v=30)
+- **Fix shipped:** ICT panel replaced with the REAL fantasy-points rank (by position + overall);
+  the "Owned in" card now shows honest Owned/Free-agent status for the current league; the
+  `/players/{id}/scores` collection-group query is wrapped in try/except so a missing index /
+  not-yet-existing group returns `[]` (benign "No match data yet") instead of a 500. The
+  `(playerId, gw)` composite index already exists (playerId is the leading field).
 - **Symptom:** modal shows ICT ranks (Influence 127, Creativity 130, Threat 128, ICT 129 /442;
   Overall 387/1386) and "OWNED IN 1/10" while TOTAL is 0 pts and History says
   "Couldn't load this player's match history."
@@ -156,7 +163,10 @@ or the parts those epics didn't reach. Severity as before.
   message) instead of 500.
 - **Validates:** extends VT-106 (mark VT-106 partial until done).
 
-### GAP-503 — League standings never ranked / sorted / qualification-flagged 🔴 ⬜
+### GAP-503 — League standings never ranked / sorted / qualification-flagged 🔴 ✅ FIXED (PR #38, deployed v=30)
+- **Fix shipped:** `_update_standings` now sorts by `hpts`→`fpts`, assigns a 1-based `rank`, and
+  flags the top `knockoutQualifiers` as `qualified` (rest `knockedOut`); persists the cut count
+  on the standings doc. Covered by `test_standings.py` (sort/rank/cut-line/row-count/per-GW snapshot).
 - **Symptom:** every row shows rank "#1"; every row shows "QUALIFIED" (even below the top-8 line);
   0-0-0 / 0-pt teams are interleaved with played teams.
 - **Root cause:** backend `_update_standings` (`wc_scoring.py:839-910`) writes `managers` with
@@ -168,7 +178,12 @@ or the parts those epics didn't reach. Severity as before.
   `qualified`/`knockedOut` by rank vs `knockoutQualifiers` (top-8) and elimination state.
 - **Validates:** new VT-111.
 
-### GAP-504 — Mock-league members malformed: duplicate `teamName`, extra rows 🟡 (data) ⬜
+### GAP-504 — Mock-league members malformed: duplicate `teamName`, extra rows 🟡 (data) 🟡 PARTIAL — code side done, data re-seed pending
+- **Code side (PR #38):** `_update_standings` keys rows by member id, so the table now emits
+  exactly one row per member (no duplicate/stale rows from the scoring path).
+- **Still pending (data):** the live `leagues/lg_mock_draft/members` docs may still carry
+  drifted/duplicate `teamName`s — re-seed/clean the collection to make names distinct. Data
+  migration, not code.
 - **Symptom:** three managers (Netanel, Roy, Yuval) all show team name "FPLFRAN's Squad";
   repeated "Opponent XI"; more rows than the league's real member count.
 - **Root cause:** render is faithful (`screens-data.jsx:351` shows `m.teamName`); the
@@ -179,7 +194,12 @@ or the parts those epics didn't reach. Severity as before.
   no duplicate uids. (Data migration, not code.)
 - **Validates:** new VT-111 (same panel).
 
-### GAP-505 — Fixtures SCREEN renders static `WC_FIXTURES_GW4` for every GW 🔴 ⬜
+### GAP-505 — Fixtures SCREEN renders static `WC_FIXTURES_GW4` for every GW 🔴 ✅ FIXED (PR #37, deployed v=30)
+- **Fix shipped:** `FixturesScreen` now has a `useEffect` keyed on `gw` that fetches
+  `GET /fixtures?gw={gw}`, normalizes the backend shape (`homeTeam/awayTeam/kickoff/status/score`)
+  into the renderer's row model, and falls back to the static array only while loading / on fetch
+  error. Team names + group labels resolve via `teamById`/`TEAM_MAP`; empty GWs show a benign
+  "No fixtures scheduled" message.
 - **Symptom:** the dedicated Fixtures tab shows the same 8 matches (ESP v JPN, ARG v ECU, …) for
   every GW; GW nav only changes the header; group labels wrong ("GRP ?", Argentina "GRP H").
 - **Root cause:** `FixturesScreen` (`screens-data.jsx:211`) reads the bare lexical
@@ -219,5 +239,6 @@ or the parts those epics didn't reach. Severity as before.
 - Validation tickets → `WC2026_VALIDATION_TICKETS.md`.
 - VT-104 ↔ GAP-301 (Pick Team pitch only); VT-109 ↔ GAP-505 (Fixtures screen);
   VT-110 ↔ GAP-501 (Status/squad-card); VT-111 ↔ GAP-503/504 (standings); EP7 ↔ GAP-700/506.
-- Recurring **bare-lexical vs `window.*`** class: EP5 lineup (fixed), GAP-501 (`ME`),
-  GAP-505 (`WC_FIXTURES_GW4`). Worth a one-time sweep of all bare consumers in `draft_wc_design/`.
+- Recurring **bare-lexical vs `window.*`** class: EP5 lineup (fixed), GAP-501 (`ME`, swept all 49
+  reads in PR #36), GAP-505 (`WC_FIXTURES_GW4`, PR #37). The bare-`ME` sweep is done; keep this
+  class in mind for any new `data.jsx` lexical that an async loader later overwrites on `window`.

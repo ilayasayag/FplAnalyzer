@@ -20,7 +20,7 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 ### VT-001 — Full backend suite green ⬜
 - **Verify:** the entire scoring/aggregation/seed/e2e suite passes.
 - **How:** `PYTHONPATH=. /Users/ilay/RiderProjects/fpl_analyzer/.venv/bin/python -m pytest -q`
-- **Expected:** `135 passed` (or higher as tests are added), 0 failures.
+- **Expected:** `139 passed` (or higher as tests are added), 0 failures.
 
 ### VT-002 — Scoring engine rules (EP1) ⬜
 - **Verify:** DefCon (DEF +2 @ ≥10, MID +2 @ ≥12, none for GK/FWD), rating bonus 3/2/1 with ties, 9-scenario regression.
@@ -83,14 +83,14 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 - **How:** Trades → propose a trade to another manager → submit.
 - **Expected:** the new trade shows in your Sent/outbox (and the target's inbox).
 
-### VT-106 — Player stats modal reconciles (#4) — PARTIAL (see GAP-502) ⬜
+### VT-106 — Player stats modal reconciles (#4) — FULL FIX (GAP-502 done, deployed v=30) ⬜
 - **Verify:** in a player's stats modal, each GW row's PTS equals what its stats imply; nothing is fabricated.
-- **How:** open any player → History tab.
+- **How:** open any player → History tab + inspect the header.
 - **Expected:** rows come from `/players/{id}/scores` (real); PTS column = backend `fantasyPoints`; B = `bonusPoints`; stats and PTS are from the same row. Empty/finalized-no-data shows a message, not random rows.
-- **Known still-broken (GAP-502):** the modal HEADER still shows fabricated ICT ranks and a literal
-  "OWNED IN 1/10"; and a player with no scored matches shows the ERROR message
-  ("Couldn't load…") instead of the benign empty-state — the `/players/{id}/scores` query 500s.
-  Don't pass VT-106 until GAP-502 is fixed.
+- **GAP-502 now fixed:** the header shows the REAL fantasy-points rank ("Points Rank" by position
+  + overall), NOT fabricated ICT; the "Owned in 1/10" literal is replaced with an honest
+  Owned/Free-agent status; a player with no scored matches shows the benign "No match data yet"
+  empty-state (the `/players/{id}/scores` endpoint now returns `[]` instead of 500).
 
 ### VT-107 — Points tab total reconciles (#4) ⬜
 - **Verify:** the Points tab squad total equals the sum of the rostered starters' points (+captain), not a hardcoded number.
@@ -105,7 +105,7 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 
 ## Session-7 live-testing tickets (open follow-ups)
 
-### VT-109 — Fixtures SCREEN shows real per-GW fixtures (GAP-505) ⬜
+### VT-109 — Fixtures SCREEN shows real per-GW fixtures (GAP-505) — FIXED + deployed (v=30) ⬜
 - **Verify:** the dedicated Fixtures tab shows DIFFERENT matches per GW, from real data — not the
   static `WC_FIXTURES_GW4` set on every GW.
 - **How:** Fixtures tab → step GW1→GW2→GW3 with the arrows.
@@ -113,20 +113,22 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
   (no "GRP ?" for real teams); fetched from `GET /fixtures?gw=N`. **NOTE:** GAP-301/VT-104 fixed
   only the Pick Team pitch, not this screen.
 
-### VT-110 — Status panel + squad card reconcile (no flicker-to-blank) (GAP-501) ⬜
+### VT-110 — Status panel + squad card reconcile (no flicker-to-blank) (GAP-501) — FIXED + deployed (v=30) ⬜
 - **Verify:** Status tab GW3 Points / Total Points / League Rank show REAL values for the
   signed-in manager and stay put (no appear-then-disappear across re-renders).
 - **How:** open Status as a seeded manager mid-GW3; watch through the initial loads.
 - **Expected:** values are keyed by `window.ME` (the real uid), not `"u_me"`; the squad card on
   the right matches; no "—" once data has loaded.
 
-### VT-111 — League standings ranked / qualified / records correct (GAP-503/504) ⬜
+### VT-111 — League standings ranked / qualified / records correct (GAP-503/504) — GAP-503 FIXED + deployed (v=30); GAP-504 data re-seed pending ⬜
 - **Verify:** the standings table has correct ranks (not all "#1"), correct qualification flags
-  (only top-8 above the line show QUALIFIED), consistent W/D/L+FPTS, distinct team names, and
+  (only top-N above the line show QUALIFIED), consistent W/D/L+FPTS, distinct team names, and
   exactly the league's member count (no duplicate/stale rows).
 - **How:** League tab on `lg_mock_draft` after ≥1 finalized GW.
-- **Expected:** backend `_update_standings` sorts + assigns `rank` + sets `qualified`; mock
-  members have distinct `teamName`s (re-seed if drifted).
+- **Expected:** backend `_update_standings` now sorts by `hpts`→`fpts`, assigns `rank`, and sets
+  `qualified`/`knockedOut` by rank vs `knockoutQualifiers` (verified by `test_standings.py`).
+- **Still pending (GAP-504, data):** if managers still show duplicate `teamName`s, re-seed/clean
+  the live `leagues/lg_mock_draft/members` collection — that's a data migration, not code.
 
 ---
 
