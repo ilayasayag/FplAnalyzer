@@ -360,7 +360,12 @@ function StatusScreen({ onTab }) {
 // ---------- POINTS (finished GW pitch) ----------
 function PointsScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
-  const lineup = MY_LINEUP_GW3;
+  // Use the backend-loaded lineup for the viewed GW (app.jsx sets
+  // window.MY_LINEUP_GW3 from GET /leagues/{lid}/lineup/{gw}). The bare lexical
+  // MY_LINEUP_GW3 is the static demo const — reading it would render a demo
+  // roster while the real per-player points (keyed by real ids) come from the
+  // gw_history snapshot, so the two would never line up.
+  const lineup = window.MY_LINEUP_GW3 || MY_LINEUP_GW3;
 
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
