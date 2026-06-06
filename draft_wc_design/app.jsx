@@ -607,6 +607,29 @@ function App() {
           console.warn("Failed to fetch schedule", e);
         }
 
+        // Fetch real per-team fixtures for the viewing GW so Pick Team can show
+        // each player's "v OPP" from live data instead of the static
+        // WC_FIXTURES_GW4 round. Keyed by the same iso the players use
+        // (backend resolves homeTeam/awayTeam isoCode from the team map).
+        try {
+          const fixtures = await apiCall("GET", `/fixtures?gw=${viewingGw}`);
+          const byTeam = {};
+          (fixtures || []).forEach(fx => {
+            const h = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
+            const a = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
+            if (h && a) {
+              byTeam[h] = { opp: a, home: true };
+              byTeam[a] = { opp: h, home: false };
+            }
+          });
+          window.WC_FIXTURES_BY_TEAM = byTeam;
+        } catch (e) {
+          console.warn("Failed to fetch per-team fixtures", e);
+          // Keep any previously-loaded map; getNextFixtureOpponent falls back
+          // to the static WC_FIXTURES_GW4 round when this is empty.
+          if (!window.WC_FIXTURES_BY_TEAM) window.WC_FIXTURES_BY_TEAM = {};
+        }
+
         // Fetch my Squad
         try {
           const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
