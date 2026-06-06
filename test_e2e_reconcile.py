@@ -276,5 +276,44 @@ def test_reprocess_is_noop(db):
     assert sum_player_scores(db) == scores_before
 
 
+# ---------------------------------------------------------------------------
+# is_home / goalsConceded derivation from the fixture score (regression).
+#
+# process_fixture resolves is_home via fixture.homeTeam.id == team_id, then
+# sets goals_conceded = away_goals (home side) or home_goals (away side). If a
+# fixture is written WITHOUT homeTeam.id (the mock-seed bug fixed alongside this
+# test), is_home is always False and BOTH sides are scored as conceding
+# home_goals — silently corrupting home-side clean sheets / GC penalties. The
+# shared fake seeds homeTeam.id correctly, so this asserts the engine path AND
+# guards against the fixture-doc regression.
+# ---------------------------------------------------------------------------
+
+import test_helpers as H  # noqa: E402
+
+
+def _conceded_and_cs(db, fid, pid):
+    sc = db.store[f"wc_fixtures/{fid}/playerScores/{pid}"]["stats"]
+    return sc["goalsConceded"], sc["cleanSheet"]
+
+
+def test_home_away_goals_conceded_from_score():
+    db = H.FakeDB()
+    # Home team (id=1) wins 2-0: home keeps a clean sheet, away concedes 2.
+    H.seed_fixture(db, 900, 1, home_team=1, away_team=2, home_goals=2, away_goals=0)
+    H.seed_players(db, {10: 1, 20: 1})  # both goalkeepers
+    raw = H.raw_stats(
+        home_team=1, away_team=2,
+        home_players=[H.player_block(10, "HomeGK", minutes=90)],
+        away_players=[H.player_block(20, "AwayGK", minutes=90)],
+    )
+    process_fixture(900, raw, wc_client=None, db=db)
+
+    home_gc, home_cs = _conceded_and_cs(db, 900, 10)
+    away_gc, away_cs = _conceded_and_cs(db, 900, 20)
+
+    assert (home_gc, home_cs) == (0, True), "home GK should concede away_goals (0) and keep a CS"
+    assert (away_gc, away_cs) == (2, False), "away GK should concede home_goals (2), no CS"
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))

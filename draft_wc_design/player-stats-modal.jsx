@@ -85,8 +85,25 @@ function PlayerStatsModal() {
     ? (last2.reduce((sum, h) => sum + (h.pts || 0), 0) / last2.length).toFixed(1)
     : "0.0";
 
-  // Owner
-  const owner = MY_SQUAD_IDS.includes(p.id) ? "Hapoel Eliyahu (you)" : null;
+  // Owner: resolve from the all-manager squad map (window.SQUADS_BY_UID,
+  // populated by app.jsx) and the real manager team names. The bare lexical
+  // MY_SQUAD_IDS / hardcoded team name are static demo data — prefer the
+  // window-loaded values so real ownership shows for every manager, not just ME.
+  const managers = window.MANAGERS || MANAGERS;
+  const squadsByUid = window.SQUADS_BY_UID || {};
+  const mySquadIds = window.MY_SQUAD_IDS || MY_SQUAD_IDS;
+  let owner = null;
+  const ownerUid = Object.keys(squadsByUid).find(
+    uid => (squadsByUid[uid] || []).map(String).includes(String(p.id))
+  );
+  if (ownerUid) {
+    const m = managers.find(mm => mm.uid === ownerUid);
+    const teamName = (m && (m.team || m.displayName)) || "a manager";
+    owner = ownerUid === window.ME ? `${teamName} (you)` : teamName;
+  } else if ((mySquadIds || []).map(String).includes(String(p.id))) {
+    const me = managers.find(mm => mm.uid === window.ME);
+    owner = `${(me && (me.team || me.displayName)) || "your squad"} (you)`;
+  }
 
   return (
     <div className="modal-backdrop" onClick={() => setPlayerId(null)}>

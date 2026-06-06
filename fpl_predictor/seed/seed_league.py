@@ -505,8 +505,13 @@ def seed_mock_league(db, USER_UID, USER_NAME):
                 "id": f["id"],
                 "gw": gw,
                 "wcRound": f"Group Stage · MD{gw}",
-                "homeTeam": {"isoCode": f["home"], "name": f["home"]},
-                "awayTeam": {"isoCode": f["away"], "name": f["away"]},
+                # team ids MUST match the synthetic team_id passed to
+                # build_team_raw_stats below (home=1, away=2). process_fixture
+                # resolves is_home via homeTeam.id == team_id; without these ids
+                # is_home is always False and home-side goals-conceded/clean-sheet
+                # are computed against the wrong team's score.
+                "homeTeam": {"id": 1, "isoCode": f["home"], "name": f["home"]},
+                "awayTeam": {"id": 2, "isoCode": f["away"], "name": f["away"]},
                 "kickoff": SERVER_TIMESTAMP,
                 "status": "FT",
                 "score": f["score"],
