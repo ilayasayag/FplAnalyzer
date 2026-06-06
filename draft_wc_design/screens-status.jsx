@@ -165,7 +165,7 @@ function AdminWindowSwitcher() {
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
   const _standings = window.STANDINGS || STANDINGS;
-  const myStanding = _standings.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const myStanding = _standings.find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const top5 = _standings.slice(0, 8);
 
   const rounds = BRACKET.rounds || BRACKET || {};
@@ -175,12 +175,12 @@ function StatusScreen({ onTab }) {
     ? rounds.final 
     : (rounds.final && typeof rounds.final === 'object' ? [rounds.final] : []);
 
-  const myMatch = qfArray.find(m => m.home === ME || m.away === ME) ||
-                  sfArray.find(m => m.home === ME || m.away === ME) ||
-                  finalArray.find(m => m.home === ME || m.away === ME);
+  const myMatch = qfArray.find(m => m.home === window.ME || m.away === window.ME) ||
+                  sfArray.find(m => m.home === window.ME || m.away === window.ME) ||
+                  finalArray.find(m => m.home === window.ME || m.away === window.ME);
   
-  const myOpponent = myMatch ? (myMatch.home === ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
-  const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === ME);
+  const myOpponent = myMatch ? (myMatch.home === window.ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
+  const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === window.ME);
   const mySeed = mySeedObj ? mySeedObj.seed : (myStanding ? myStanding.rank : "?");
 
   const getRoundName = (matchId) => {
@@ -202,7 +202,7 @@ function StatusScreen({ onTab }) {
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
   const setViewingGw = window.setViewingGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
   
   const getOrdinal = n => {
     const num = Number(n);
@@ -322,7 +322,7 @@ function StatusScreen({ onTab }) {
             </div>
             <div>
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Seed #{myMatch.home === ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
+                Seed #{myMatch.home === window.ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
               </div>
               <div className="h-display" style={{ fontSize: 22 }}>{myOpponent ? myOpponent.team : "TBD"}</div>
               <div className="muted" style={{ fontSize: 13 }}>{myOpponent ? myOpponent.name : "Awaiting Seeding"}</div>

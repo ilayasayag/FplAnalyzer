@@ -136,7 +136,7 @@ function DraftRoomScreen({ onTab }) {
   }
 
   // My squad so far
-  const myPicks = DRAFT_HISTORY.filter(p => p.uid === ME);
+  const myPicks = DRAFT_HISTORY.filter(p => p.uid === window.ME);
   const mySquadByPos = { 1: 0, 2: 0, 3: 0, 4: 0 };
   myPicks.forEach(p => { mySquadByPos[playerById(p.playerId).pos]++; });
 
@@ -193,7 +193,7 @@ function DraftRoomScreen({ onTab }) {
           {upcoming.slice(1).map((p, i) => {
             const m = managerById(p.uid);
             const t = teamById(m.flag);
-            const isMe = p.uid === ME;
+            const isMe = p.uid === window.ME;
             return (
               <div key={i} style={{ display: "grid", gridTemplateColumns: "36px 1fr", gap: 8, padding: "7px 12px", borderBottom: "1px solid var(--border-dark)", alignItems: "center", fontSize: 12, background: isMe ? "rgba(255,200,68,0.10)" : undefined }}>
                 <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, whiteSpace: "nowrap" }}>R{p.round}·{String(p.overall).padStart(2,"0")}</span>
@@ -435,10 +435,10 @@ function SquadCount({ label, cur, max }) {
 // ---------- CREATE / JOIN LEAGUE ----------
 function CreateLeagueScreen({ onTab }) {
   const [mode, setMode] = React.useState("home"); // home | create | join
-  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
-  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
   const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
   const [leaguesList, setLeaguesList] = React.useState([]);

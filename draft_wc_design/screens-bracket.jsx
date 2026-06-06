@@ -108,15 +108,15 @@ function BracketScreen({ onTab }) {
             );
           }
 
-          const myQfMatch = rounds.qf ? rounds.qf.find(m => m.home === ME || m.away === ME) : null;
-          const mySfMatch = rounds.sf ? rounds.sf.find(m => m.home === ME || m.away === ME) : null;
-          const myFinalMatch = rounds.final ? rounds.final.find(m => m.home === ME || m.away === ME) : null;
+          const myQfMatch = rounds.qf ? rounds.qf.find(m => m.home === window.ME || m.away === window.ME) : null;
+          const mySfMatch = rounds.sf ? rounds.sf.find(m => m.home === window.ME || m.away === window.ME) : null;
+          const myFinalMatch = rounds.final ? rounds.final.find(m => m.home === window.ME || m.away === window.ME) : null;
 
           const pathItems = [];
           if (hasQf) {
             // QF
             if (myQfMatch) {
-              const oppUid = myQfMatch.home === ME ? myQfMatch.away : myQfMatch.home;
+              const oppUid = myQfMatch.home === window.ME ? myQfMatch.away : myQfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "QF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 4, dates: "Jul 1–4"
@@ -126,7 +126,7 @@ function BracketScreen({ onTab }) {
             }
             // SF
             if (mySfMatch) {
-              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const oppUid = mySfMatch.home === window.ME ? mySfMatch.away : mySfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 1, dates: "Jul 5–8"
@@ -136,7 +136,7 @@ function BracketScreen({ onTab }) {
             }
             // Final
             if (myFinalMatch) {
-              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const oppUid = myFinalMatch.home === window.ME ? myFinalMatch.away : myFinalMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 2, dates: "Jul 10–12"
@@ -147,7 +147,7 @@ function BracketScreen({ onTab }) {
           } else {
             // SF only
             if (mySfMatch) {
-              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const oppUid = mySfMatch.home === window.ME ? mySfMatch.away : mySfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 7, dates: "Jul 14–15"
@@ -157,7 +157,7 @@ function BracketScreen({ onTab }) {
             }
             // Final
             if (myFinalMatch) {
-              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const oppUid = myFinalMatch.home === window.ME ? myFinalMatch.away : myFinalMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 7) + 1, dates: "Jul 18–19"
@@ -193,7 +193,7 @@ function BracketMatch({ match, result, round }) {
   const hT = h ? teamById(h.flag) : null;
   const aT = a ? teamById(a.flag) : null;
   const isLive = result?.status === "live";
-  const meSide = match.home === ME ? "home" : (match.away === ME ? "away" : null);
+  const meSide = match.home === window.ME ? "home" : (match.away === window.ME ? "away" : null);
 
   const homeSeed = match.seedHome ?? match.homeSeed ?? "—";
   const awaySeed = match.seedAway ?? match.awaySeed ?? "—";
@@ -235,7 +235,7 @@ function BracketMatch({ match, result, round }) {
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const activeWindow = window.WINDOW || WINDOW;
-  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -812,7 +812,7 @@ function DraftTab() {
       if (ownerFilter === "unowned" && ownerName) return false;
       if (ownerFilter === "my") {
         const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
-        if (!pPick || pPick.uid !== ME) return false;
+        if (!pPick || pPick.uid !== window.ME) return false;
       }
       if (ownerFilter !== "all" && ownerFilter !== "unowned" && ownerFilter !== "my") {
         const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
@@ -904,7 +904,7 @@ function DraftTab() {
             <option value="all">All Owners</option>
             <option value="unowned">Unowned</option>
             <option value="my">My Team</option>
-            {managers.filter(m => m.uid !== ME).map(m => (
+            {managers.filter(m => m.uid !== window.ME).map(m => (
               <option key={m.uid} value={m.uid}>{m.team}</option>
             ))}
           </select>
