@@ -302,6 +302,15 @@ def process_fixture(
     away_goals = 0
 
     fixture_doc = db.collection("wc_fixtures").document(str(fixture_id)).get()
+
+    # Idempotency guard (EP2-W1/W3): a fixture already marked processedForFantasy
+    # must not be re-scored. Re-running would double-count both the per-player
+    # playerScores write AND the wc_players.totalPoints season Increment below,
+    # and would re-fire the league propagation increments. Early-return so every
+    # downstream Increment is fired at most once per fixture.
+    if fixture_doc.exists and fixture_doc.to_dict().get("processedForFantasy"):
+        return {}
+
     if fixture_doc.exists:
         score = fixture_doc.to_dict().get("score", {})
         home_goals = score.get("home") or 0
@@ -391,6 +400,8 @@ def process_fixture(
     gw = fixture_doc.to_dict().get("gw", 1) if fixture_doc.exists else 1
 
     # Compute points and persist
+    from google.cloud.firestore_v1 import Increment
+
     results: Dict[int, Dict] = {}
     batch = db.batch()
 
@@ -405,6 +416,7 @@ def process_fixture(
         result = {
             "playerId": pid,
             "gw": gw,
+            # fantasyPoints already INCLUDES the rating bonus (base_pts + bonus).
             "fantasyPoints": total_pts,
             "bonusPoints": bonus,
             "stats": pdata["stats"],
@@ -414,6 +426,15 @@ def process_fixture(
         score_ref = (db.collection("wc_fixtures").document(str(fixture_id))
                      .collection("playerScores").document(str(pid)))
         batch.set(score_ref, result)
+
+        # EP2-W1: aggregate the player's season total onto wc_players.totalPoints.
+        # The delta is this fixture's total = fantasyPoints (which ALREADY folds
+        # in the bonus). Adding bonusPoints again would double-count the bonus.
+        # Atomic Increment so concurrent fixture processing is safe; the
+        # processedForFantasy early-return above makes this fire at most once.
+        if total_pts:
+            player_ref = db.collection("wc_players").document(str(pid))
+            batch.set(player_ref, {"totalPoints": Increment(total_pts)}, merge=True)
 
     # Mark fixture as processed
     fixture_ref = db.collection("wc_fixtures").document(str(fixture_id))
@@ -434,7 +455,25 @@ def _propagate_to_leagues(
 ):
     """
     Update running GW scores in all active leagues for players in this fixture.
-    Uses atomic increments so concurrent fixture processing is safe.
+
+    EP2-W3 — set-vs-increment decision: this is an INCREMENT (accrual) path,
+    intentionally. Fixtures within a GW land independently/concurrently, so each
+    contributes its delta to a running ``scores/{gw}.results.{uid}.points`` live
+    total via an atomic ``Increment``. A SET here would be wrong: it would clobber
+    the contributions of fixtures already processed for the same GW.
+
+    Idempotency is enforced UPSTREAM, not here: ``process_fixture`` early-returns
+    when the fixture is already ``processedForFantasy``, so this function fires at
+    most once per fixture and can never double-accrue.
+
+    The ``if delta:`` guard is therefore safe: a net-zero contribution adds
+    nothing, and skipping the write leaves no stale value because this running
+    total is NOT the authoritative figure. ``finalize_gw`` re-derives each
+    manager's points from scratch (post-autosub) and writes them with an absolute
+    ``scores_ref.set({"results": {uid: {"points": ...}}}, merge=True)``, which
+    fully OVERWRITES the running total. That finalize SET is what makes the GW
+    self-correcting and re-finalize-idempotent — any drift in the live accrual is
+    discarded at finalize.
     """
     from google.cloud.firestore_v1 import Increment
 
@@ -511,6 +550,9 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     # Build full GW player points: player_id -> {fantasyPoints, stats}
     all_player_points: Dict[int, int] = {}
     all_player_minutes: Dict[int, int] = {}
+    # EP2-W2: carry per-player per-GW stats through to the gw_history snapshot
+    # so the frontend modal can reconcile each player's points breakdown.
+    all_player_stats: Dict[int, Dict] = {}
     for fixture_doc in gw_fixtures:
         fid = fixture_doc.id
         score_docs = (db.collection("wc_fixtures").document(fid)
@@ -520,6 +562,8 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
             pdata = pdoc.to_dict()
             all_player_points[pid] = all_player_points.get(pid, 0) + pdata.get("fantasyPoints", 0)
             all_player_minutes[pid] = all_player_minutes.get(pid, 0) + (pdata.get("stats", {}).get("minutes") or 0)
+            # A player appears in at most one fixture per GW; last-write is fine.
+            all_player_stats[pid] = pdata.get("stats", {}) or {}
 
     # Get position map
     pos_map: Dict[int, int] = {}
@@ -684,6 +728,7 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     _snapshot_gw_history(
         league_ref, gw, uid_list, all_player_points, results,
         league_phase_gws, knockout_start_gw, db,
+        all_player_stats=all_player_stats,
     )
 
     # Step 10: advance currentGw
@@ -694,14 +739,21 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
 
 
 def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
-                         league_phase_gws, knockout_start_gw, db):
+                         league_phase_gws, knockout_start_gw, db,
+                         all_player_stats=None):
     """Write per-manager gw_history snapshot docs at GW finalize.
 
     Performs the lineup-IDs -> playerScores points join (the per-manager,
     per-player breakdown) and resolves opponent/result. Path:
     ``leagues/{lid}/gw_history/{uid}_{gw}``. Full overwrite via ``.set`` so
     re-finalizing a GW is idempotent. See WC2026_WINDOWS_DESIGN.md §3.3.
+
+    ``all_player_stats`` (EP2-W2): optional ``pid -> stats`` map. When provided,
+    each ``players[]`` entry also carries that player's per-GW ``stats`` so the
+    frontend can reconcile the points breakdown. Defaults to an empty dict
+    (entries then get ``stats: {}``) to stay backwards-compatible.
     """
+    all_player_stats = all_player_stats or {}
     # H2H results for league-phase GWs (opponent/result/opponentPoints).
     h2h_results = {}
     if gw in league_phase_gws:
@@ -727,7 +779,9 @@ def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
             continue
         lineup = lineup_doc.to_dict()
         fielded = list(lineup.get("starting", [])) + list(lineup.get("bench", []))
-        players = [{"id": pid, "points": all_player_points.get(pid, 0)}
+        players = [{"id": pid,
+                    "points": all_player_points.get(pid, 0),
+                    "stats": all_player_stats.get(pid, {})}
                    for pid in fielded]
         total_points = results.get(uid, {}).get("points", 0)
 
