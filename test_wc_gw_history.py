@@ -209,11 +209,11 @@ def test_players_join_and_total_points(db):
     assert hist["gw"] == gw
     # all 15 fielded (here 5) IDs joined, in starting+bench order
     assert hist["players"] == [
-        {"id": 11, "points": 6},
-        {"id": 12, "points": 2},
-        {"id": 13, "points": 0},
-        {"id": 14, "points": 1},
-        {"id": 15, "points": 3},
+        {"id": 11, "points": 6, "stats": {}},
+        {"id": 12, "points": 2, "stats": {}},
+        {"id": 13, "points": 0, "stats": {}},
+        {"id": 14, "points": 1, "stats": {}},
+        {"id": 15, "points": 3, "stats": {}},
     ]
     # missing player id defaults to 0; player 99 not on lineup excluded
     assert hist["totalPoints"] == 54
@@ -229,7 +229,8 @@ def test_missing_player_points_default_zero(db):
                          results, [1, 2, 3], 4, db)
 
     hist = _read_history(db, "u_a", gw)
-    assert hist["players"] == [{"id": 11, "points": 5}, {"id": 12, "points": 0}]
+    assert hist["players"] == [{"id": 11, "points": 5, "stats": {}},
+                               {"id": 12, "points": 0, "stats": {}}]
 
 
 # ---------------------------------------------------------------------------
@@ -364,7 +365,8 @@ def test_idempotent_overwrite(db):
     _snapshot_gw_history(_league_ref(db), gw, ["u_a"], {11: 5, 12: 3},
                          results, [1, 2, 3], 4, db)
     first = _read_history(db, "u_a", gw)
-    assert first["players"] == [{"id": 11, "points": 5}, {"id": 12, "points": 3}]
+    assert first["players"] == [{"id": 11, "points": 5, "stats": {}},
+                                {"id": 12, "points": 3, "stats": {}}]
 
     # Re-finalize with changed lineup + points; full overwrite expected.
     _seed_lineup(db, "u_a", gw, [11], [99])
@@ -372,7 +374,8 @@ def test_idempotent_overwrite(db):
     _snapshot_gw_history(_league_ref(db), gw, ["u_a"], {11: 6, 99: 3},
                          results2, [1, 2, 3], 4, db)
     second = _read_history(db, "u_a", gw)
-    assert second["players"] == [{"id": 11, "points": 6}, {"id": 99, "points": 3}]
+    assert second["players"] == [{"id": 11, "points": 6, "stats": {}},
+                                 {"id": 99, "points": 3, "stats": {}}]
     assert second["totalPoints"] == 9
     # no stale keys / leftover entries
     assert len(second["players"]) == 2
