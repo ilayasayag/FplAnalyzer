@@ -287,12 +287,20 @@ def process_fixture(
     raw_stats: List[Dict],
     wc_client,
     db,
+    pos_map: Optional[Dict[int, int]] = None,
+    rules: Optional[Dict] = None,
 ) -> Dict[int, Dict]:
     """
     Compute and persist fantasy points for one completed fixture.
 
     raw_stats: response from wc_client.get_fixture_player_stats(fixture_id)
     Returns {player_id: {fantasyPoints, stats, bonusPoints}}.
+
+    ``pos_map`` (player_id -> position) and ``rules`` may be supplied by callers
+    that process many fixtures in a row (e.g. the tournament simulator) to avoid
+    re-reading the entire ``wc_players`` collection and the config doc on every
+    fixture. When omitted they are loaded from Firestore exactly as before, so
+    existing callers are unaffected.
     """
     # Build per-player stat dicts
     player_stats: Dict[int, Dict] = {}
@@ -383,19 +391,21 @@ def process_fixture(
             if rating_val and minutes > 0:
                 rating_list.append((pid, rating_val))
 
-    # Get player positions from Firestore
-    pos_map: Dict[int, int] = {}
-    player_docs = db.collection("wc_players").get()
-    for doc in player_docs:
-        d = doc.to_dict()
-        pos_map[d.get("id", 0)] = d.get("position", 3)
+    # Get player positions from Firestore (unless the caller supplied a cache).
+    if pos_map is None:
+        pos_map = {}
+        player_docs = db.collection("wc_players").get()
+        for doc in player_docs:
+            d = doc.to_dict()
+            pos_map[d.get("id", 0)] = d.get("position", 3)
 
     # Compute rating-rank bonuses (one award set per fixture)
     bonuses = compute_rating_bonus(rating_list)
 
-    # Load custom rules from Firestore config
-    config_doc = db.collection("wc_config").document("tournament").get()
-    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+    # Load custom rules from Firestore config (unless the caller supplied them).
+    if rules is None:
+        config_doc = db.collection("wc_config").document("tournament").get()
+        rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
 
     gw = fixture_doc.to_dict().get("gw", 1) if fixture_doc.exists else 1
 

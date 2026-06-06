@@ -153,9 +153,18 @@ class _Coll:
         return list(self._children())
 
     def where(self, field, op, value):
-        assert op == "=="
         return _Query([s for s in self._children()
-                       if (s.to_dict() or {}).get(field) == value])
+                       if _matches(s.to_dict() or {}, field, op, value)])
+
+
+def _matches(data, field, op, value):
+    """Minimal Firestore filter support for the fake DB: ``==`` and ``in``."""
+    fv = (data or {}).get(field)
+    if op == "==":
+        return fv == value
+    if op == "in":
+        return fv in value
+    raise AssertionError(f"unsupported op {op!r}")
 
 
 class _Query:
@@ -163,9 +172,8 @@ class _Query:
         self._snaps = snaps
 
     def where(self, field, op, value):
-        assert op == "=="
         return _Query([s for s in self._snaps
-                       if (s.to_dict() or {}).get(field) == value])
+                       if _matches(s.to_dict() or {}, field, op, value)])
 
     def get(self):
         return list(self._snaps)
