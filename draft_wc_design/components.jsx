@@ -246,7 +246,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
+function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -255,6 +255,11 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
   const def = starting.slice(1, 1 + nDef);
   const mid = starting.slice(1 + nDef, 1 + nDef + nMid);
   const fwd = starting.slice(1 + nDef + nMid, 1 + nDef + nMid + nFwd);
+
+  // Per-player points for the viewed gw (engine output from the manager's
+  // gw_history snapshot). When provided, this overrides the GW3_POINTS
+  // (season-total) fallback inside PlayerSlot.
+  const ptsOf = (id) => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : undefined;
 
   const isPlayerDisabled = (id) => {
     if (mode !== "pick" || selected === null) return false;
@@ -275,16 +280,16 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
         </div>
       </div>
@@ -295,7 +300,7 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <PlayerSlot playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
+              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
             </div>
           ))}
         </div>

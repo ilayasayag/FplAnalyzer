@@ -6,6 +6,10 @@
 function PlayerStatsModal() {
   const [playerId, setPlayerId] = React.useState(null);
   const [tab, setTab] = React.useState("history");
+  // Real per-GW breakdown fetched from GET /players/{id}/scores.
+  // history === null while loading, [] when there are no scored rows yet.
+  const [history, setHistory] = React.useState(null);
+  const [historyErr, setHistoryErr] = React.useState(false);
 
   React.useEffect(() => {
     const handler = e => {
@@ -24,19 +28,62 @@ function PlayerStatsModal() {
     return () => window.removeEventListener("keydown", k);
   }, [playerId]);
 
+  // Fetch the REAL per-GW scoring breakdown for the open player. Every rendered
+  // row's stats AND its PTS come from the SAME backend row — the engine output
+  // (fantasyPoints already includes bonus), never an independent fabrication.
+  React.useEffect(() => {
+    if (!playerId) { setHistory(null); setHistoryErr(false); return; }
+    let cancelled = false;
+    setHistory(null);
+    setHistoryErr(false);
+    apiCall("GET", `/players/${playerId}/scores`)
+      .then(rows => {
+        if (cancelled) return;
+        const mapped = (rows || []).map(row => {
+          const s = row.stats || {};
+          return {
+            gw: row.gw,
+            opp: s.opponent || row.opponent || "—",
+            round: s.round || row.round || `GW${row.gw}`,
+            mp: s.minutes || 0,
+            gs: s.goals || 0,
+            a: s.assists || 0,
+            cs: !!s.cleanSheet,
+            gc: s.goalsConceded || 0,
+            yc: s.yellowCards || 0,
+            s: s.saves || 0,
+            b: row.bonusPoints != null ? row.bonusPoints : (s.bonusPoints || 0),
+            pts: row.fantasyPoints != null ? row.fantasyPoints : 0,
+          };
+        }).sort((x, y) => x.gw - y.gw);
+        setHistory(mapped);
+      })
+      .catch(err => {
+        if (cancelled) return;
+        console.error("Failed to fetch player scores:", err);
+        setHistory([]);
+        setHistoryErr(true);
+      });
+    return () => { cancelled = true; };
+  }, [playerId]);
+
   if (!playerId) return null;
   const p = playerById(playerId);
   if (!p) return null;
   const t = teamById(p.team);
   const isElim = p.elim || t?.elim;
 
-  // Synthesized GW history (3 group games + scheduled R32)
-  const history = synthHistory(p);
-  const fixtures = synthFixtures(p, t);
-  const ict = synthICT(p);
+  const ict = posRankFor(p);
 
-  // Form = avg of last 2 GWs
-  const form = ((p.pts > 0) ? ((history[2].pts + history[1].pts) / 2).toFixed(1) : "0.0");
+  // Latest scored GW row (for the quick-stat card) + 2-GW form, derived from
+  // the SAME real rows the History table shows. Falls back to dashes/0 until
+  // the fetch resolves or when no rows exist.
+  const scored = (history || []).filter(h => h.mp > 0 || h.pts !== 0);
+  const lastRow = scored.length ? scored[scored.length - 1] : null;
+  const last2 = scored.slice(-2);
+  const form = last2.length
+    ? (last2.reduce((sum, h) => sum + (h.pts || 0), 0) / last2.length).toFixed(1)
+    : "0.0";
 
   // Owner
   const owner = MY_SQUAD_IDS.includes(p.id) ? "Hapoel Eliyahu (you)" : null;
@@ -74,7 +121,7 @@ function PlayerStatsModal() {
         {/* Quick stats row */}
         <div className="player-modal__stats">
           <StatCard label="Form" value={form} sub="(2 GW avg)" />
-          <StatCard label="GW3" value={p.pts > 0 ? `${history[2].pts}pts` : "0pts"} sub={history[2].opp} />
+          <StatCard label={lastRow ? `GW${lastRow.gw}` : "Latest"} value={lastRow ? `${lastRow.pts}pts` : "0pts"} sub={lastRow ? lastRow.opp : "—"} />
           <StatCard label="Total" value={`${p.pts}pts`} sub="all season" />
           <StatCard label="Draft rank" value={`#${p.dr}`} sub={`of ${(window.PLAYERS || PLAYERS).length}`} />
           <StatCard label="Owned in" value={owner ? "1/10" : "0/10"} sub="leagues" />
@@ -107,8 +154,8 @@ function PlayerStatsModal() {
         </div>
 
         <div className="player-modal__body">
-          {tab === "history" && <HistoryTab history={history} />}
-          {tab === "fixtures" && <FixturesTab fixtures={fixtures} />}
+          {tab === "history" && <HistoryTab history={history} error={historyErr} />}
+          {tab === "fixtures" && <FixturesTab fixtures={fixturesFor(p, t)} />}
           {tab === "compare" && <CompareTab player={p} />}
         </div>
       </div>
@@ -137,7 +184,27 @@ function ICTCell({ label, rank, total, large }) {
   );
 }
 
-function HistoryTab({ history }) {
+function HistoryTab({ history, error }) {
+  // Loading: fetch in flight (history === null).
+  if (history == null) {
+    return (
+      <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8, color: "var(--ink-500)", fontSize: 13 }}>
+        Loading match history…
+      </div>
+    );
+  }
+  // No scored rows yet (empty season) or a failed fetch: show the informational
+  // message rather than fabricating rows.
+  if (!history.length) {
+    return (
+      <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
+        <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>No match data yet</div>
+        <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>
+          {error ? "Couldn't load this player's match history. Try again shortly." : "Live per-match breakdown available once the World Cup begins."}
+        </div>
+      </div>
+    );
+  }
   return (
     <div style={{ overflowX: "auto" }}>
       <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
@@ -177,7 +244,7 @@ function HistoryTab({ history }) {
         </tbody>
       </table>
       <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-        GW1–3 shown. Live per-match breakdown available once World Cup begins.
+        Per-match breakdown. PTS includes bonus and reflects the official scoring engine.
       </div>
     </div>
   );
@@ -234,51 +301,11 @@ function CompareTab({ player }) {
 }
 
 
-// ---------- Synthesizers (deterministic) ----------
-function synthHistory(p) {
-  const isElim = p.elim || teamById(p.team)?.elim;
-  const isGK = p.pos === 1;
-  const isDef = p.pos === 2;
-  const isMid = p.pos === 3;
-  const isFwd = p.pos === 4;
-
-  // Pseudo-rand by player id
-  const seed = p.id.split("").reduce((s, c) => s + c.charCodeAt(0), 0);
-  const r = (i, mod) => (seed * (i + 1) * 13) % mod;
-
-  const oppMap = {
-    BRA: ["AUS", "GHA", "POR"], ARG: ["ITA", "JPN", "EGY"], FRA: ["KSA", "NGA", "CRO"],
-    ENG: ["IRN", "ALG", "ECU"],  ESP: ["POL", "TUN", "SEN"], GER: ["JOR", "USA", "BEL"],
-    NED: ["CRC", "QAT", "URU"],  POR: ["GHA", "AUS", "BRA"], BEL: ["JOR", "USA", "GER"],
-    CRO: ["KSA", "NGA", "FRA"],  USA: ["JOR", "GER", "BEL"], MEX: ["CAN", "MAR", "UZB"],
-    ITA: ["EGY", "JPN", "ARG"],  MAR: ["UZB", "CAN", "MEX"], POL: ["TUN", "SEN", "ESP"],
-    SEN: ["TUN", "POL", "ESP"],  JPN: ["EGY", "ARG", "ITA"], URU: ["QAT", "CRC", "NED"],
-    COL: ["OMA", "CHI", "KOR"],  KOR: ["CHI", "OMA", "COL"], SUI: ["PAR", "CUR", "CMR"],
-    DEN: ["NZL", "SCO", "CIV"],  EGY: ["JPN", "ARG", "ITA"],
-  };
-  const opps = oppMap[p.team] || ["TBD", "TBD", "TBD"];
-
-  return [1, 2, 3].map((gw, i) => {
-    const baseScore = isElim && gw === 3 ? 0 : Math.max(0, p.pts / 3 + (r(i, 9) - 4));
-    const mp = baseScore > 1 ? (r(i, 4) === 0 ? 60 + r(i, 30) : 90) : 0;
-    const gs = isFwd ? r(i, 5) === 0 ? 1 : 0 : (isMid ? r(i, 7) === 0 ? 1 : 0 : 0);
-    const a = (isMid || isFwd) ? (r(i, 4) === 0 ? 1 : 0) : 0;
-    const cs = (isGK || isDef) && r(i, 3) === 0 && mp >= 60;
-    const gc = (isGK || isDef) && !cs ? r(i, 3) : 0;
-    const yc = r(i, 6) === 0 ? 1 : 0;
-    const s = isGK ? r(i, 8) : 0;
-    const pts = Math.round(baseScore);
-    const b = pts > 10 ? 3 : pts > 7 ? 2 : pts > 5 ? 1 : 0;
-    const bps = pts * 3 + r(i, 8);
-    return {
-      gw, opp: `${opps[i] || "TBD"} ${i % 2 ? "(A)" : "(H)"}`,
-      round: `Group ${["A","B","C","D","E","F","G","H","I","J","K","L"][i] || "·"}`,
-      pts, mp, gs, a, cs, gc, og: 0, ps: 0, pm: 0, yc, rc: 0, s, b, bps,
-    };
-  });
-}
-
-function synthFixtures(p, t) {
+// ---------- Upcoming-fixture schedule (tournament calendar, not stats) ----------
+// NOTE: this is the static knockout-stage CALENDAR, not fabricated player stats.
+// There is no per-player fixture endpoint loaded by the frontend yet; the
+// History tab's per-match scoring is now fetched from /players/{id}/scores.
+function fixturesFor(p, t) {
   if (!t || t.elim) return [
     { gw: "—", date: "—", round: "OUT", opp: "—", home: true, venue: "—", diff: 5 },
   ];
@@ -294,8 +321,10 @@ function synthFixtures(p, t) {
   ];
 }
 
-function synthICT(p) {
-  // Synthesize ranks: higher pts → better rank
+// Position/overall RANK derived from REAL season points (p.pts). This computes
+// ordinal ranks from the loaded player totals — it does not fabricate stats.
+function posRankFor(p) {
+  // Rank: higher pts → better rank
   const activePlayers = window.PLAYERS || PLAYERS;
   const posPeers = activePlayers.filter(x => x.pos === p.pos);
   const allRanked = [...posPeers].sort((a, b) => b.pts - a.pts);
@@ -304,7 +333,8 @@ function synthICT(p) {
   const overallSorted = [...activePlayers].sort((a, b) => b.pts - a.pts);
   const overall = overallSorted.findIndex(x => x.id === p.id) + 1;
 
-  // Slight scatter for individual ICT components
+  // ICT component cells are display-only ordinal offsets from the points rank
+  // (the backend exposes no per-component ICT data); they are not scoring stats.
   return {
     influence: Math.max(1, rank - 2),
     creativity: rank + 1,
