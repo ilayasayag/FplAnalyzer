@@ -277,8 +277,16 @@ def get_player(player_id: int):
 
 @wc_bp.route("/players/<int:player_id>/scores", methods=["GET"])
 def get_player_scores(player_id: int):
-    docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
-    scores = [d.to_dict() for d in docs]
+    # Collection-group query needs a composite index; before any match is scored
+    # the collection group may not exist yet. Either case should surface as an
+    # empty list (benign "no match data yet" empty-state in the modal), NOT a 500
+    # that the client renders as an error (GAP-502).
+    try:
+        docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
+        scores = [d.to_dict() for d in docs]
+    except Exception as exc:
+        print(f"[warn] player scores query failed for {player_id}: {exc}")
+        scores = []
     scores.sort(key=lambda x: x.get("gw", 0))
     return _ok(scores)
 
