@@ -141,24 +141,21 @@ function PlayerStatsModal() {
           <StatCard label={lastRow ? `GW${lastRow.gw}` : "Latest"} value={lastRow ? `${lastRow.pts}pts` : "0pts"} sub={lastRow ? lastRow.opp : "—"} />
           <StatCard label="Total" value={`${p.pts}pts`} sub="all season" />
           <StatCard label="Draft rank" value={`#${p.dr}`} sub={`of ${(window.PLAYERS || PLAYERS).length}`} />
-          <StatCard label="Owned in" value={owner ? "1/10" : "0/10"} sub="leagues" />
+          <StatCard label="Status" value={owner ? "Owned" : "Free agent"} sub={owner ? "in this league" : "available"} />
         </div>
 
-        {/* ICT */}
+        {/* Points rank — real fantasy-points ranking (no fabricated ICT) */}
         <div className="player-modal__ict">
           <div className="player-modal__ict-section">
-            <div className="player-modal__ict-title">ICT Rank for {POS_NAMES[p.pos] === "GK" ? "Goalkeepers" : POS_NAMES[p.pos] === "DEF" ? "Defenders" : POS_NAMES[p.pos] === "MID" ? "Midfielders" : "Forwards"}</div>
+            <div className="player-modal__ict-title">Points Rank for {POS_NAMES[p.pos] === "GK" ? "Goalkeepers" : POS_NAMES[p.pos] === "DEF" ? "Defenders" : POS_NAMES[p.pos] === "MID" ? "Midfielders" : "Forwards"}</div>
             <div className="player-modal__ict-row">
-              <ICTCell label="Influence" rank={ict.influence} total={ict.totalPos} />
-              <ICTCell label="Creativity" rank={ict.creativity} total={ict.totalPos} />
-              <ICTCell label="Threat" rank={ict.threat} total={ict.totalPos} />
-              <ICTCell label="ICT Index" rank={ict.ictPos} total={ict.totalPos} />
+              <ICTCell label="By position" rank={ict.posRank} total={ict.totalPos} large />
             </div>
           </div>
           <div className="player-modal__ict-section">
-            <div className="player-modal__ict-title">Overall ICT Rank</div>
+            <div className="player-modal__ict-title">Overall Points Rank</div>
             <div className="player-modal__ict-row">
-              <ICTCell label="ICT Index" rank={ict.ictOverall} total={(window.PLAYERS || PLAYERS).length} large />
+              <ICTCell label="All players" rank={ict.overallRank} total={(window.PLAYERS || PLAYERS).length} large />
             </div>
           </div>
         </div>
@@ -350,14 +347,12 @@ function posRankFor(p) {
   const overallSorted = [...activePlayers].sort((a, b) => b.pts - a.pts);
   const overall = overallSorted.findIndex(x => x.id === p.id) + 1;
 
-  // ICT component cells are display-only ordinal offsets from the points rank
-  // (the backend exposes no per-component ICT data); they are not scoring stats.
+  // The backend exposes no per-component ICT data, so we only return the REAL
+  // fantasy-points rank (within position and overall). The modal renders these
+  // as "Points Rank" rather than fabricating influence/creativity/threat.
   return {
-    influence: Math.max(1, rank - 2),
-    creativity: rank + 1,
-    threat: Math.max(1, rank - 1),
-    ictPos: rank,
-    ictOverall: overall,
+    posRank: rank,
+    overallRank: overall,
     totalPos,
   };
 }
