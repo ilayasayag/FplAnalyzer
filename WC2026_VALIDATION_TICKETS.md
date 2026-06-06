@@ -83,10 +83,14 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 - **How:** Trades → propose a trade to another manager → submit.
 - **Expected:** the new trade shows in your Sent/outbox (and the target's inbox).
 
-### VT-106 — Player stats modal reconciles (#4) ⬜
+### VT-106 — Player stats modal reconciles (#4) — PARTIAL (see GAP-502) ⬜
 - **Verify:** in a player's stats modal, each GW row's PTS equals what its stats imply; nothing is fabricated.
 - **How:** open any player → History tab.
 - **Expected:** rows come from `/players/{id}/scores` (real); PTS column = backend `fantasyPoints`; B = `bonusPoints`; stats and PTS are from the same row. Empty/finalized-no-data shows a message, not random rows.
+- **Known still-broken (GAP-502):** the modal HEADER still shows fabricated ICT ranks and a literal
+  "OWNED IN 1/10"; and a player with no scored matches shows the ERROR message
+  ("Couldn't load…") instead of the benign empty-state — the `/players/{id}/scores` query 500s.
+  Don't pass VT-106 until GAP-502 is fixed.
 
 ### VT-107 — Points tab total reconciles (#4) ⬜
 - **Verify:** the Points tab squad total equals the sum of the rostered starters' points (+captain), not a hardcoded number.
@@ -96,6 +100,33 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 ### VT-108 — Modal owner label ⬜
 - **Verify:** the "Owned by" line in the player modal shows the REAL owning manager's team name (and "(you)" when it's yours), for players owned by any manager.
 - **Expected:** not the hardcoded "Hapoel Eliyahu"; reflects `window.SQUADS_BY_UID`.
+
+---
+
+## Session-7 live-testing tickets (open follow-ups)
+
+### VT-109 — Fixtures SCREEN shows real per-GW fixtures (GAP-505) ⬜
+- **Verify:** the dedicated Fixtures tab shows DIFFERENT matches per GW, from real data — not the
+  static `WC_FIXTURES_GW4` set on every GW.
+- **How:** Fixtures tab → step GW1→GW2→GW3 with the arrows.
+- **Expected:** the fixture list changes per GW; team flags/names/groups resolve via `TEAM_MAP`
+  (no "GRP ?" for real teams); fetched from `GET /fixtures?gw=N`. **NOTE:** GAP-301/VT-104 fixed
+  only the Pick Team pitch, not this screen.
+
+### VT-110 — Status panel + squad card reconcile (no flicker-to-blank) (GAP-501) ⬜
+- **Verify:** Status tab GW3 Points / Total Points / League Rank show REAL values for the
+  signed-in manager and stay put (no appear-then-disappear across re-renders).
+- **How:** open Status as a seeded manager mid-GW3; watch through the initial loads.
+- **Expected:** values are keyed by `window.ME` (the real uid), not `"u_me"`; the squad card on
+  the right matches; no "—" once data has loaded.
+
+### VT-111 — League standings ranked / qualified / records correct (GAP-503/504) ⬜
+- **Verify:** the standings table has correct ranks (not all "#1"), correct qualification flags
+  (only top-8 above the line show QUALIFIED), consistent W/D/L+FPTS, distinct team names, and
+  exactly the league's member count (no duplicate/stale rows).
+- **How:** League tab on `lg_mock_draft` after ≥1 finalized GW.
+- **Expected:** backend `_update_standings` sorts + assigns `rank` + sets `qualified`; mock
+  members have distinct `teamName`s (re-seed if drifted).
 
 ---
 

@@ -119,6 +119,105 @@ Status legend: ⬜ open · 🔵 in progress · ✅ done · ⏸️ deferred.
 
 ---
 
+## Session-7 live-testing findings (mock-league walkthrough, GW3) ⬜
+
+Bugs reported while signed into `lg_mock_draft` as a real manager. Each was root-caused in
+code (file:line) below. **None were fully fixed by EP1–EP6 + GAP-301** — they are either new,
+or the parts those epics didn't reach. Severity as before.
+
+### GAP-501 — Status panel + squad card read bare `ME` ("u_me"), not `window.ME` 🔴 ⬜
+- **Symptom:** Status tab GW3 Points / Total Points / League Rank all render "—", and the data
+  flickers in then blanks across 2–3 re-renders.
+- **Root cause:** `data.jsx:228` declares `let ME = "u_me"`; login sets `window.ME = uid`
+  (`app.jsx:244`) but the bare `ME` binding that `screens-status.jsx` / `shell.jsx` close over
+  stays `"u_me"`. Live `STANDINGS` / `GW3_TOTALS` are keyed by the real uid, so lookups by
+  `"u_me"` miss → fall to the `{rank:"—",fpts:"—",hpts:"—"}` default. Each loader's
+  `forceUpdate()` (app.jsx:276,326,359) re-runs the failing lookup → the flicker-to-blank.
+  Offending reads: `screens-status.jsx:168,178-183,205,325`; `shell.jsx:195,197,206`;
+  also ownership fallback `screens-data.jsx:22`. (`PointsScreen` already uses `window.ME` — copy it.)
+- **Fix:** replace every bare `ME` read in those files with `window.ME`. Then grep the whole
+  `draft_wc_design/` for other bare-lexical consumers (same class as the EP5 lineup bug).
+- **Validates:** new VT-110.
+
+### GAP-502 — Player modal: fabricated ICT/“owned in” + history shows an ERROR not empty-state 🟡 ⬜
+- **Symptom:** modal shows ICT ranks (Influence 127, Creativity 130, Threat 128, ICT 129 /442;
+  Overall 387/1386) and "OWNED IN 1/10" while TOTAL is 0 pts and History says
+  "Couldn't load this player's match history."
+- **Root cause:** EP5 fixed the History tab (real `/scores`) but left the header stats mock —
+  `player-stats-modal.jsx:356-360` (`posRankFor`) derives Influence/Creativity/Threat/ICT as
+  arithmetic offsets of the points rank (`rank-2`, `rank+1`, `rank-1`), not real ICT; "OWNED IN"
+  is the literal `"1/10"` at `:144`. The History message at `:220` renders only when
+  `error===true`, set only in the `.catch` (`:61-65`) — i.e. the `/players/{id}/scores` fetch
+  actually 500'd, not an empty result. The endpoint (`api_wc.py:280`) runs an unauth
+  collection-group query with no try/except; a missing `playerScores` composite index returns 500.
+- **Fix:** (a) hide the ICT block (or source real influence/creativity/threat from `/scores`)
+  when no scored data; (b) compute "OWNED IN" from real league/squad counts; (c) wrap the
+  endpoint in try/except + ensure the collection-group index exists so empty → `[]` (benign
+  message) instead of 500.
+- **Validates:** extends VT-106 (mark VT-106 partial until done).
+
+### GAP-503 — League standings never ranked / sorted / qualification-flagged 🔴 ⬜
+- **Symptom:** every row shows rank "#1"; every row shows "QUALIFIED" (even below the top-8 line);
+  0-0-0 / 0-pt teams are interleaved with played teams.
+- **Root cause:** backend `_update_standings` (`wc_scoring.py:839-910`) writes `managers` with
+  records + points but **never computes `rank`, never sorts, never sets `knockedOut`/qualified.**
+  Frontend defaults mask it: `rank: m.rank || 1` (`app.jsx:265,291`) → all 1; the
+  `.sort((a,b)=>a.rank-b.rank)` (`app.jsx:275`) is a no-op; `knockedOut: m.knockedOut || false`
+  (`app.jsx:273`) → `qualified = !knockedOut` always true (`screens-data.jsx:335`).
+- **Fix:** in `_update_standings`, sort by `hpts`→`fpts` (tiebreak), assign `rank`, and set
+  `qualified`/`knockedOut` by rank vs `knockoutQualifiers` (top-8) and elimination state.
+- **Validates:** new VT-111.
+
+### GAP-504 — Mock-league members malformed: duplicate `teamName`, extra rows 🟡 (data) ⬜
+- **Symptom:** three managers (Netanel, Roy, Yuval) all show team name "FPLFRAN's Squad";
+  repeated "Opponent XI"; more rows than the league's real member count.
+- **Root cause:** render is faithful (`screens-data.jsx:351` shows `m.teamName`); the
+  `leagues/lg_mock_draft/members` docs in Firestore were seeded by an off-spec/older path with a
+  default `teamName` and stale duplicates. The canonical seed (`seed_league.py:281-290`) has 8
+  distinct members — live data has drifted from it. Related to the earlier dedup work (task #10).
+- **Fix:** re-seed / clean the mock league's `members` collection with distinct `teamName`s and
+  no duplicate uids. (Data migration, not code.)
+- **Validates:** new VT-111 (same panel).
+
+### GAP-505 — Fixtures SCREEN renders static `WC_FIXTURES_GW4` for every GW 🔴 ⬜
+- **Symptom:** the dedicated Fixtures tab shows the same 8 matches (ESP v JPN, ARG v ECU, …) for
+  every GW; GW nav only changes the header; group labels wrong ("GRP ?", Argentina "GRP H").
+- **Root cause:** `FixturesScreen` (`screens-data.jsx:211`) reads the bare lexical
+  `const WC_FIXTURES_GW4` (`data.jsx:313`) at `:213` and never fetches; `gw` state only drives
+  the header/nav. Wrong groups: `:248` renders `Grp ${teamById(m.home).grp}` and the static
+  array uses playoff-slot codes (`POR2`,`MEX2`) absent from `TEAM_MAP` → `grp:"?"`.
+- **Scope note:** GAP-301 / PR #34 fixed ONLY the Pick Team pitch `getNextFixtureOpponent`
+  (`components.jsx`), NOT this screen. This is the screen-level sibling.
+- **Fix:** add a `useEffect` keyed on `gw` that calls `GET /fixtures?gw={gw}` (endpoint already
+  exists, returns iso-resolved teams) and renders the result, mapping iso→flag/name/group via
+  `window.TEAM_MAP`; keep the static array only as a pre-load fallback.
+- **Validates:** new VT-109.
+
+### GAP-506 — Wishlist shows (0) / squad changes hard to confirm in UI 🟡 ⬜ (needs runtime repro)
+- **Symptom:** "I made a couple of trades — did it change? I don't see anything. I replaced
+  Robinson with Munoz, it worked?" Wishlist tab shows "(0)".
+- **Findings so far:** executed swaps/trades DO persist — the submit handlers force a full
+  `window.location.reload()` (`screens-data.jsx:532,796`), so the squad reflects after reload
+  (the lag the user noticed on the Trades tab is this reload, and it lands on correct data —
+  acceptable). The Wishlist "(0)" is consistent with the window being CLOSED ("Rebuild window is
+  closed · 0h remaining") — wishlist bids only resolve during the free-agents window, so nothing
+  shows. Bare-`ME` (GAP-501) also weakens the "is this mine?" ownership fallback.
+- **Open question:** is the empty wishlist correct (window closed) or a persistence/visibility bug?
+  This overlaps EP7/GAP-700 and needs a focused two-state repro (window open vs closed).
+- **Fix (pending repro):** confirm wishlist persistence across reload while a free-agents window
+  is open; surface saved bids even when the window is closed (read-only) so the user sees them;
+  fold into EP7.
+
+### Working as intended (no ticket)
+- **Trades tab "lag then correct":** the brief delay is the post-submit `window.location.reload()`
+  followed by a fresh fetch; it lands on correct data. Acceptable; could be smoothed later by
+  optimistic update instead of full reload, but not a bug.
+
+---
+
 ## Cross-reference
 - Validation tickets → `WC2026_VALIDATION_TICKETS.md`.
-- VT-104 ↔ GAP-301 (per-team fixtures); EP7 ↔ GAP-700.
+- VT-104 ↔ GAP-301 (Pick Team pitch only); VT-109 ↔ GAP-505 (Fixtures screen);
+  VT-110 ↔ GAP-501 (Status/squad-card); VT-111 ↔ GAP-503/504 (standings); EP7 ↔ GAP-700/506.
+- Recurring **bare-lexical vs `window.*`** class: EP5 lineup (fixed), GAP-501 (`ME`),
+  GAP-505 (`WC_FIXTURES_GW4`). Worth a one-time sweep of all bare consumers in `draft_wc_design/`.
