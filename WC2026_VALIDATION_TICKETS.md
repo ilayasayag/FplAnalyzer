@@ -20,7 +20,7 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 ### VT-001 — Full backend suite green ⬜
 - **Verify:** the entire scoring/aggregation/seed/e2e suite passes.
 - **How:** `PYTHONPATH=. /Users/ilay/RiderProjects/fpl_analyzer/.venv/bin/python -m pytest -q`
-- **Expected:** `129 passed` (or higher as tests are added), 0 failures.
+- **Expected:** `135 passed` (or higher as tests are added), 0 failures.
 
 ### VT-002 — Scoring engine rules (EP1) ⬜
 - **Verify:** DefCon (DEF +2 @ ≥10, MID +2 @ ≥12, none for GK/FWD), rating bonus 3/2/1 with ties, 9-scenario regression.
@@ -69,9 +69,14 @@ Status legend: ⬜ not validated · ✅ passed · ❌ failed (file a bug, link i
 - **Verify:** EVERY pitch slot (starters AND bench) shows a position label (GK/DEF/MID/FWD).
 - **Expected:** starters now labelled (previously bench-only); bench role badge still visually distinct.
 
-### VT-104 — Pick Team: next fixture (#3a) — KNOWN PARTIAL ⬜
-- **Verify:** players on teams in the static fixtures set show "v OPP"; others show "—" WITHOUT crashing.
-- **Expected:** no crash; "—" for teams outside the static set. **Full fix is GAP-301 (real per-team fixtures endpoint).**
+### VT-104 — Pick Team: next fixture (#3a) — FULL FIX (GAP-301 done) ⬜
+- **Verify:** on Pick Team, each player's "v OPP" comes from REAL fixtures for the viewing GW
+  (live `window.WC_FIXTURES_BY_TEAM`, built from `GET /fixtures?gw=N`), not the static round.
+- **How:** Pick Team tab → confirm opponents match the actual GW fixtures; advance the GW and
+  confirm opponents change. Teams not playing that GW (eliminated / bye) show "—" without crashing.
+- **Expected:** opponents reflect the live schedule; "—" only for teams with no fixture that GW.
+  Falls back to the static `WC_FIXTURES_GW4` round only if the fixtures fetch fails.
+- **Backend regression:** `pytest test_wc_fixtures.py -q` (iso resolution from team map).
 
 ### VT-105 — Trades appear after proposing (#6) ⬜
 - **Verify:** proposing a trade makes it appear without a manual refresh.

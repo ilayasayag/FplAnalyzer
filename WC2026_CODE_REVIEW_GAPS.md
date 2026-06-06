@@ -14,16 +14,20 @@ Status legend: ⬜ open · 🔵 in progress · ✅ done · ⏸️ deferred.
 
 ## Feature follow-ups
 
-### GAP-301 — Real per-team fixtures endpoint (Pick Team "next fixture") ⬜ 🟡
-- **Where:** `draft_wc_design/components.jsx:186-189` (`getNextFixtureOpponent`); static source
+### GAP-301 — Real per-team fixtures endpoint (Pick Team "next fixture") ✅
+- **Where:** `draft_wc_design/components.jsx` (`getNextFixtureOpponent`); previously static source
   `WC_FIXTURES_GW4` in `draft_wc_design/data.jsx`.
-- **Problem:** "v OPP" on the Pick Team pitch is derived from a hardcoded static fixtures set.
-  Players on teams outside that set render "—". `window.SCHEDULE` is H2H **manager** matchups,
-  not team fixtures, so it can't be used here.
-- **Fix:** add a backend per-team fixtures endpoint (e.g. `GET /api/v1/wc/fixtures?team={id}&gw={gw}`
-  or a preloaded `window.WC_FIXTURES_BY_TEAM` map), and wire `getNextFixtureOpponent` to it.
-- **Validates:** VT-104 (currently KNOWN PARTIAL → should become full pass).
-- **Note:** this is the explicit "real per-team fixtures" follow-up. In progress next.
+- **Was:** "v OPP" on the Pick Team pitch was derived from a hardcoded single-round static set.
+  Players on teams outside that set rendered "—". `window.SCHEDULE` is H2H **manager** matchups,
+  not team fixtures, so it couldn't be used.
+- **Fix (this PR):**
+  - Backend: `GET /api/v1/wc/fixtures[?gw=N]` now resolves each fixture's `homeTeam`/`awayTeam`
+    `isoCode` from the team map (`_enrich_fixtures_with_iso` / `_team_display_iso` in
+    `fpl_predictor/api_wc.py`) — stored fixtures only carry team ids with empty isoCode.
+  - Frontend: `app.jsx` builds `window.WC_FIXTURES_BY_TEAM` from `GET /fixtures?gw={viewingGw}`,
+    keyed by the same iso players use; `getNextFixtureOpponent` reads it (static round is now a
+    fallback only when the fetch fails).
+- **Validates:** VT-104 (now full fix). Backend regression: `test_wc_fixtures.py` (6 tests).
 
 ### GAP-700 — EP7: wishlist / watchlist isolation per manager ⏸️ 🟡 (DEFERRED per user)
 - **Where:** wishlist add/remove flow (screenshot bug #5).

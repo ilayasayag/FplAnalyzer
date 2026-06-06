@@ -287,6 +287,36 @@ def get_player_scores(player_id: int):
 # §2 — Fixtures
 # ---------------------------------------------------------------------------
 
+def _team_display_iso(team: dict) -> str:
+    """The key the frontend uses to match a team: uppercased isoCode, falling
+    back to short_name, then the numeric team id as a string. Mirrors the
+    frontend's normalizeIso(p.teamIso || p.teamShort || String(p.teamId))."""
+    if not team:
+        return ""
+    iso = (team.get("isoCode") or team.get("short_name") or "").strip()
+    if not iso:
+        tid = team.get("id")
+        iso = str(tid) if tid is not None else ""
+    return iso.upper()
+
+
+def _enrich_fixtures_with_iso(fixtures: list, team_map: dict) -> list:
+    """Stored fixtures carry team ids but an empty isoCode (see sync_fixtures).
+    Resolve homeTeam/awayTeam isoCode from the team map so the client can key
+    fixtures by the same iso it uses for players. Pure + idempotent."""
+    for fx in fixtures or []:
+        for side in ("homeTeam", "awayTeam"):
+            t = fx.get(side)
+            if not isinstance(t, dict):
+                continue
+            if not (t.get("isoCode") or "").strip():
+                tid = t.get("id")
+                resolved = team_map.get(int(tid)) if tid is not None else None
+                if resolved:
+                    t["isoCode"] = _team_display_iso(resolved)
+    return fixtures
+
+
 @wc_bp.route("/fixtures", methods=["GET"])
 def list_fixtures():
     gw = request.args.get("gw", type=int)
@@ -295,6 +325,7 @@ def list_fixtures():
     else:
         docs = _db.collection("wc_fixtures").get()
         fixtures = [d.to_dict() for d in docs]
+    fixtures = _enrich_fixtures_with_iso(fixtures, _wc.get_team_map(_db))
     return _ok(fixtures)
 
 

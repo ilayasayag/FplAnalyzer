@@ -183,18 +183,26 @@ function isSwapLegal(lineup, idA, idB) {
 }
 
 function getNextFixtureOpponent(teamIso) {
-  // Team-vs-team fixtures. The only team-fixture source currently loaded
-  // client-side is the static WC_FIXTURES_GW4 array in data.jsx, which covers
-  // a single round (16 team ISOs). window.SCHEDULE holds the H2H *manager*
-  // matchup schedule ([uid, uid] pairs), not team fixtures, so it can't drive
-  // this. Until a real per-team fixtures endpoint is loaded, teams outside the
-  // static set resolve to "—" by design — see EP4-W2 report (backend decision).
+  // Team-vs-team fixtures for the viewing GW. Primary source is the live
+  // window.WC_FIXTURES_BY_TEAM map (built in app.jsx from GET /fixtures?gw=N,
+  // keyed by the same iso the players use; backend resolves isoCode from the
+  // team map). Falls back to the static WC_FIXTURES_GW4 round only when the
+  // live map isn't loaded yet. Teams not playing this GW (eliminated / bye)
+  // resolve to "—". window.SCHEDULE is the H2H *manager* schedule, not team
+  // fixtures, so it is never used here.
   if (!teamIso) return "—";
+  const iso = String(teamIso).toUpperCase();
+  const byTeam = window.WC_FIXTURES_BY_TEAM;
+  if (byTeam && typeof byTeam === "object" && Object.keys(byTeam).length > 0) {
+    const entry = byTeam[iso];
+    return entry && entry.opp ? `v ${entry.opp}` : "—";
+  }
+  // Fallback: static single-round set (pre-load / fixtures fetch failed).
   const fixtures = (window.WC_FIXTURES_GW4 || []);
   if (!Array.isArray(fixtures)) return "—";
-  const fix = fixtures.find(f => f && (f.home === teamIso || f.away === teamIso));
+  const fix = fixtures.find(f => f && (f.home === iso || f.away === iso));
   if (!fix) return "—";
-  return fix.home === teamIso ? `v ${fix.away}` : `v ${fix.home}`;
+  return fix.home === iso ? `v ${fix.away}` : `v ${fix.home}`;
 }
 
 // ---------- Player Slot (used on pitch) ----------
