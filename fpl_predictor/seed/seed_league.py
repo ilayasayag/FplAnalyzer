@@ -37,6 +37,80 @@ def match_player_event(p_name, ev_name):
             return True
     return False
 
+
+def build_team_raw_stats(team_id, players_list, events, conceded_map):
+    """Build realistic, api-sports-shaped synthetic per-player stats for one
+    team in one fixture, for seeding GW1-3 through the real scoring engine.
+
+    Everything is CALCULATED (no injected legacy `bps`) and DETERMINISTIC —
+    derived from the player id ordering + position — so re-seeds are
+    reproducible. The distribution is deliberately shaped so the engine's new
+    rules are observable in the seeded UI:
+      - minutes vary (90 / 70 / 45 / 0) -> exercises the 60' appearance
+        threshold and the minutes==0 => 0-points path.
+      - tackles (total + interceptions + blocks) sum to >= 10 for at least one
+        DEF and >= 12 for at least one MID -> DefCon (+2) fires.
+      - games.rating spreads across players -> compute_rating_bonus yields a
+        clean 3/2/1 ranking.
+
+    `conceded_map` is accepted for call-site parity; goalsConceded/clean-sheet
+    is derived by the engine from the fixture score, so it is not needed here.
+    Returns the api-sports {"team": ..., "players": [...]} shape.
+    """
+    # Stable iteration order so the guaranteed-DefCon "anchor" picks (and the
+    # rating spread) are reproducible across seeds.
+    ordered = sorted(players_list, key=lambda pp: int(pp["id"]))
+
+    # First DEF and first MID are guaranteed to clear the DefCon thresholds.
+    def_anchor = next((int(pp["id"]) for pp in ordered if pp["position"] == 2), None)
+    mid_anchor = next((int(pp["id"]) for pp in ordered if pp["position"] == 3), None)
+
+    # Deterministic rating/minutes spreads (distinct early values -> clean
+    # 3/2/1 bonus). The 0-minutes slot exercises the unused-player path.
+    rating_cycle = [8.8, 8.2, 7.6, 7.1, 6.7, 6.3, 6.0]
+    minutes_cycle = [90, 90, 70, 90, 45, 0, 70]
+
+    plist = []
+    for idx, p in enumerate(ordered):
+        pid = int(p["id"])
+        pos = p["position"]
+        goals_scored = sum(1 for ev in events if ev[1] == "goal" and match_player_event(p["name"], ev[0]))
+        assists_scored = sum(1 for ev in events if ev[1] == "assist" and match_player_event(p["name"], ev[0]))
+
+        minutes = minutes_cycle[idx % len(minutes_cycle)]
+        # A scorer/assister must have actually been on the pitch.
+        if (goals_scored or assists_scored) and minutes == 0:
+            minutes = 90
+        rating = rating_cycle[idx % len(rating_cycle)] if minutes > 0 else 0.0
+
+        # Defensive contributions split across the three buckets so we exercise
+        # total + interceptions + blocks. Anchors clear the threshold; other
+        # outfielders get a smaller deterministic (sub-threshold) share.
+        if pos == 2 and pid == def_anchor:
+            tackles = {"total": 5, "interceptions": 4, "blocks": 2}   # 11 >= 10
+        elif pos == 3 and pid == mid_anchor:
+            tackles = {"total": 6, "interceptions": 4, "blocks": 3}   # 13 >= 12
+        elif pos in (2, 3) and minutes > 0:
+            base = 3 + (idx % 3)  # 3..5, deterministic, below threshold
+            tackles = {"total": base, "interceptions": idx % 2, "blocks": 0}
+        else:
+            tackles = {"total": 0, "interceptions": 0, "blocks": 0}
+
+        plist.append({
+            "player": {"id": pid, "name": p["name"]},
+            "statistics": [
+                {
+                    "games": {"minutes": minutes, "rating": rating},
+                    "goals": {"total": goals_scored, "assists": assists_scored, "saves": 0, "conceded": 0, "owngoals": 0},
+                    "cards": {"yellow": 0, "red": 0},
+                    "penalty": {"missed": 0, "saved": 0},
+                    "tackles": tackles,
+                }
+            ]
+        })
+    return {"team": {"id": team_id}, "players": plist}
+
+
 def select_lineup(squad):
     gks = [p for p in squad if p["position"] == 1]
     defs = [p for p in squad if p["position"] == 2]
@@ -446,39 +520,13 @@ def seed_mock_league(db, USER_UID, USER_NAME):
             home_players = [p for p in all_drafted_players.values() if p["teamIso"] == home_team]
             away_players = [p for p in all_drafted_players.values() if p["teamIso"] == away_team]
             
-            def get_team_raw_stats(t_id, players_list):
-                plist = []
-                for p in players_list:
-                    pid = int(p["id"])
-                    goals_scored = sum(1 for ev in events if ev[1] == "goal" and match_player_event(p["name"], ev[0]))
-                    assists_scored = sum(1 for ev in events if ev[1] == "assist" and match_player_event(p["name"], ev[0]))
-                    
-                    # synthetic BPS
-                    total_base = 2
-                    pos = p["position"]
-                    if conceded_map.get(p["teamIso"], 0) == 0:
-                        if pos in (1, 2): total_base += 4
-                        elif pos == 3: total_base += 1
-                    total_base += goals_scored * (6 if pos in (1, 2) else (5 if pos == 3 else 4))
-                    total_base += assists_scored * 3
-                    
-                    plist.append({
-                        "player": {"id": pid, "name": p["name"]},
-                        "statistics": [
-                            {
-                                "games": {"minutes": 90},
-                                "goals": {"total": goals_scored, "assists": assists_scored, "saves": 0, "owngoals": 0},
-                                "cards": {"yellow": 0, "red": 0},
-                                "penalty": {"missed": 0, "saved": 0},
-                                "bps": total_base * 3
-                            }
-                        ]
-                    })
-                return {"team": {"id": t_id}, "players": plist}
-            
+            # Synthetic per-player stats are built by the module-level
+            # build_team_raw_stats helper (see its docstring): realistic
+            # api-sports shape, deterministic, and deliberately shaped so the
+            # engine's DefCon + rating-bonus + 60' rules are observable.
             raw_stats = [
-                get_team_raw_stats(1, home_players),
-                get_team_raw_stats(2, away_players)
+                build_team_raw_stats(1, home_players, events, conceded_map),
+                build_team_raw_stats(2, away_players, events, conceded_map),
             ]
             
             # Call process_fixture
