@@ -1310,6 +1310,40 @@ def admin_finalize_gw(lid: str, gw: int):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/simulate", methods=["POST"])
+def admin_simulate_tournament(lid: str):
+    """Generate a random World Cup for ``lid`` and drive it through the real
+    scoring engine. Body (all optional JSON):
+      ``seed``     int  — RNG seed for reproducible runs.
+      ``startGw``  int  — first GW to generate (default 1).
+      ``endGw``    int  — last GW to generate  (default 8).
+      ``reset``    bool — wipe prior fixtures/scores first (default true).
+
+    Returns the per-GW summary + the persisted tournament export. This is the
+    "forward" generator; backward navigation just reads the per-GW snapshots
+    that every finalized GW already writes.
+    """
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import simulate_tournament
+    body = request.get_json(silent=True) or {}
+    try:
+        result = simulate_tournament(
+            _db, lid,
+            seed=body.get("seed"),
+            start_gw=int(body.get("startGw", 1)),
+            end_gw=int(body.get("endGw", 8)),
+            reset=bool(body.get("reset", True)),
+            wc_client=_wc,
+        )
+        # Keep the response light — the full export is persisted in Firestore.
+        return _ok({"league": lid, "gws": result["gws"],
+                    "managers": result["export"].get("managers", {})})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()
