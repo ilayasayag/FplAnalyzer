@@ -32,6 +32,15 @@ PENALTY_MISS_POINTS = -2
 PENALTY_SAVE_POINTS = 5    # GK only, in-play only
 SAVES_PER_POINT_GK  = 3   # 1 point per 3 in-play saves (GK only)
 
+# Defensive Contribution (DefCon): all-or-nothing award.
+# defCon = tackles.total + tackles.interceptions + tackles.blocks
+DEFCON_POINTS         = 2
+DEFCON_THRESHOLD_DEF  = 10  # DEF (position==2)
+DEFCON_THRESHOLD_MID  = 12  # MID (position==3)
+
+# Bonus by rating rank: top-3 by api-sports games.rating get 3/2/1.
+BONUS_BY_RATING_RANK = [3, 2, 1]
+
 VALID_FORMATIONS = [
     (1, 3, 5, 2), (1, 3, 4, 3), (1, 4, 5, 1),
     (1, 4, 4, 2), (1, 4, 3, 3), (1, 5, 4, 1),
@@ -49,10 +58,11 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
 
     stats keys (all default to 0/False if absent):
       minutes, goals, assists, saves, cleanSheet, goalsConceded,
-      yellowCards, redCards, penaltyMissed, penaltySaved, ownGoal, bps
+      yellowCards, redCards, penaltyMissed, penaltySaved, ownGoal,
+      tackles ({total, interceptions, blocks} for DefCon)
 
     Returns (base_points, bonus_points).
-    BPS bonus is computed separately via compute_bps_bonus().
+    Bonus is computed separately via compute_rating_bonus().
     """
     minutes = stats.get("minutes") or 0
     if minutes == 0:
@@ -87,6 +97,10 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
     penalty_miss_points = scoring_rules.get("penaltyMissPoints", PENALTY_MISS_POINTS)
     penalty_save_points = scoring_rules.get("penaltySavePoints", PENALTY_SAVE_POINTS)
     saves_per_point_gk = scoring_rules.get("savesPerPointGk", SAVES_PER_POINT_GK)
+
+    defcon_points = scoring_rules.get("defConPoints", DEFCON_POINTS)
+    defcon_threshold_def = scoring_rules.get("defConThresholdDef", DEFCON_THRESHOLD_DEF)
+    defcon_threshold_mid = scoring_rules.get("defConThresholdMid", DEFCON_THRESHOLD_MID)
 
     # Goals
     goals = stats.get("goals", 0) or 0
@@ -129,36 +143,53 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
         pen_saved = stats.get("penaltySaved", 0) or 0
         pts += pen_saved * penalty_save_points
 
+    # Defensive Contribution (DefCon): all-or-nothing.
+    # defCon = tackles.total + tackles.interceptions + tackles.blocks.
+    # DEF awarded at >= defcon_threshold_def, MID at >= defcon_threshold_mid.
+    # No award for GK (1) or FWD (4).
+    if position in (2, 3):
+        tackles = stats.get("tackles") or {}
+        def_con = ((tackles.get("total") or 0)
+                   + (tackles.get("interceptions") or 0)
+                   + (tackles.get("blocks") or 0))
+        threshold = defcon_threshold_def if position == 2 else defcon_threshold_mid
+        if def_con >= threshold:
+            pts += defcon_points
+
     return pts, 0  # bonus is added separately
 
 
 
-def compute_bps_bonus(player_bps_list: List[Tuple[int, int]]) -> Dict[int, int]:
+def compute_rating_bonus(rating_list: List[Tuple[int, float]]) -> Dict[int, int]:
     """
-    Award 3/2/1 bonus points to the top 3 BPS scorers in a fixture.
+    Award 3/2/1 bonus points to the top 3 players by api-sports games.rating
+    in a fixture. This is the ONE bonus award per fixture set.
 
-    player_bps_list: [(player_id, bps_score), ...]
+    rating_list: [(player_id, rating_float), ...]
     Returns: {player_id: bonus_points (3, 2, or 1)}
 
+    Players with no/zero rating get no bonus.
     Ties: both players at a tied rank receive the higher award.
     e.g. two players tied for 2nd both get 2pts; the 4th-place player gets 0.
     """
-    sorted_bps = sorted(player_bps_list, key=lambda x: -x[1])
+    # Drop players with no/zero rating (no bonus eligibility).
+    rated = [(pid, r) for pid, r in rating_list if r]
+    sorted_ratings = sorted(rated, key=lambda x: -x[1])
     bonuses: Dict[int, int] = {}
 
     award_map = {0: 3, 1: 2, 2: 1}  # rank (0-based) → bonus
 
     i = 0
     rank = 0
-    while i < len(sorted_bps) and rank < 3:
-        pid, bps_val = sorted_bps[i]
+    while i < len(sorted_ratings) and rank < 3:
+        pid, rating_val = sorted_ratings[i]
         bonus = award_map.get(rank, 0)
         bonuses[pid] = bonus
 
         # Advance through ties
         j = i + 1
-        while j < len(sorted_bps) and sorted_bps[j][1] == bps_val:
-            tied_pid = sorted_bps[j][0]
+        while j < len(sorted_ratings) and sorted_ratings[j][1] == rating_val:
+            tied_pid = sorted_ratings[j][0]
             bonuses[tied_pid] = bonus
             j += 1
 
@@ -265,7 +296,7 @@ def process_fixture(
     """
     # Build per-player stat dicts
     player_stats: Dict[int, Dict] = {}
-    bps_list: List[Tuple[int, int]] = []
+    rating_list: List[Tuple[int, float]] = []
 
     home_goals = 0
     away_goals = 0
@@ -293,8 +324,10 @@ def process_fixture(
             goals = raw.get("goals", {})
             cards = raw.get("cards", {})
             penalty = raw.get("penalty", {})
+            tackles_raw = raw.get("tackles", {}) or {}
 
             minutes = games.get("minutes") or 0
+            rating = games.get("rating")
             goals_scored = goals.get("total") or 0
             assists = goals.get("assists") or 0
             saves = goals.get("saves") or 0
@@ -303,7 +336,12 @@ def process_fixture(
             red = cards.get("red") or 0
             pen_miss = penalty.get("missed") or 0
             pen_saved = penalty.get("saved") or 0
-            bps = raw.get("bps") or 0
+
+            tackles = {
+                "total": tackles_raw.get("total") or 0,
+                "interceptions": tackles_raw.get("interceptions") or 0,
+                "blocks": tackles_raw.get("blocks") or 0,
+            }
 
             clean_sheet = (goals_conceded == 0) and (minutes >= 60)
 
@@ -319,7 +357,7 @@ def process_fixture(
                 "penaltyMissed": pen_miss,
                 "penaltySaved": pen_saved,
                 "ownGoal": own_goals,
-                "bps": bps,
+                "tackles": tackles,
                 "bonusPoints": 0,
             }
             player_stats[pid] = {
@@ -327,8 +365,14 @@ def process_fixture(
                 "teamId": team_id,
                 "name": p_info.get("name", ""),
             }
-            if bps > 0:
-                bps_list.append((pid, bps))
+
+            # api-sports rating arrives as a string (e.g. "7.2"); coerce safely.
+            try:
+                rating_val = float(rating) if rating is not None else 0.0
+            except (TypeError, ValueError):
+                rating_val = 0.0
+            if rating_val and minutes > 0:
+                rating_list.append((pid, rating_val))
 
     # Get player positions from Firestore
     pos_map: Dict[int, int] = {}
@@ -337,8 +381,8 @@ def process_fixture(
         d = doc.to_dict()
         pos_map[d.get("id", 0)] = d.get("position", 3)
 
-    # Compute BPS bonuses
-    bonuses = compute_bps_bonus(bps_list)
+    # Compute rating-rank bonuses (one award set per fixture)
+    bonuses = compute_rating_bonus(rating_list)
 
     # Load custom rules from Firestore config
     config_doc = db.collection("wc_config").document("tournament").get()
