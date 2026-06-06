@@ -192,9 +192,9 @@ function SubNav({ tab, onTab }) {
 
 // ---------- Sidebar (right) ----------
 function Sidebar({ onTab }) {
-  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const myTeam = teamById(me.flag) || teamById("GER");
-  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
 
   // count eliminated players in squad
   const elimCount = MY_SQUAD_IDS.filter(id => {
@@ -203,7 +203,7 @@ function Sidebar({ onTab }) {
   }).length;
 
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
   
   const activeWindow = window.WINDOW || WINDOW;
   const favTeam = teamById(me.flag) || teamById("GER");

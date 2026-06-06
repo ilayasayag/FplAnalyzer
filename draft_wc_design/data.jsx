@@ -445,8 +445,8 @@ const managerById = uid => {
   // never resolved real manager names (same bug class as STANDINGS).
   return (window.MANAGERS || MANAGERS).find(m => m.uid === uid) || {
     uid: uid,
-    name: uid === ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
-    team: uid === ME ? "My Team" : "Opponent XI",
+    name: uid === window.ME ? (window._auth?.currentUser?.displayName || "Me") : "Manager",
+    team: uid === window.ME ? "My Team" : "Opponent XI",
     flag: "GER",
     draftPos: 99,
     waiverPri: 99

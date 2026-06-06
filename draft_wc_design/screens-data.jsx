@@ -19,7 +19,7 @@ function PlayerBrowserScreen() {
   const squadsByUid = window.SQUADS_BY_UID || {};
   const activeManagers = window.MANAGERS || MANAGERS;
   activeManagers.forEach(m => {
-    const ids = squadsByUid[m.uid] || (m.uid === ME ? (window.MY_SQUAD_IDS || MY_SQUAD_IDS) : []);
+    const ids = squadsByUid[m.uid] || (m.uid === window.ME ? (window.MY_SQUAD_IDS || MY_SQUAD_IDS) : []);
     (ids || []).forEach(id => { owners[String(id)] = m.uid; });
   });
 
@@ -41,7 +41,7 @@ function PlayerBrowserScreen() {
     const t = teamById(p.team);
     if (grp !== "all" && t.grp !== grp) return false;
     if (owned === "free" && owners[p.id]) return false;
-    if (owned === "mine" && owners[p.id] !== ME) return false;
+    if (owned === "mine" && owners[p.id] !== window.ME) return false;
     if (owned === "elim" && !(p.elim || t.elim)) return false;
     return true;
   });
@@ -159,7 +159,7 @@ function PlayerBrowserScreen() {
                   <td style={{ fontSize: 12 }}>
                     {owner ? (
                       <span className="row" style={{ gap: 6 }}>
-                        <span className="dot" style={{ background: owner === ME ? "var(--gold-500)" : "var(--ink-300)" }} />
+                        <span className="dot" style={{ background: owner === window.ME ? "var(--gold-500)" : "var(--ink-300)" }} />
                         {managerById(owner).team}
                       </span>
                     ) : (
@@ -170,8 +170,8 @@ function PlayerBrowserScreen() {
                   </td>
                   <td style={{ textAlign: "right" }}>
                     {!owner && <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }}>Claim</button>}
-                    {owner === ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Drop</button>}
-                    {owner && owner !== ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Trade</button>}
+                    {owner === window.ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Drop</button>}
+                    {owner && owner !== window.ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Trade</button>}
                   </td>
                 </tr>
               );
@@ -331,7 +331,7 @@ function StandingsTable({ onTab }) {
           {(window.STANDINGS || STANDINGS).map((s, i) => {
             const m = managerById(s.uid);
             const t = teamById(m.flag);
-            const isMe = s.uid === ME;
+            const isMe = s.uid === window.ME;
             const qualified = !s.knockedOut;
             const showQualLine = i === 7;
             return (
@@ -409,7 +409,7 @@ function ScheduleTable() {
               const bp = gwScores && gwScores[b] !== undefined ? gwScores[b] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : "—");
               const hasScore = ap !== "—" && bp !== "—";
               const aWin = hasScore && Number(ap) > Number(bp);
-              const isMe = a === ME || b === ME;
+              const isMe = a === window.ME || b === window.ME;
               const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
               return (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
