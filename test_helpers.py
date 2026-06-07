@@ -190,9 +190,15 @@ class _Batch:
     def update(self, ref, patch):
         self._ops.append(("update", ref.path, patch, True))
 
+    def delete(self, ref):
+        self._ops.append(("delete", ref.path, None, False))
+
     def commit(self):
         for op, path, data, merge in self._ops:
-            _merge_into(self.store, path, data, merge)
+            if op == "delete":
+                self.store.pop(path, None)
+            else:
+                _merge_into(self.store, path, data, merge)
         self._ops = []
 
 

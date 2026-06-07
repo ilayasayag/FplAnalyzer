@@ -483,9 +483,16 @@ def reset_simulation(db, lid: str):
     subcollections (scores/standings/gw_history/lineups/knockout/transfer_windows).
     Members, squads and the H2H schedule are preserved.
     """
-    # wc_fixtures
+    # wc_fixtures — also delete each fixture's playerScores subcollection.
+    # Firestore does NOT cascade-delete subcollections when the parent doc is
+    # removed; orphaned playerScores would otherwise still be returned by the
+    # /players/{id}/scores collection-group query (duplicate/stale history rows).
     batch = db.batch(); n = 0
     for fdoc in db.collection("wc_fixtures").get():
+        for sdoc in fdoc.reference.collection("playerScores").get():
+            batch.delete(sdoc.reference); n += 1
+            if n % 400 == 0:
+                batch.commit(); batch = db.batch()
         batch.delete(fdoc.reference); n += 1
         if n % 400 == 0:
             batch.commit(); batch = db.batch()

@@ -277,6 +277,28 @@ def test_simulate_knockout_gw_eliminates_losers():
     assert loser_players and all(p.to_dict()["eliminated"] for p in loser_players)
 
 
+def test_reset_simulation_deletes_playerscores_subcollections():
+    """reset_simulation must delete each fixture's playerScores subcollection,
+    not just the fixture doc — Firestore does not cascade, and orphaned
+    playerScores would otherwise leak into the /players/{id}/scores
+    collection-group query as duplicate/stale history rows (the prod bug)."""
+    db = H.FakeDB()
+    lid = _seed_mini_league(db)
+    # Seed a fixture with a playerScores subcollection.
+    db.collection("wc_fixtures").document("7777").set({"id": 7777, "gw": 1})
+    db.collection("wc_fixtures").document("7777").collection("playerScores") \
+        .document("1000").set({"playerId": 1000, "gw": 1, "fantasyPoints": 5})
+    db.collection("wc_fixtures").document("7777").collection("playerScores") \
+        .document("2000").set({"playerId": 2000, "gw": 1, "fantasyPoints": 2})
+    assert len(db.collection_group("playerScores").get()) == 2
+
+    S.reset_simulation(db, lid)
+
+    # Fixture doc gone AND its playerScores gone (no orphans left behind).
+    assert db.collection("wc_fixtures").document("7777").get().exists is False
+    assert db.collection_group("playerScores").get() == []
+
+
 def test_process_fixture_cache_matches_uncached():
     """The new pos_map/rules cache params must produce identical scoring to the
     DB-read path."""
