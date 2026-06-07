@@ -28,6 +28,16 @@ const FLAG_ISO = {
   NOR: "no", PAN: "pa", RSA: "za", SAU: "sa", SWE: "se",
 };
 
+// ISO codes for which a real kit image exists under kits/<iso>.png.
+// Generated from the FIFA WC fantasy squad kits; keyed by the same ISO codes
+// that FLAG_ISO maps team.id to, so coverage matches the flags exactly.
+const KIT_ISO = new Set([
+  "ar", "at", "au", "ba", "be", "br", "ca", "cd", "ch", "ci", "co", "cv",
+  "cw", "cz", "de", "dz", "ec", "eg", "es", "fr", "gb-eng", "gb-sct", "gh",
+  "hr", "ht", "iq", "ir", "jo", "jp", "kr", "ma", "mx", "nl", "no", "nz",
+  "pa", "pt", "py", "qa", "sa", "se", "sn", "tn", "tr", "us", "uy", "uz", "za",
+]);
+
 function Flag({ team, size = "sm" }) {
   if (!team) return null;
   const iso = FLAG_ISO[team.id];
@@ -91,6 +101,28 @@ function GroupChip({ group }) {
 // Uses primary flag colour with secondary stripe.
 function Jersey({ team, pos = 3, eliminated = false }) {
   if (!team) team = { flag: ["#888", "#888", "#888"] };
+
+  // Real kit image (FIFA WC fantasy renders), keyed by the same ISO code the
+  // flag uses. Falls back to the coloured SVG below for any team without a kit.
+  const iso = FLAG_ISO[team.id];
+  if (iso && KIT_ISO.has(iso)) {
+    return (
+      <img
+        className="jersey-kit"
+        src={`kits/${iso}.png`}
+        alt={team.name ? `${team.name} kit` : "kit"}
+        loading="lazy"
+        draggable="false"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))",
+        }}
+      />
+    );
+  }
+
   const colors = team.vert || team.flag || ["#888", "#888", "#888"];
   const primary = colors[0];
   const secondary = colors[1] !== primary ? colors[1] : colors[2];
