@@ -294,8 +294,17 @@ def get_player_scores(player_id: int):
     # (a player features in at most one fixture per GW) — both kill the duplicate
     # GW1 rows the modal History tab showed.
     player_doc = _db.collection("wc_players").document(str(player_id)).get()
-    own_team_id = (player_doc.to_dict() or {}).get("teamId") if player_doc.exists else None
+    pdata = player_doc.to_dict() or {}
+    own_team_id = pdata.get("teamId")
+    own_iso = (pdata.get("teamIso") or "").strip().upper()
     team_map = _wc.get_team_map(_db)
+
+    def _iso_of(side):
+        iso = (side.get("isoCode") or "").strip().upper()
+        if not iso and side.get("id") is not None:
+            resolved = team_map.get(int(side["id"]))
+            iso = _team_display_iso(resolved) if resolved else ""
+        return iso
 
     by_gw = {}
     for d in docs:
@@ -308,19 +317,27 @@ def get_player_scores(player_id: int):
         gw = rec.get("gw", fix.get("gw"))
         home = fix.get("homeTeam") or {}
         away = fix.get("awayTeam") or {}
+        home_iso, away_iso = _iso_of(home), _iso_of(away)
+        # Identify the player's own side by team id first, then iso. Legacy
+        # fixtures drifted the numeric teamId but kept the isoCode, so the id
+        # match alone misses them; the iso fallback recovers the opponent.
         opp = None
-        if own_team_id is not None:
-            if home.get("id") == own_team_id:
-                opp = away
-            elif away.get("id") == own_team_id:
-                opp = home
-        if opp is not None:
-            opp_iso = (opp.get("isoCode") or "").strip().upper()
-            if not opp_iso and opp.get("id") is not None:
-                resolved = team_map.get(int(opp["id"]))
-                opp_iso = _team_display_iso(resolved) if resolved else ""
-            rec["opponent"] = opp_iso or None
-        by_gw[gw] = rec
+        if own_team_id is not None and home.get("id") == own_team_id:
+            opp = away_iso
+        elif own_team_id is not None and away.get("id") == own_team_id:
+            opp = home_iso
+        elif own_iso and home_iso == own_iso:
+            opp = away_iso
+        elif own_iso and away_iso == own_iso:
+            opp = home_iso
+        if opp:
+            rec["opponent"] = opp
+        # One row per GW. Prefer a row whose opponent resolved over one that
+        # didn't — legacy duplicate fixtures can put the same player in two GW
+        # docs, only one of which has a reconcilable team id/iso.
+        prev = by_gw.get(gw)
+        if prev is None or (not prev.get("opponent") and rec.get("opponent")):
+            by_gw[gw] = rec
 
     scores = sorted(by_gw.values(), key=lambda x: (x.get("gw") or 0))
     return _ok(scores)

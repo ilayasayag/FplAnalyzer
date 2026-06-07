@@ -58,3 +58,33 @@ def test_player_scores_empty_when_none():
     status, rows = _call(db, 100)
     assert status == 200
     assert rows == []
+
+
+def test_opponent_resolves_by_iso_and_prefers_resolved_row():
+    """Legacy data: the player's numeric teamId drifted but the isoCode held, and
+    a duplicate GW1 fixture exists. The opponent must still resolve (via iso) and
+    the dedup must keep the row whose opponent resolved."""
+    db = FakeDB()
+    # Player 200 is Spain: teamId 9 / iso SPA.
+    db.store["wc_players/200"] = {"id": 200, "teamId": 9, "teamIso": "SPA"}
+    # Legacy GW1 fixture where Spain is stored as id=1 (drifted) but iso SPA.
+    db.store["wc_fixtures/102"] = {
+        "id": 102, "gw": 1,
+        "homeTeam": {"id": 1, "isoCode": "SPA", "name": "Spain"},
+        "awayTeam": {"id": 2, "isoCode": "CPV", "name": "Cape Verde"},
+    }
+    db.store["wc_fixtures/102/playerScores/200"] = {"playerId": 200, "gw": 1, "fantasyPoints": 3}
+    # Duplicate GW1 fixture for the same player with team ids that DON'T contain
+    # Spain at all (no resolvable opponent) — must lose the dedup.
+    db.store["wc_fixtures/777"] = {
+        "id": 777, "gw": 1,
+        "homeTeam": {"id": 555, "isoCode": "XXX", "name": "X"},
+        "awayTeam": {"id": 556, "isoCode": "YYY", "name": "Y"},
+    }
+    db.store["wc_fixtures/777/playerScores/200"] = {"playerId": 200, "gw": 1, "fantasyPoints": 3}
+
+    status, rows = _call(db, 200)
+    assert status == 200
+    assert len(rows) == 1            # collapsed to one GW1 row
+    assert rows[0]["gw"] == 1
+    assert rows[0]["opponent"] == "CPV"  # resolved via iso, from fixture 102
