@@ -112,6 +112,11 @@ class _Doc:
     def id(self):
         return self.path.rsplit("/", 1)[-1]
 
+    @property
+    def parent(self):
+        # The collection that holds this document (mirrors DocumentReference.parent).
+        return _Coll(self.store, self.path.rsplit("/", 1)[0])
+
     def collection(self, name):
         return _Coll(self.store, f"{self.path}/{name}")
 
@@ -132,6 +137,15 @@ class _Doc:
 class _Coll:
     def __init__(self, store, path):
         self.store, self.path = store, path
+
+    @property
+    def parent(self):
+        # The document that holds this subcollection, or None for a top-level
+        # collection (mirrors CollectionReference.parent). Enables
+        # ``snap.reference.parent.parent`` collection-group -> parent-doc walks.
+        if "/" not in self.path:
+            return None
+        return _Doc(self.store, self.path.rsplit("/", 1)[0])
 
     def document(self, doc_id=None):
         if doc_id is None:

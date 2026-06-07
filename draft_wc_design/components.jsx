@@ -225,8 +225,12 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
   };
 
   const opp = getNextFixtureOpponent(p.team);
-  const displayInfo = mode === "points" 
-    ? `${points != null ? points : (GW3_POINTS[playerId] ?? 0)} PTS` 
+  // For a points view the per-GW points come from the gw_history snapshot map
+  // (passed down via Pitch.pointsById). A player who didn't feature that GW has
+  // NO snapshot entry — show 0, never the season-total fallback (VT-PointsNoStats
+  // #52), which would leak a non-zero score onto a player with no GW stats.
+  const displayInfo = mode === "points"
+    ? `${points != null ? points : 0} PTS`
     : opp;
 
   return (
@@ -265,8 +269,8 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
   const fwd = starting.slice(1 + nDef + nMid, 1 + nDef + nMid + nFwd);
 
   // Per-player points for the viewed gw (engine output from the manager's
-  // gw_history snapshot). When provided, this overrides the GW3_POINTS
-  // (season-total) fallback inside PlayerSlot.
+  // gw_history snapshot). A player with no snapshot entry didn't feature that
+  // GW → PlayerSlot renders 0 (no season-total fallback; see VT-PointsNoStats).
   const ptsOf = (id) => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : undefined;
 
   const isPlayerDisabled = (id) => {
