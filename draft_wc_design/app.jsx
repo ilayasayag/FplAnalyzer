@@ -450,7 +450,15 @@ function App() {
 
             if (window.LAST_ACTIVE_LID !== lid) {
               window.LAST_ACTIVE_LID = lid;
-              setViewingGw(leagueDetails.currentGw || 1);
+              // Default to the latest GW. After a mock "Simulate next GW" we pin
+              // the just-played GW so the reload lands on the result you just
+              // generated, not the next (empty) GW.
+              let initGw = leagueDetails.currentGw || 1;
+              try {
+                const pinned = localStorage.getItem("wc_view_gw_after_reload");
+                if (pinned) { initGw = Number(pinned); localStorage.removeItem("wc_view_gw_after_reload"); }
+              } catch (e) { /* ignore */ }
+              setViewingGw(initGw);
             }
 
             window.LEAGUE = {
@@ -1106,6 +1114,8 @@ function App() {
                     setSimBusy("");
                     return;
                   }
+                  // Land on the GW we just generated (not the next empty one).
+                  try { if (res && res.gw) localStorage.setItem("wc_view_gw_after_reload", String(res.gw)); } catch (e) { /* ignore */ }
                   window.location.reload();
                 } catch (e) {
                   // Firebase Hosting caps proxied requests at ~60s; a slow GW can
