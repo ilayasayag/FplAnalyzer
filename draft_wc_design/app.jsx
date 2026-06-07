@@ -465,7 +465,9 @@ function App() {
               id: leagueDetails.leagueId,
               name: leagueDetails.name,
               inviteCode: leagueDetails.inviteCode,
-              size: leagueDetails.maxMembers,
+              // Rank denominator = actual managers in the league, not the max
+              // capacity (#48: "Rank #N / 8" while 10 are enrolled).
+              size: leagueDetails.memberCount || leagueDetails.maxMembers,
               knockoutStartGw: leagueDetails.knockoutStartGw,
               leaguePhaseGws: leagueDetails.leaguePhaseGws,
               knockoutQualifiers: leagueDetails.knockoutQualifiers,
