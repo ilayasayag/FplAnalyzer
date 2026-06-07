@@ -2,6 +2,17 @@
 // WC26 — Screens: Draft Room (live snake draft) + Create/Join League
 // =====================================================================
 
+const getNormalizedPlayerId = (id) => {
+  if (id === null || id === undefined) return "";
+  if (typeof id === "number") return id;
+  const num = Number(id);
+  if (!isNaN(num)) return num;
+  const cleaned = String(id).replace("p_", "");
+  const numCleaned = Number(cleaned);
+  if (!isNaN(numCleaned)) return numCleaned;
+  return id;
+};
+
 // ---------- DRAFT ROOM ----------
 function DraftRoomScreen({ onTab }) {
   // The clock reflects the REAL server deadline (DRAFT_STATE.secondsLeft), not a
@@ -15,7 +26,7 @@ function DraftRoomScreen({ onTab }) {
   const [watchlistIds, setWatchlistIds] = React.useState([]);
   const [loadingWatchlist, setLoadingWatchlist] = React.useState(false);
   const [draggedIdx, setDraggedIdx] = React.useState(null);
-  const watchlistSet = React.useMemo(() => new Set(watchlistIds), [watchlistIds]);
+  const watchlistSet = React.useMemo(() => new Set(watchlistIds.map(getNormalizedPlayerId)), [watchlistIds]);
   const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
@@ -42,10 +53,10 @@ function DraftRoomScreen({ onTab }) {
 
   // Toggle a player in/out of the watchlist, then persist.
   const handleToggleWatchlist = async (playerId) => {
-    const id = Number(playerId);
+    const id = getNormalizedPlayerId(playerId);
     const newIds = watchlistSet.has(id)
-      ? watchlistIds.filter(x => x !== id)
-      : [...watchlistIds, id];
+      ? watchlistIds.map(getNormalizedPlayerId).filter(x => x !== id)
+      : [...watchlistIds.map(getNormalizedPlayerId), id];
     setWatchlistIds(newIds);
     await saveWatchlist(newIds);
   };
@@ -92,10 +103,9 @@ function DraftRoomScreen({ onTab }) {
   }, [secondsLeft]);
 
   const onClock = managerById(DRAFT_STATE.onTheClock) || { name: "TBD", team: "Draft Pending", flag: "GER" };
-  const onClockTeam = teamById(onClock.flag) || teamById("GER");
 
   // Players already picked
-  const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
+  const taken = new Set(DRAFT_HISTORY.map(p => getNormalizedPlayerId(p.playerId)));
   // Get unique nations list
   const activePlayers = window.PLAYERS || PLAYERS;
   const nationsList = React.useMemo(() => {
@@ -113,7 +123,7 @@ function DraftRoomScreen({ onTab }) {
   }, [activePlayers]);
 
   const pool = activePlayers.filter(p => {
-    if (taken.has(p.id)) return false;
+    if (taken.has(getNormalizedPlayerId(p.id))) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
     if (nationFilter !== "all" && p.team !== nationFilter) return false;
@@ -183,234 +193,17 @@ function DraftRoomScreen({ onTab }) {
   // live draft. Show a clear notice instead of a misleading "running" board.
   const draftNotStarted = (typeof DRAFT_STATE !== "undefined") && (DRAFT_STATE.notStarted || !DRAFT_STATE.round) && DRAFT_HISTORY.length === 0;
 
-  const activeWatchlistIds = watchlistIds.filter(id => !taken.has(id));
+  const activeWatchlistIds = watchlistIds.filter(id => !taken.has(getNormalizedPlayerId(id)));
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: 16, minHeight: 700 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, minHeight: 700 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
         </div>
       )}
 
-      {/* LEFT COLUMN — Draft Order */}
-      <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
-        <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
-        <div style={{ overflowY: "auto", maxHeight: 640 }}>
-          {MANAGERS.map((m, idx) => {
-            const picks = DRAFT_HISTORY.filter(p => p.uid === m.uid);
-            const lastPick = picks.length > 0 ? picks[picks.length - 1] : null;
-            const isCurrent = DRAFT_STATE.onTheClock === m.uid;
-
-            return (
-              <div key={idx} style={{ 
-                padding: "12px 14px", 
-                borderBottom: "1px solid var(--border-dark)", 
-                background: isCurrent ? "rgba(0, 217, 107, 0.15)" : undefined,
-                borderLeft: isCurrent ? "4px solid var(--green-400)" : "4px solid transparent",
-                opacity: isCurrent ? 1 : 0.85,
-                boxShadow: isCurrent ? "inset 0 0 10px rgba(0, 217, 107, 0.1)" : undefined
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ 
-                    color: isCurrent ? "var(--green-400)" : "rgba(255,255,255,0.7)", 
-                    fontWeight: isCurrent ? 900 : 700, 
-                    fontSize: 13
-                  }}>
-                    {m.name} {isCurrent && "💬"}
-                  </span>
-                  {lastPick && (
-                    <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
-                      R{lastPick.round}·{lastPick.overall}
-                    </span>
-                  )}
-                </div>
-                {lastPick ? (
-                  <div style={{ 
-                    color: "white", 
-                    fontWeight: 800, 
-                    fontSize: 16, 
-                    marginTop: 6,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap"
-                  }}>
-                    {playerById(lastPick.playerId).name}
-                  </div>
-                ) : (
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 6, fontStyle: "italic" }}>
-                    No picks yet
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* CENTER COLUMN — main draft area */}
-      <div className="col" style={{ gap: 14 }}>
-        {/* Clock */}
-        <div className="card-dark" style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20 }}>
-          <div>
-            <div style={{
-              fontSize: 16,
-              fontWeight: 900,
-              color: "white",
-              letterSpacing: "0.08em",
-              textTransform: "uppercase",
-              background: "linear-gradient(90deg, #10b981, #059669)",
-              padding: "6px 12px",
-              borderRadius: 6,
-              display: "inline-block",
-              boxShadow: "0 2px 4px rgba(0,0,0,0.15)"
-            }}>
-              ROUND {DRAFT_STATE.round} · PICK {DRAFT_STATE.pickOverall}
-            </div>
-            <div className="h-display" style={{ fontSize: 36, color: "white", marginTop: 10, display: "flex", alignItems: "center", gap: 10, fontWeight: 900 }}>
-              <Flag team={onClockTeam} size="lg" />
-              {onClock.name}
-            </div>
-            <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 15, marginTop: 4, fontWeight: 600 }}>{onClock.team}</div>
-          </div>
-          <div style={{
-            width: 130, height: 130,
-            border: "5px solid " + (secondsLeft <= 15 ? "var(--red-500)" : "var(--green-400)"),
-            borderRadius: "50%",
-            display: "flex", alignItems: "center", justifyContent: "center",
-            flexDirection: "column",
-            position: "relative",
-          }}>
-            <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: "white", lineHeight: 1 }}>{formatTime(secondsLeft)}</div>
-            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>SECONDS</div>
-          </div>
-          <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 14, fontWeight: 900, color: "#ffd700", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next Up</div>
-            <div style={{ fontSize: 24, color: "white", marginTop: 6, fontWeight: 900 }}>
-              {managerById(upcoming[1].uid).name}
-            </div>
-            <div style={{ fontSize: 14, color: "#cbd5e1", marginTop: 2, fontWeight: 600 }}>{managerById(upcoming[1].uid).team}</div>
-          </div>
-          {picksUntilMyTurn !== null && (
-            <div style={{
-              gridColumn: "1 / -1",
-              marginTop: 12,
-              padding: "14px 20px",
-              background: DRAFT_STATE.isMyTurn ? "rgba(0, 217, 107, 0.15)" : "rgba(255, 170, 0, 0.15)",
-              border: DRAFT_STATE.isMyTurn ? "2px solid var(--green-400)" : "2px solid var(--gold-500)",
-              borderRadius: 8,
-              color: DRAFT_STATE.isMyTurn ? "var(--green-400)" : "var(--gold-500)",
-              fontSize: "18px",
-              fontWeight: "900",
-              textAlign: "center",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "center",
-              gap: 8,
-              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
-            }}>
-              {DRAFT_STATE.isMyTurn ? (
-                <span>⚡ It's your turn to pick!</span>
-              ) : (
-                <span>⏳ You pick in {picksUntilMyTurn} {picksUntilMyTurn === 1 ? "pick" : "picks"}</span>
-              )}
-            </div>
-          )}
-        </div>
-
-        {/* Filters + player pool */}
-        <div className="card-dark" style={{ padding: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 12, marginBottom: 14 }}>
-            <input
-              type="text"
-              placeholder="Search players…"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid var(--border-dark-strong)", background: "rgba(255,255,255,0.08)", color: "white" }}
-            />
-            <select
-              value={nationFilter}
-              onChange={e => setNationFilter(e.target.value)}
-              style={{
-                padding: "10px 18px", borderRadius: 999,
-                border: "1px solid var(--border-dark-strong)",
-                background: "rgba(255,255,255,0.08)", color: "white",
-                cursor: "pointer", outline: "none",
-                fontSize: 12, fontWeight: 700
-              }}
-            >
-              <option value="all" style={{ background: "var(--navy-900)" }}>All Nations</option>
-              {nationsList.map(n => (
-                <option key={n.code} value={n.code} style={{ background: "var(--navy-900)" }}>
-                  {n.name} ({n.code})
-                </option>
-              ))}
-            </select>
-            <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.25)", borderRadius: 999 }}>
-              {["all", "1", "2", "3", "4"].map(p => (
-                <button key={p}
-                  style={{
-                    padding: "6px 14px", fontSize: 11, fontWeight: 700, borderRadius: 999,
-                    background: posFilter === p ? "var(--green-400)" : "transparent",
-                    color: posFilter === p ? "var(--navy-900)" : "white",
-                  }}
-                  onClick={() => setPosFilter(p)}>
-                  {p === "all" ? "ALL" : POS_NAMES[Number(p)]}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div style={{ background: "rgba(0,0,0,0.18)", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.6)", display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8 }}>
-            <span>PLAYER</span>
-            <span>TEAM</span>
-            <span style={{ textAlign: "center" }}>POS</span>
-            <span></span>
-          </div>
-          <div style={{ maxHeight: 420, overflowY: "auto", marginTop: 4 }}>
-            {pool.slice(0, 30).map(p => {
-              const t = teamById(p.team);
-              const isWatched = watchlistSet.has(p.id);
-              return (
-                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                    <div style={{ width: 30, height: 30 }}><Jersey team={t} pos={p.pos} /></div>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{p.name}</div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Group {t.grp}</div>
-                    </div>
-                  </div>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
-                    <Flag team={t} /> {t.id}
-                  </span>
-                  <span style={{ textAlign: "center" }}>
-                    <span className="pill" style={{ background: "rgba(255,255,255,0.10)", color: "white", fontSize: 10 }}>{POS_NAMES[p.pos]}</span>
-                  </span>
-                  <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
-                    <button
-                      onClick={() => handleToggleWatchlist(p.id)}
-                      style={{
-                        padding: "4px 8px",
-                        fontSize: 24,
-                        background: "transparent",
-                        color: isWatched ? "#ffd700" : "rgba(255,255,255,0.4)",
-                        border: "none",
-                        cursor: "pointer",
-                        textShadow: isWatched ? "0 0 8px rgba(255, 215, 0, 0.6)" : "none"
-                      }}
-                      title={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
-                      {isWatched ? "★" : "☆"}
-                    </button>
-                    <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT COLUMN — My Squad & Watchlist */}
+      {/* LEFT COLUMN — My Squad & Watchlist */}
       <div className="col" style={{ gap: 12 }}>
         {/* My Squad */}
         <div className="card-dark">
@@ -501,6 +294,238 @@ function DraftRoomScreen({ onTab }) {
               })}
             </div>
           )}
+        </div>
+      </div>
+
+      {/* CENTER COLUMN — main draft area */}
+      <div className="col" style={{ gap: 14 }}>
+        {/* Clock */}
+        <div className="card-dark" style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20 }}>
+          <div>
+            <div style={{
+              fontSize: 16,
+              fontWeight: 900,
+              color: "white",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              background: "linear-gradient(90deg, #10b981, #059669)",
+              padding: "6px 12px",
+              borderRadius: 6,
+              display: "inline-block",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.15)"
+            }}>
+              ROUND {DRAFT_STATE.round} · PICK {DRAFT_STATE.pickOverall}
+            </div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--green-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 14 }}>
+              On The Clock
+            </div>
+            <div className="h-display" style={{ 
+              fontSize: 48, 
+              color: "#ffffff", 
+              marginTop: 4, 
+              fontWeight: 900, 
+              letterSpacing: "-0.03em",
+              textTransform: "uppercase",
+              textShadow: "0 0 12px rgba(255,255,255,0.2)"
+            }}>
+              {onClock.name}
+            </div>
+          </div>
+          <div style={{
+            width: 130, height: 130,
+            border: "5px solid " + (secondsLeft <= 15 ? "var(--red-500)" : "var(--green-400)"),
+            borderRadius: "50%",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            flexDirection: "column",
+            position: "relative",
+          }}>
+            <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: "white", lineHeight: 1 }}>{formatTime(secondsLeft)}</div>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>SECONDS</div>
+          </div>
+          <div style={{ textAlign: "right" }}>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next Up</div>
+            <div style={{ 
+              fontSize: 16, 
+              color: "rgba(255,255,255,0.45)", 
+              marginTop: 6, 
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em"
+            }}>
+              {upcoming[1] ? managerById(upcoming[1].uid).name : "—"}
+            </div>
+          </div>
+          {picksUntilMyTurn !== null && (
+            <div style={{
+              gridColumn: "1 / -1",
+              marginTop: 12,
+              padding: "14px 20px",
+              background: DRAFT_STATE.isMyTurn ? "rgba(0, 217, 107, 0.15)" : "rgba(255, 170, 0, 0.15)",
+              border: DRAFT_STATE.isMyTurn ? "2px solid var(--green-400)" : "2px solid var(--gold-500)",
+              borderRadius: 8,
+              color: DRAFT_STATE.isMyTurn ? "var(--green-400)" : "var(--gold-500)",
+              fontSize: "18px",
+              fontWeight: "900",
+              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+            }}>
+              {DRAFT_STATE.isMyTurn ? (
+                <span>⚡ It's your turn to pick!</span>
+              ) : (
+                <span>⏳ You pick in {picksUntilMyTurn} {picksUntilMyTurn === 1 ? "pick" : "picks"}</span>
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Filters + player pool */}
+        <div className="card-dark" style={{ padding: 18 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 12, marginBottom: 14 }}>
+            <input
+              type="text"
+              placeholder="Search players…"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid var(--border-dark-strong)", background: "rgba(255,255,255,0.08)", color: "white" }}
+            />
+            <select
+              value={nationFilter}
+              onChange={e => setNationFilter(e.target.value)}
+              style={{
+                padding: "10px 18px", borderRadius: 999,
+                border: "1px solid var(--border-dark-strong)",
+                background: "rgba(255,255,255,0.08)", color: "white",
+                cursor: "pointer", outline: "none",
+                fontSize: 12, fontWeight: 700
+              }}
+            >
+              <option value="all" style={{ background: "var(--navy-900)" }}>All Nations</option>
+              {nationsList.map(n => (
+                <option key={n.code} value={n.code} style={{ background: "var(--navy-900)" }}>
+                  {n.name} ({n.code})
+                </option>
+              ))}
+            </select>
+            <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.25)", borderRadius: 999 }}>
+              {["all", "1", "2", "3", "4"].map(p => (
+                <button key={p}
+                  style={{
+                    padding: "6px 14px", fontSize: 11, fontWeight: 700, borderRadius: 999,
+                    background: posFilter === p ? "var(--green-400)" : "transparent",
+                    color: posFilter === p ? "var(--navy-900)" : "white",
+                  }}
+                  onClick={() => setPosFilter(p)}>
+                  {p === "all" ? "ALL" : POS_NAMES[Number(p)]}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div style={{ background: "rgba(0,0,0,0.18)", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.6)", display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8 }}>
+            <span>PLAYER</span>
+            <span>TEAM</span>
+            <span style={{ textAlign: "center" }}>POS</span>
+            <span></span>
+          </div>
+          <div style={{ maxHeight: 420, overflowY: "auto", marginTop: 4 }}>
+            {pool.slice(0, 30).map(p => {
+              const t = teamById(p.team);
+              const isWatched = watchlistSet.has(getNormalizedPlayerId(p.id));
+              return (
+                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ width: 30, height: 30 }}><Jersey team={t} pos={p.pos} /></div>
+                    <div>
+                      <div style={{ fontWeight: 700 }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Group {t.grp}</div>
+                    </div>
+                  </div>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
+                    <Flag team={t} /> {t.id}
+                  </span>
+                  <span style={{ textAlign: "center" }}>
+                    <span className="pill" style={{ background: "rgba(255,255,255,0.10)", color: "white", fontSize: 10 }}>{POS_NAMES[p.pos]}</span>
+                  </span>
+                  <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                    <button
+                      onClick={() => handleToggleWatchlist(p.id)}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: 24,
+                        background: "transparent",
+                        color: isWatched ? "#ffd700" : "rgba(255,255,255,0.4)",
+                        border: "none",
+                        cursor: "pointer",
+                        textShadow: isWatched ? "0 0 8px rgba(255, 215, 0, 0.6)" : "none"
+                      }}
+                      title={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
+                      {isWatched ? "★" : "☆"}
+                    </button>
+                    <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* RIGHT COLUMN — Draft Order */}
+      <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
+        <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
+        <div style={{ overflowY: "auto", maxHeight: 640 }}>
+          {MANAGERS.map((m, idx) => {
+            const picks = DRAFT_HISTORY.filter(p => p.uid === m.uid);
+            const lastPick = picks.length > 0 ? picks[picks.length - 1] : null;
+            const isCurrent = DRAFT_STATE.onTheClock === m.uid;
+
+            return (
+              <div key={idx} style={{ 
+                padding: "12px 14px", 
+                borderBottom: "1px solid var(--border-dark)", 
+                background: isCurrent ? "rgba(0, 217, 107, 0.15)" : undefined,
+                borderLeft: isCurrent ? "4px solid var(--green-400)" : "4px solid transparent",
+                opacity: isCurrent ? 1 : 0.85,
+                boxShadow: isCurrent ? "inset 0 0 10px rgba(0, 217, 107, 0.1)" : undefined
+              }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                  <span style={{ 
+                    color: isCurrent ? "var(--green-400)" : "rgba(255,255,255,0.7)", 
+                    fontWeight: isCurrent ? 900 : 700, 
+                    fontSize: 13
+                  }}>
+                    {m.name} {isCurrent && "💬"}
+                  </span>
+                  {lastPick && (
+                    <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
+                      R{lastPick.round}·{lastPick.overall}
+                    </span>
+                  )}
+                </div>
+                {lastPick ? (
+                  <div style={{ 
+                    color: "white", 
+                    fontWeight: 800, 
+                    fontSize: 16, 
+                    marginTop: 6,
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                    whiteSpace: "nowrap"
+                  }}>
+                    {playerById(lastPick.playerId).name}
+                  </div>
+                ) : (
+                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 6, fontStyle: "italic" }}>
+                    No picks yet
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
