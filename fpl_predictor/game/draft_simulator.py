@@ -12,6 +12,17 @@ class DraftSimulator:
 
     def start(self, lid: str):
         with self._lock:
+            # Mark draft as unpaused and refresh the deadline
+            state_ref = self.db.collection("leagues").document(lid).collection("draft").document("state")
+            state_doc = state_ref.get()
+            if state_doc.exists:
+                state_data = state_doc.to_dict()
+                pick_timer = state_data.get("pickTimer", 30)
+                state_ref.update({
+                    "paused": False,
+                    "pickDeadline": time.time() + pick_timer
+                })
+
             if self.active:
                 return
             self.active = True
@@ -24,10 +35,14 @@ class DraftSimulator:
             self.thread.start()
             self.last_status = "active"
 
-    def stop(self):
+    def stop(self, lid: str = None):
         with self._lock:
             self.active = False
             self.last_status = "stopped"
+            if lid:
+                self.db.collection("leagues").document(lid).collection("draft").document("state").update({
+                    "paused": True
+                })
 
     def _run_loop(self, lid: str):
         print(f"[Draft Simulator] Started loop for league {lid}")

@@ -466,6 +466,7 @@ function App() {
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
             isMyTurn: currentDrafter === user.uid,
             order: data.order || [],
+            paused: !!data.paused,
           };
           forceUpdate();
         } else {
@@ -476,6 +477,7 @@ function App() {
             totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
             isMyTurn: false, notStarted: true,
             order: [],
+            paused: false,
           };
           forceUpdate();
         }
@@ -1048,7 +1050,7 @@ function App() {
       )}
 
       <div className={"page " + (isWide ? "page--wide" : "")}>
-        <main key={updateKey}>{renderScreen()}</main>
+        <main>{renderScreen()}</main>
         {!isWide && <Sidebar onTab={setTab} />}
       </div>
 

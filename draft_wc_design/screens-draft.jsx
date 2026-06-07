@@ -18,6 +18,7 @@ function DraftRoomScreen({ onTab }) {
   // The clock reflects the REAL server deadline (DRAFT_STATE.secondsLeft), not a
   // hardcoded countdown. 0 when no draft is running for the active league.
   const serverSeconds = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.secondsLeft) ? DRAFT_STATE.secondsLeft : 0;
+  const isPaused = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.paused : false;
   const [secondsLeft, setSecondsLeft] = React.useState(serverSeconds);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
@@ -76,9 +77,14 @@ function DraftRoomScreen({ onTab }) {
   React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
 
   React.useEffect(() => {
-    const t = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
+    const t = setInterval(() => {
+      setSecondsLeft(s => {
+        if (isPaused) return s;
+        return Math.max(0, s - 1);
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [isPaused]);
 
   // Auto-pick watchdog: when the on-screen timer hits 0 AND a draft is active,
   // fire /draft/auto-pick. Any client in the room can fire this — the engine
@@ -90,6 +96,7 @@ function DraftRoomScreen({ onTab }) {
   React.useEffect(() => {
     const deadline = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.pickDeadline : null;
     const status = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.status : null;
+    if (isPaused) return;
     if (secondsLeft === 0 && status === "active" && deadline && lastFiredFor.current !== deadline) {
       lastFiredFor.current = deadline;
       const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
@@ -100,7 +107,7 @@ function DraftRoomScreen({ onTab }) {
         console.debug("auto-pick declined:", err && (err.error || err.detail));
       });
     }
-  }, [secondsLeft]);
+  }, [secondsLeft, isPaused]);
 
   const onClock = managerById(DRAFT_STATE.onTheClock) || { name: "TBD", team: "Draft Pending", flag: "GER" };
 
@@ -288,7 +295,7 @@ function DraftRoomScreen({ onTab }) {
               display: "inline-block",
               boxShadow: "0 2px 4px rgba(0,0,0,0.15)"
             }}>
-              ROUND {DRAFT_STATE.round} · PICK {DRAFT_STATE.pickOverall}
+              {draftNotStarted ? "PRE-DRAFT" : `ROUND ${DRAFT_STATE.round} · PICK ${DRAFT_STATE.pickOverall}`}
             </div>
             <div style={{ fontSize: 11, fontWeight: 800, color: "var(--green-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 14 }}>
               On The Clock
@@ -307,14 +314,18 @@ function DraftRoomScreen({ onTab }) {
           </div>
           <div style={{
             width: 130, height: 130,
-            border: "5px solid " + (secondsLeft <= 15 ? "var(--red-500)" : "var(--green-400)"),
+            border: "5px solid " + (isPaused ? "var(--gold-500)" : (secondsLeft <= 15 ? "var(--red-500)" : (draftNotStarted ? "#334155" : "var(--green-400)"))),
             borderRadius: "50%",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexDirection: "column",
             position: "relative",
           }}>
-            <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: "white", lineHeight: 1 }}>{formatTime(secondsLeft)}</div>
-            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>SECONDS</div>
+            <div className="mono" style={{ fontSize: isPaused ? 24 : 36, fontWeight: 800, color: (draftNotStarted && !isPaused) ? "#475569" : "white", lineHeight: 1 }}>
+              {isPaused ? "PAUSED" : (draftNotStarted ? "0:00" : formatTime(secondsLeft))}
+            </div>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>
+              {isPaused ? `(${formatTime(secondsLeft)})` : "SECONDS"}
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next Up</div>

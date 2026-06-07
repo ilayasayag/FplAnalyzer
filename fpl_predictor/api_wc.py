@@ -666,7 +666,7 @@ def toggle_draft_sim(lid: str):
     if active:
         _sim.start(lid)
     else:
-        _sim.stop()
+        _sim.stop(lid)
     return _ok({"active": _sim.active, "status": _sim.last_status})
 
 

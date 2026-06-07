@@ -51,6 +51,7 @@ class DraftEngine:
         draft_ref = league_ref.collection("draft").document("state")
         draft_ref.set({
             "status": "active",
+            "paused": False,
             "order": member_uids,
             "currentPick": 0,
             "totalPicks": total_picks,
@@ -222,6 +223,9 @@ class DraftEngine:
         state = draft_doc.to_dict()
         if state["status"] != "active":
             raise ValueError("Draft is not active")
+
+        if state.get("paused", False):
+            raise ValueError("Draft is paused")
 
         if time.time() < state.get("pickDeadline", float("inf")):
             raise ValueError("Pick timer has not expired")
