@@ -137,14 +137,18 @@ function DraftRoomScreen({ onTab }) {
     return true;
   }).sort((a, b) => a.dr - b.dr);
 
+  const sidebarOrder = (DRAFT_STATE.order && DRAFT_STATE.order.length > 0)
+    ? DRAFT_STATE.order.map(uid => managerById(uid)).filter(Boolean)
+    : MANAGERS;
+
   // Snake order projection for next ~10 picks
   const upcoming = [];
   let pickN = DRAFT_STATE.pickOverall || 1;
   let round = DRAFT_STATE.round || 1;
   let inRound = DRAFT_STATE.pickInRound || 1;
-  const numManagers = MANAGERS.length || 10;
+  const numManagers = sidebarOrder.length || 10;
   while (upcoming.length < 8 && pickN <= (numManagers * 15)) {
-    const order = round % 2 === 1 ? MANAGERS : [...MANAGERS].reverse();
+    const order = round % 2 === 1 ? sidebarOrder : [...sidebarOrder].reverse();
     const uid = order[inRound - 1]?.uid;
     upcoming.push({ overall: pickN, round, uid });
     pickN++;
@@ -155,12 +159,12 @@ function DraftRoomScreen({ onTab }) {
   // Project all draft picks to find when ME picks next
   let picksUntilMyTurn = null;
   let roundsUntilMyTurn = null;
-  if (typeof DRAFT_STATE !== "undefined" && typeof MANAGERS !== "undefined" && typeof ME !== "undefined") {
+  if (typeof DRAFT_STATE !== "undefined" && typeof ME !== "undefined") {
     const currentPick = DRAFT_STATE.pickOverall || 1;
     const onClockUid = DRAFT_STATE.onTheClock;
     const isMeOnClock = onClockUid === ME;
     const searchStart = isMeOnClock ? currentPick + 1 : currentPick;
-    const numM = MANAGERS.length || 10;
+    const numM = sidebarOrder.length || 10;
     
     let nextMyPickOverall = null;
     let nextMyPickRound = null;
@@ -169,7 +173,7 @@ function DraftRoomScreen({ onTab }) {
     let r = 1;
     let iR = 1;
     while (pN <= (numM * 15)) {
-      const order = r % 2 === 1 ? MANAGERS : [...MANAGERS].reverse();
+      const order = r % 2 === 1 ? sidebarOrder : [...sidebarOrder].reverse();
       const uid = order[iR - 1]?.uid;
       
       if (pN >= searchStart && uid === ME) {
@@ -204,12 +208,8 @@ function DraftRoomScreen({ onTab }) {
 
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
-  const sidebarOrder = (DRAFT_STATE.order && DRAFT_STATE.order.length > 0)
-    ? DRAFT_STATE.order.map(uid => managerById(uid)).filter(Boolean)
-    : MANAGERS;
-
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, minHeight: 700 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 700 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
@@ -217,9 +217,9 @@ function DraftRoomScreen({ onTab }) {
       )}
 
       {/* LEFT COLUMN — Watchlist */}
-      <div className="col" style={{ gap: 12 }}>
+      <div className="col" style={{ gap: 12, height: "100%" }}>
         {/* Watchlist */}
-        <div className="card-dark" style={{ display: "flex", flexDirection: "column", height: 700 }}>
+        <div className="card-dark" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div className="card-dark__title">
             ★ Watchlist ({activeWatchlistIds.length})
             {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
@@ -279,7 +279,7 @@ function DraftRoomScreen({ onTab }) {
       </div>
 
       {/* CENTER COLUMN — main draft area */}
-      <div className="col" style={{ gap: 14 }}>
+      <div className="col" style={{ gap: 14, height: "100%" }}>
         {/* Clock */}
         <div className="card-dark" style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20 }}>
           <div>
@@ -390,7 +390,7 @@ function DraftRoomScreen({ onTab }) {
         </div>
 
         {/* Filters + player pool */}
-        <div className="card-dark" style={{ padding: 18 }}>
+        <div className="card-dark" style={{ padding: 18, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
           <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 12, marginBottom: 14 }}>
             <input
               type="text"
@@ -438,7 +438,7 @@ function DraftRoomScreen({ onTab }) {
             <span style={{ textAlign: "center" }}>POS</span>
             <span></span>
           </div>
-          <div style={{ maxHeight: 420, overflowY: "auto", marginTop: 4 }}>
+          <div style={{ flex: 1, overflowY: "auto", marginTop: 4 }}>
             {pool.slice(0, 30).map(p => {
               const t = teamById(p.team);
               const isWatched = watchlistSet.has(getNormalizedPlayerId(p.id));
@@ -482,7 +482,7 @@ function DraftRoomScreen({ onTab }) {
       </div>
 
       {/* RIGHT COLUMN — My Squad & Draft Order */}
-      <div className="col" style={{ gap: 12, maxHeight: 700 }}>
+      <div className="col" style={{ gap: 12, height: "100%" }}>
         {/* My Squad */}
         <div className="card-dark" style={{ flexShrink: 0 }}>
           <div className="card-dark__title">My Squad ({myPicks.length}/15)</div>
