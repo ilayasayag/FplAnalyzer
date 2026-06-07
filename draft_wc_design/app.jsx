@@ -1099,8 +1099,8 @@ function App() {
               onClick={async () => {
                 if (simBusy) return;
                 try {
-                  setSimBusy("Simulating next gameweek…");
-                  const res = await apiCall("POST", `/admin/leagues/${activeLid}/simulate-gw`, {});
+                  setSimBusy("Simulating next gameweek… (~30-50s, please wait)");
+                  const res = await apiCall("POST", `/admin/leagues/${activeLid}/simulate-gw`, {}, { timeoutMs: 120000 });
                   if (res && res.done) {
                     alert("Tournament already complete — reset to GW1 to replay.");
                     setSimBusy("");
@@ -1108,8 +1108,16 @@ function App() {
                   }
                   window.location.reload();
                 } catch (e) {
-                  alert("Simulate GW failed: " + (e && e.message ? e.message : e));
-                  setSimBusy("");
+                  // Firebase Hosting caps proxied requests at ~60s; a slow GW can
+                  // surface as a timeout/504 even though it finished server-side.
+                  // Reload to reflect the real state instead of a false failure.
+                  const timedOut = !e || e.name === "AbortError" || e.status === 504 || e.status === undefined;
+                  if (timedOut) {
+                    window.location.reload();
+                  } else {
+                    alert("Simulate GW failed: " + (e.error || e.message || JSON.stringify(e)));
+                    setSimBusy("");
+                  }
                 }
               }} />
             <TweakButton
@@ -1120,7 +1128,7 @@ function App() {
                 if (!window.confirm(`Reset "${activeLid}" back to a fresh GW1? This wipes all generated fixtures, scores and standings (squads + members are kept).`)) return;
                 try {
                   setSimBusy("Resetting to GW1…");
-                  await apiCall("POST", `/admin/leagues/${activeLid}/sim-reset`, {});
+                  await apiCall("POST", `/admin/leagues/${activeLid}/sim-reset`, {}, { timeoutMs: 120000 });
                   window.location.reload();
                 } catch (e) {
                   alert("Reset failed: " + (e && e.message ? e.message : e));
