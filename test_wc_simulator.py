@@ -41,6 +41,63 @@ def test_group_scoreline_can_draw_and_is_bounded():
 
 
 # ---------------------------------------------------------------------------
+# PURE: team strength tiers + biased scoreline
+# ---------------------------------------------------------------------------
+def test_team_tier_classification():
+    assert S.team_tier("Spain") == 1
+    assert S.team_tier("Brazil") == 1
+    assert S.team_tier("Morocco") == 2
+    assert S.team_tier("USA") == 2
+    assert S.team_tier("Saudi Arabia") == 3
+    assert S.team_tier("") == 3
+    # spelling/iso variants normalise to the canonical tier
+    assert S.team_tier("Columbia") == 2   # Colombia
+    assert S.team_tier("Swiss") == 2      # Switzerland
+    assert S.team_tier("Türkiye") == 2    # Turkey
+
+
+def test_win_prob_matches_spec():
+    # tier1 vs tier3 -> 80%, tier2 vs tier3 -> 70%, tier1 vs tier2 -> 70%
+    assert S.win_prob(1, 3) == 0.80
+    assert S.win_prob(2, 3) == 0.70
+    assert S.win_prob(1, 2) == 0.70
+    assert S.win_prob(1, 1) == 0.50
+    # symmetric
+    assert abs(S.win_prob(3, 1) - 0.20) < 1e-9
+    assert abs(S.win_prob(2, 1) - 0.30) < 1e-9
+
+
+def test_scoreline_bias_favours_strong_side():
+    """A heavily favoured side (p_home_win=0.8) should win ~80% of knockouts."""
+    rng = random.Random(11)
+    home_wins = 0
+    N = 3000
+    for _ in range(N):
+        h, a = S.simulate_scoreline(rng, knockout=True, p_home_win=0.8)
+        assert h != a  # knockout never draws
+        if h > a:
+            home_wins += 1
+    assert 0.75 < home_wins / N < 0.85
+
+
+def test_scoreline_even_when_unbiased():
+    """Default p_home_win=0.5 stays balanced and bounded 0..5, draws happen."""
+    rng = random.Random(12)
+    saw_draw = False
+    home_wins = decisive = 0
+    for _ in range(3000):
+        h, a = S.simulate_scoreline(rng, knockout=False)
+        assert 0 <= h <= 5 and 0 <= a <= 5
+        if h == a:
+            saw_draw = True
+        else:
+            decisive += 1
+            home_wins += (h > a)
+    assert saw_draw
+    assert 0.45 < home_wins / decisive < 0.55
+
+
+# ---------------------------------------------------------------------------
 # PURE: per-team player stats
 # ---------------------------------------------------------------------------
 def _team(prefix, n_per_pos=(2, 5, 5, 4)):
@@ -275,6 +332,51 @@ def test_simulate_knockout_gw_eliminates_losers():
     loser_players = [p for p in db.collection("wc_players").get()
                      if p.to_dict()["teamId"] == loser]
     assert loser_players and all(p.to_dict()["eliminated"] for p in loser_players)
+
+
+def test_simulate_one_gw_advances_currentgw():
+    """The week-by-week driver runs ONE GW, scores it, and advances currentGw."""
+    db = H.FakeDB()
+    lid = _seed_mini_league(db)
+    out = S.simulate_one_gw(db, lid, gw=1, seed=7)
+    assert out["done"] is False
+    assert out["gw"] == 1
+    assert out["currentGw"] == 2  # finalize_gw advances it
+    assert out["matches"] == 1
+    assert set(out["managers"]) == {"u_a", "u_b"}
+    sc = db.collection("leagues").document(lid).collection("scores").document("1").get()
+    assert sc.exists
+
+
+def test_simulate_one_gw_past_end_is_noop():
+    db = H.FakeDB()
+    lid = _seed_mini_league(db)
+    out = S.simulate_one_gw(db, lid, gw=9)
+    assert out["done"] is True
+    # no fixtures generated
+    assert db.collection("wc_fixtures").get() == []
+
+
+def test_reset_simulation_deletes_playerscores_subcollections():
+    """reset_simulation must delete each fixture's playerScores subcollection,
+    not just the fixture doc — Firestore does not cascade, and orphaned
+    playerScores would otherwise leak into the /players/{id}/scores
+    collection-group query as duplicate/stale history rows (the prod bug)."""
+    db = H.FakeDB()
+    lid = _seed_mini_league(db)
+    # Seed a fixture with a playerScores subcollection.
+    db.collection("wc_fixtures").document("7777").set({"id": 7777, "gw": 1})
+    db.collection("wc_fixtures").document("7777").collection("playerScores") \
+        .document("1000").set({"playerId": 1000, "gw": 1, "fantasyPoints": 5})
+    db.collection("wc_fixtures").document("7777").collection("playerScores") \
+        .document("2000").set({"playerId": 2000, "gw": 1, "fantasyPoints": 2})
+    assert len(db.collection_group("playerScores").get()) == 2
+
+    S.reset_simulation(db, lid)
+
+    # Fixture doc gone AND its playerScores gone (no orphans left behind).
+    assert db.collection("wc_fixtures").document("7777").get().exists is False
+    assert db.collection_group("playerScores").get() == []
 
 
 def test_process_fixture_cache_matches_uncached():

@@ -62,13 +62,22 @@ class WCSquadManager:
             lineup = self._get_previous_lineup(lid, uid, gw) \
                 or self._default_lineup(lid, uid)
 
-        # A locked GW is historical — return exactly what was played; never
-        # rewrite it to reflect transfers made AFTER that GW kicked off.
+        # A historical GW is immutable — return exactly what was played; never
+        # rewrite it to reflect transfers made AFTER that GW kicked off. A GW is
+        # historical if its lock time has passed OR it has already been finalized
+        # (gw < the league's currentGw). The currentGw check is the authoritative
+        # signal for the mock simulator, whose fixtures don't carry real-world
+        # kickoff clocks for is_locked() to read.
         try:
             locked = is_locked(gw)
         except Exception:
             locked = False
-        if locked:
+        try:
+            league_doc = self.db.collection("leagues").document(lid).get()
+            current_gw = int((league_doc.to_dict() or {}).get("currentGw", 1)) if league_doc.exists else 1
+        except Exception:
+            current_gw = 1
+        if locked or gw < current_gw:
             return lineup
 
         # Transfers (free-agent / trade) only mutate the SQUAD doc, leaving the

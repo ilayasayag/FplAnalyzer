@@ -143,6 +143,9 @@ function App() {
   const [myLeagues, setMyLeagues] = React.useState([]);
   const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
+  // Mock-simulator (admin Tweaks panel) busy flag — disables the buttons + shows
+  // progress while a GW is generated server-side.
+  const [simBusy, setSimBusy] = React.useState("");
   // False until the real /squads/me + lineup fetch resolves (success OR a
   // definitive "no squad" result). Gates the Pick Team render so an
   // authenticated user never sees the data.jsx demo squad flash before the
@@ -447,7 +450,15 @@ function App() {
 
             if (window.LAST_ACTIVE_LID !== lid) {
               window.LAST_ACTIVE_LID = lid;
-              setViewingGw(leagueDetails.currentGw || 1);
+              // Default to the latest GW. After a mock "Simulate next GW" we pin
+              // the just-played GW so the reload lands on the result you just
+              // generated, not the next (empty) GW.
+              let initGw = leagueDetails.currentGw || 1;
+              try {
+                const pinned = localStorage.getItem("wc_view_gw_after_reload");
+                if (pinned) { initGw = Number(pinned); localStorage.removeItem("wc_view_gw_after_reload"); }
+              } catch (e) { /* ignore */ }
+              setViewingGw(initGw);
             }
 
             window.LEAGUE = {
@@ -1083,6 +1094,58 @@ function App() {
               }
             }} style={{ fontSize: 10, color: "inherit", width: "100%" }} />
           </div>
+        )}
+
+        {window.IS_ADMIN && activeLid && (
+          <>
+            <TweakSection label="Mock Simulator (admin)" />
+            <div style={{ fontSize: 10, color: "rgba(41,38,27,0.55)", lineHeight: 1.4, marginTop: -4 }}>
+              {simBusy ? simBusy : `Generate the mock World Cup for "${activeLid}" — step one GW at a time, or reset to a fresh GW1.`}
+            </div>
+            <TweakButton
+              label={simBusy ? "Working…" : "▶ Simulate next GW"}
+              onClick={async () => {
+                if (simBusy) return;
+                try {
+                  setSimBusy("Simulating next gameweek… (~30-50s, please wait)");
+                  const res = await apiCall("POST", `/admin/leagues/${activeLid}/simulate-gw`, {}, { timeoutMs: 120000 });
+                  if (res && res.done) {
+                    alert("Tournament already complete — reset to GW1 to replay.");
+                    setSimBusy("");
+                    return;
+                  }
+                  // Land on the GW we just generated (not the next empty one).
+                  try { if (res && res.gw) localStorage.setItem("wc_view_gw_after_reload", String(res.gw)); } catch (e) { /* ignore */ }
+                  window.location.reload();
+                } catch (e) {
+                  // Firebase Hosting caps proxied requests at ~60s; a slow GW can
+                  // surface as a timeout/504 even though it finished server-side.
+                  // Reload to reflect the real state instead of a false failure.
+                  const timedOut = !e || e.name === "AbortError" || e.status === 504 || e.status === undefined;
+                  if (timedOut) {
+                    window.location.reload();
+                  } else {
+                    alert("Simulate GW failed: " + (e.error || e.message || JSON.stringify(e)));
+                    setSimBusy("");
+                  }
+                }
+              }} />
+            <TweakButton
+              label="⟳ Reset mock to GW1"
+              secondary
+              onClick={async () => {
+                if (simBusy) return;
+                if (!window.confirm(`Reset "${activeLid}" back to a fresh GW1? This wipes all generated fixtures, scores and standings (squads + members are kept).`)) return;
+                try {
+                  setSimBusy("Resetting to GW1…");
+                  await apiCall("POST", `/admin/leagues/${activeLid}/sim-reset`, {}, { timeoutMs: 120000 });
+                  window.location.reload();
+                } catch (e) {
+                  alert("Reset failed: " + (e && e.message ? e.message : e));
+                  setSimBusy("");
+                }
+              }} />
+          </>
         )}
       </TweaksPanel>
     </div>

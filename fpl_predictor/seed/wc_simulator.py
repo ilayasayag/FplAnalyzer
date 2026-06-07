@@ -69,25 +69,85 @@ _ASSIST_PROB = 0.72
 # team doesn't have enough players in a slot.
 _STARTER_SHAPE = {GK: 1, DEF: 4, MID: 3, FWD: 3}
 
+# --- Team strength tiers ----------------------------------------------------
+# Stronger nations should win more often so the mock World Cup looks plausible
+# (no more Saudi Arabia lifting the trophy). Three tiers; a stronger tier beats
+# a weaker one with the probability in `_TIER_WIN_PROB` (keyed by tier gap):
+#   tier1 vs tier2 (gap 1) -> 70%   tier1 vs tier3 (gap 2) -> 80%
+#   tier2 vs tier3 (gap 1) -> 70%   same tier            -> 50%
+_TIER1 = {  # heavyweights — ~80% vs the weakest tier
+    "spain", "brazil", "argentina", "france", "germany", "england",
+    "belgium", "portugal",
+}
+_TIER2 = {  # strong — ~70% vs the weakest tier
+    "canada", "morocco", "uruguay", "colombia", "senegal", "norway",
+    "switzerland", "turkey", "usa", "croatia",
+}
+# Common name/iso spelling variants -> the canonical key used in the tier sets.
+_TIER_ALIASES = {
+    "columbia": "colombia", "swiss": "switzerland", "türkiye": "turkey",
+    "turkiye": "turkey", "united states": "usa", "united states of america": "usa",
+    "usmnt": "usa", "the netherlands": "netherlands",
+}
+# P(stronger team wins) by tier gap. Gap 0 (same tier) is a 50/50.
+_TIER_WIN_PROB = {1: 0.70, 2: 0.80}
+
+
+def team_tier(name: str) -> int:
+    """Strength tier for a national team by name: 1 (best) .. 3 (weakest)."""
+    key = (name or "").strip().lower()
+    key = _TIER_ALIASES.get(key, key)
+    if key in _TIER1:
+        return 1
+    if key in _TIER2:
+        return 2
+    return 3
+
+
+def win_prob(home_tier: int, away_tier: int) -> float:
+    """P(home team beats away team) from their tiers. Lower tier number = stronger.
+
+    Symmetric: ``win_prob(a, b) == 1 - win_prob(b, a)``. Same tier -> 0.5.
+    """
+    gap = away_tier - home_tier  # >0 when home is the stronger side
+    if gap == 0:
+        return 0.5
+    fav = _TIER_WIN_PROB.get(abs(gap), 0.85)
+    return fav if gap > 0 else (1.0 - fav)
+
 
 # ---------------------------------------------------------------------------
 # PURE generation helpers (deterministic given `rng`)
 # ---------------------------------------------------------------------------
-def simulate_scoreline(rng: random.Random, knockout: bool = False) -> Tuple[int, int]:
+# Goal counts for the winning / losing side once an outcome is decided.
+_WIN_GOALS = (1, 2, 3, 4, 5)
+_WIN_GOAL_WEIGHTS = (0.40, 0.32, 0.16, 0.08, 0.04)
+# Even-score goal counts for a drawn group game.
+_DRAW_GOALS = (0, 1, 2, 3)
+_DRAW_GOAL_WEIGHTS = (0.34, 0.40, 0.20, 0.06)
+# Baseline probability a group game ends level (knockout games never draw).
+_GROUP_DRAW_PROB = 0.24
+
+
+def simulate_scoreline(rng: random.Random, knockout: bool = False,
+                       p_home_win: float = 0.5) -> Tuple[int, int]:
     """Return ``(home_goals, away_goals)``.
 
-    Group games may draw. Knockout games are forced decisive: on a draw we add a
-    single golden goal to a random side (models extra-time / penalties without
-    modelling the shoot-out itself).
+    The match OUTCOME is decided first — a draw (group games only) with
+    probability ``_GROUP_DRAW_PROB``, otherwise the home side wins with
+    probability ``p_home_win`` — and a plausible scoreline is sampled to match.
+    ``p_home_win`` lets callers bias results by team strength (see
+    :func:`win_prob`); the default 0.5 is an even contest. Knockout games are
+    forced decisive (extra-time / penalties), so no draw is ever returned.
     """
-    home = rng.choices(range(len(_GOAL_WEIGHTS)), weights=_GOAL_WEIGHTS)[0]
-    away = rng.choices(range(len(_GOAL_WEIGHTS)), weights=_GOAL_WEIGHTS)[0]
-    if knockout and home == away:
-        if rng.random() < 0.5:
-            home += 1
-        else:
-            away += 1
-    return home, away
+    if not knockout and rng.random() < _GROUP_DRAW_PROB:
+        g = rng.choices(_DRAW_GOALS, weights=_DRAW_GOAL_WEIGHTS)[0]
+        return g, g
+    win_g = rng.choices(_WIN_GOALS, weights=_WIN_GOAL_WEIGHTS)[0]
+    lose_g = rng.randint(0, win_g - 1)
+    if rng.random() < p_home_win:
+        return win_g, lose_g
+    return lose_g, win_g
 
 
 def _pick_starting_eleven(players: List[Dict], rng: random.Random) -> List[int]:
@@ -239,14 +299,19 @@ def simulate_team_player_stats(players: List[Dict], goals_for: int,
 
 def simulate_fixture(home_team_id: int, home_players: List[Dict],
                      away_team_id: int, away_players: List[Dict],
-                     rng: random.Random, knockout: bool = False
+                     rng: random.Random, knockout: bool = False,
+                     p_home_win: float = 0.5
                      ) -> Tuple[int, int, List[Dict]]:
     """Generate one fixture's scoreline + both teams' api-sports raw_stats.
+
+    ``p_home_win`` biases the result toward the stronger side (see
+    :func:`win_prob`); default 0.5 is an even contest.
 
     Returns ``(home_goals, away_goals, raw_stats)`` where ``raw_stats`` is the
     two-element list the scoring engine expects.
     """
-    home_goals, away_goals = simulate_scoreline(rng, knockout=knockout)
+    home_goals, away_goals = simulate_scoreline(rng, knockout=knockout,
+                                                p_home_win=p_home_win)
     raw_stats = [
         {"team": {"id": home_team_id},
          "players": simulate_team_player_stats(home_players, home_goals, rng)},
@@ -418,10 +483,13 @@ def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
     eliminated_this_gw: List[int] = []
     for idx, (home_id, away_id) in enumerate(pairs):
         home, away = teams_by_id[home_id], teams_by_id[away_id]
+        # Bias the result by relative team strength so heavyweights advance.
+        p_home = win_prob(team_tier(home.get("name", "")),
+                          team_tier(away.get("name", "")))
         hg, ag, raw_stats = simulate_fixture(
             home_id, players_by_team.get(home_id, []),
             away_id, players_by_team.get(away_id, []),
-            rng, knockout=knockout,
+            rng, knockout=knockout, p_home_win=p_home,
         )
         _write_fixture(db, fid_base + idx, gw, round_name, home, away, hg, ag)
         process_fixture(fid_base + idx, raw_stats, wc_client, db,
@@ -483,9 +551,16 @@ def reset_simulation(db, lid: str):
     subcollections (scores/standings/gw_history/lineups/knockout/transfer_windows).
     Members, squads and the H2H schedule are preserved.
     """
-    # wc_fixtures
+    # wc_fixtures — also delete each fixture's playerScores subcollection.
+    # Firestore does NOT cascade-delete subcollections when the parent doc is
+    # removed; orphaned playerScores would otherwise still be returned by the
+    # /players/{id}/scores collection-group query (duplicate/stale history rows).
     batch = db.batch(); n = 0
     for fdoc in db.collection("wc_fixtures").get():
+        for sdoc in fdoc.reference.collection("playerScores").get():
+            batch.delete(sdoc.reference); n += 1
+            if n % 400 == 0:
+                batch.commit(); batch = db.batch()
         batch.delete(fdoc.reference); n += 1
         if n % 400 == 0:
             batch.commit(); batch = db.batch()
@@ -552,6 +627,48 @@ def simulate_tournament(db, lid: str, *, seed: Optional[int] = None,
 
     export = build_tournament_export(db, lid)
     return {"league": lid, "seed": seed, "gws": per_gw, "export": export}
+
+
+def simulate_one_gw(db, lid: str, *, gw: Optional[int] = None,
+                    seed: Optional[int] = None, end_gw: int = 8,
+                    wc_client=None) -> Dict:
+    """Generate, score and finalize a SINGLE gameweek — the "play next week"
+    button. ``gw`` defaults to the league's ``currentGw`` (the next unplayed
+    GW). Loads everything ``simulate_gw`` needs, runs one GW, refreshes the
+    tournament export, and reports the new ``currentGw``.
+
+    Returns ``{"done": True, ...}`` (no-op) once the tournament is finished.
+    """
+    league_ref = db.collection("leagues").document(lid)
+    league_doc = league_ref.get().to_dict() or {}
+    if gw is None:
+        gw = int(league_doc.get("currentGw", 1) or 1)
+    if gw > end_gw:
+        return {"done": True, "gw": gw, "currentGw": gw,
+                "message": f"Tournament complete (GW{end_gw} was the last)."}
+
+    if wc_client is None:
+        from fpl_predictor.seed.seed_league import _seed_wc_client
+        wc_client = _seed_wc_client(db)
+    # Vary the RNG per GW even when a fixed seed is supplied, so stepping
+    # week-by-week doesn't replay correlated scorelines.
+    rng = random.Random(None if seed is None else seed * 1000 + gw)
+
+    teams = _load_teams(db)
+    players_by_team = _load_players_by_team(db)
+    pos_map, rules = _pos_map_and_rules(db)
+    group_schedule = build_group_schedule(teams)
+
+    res = simulate_gw(db, lid, gw, rng, teams=teams,
+                      players_by_team=players_by_team, pos_map=pos_map,
+                      rules=rules, wc_client=wc_client,
+                      group_schedule=group_schedule)
+    export = build_tournament_export(db, lid)
+    new_cur = int((league_ref.get().to_dict() or {}).get("currentGw", gw))
+    return {"done": False, "gw": gw, "currentGw": new_cur,
+            "matches": res["matches"], "knockout": res["knockout"],
+            "eliminated": res["eliminated"],
+            "managers": export.get("managers", {})}
 
 
 def build_tournament_export(db, lid: str) -> Dict:

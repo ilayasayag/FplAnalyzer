@@ -270,8 +270,12 @@ def apply_auto_subs(
             test = starting.copy()
             test[i] = bench_pid
             if formation(test) in VALID_FORMATIONS:
+                # Swap: the bench player moves into the XI and the non-playing
+                # starter takes the bench slot (standard FPL auto-sub). Must NOT
+                # pop — that would drop the starter entirely and shrink the squad
+                # from 15 to 14 in the lineup/snapshot.
                 starting[i] = bench_pid
-                bench.pop(j)
+                bench[j] = pid
                 subs_made.append({"out": pid, "in": bench_pid})
                 break
 
@@ -838,6 +842,12 @@ def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
             "uid": uid,
             "gw": gw,
             "players": players,
+            # Freeze the exact locked lineup that was fielded this GW so the
+            # frontend can render the historical pitch from the snapshot — never
+            # from the live (mutable) lineup doc, which later transfers change.
+            "starting": list(lineup.get("starting", [])),
+            "bench": list(lineup.get("bench", [])),
+            "autoSubs": list(lineup.get("autoSubsMade", [])),
             "totalPoints": total_points,
             "opponent": opponent,
             "opponentPoints": opponent_points,

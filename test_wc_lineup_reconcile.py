@@ -171,3 +171,17 @@ def test_locked_gw_not_reconciled(mgr, monkeypatch):
     lu = mgr.get_lineup(LID, UID, 1)
     # Historical/locked lineup returned verbatim — stale id still present.
     assert 3 in lu["starting"] and 16 not in (lu["starting"] + lu["bench"])
+
+
+def test_finalized_gw_not_reconciled_even_when_unlocked(mgr):
+    """A GW already played (gw < league.currentGw) is historical and immutable,
+    even if is_locked() says False — the case for the mock simulator, whose
+    fixtures carry no real-world kickoff clock. A later free-agent swap must NOT
+    rewrite the past GW's lineup (the prod bug: Robinson got replaced in GW1)."""
+    mgr.db.store[f"leagues/{LID}"] = {"currentGw": 2}  # GW1 is finished
+    _transfer(mgr, out_id=3, in_id=16, in_pos=2)
+    lu = mgr.get_lineup(LID, UID, 1)
+    assert 3 in lu["starting"] and 16 not in (lu["starting"] + lu["bench"])
+    # The stored GW1 lineup doc is untouched (no persisted reconcile).
+    stored = mgr.db.store[f"leagues/{LID}/lineups/{UID}_1"]
+    assert 3 in stored["starting"] and 16 not in stored["starting"]
