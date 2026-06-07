@@ -640,9 +640,7 @@ def get_watchlist(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    doc = (_db.collection("leagues").document(lid)
-           .collection("draft").document("watchlists")
-           .collection(uid).document("list").get())
+    doc = _db.collection("users").document(uid).collection("watchlists").document(lid).get()
     players = doc.to_dict().get("playerIds", []) if doc.exists else []
     return _ok({"playerIds": players})
 
@@ -654,10 +652,10 @@ def update_watchlist(lid: str):
         return err
     body = request.get_json(silent=True) or {}
     player_ids = body.get("playerIds", [])
-    (_db.collection("leagues").document(lid)
-     .collection("draft").document("watchlists")
-     .collection(uid).document("list")
-     .set({"playerIds": player_ids, "updatedAt": SERVER_TIMESTAMP}))
+    _db.collection("users").document(uid).collection("watchlists").document(lid).set({
+        "playerIds": player_ids,
+        "updatedAt": SERVER_TIMESTAMP
+    })
     return _ok({"playerIds": player_ids})
 
 
