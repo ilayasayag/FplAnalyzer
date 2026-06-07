@@ -283,11 +283,46 @@ def get_player_scores(player_id: int):
     # that the client renders as an error (GAP-502).
     try:
         docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
-        scores = [d.to_dict() for d in docs]
     except Exception as exc:
         print(f"[warn] player scores query failed for {player_id}: {exc}")
-        scores = []
-    scores.sort(key=lambda x: x.get("gw", 0))
+        return _ok([])
+
+    # Resolve the player's own team so we can name the OPPONENT for each GW
+    # (VT-106 #47): the opponent is whichever side of the parent fixture is NOT
+    # the player's team. Reading the parent fixture also lets us (a) drop orphaned
+    # playerScores whose fixture was deleted and (b) collapse to one row per GW
+    # (a player features in at most one fixture per GW) — both kill the duplicate
+    # GW1 rows the modal History tab showed.
+    player_doc = _db.collection("wc_players").document(str(player_id)).get()
+    own_team_id = (player_doc.to_dict() or {}).get("teamId") if player_doc.exists else None
+    team_map = _wc.get_team_map(_db)
+
+    by_gw = {}
+    for d in docs:
+        rec = d.to_dict()
+        fix_ref = d.reference.parent.parent  # playerScores/{pid} -> wc_fixtures/{fid}
+        fix_doc = fix_ref.get() if fix_ref is not None else None
+        if not (fix_doc and fix_doc.exists):
+            continue  # orphan score (fixture deleted) — skip
+        fix = fix_doc.to_dict() or {}
+        gw = rec.get("gw", fix.get("gw"))
+        home = fix.get("homeTeam") or {}
+        away = fix.get("awayTeam") or {}
+        opp = None
+        if own_team_id is not None:
+            if home.get("id") == own_team_id:
+                opp = away
+            elif away.get("id") == own_team_id:
+                opp = home
+        if opp is not None:
+            opp_iso = (opp.get("isoCode") or "").strip().upper()
+            if not opp_iso and opp.get("id") is not None:
+                resolved = team_map.get(int(opp["id"]))
+                opp_iso = _team_display_iso(resolved) if resolved else ""
+            rec["opponent"] = opp_iso or None
+        by_gw[gw] = rec
+
+    scores = sorted(by_gw.values(), key=lambda x: (x.get("gw") or 0))
     return _ok(scores)
 
 
