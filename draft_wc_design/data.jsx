@@ -384,6 +384,7 @@ const DRAFT_STATE = {
   pickTimer: 30,
   secondsLeft: 38,
   isMyTurn: false,
+  order: ["u_roy", "u_yonatan", "u_nadav", "u_yuval", "u_ido", "u_shai", "u_me"],
 };
 
 const DRAFT_HISTORY = [

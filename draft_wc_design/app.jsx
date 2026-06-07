@@ -465,6 +465,7 @@ function App() {
             pickTimer: data.pickTimer || 30,
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
             isMyTurn: currentDrafter === user.uid,
+            order: data.order || [],
           };
           forceUpdate();
         } else {
@@ -474,6 +475,7 @@ function App() {
             round: 0, pickOverall: 0, pickInRound: 0, onTheClock: "",
             totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
             isMyTurn: false, notStarted: true,
+            order: [],
           };
           forceUpdate();
         }

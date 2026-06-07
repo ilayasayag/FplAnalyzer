@@ -195,6 +195,12 @@ function DraftRoomScreen({ onTab }) {
 
   const activeWatchlistIds = watchlistIds.filter(id => !taken.has(getNormalizedPlayerId(id)));
 
+  const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
+
+  const sidebarOrder = (DRAFT_STATE.order && DRAFT_STATE.order.length > 0)
+    ? DRAFT_STATE.order.map(uid => managerById(uid)).filter(Boolean)
+    : MANAGERS;
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, minHeight: 700 }}>
       {draftNotStarted && (
@@ -203,42 +209,10 @@ function DraftRoomScreen({ onTab }) {
         </div>
       )}
 
-      {/* LEFT COLUMN — My Squad & Watchlist */}
+      {/* LEFT COLUMN — Watchlist */}
       <div className="col" style={{ gap: 12 }}>
-        {/* My Squad */}
-        <div className="card-dark">
-          <div className="card-dark__title">My Squad ({myPicks.length}/15)</div>
-          <div className="card-section" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: 14 }}>
-            <SquadCount label="GK" cur={mySquadByPos[1]} max={2} />
-            <SquadCount label="DEF" cur={mySquadByPos[2]} max={5} />
-            <SquadCount label="MID" cur={mySquadByPos[3]} max={5} />
-            <SquadCount label="FWD" cur={mySquadByPos[4]} max={3} />
-          </div>
-          {myPicks.length === 0 ? (
-            <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
-              Your picks will appear here.
-            </div>
-          ) : (
-            myPicks.map((p, i) => {
-              const pl = playerById(p.playerId);
-              const plT = teamById(pl.team);
-              return (
-                <div key={i} className="card-section" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
-                  <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>R{p.round}</span>
-                  <div style={{ width: 28, height: 28 }}><Jersey team={plT} pos={pl.pos} /></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{pl.name}</div>
-                    <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
-                  </div>
-                  <span className="mono" style={{ color: "var(--green-400)", fontWeight: 700, fontSize: 13 }}>{pl.pts}</span>
-                </div>
-              );
-            })
-          )}
-        </div>
-
         {/* Watchlist */}
-        <div className="card-dark" style={{ display: "flex", flexDirection: "column", maxHeight: 400 }}>
+        <div className="card-dark" style={{ display: "flex", flexDirection: "column", height: 700 }}>
           <div className="card-dark__title">
             ★ Watchlist ({activeWatchlistIds.length})
             {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
@@ -269,14 +243,14 @@ function DraftRoomScreen({ onTab }) {
                       await saveWatchlist(reordered);
                     }}
                     className="card-section"
-                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", cursor: "grab" }}
+                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 14px", cursor: "grab" }}
                   >
                     <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
-                    <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, minWidth: 14, flexShrink: 0 }}>{idx + 1}</span>
+                    <span className="mono" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, minWidth: 16, flexShrink: 0 }}>{idx + 1}</span>
                     <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
                     <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                      <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                      <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white" }}>{p.name}</div>
+                      <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
                     </div>
                     <button
                       onClick={() => handleDraftPick(id)}
@@ -328,7 +302,7 @@ function DraftRoomScreen({ onTab }) {
               textTransform: "uppercase",
               textShadow: "0 0 12px rgba(255,255,255,0.2)"
             }}>
-              {onClock.name}
+              {onClockName}
             </div>
           </div>
           <div style={{
@@ -352,18 +326,18 @@ function DraftRoomScreen({ onTab }) {
               textTransform: "uppercase",
               letterSpacing: "0.05em"
             }}>
-              {upcoming[1] ? managerById(upcoming[1].uid).name : "—"}
+              {draftNotStarted ? "—" : (upcoming[1] ? managerById(upcoming[1].uid).name : "—")}
             </div>
           </div>
-          {picksUntilMyTurn !== null && (
+          {draftNotStarted ? (
             <div style={{
               gridColumn: "1 / -1",
               marginTop: 12,
               padding: "14px 20px",
-              background: DRAFT_STATE.isMyTurn ? "rgba(0, 217, 107, 0.15)" : "rgba(255, 170, 0, 0.15)",
-              border: DRAFT_STATE.isMyTurn ? "2px solid var(--green-400)" : "2px solid var(--gold-500)",
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "2px solid rgba(255, 255, 255, 0.15)",
               borderRadius: 8,
-              color: DRAFT_STATE.isMyTurn ? "var(--green-400)" : "var(--gold-500)",
+              color: "rgba(255, 255, 255, 0.6)",
               fontSize: "18px",
               fontWeight: "900",
               textAlign: "center",
@@ -373,12 +347,34 @@ function DraftRoomScreen({ onTab }) {
               gap: 8,
               boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
             }}>
-              {DRAFT_STATE.isMyTurn ? (
-                <span>⚡ It's your turn to pick!</span>
-              ) : (
-                <span>⏳ You pick in {picksUntilMyTurn} {picksUntilMyTurn === 1 ? "pick" : "picks"}</span>
-              )}
+              <span>⏳ Draft has not opened yet</span>
             </div>
+          ) : (
+            picksUntilMyTurn !== null && (
+              <div style={{
+                gridColumn: "1 / -1",
+                marginTop: 12,
+                padding: "14px 20px",
+                background: DRAFT_STATE.isMyTurn ? "rgba(0, 217, 107, 0.15)" : "rgba(255, 170, 0, 0.15)",
+                border: DRAFT_STATE.isMyTurn ? "2px solid var(--green-400)" : "2px solid var(--gold-500)",
+                borderRadius: 8,
+                color: DRAFT_STATE.isMyTurn ? "var(--green-400)" : "var(--gold-500)",
+                fontSize: "18px",
+                fontWeight: "900",
+                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+              }}>
+                {DRAFT_STATE.isMyTurn ? (
+                  <span>⚡ It's your turn to pick!</span>
+                ) : (
+                  <span>⏳ You pick in {picksUntilMyTurn} {picksUntilMyTurn === 1 ? "pick" : "picks"}</span>
+                )}
+              </div>
+            )
           )}
         </div>
 
@@ -474,58 +470,93 @@ function DraftRoomScreen({ onTab }) {
         </div>
       </div>
 
-      {/* RIGHT COLUMN — Draft Order */}
-      <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
-        <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
-        <div style={{ overflowY: "auto", maxHeight: 640 }}>
-          {MANAGERS.map((m, idx) => {
-            const picks = DRAFT_HISTORY.filter(p => p.uid === m.uid);
-            const lastPick = picks.length > 0 ? picks[picks.length - 1] : null;
-            const isCurrent = DRAFT_STATE.onTheClock === m.uid;
+      {/* RIGHT COLUMN — My Squad & Draft Order */}
+      <div className="col" style={{ gap: 12, maxHeight: 700 }}>
+        {/* My Squad */}
+        <div className="card-dark" style={{ flexShrink: 0 }}>
+          <div className="card-dark__title">My Squad ({myPicks.length}/15)</div>
+          <div className="card-section" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: 14 }}>
+            <SquadCount label="GK" cur={mySquadByPos[1]} max={2} />
+            <SquadCount label="DEF" cur={mySquadByPos[2]} max={5} />
+            <SquadCount label="MID" cur={mySquadByPos[3]} max={5} />
+            <SquadCount label="FWD" cur={mySquadByPos[4]} max={3} />
+          </div>
+          {myPicks.length === 0 ? (
+            <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
+              Your picks will appear here.
+            </div>
+          ) : (
+            myPicks.map((p, i) => {
+              const pl = playerById(p.playerId);
+              const plT = teamById(pl.team);
+              return (
+                <div key={i} className="card-section" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
+                  <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>R{p.round}</span>
+                  <div style={{ width: 28, height: 28 }}><Jersey team={plT} pos={pl.pos} /></div>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{pl.name}</div>
+                    <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
+                  </div>
+                  <span className="mono" style={{ color: "var(--green-400)", fontWeight: 700, fontSize: 13 }}>{pl.pts}</span>
+                </div>
+              );
+            })
+          )}
+        </div>
 
-            return (
-              <div key={idx} style={{ 
-                padding: "12px 14px", 
-                borderBottom: "1px solid var(--border-dark)", 
-                background: isCurrent ? "rgba(0, 217, 107, 0.15)" : undefined,
-                borderLeft: isCurrent ? "4px solid var(--green-400)" : "4px solid transparent",
-                opacity: isCurrent ? 1 : 0.85,
-                boxShadow: isCurrent ? "inset 0 0 10px rgba(0, 217, 107, 0.1)" : undefined
-              }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
-                  <span style={{ 
-                    color: isCurrent ? "var(--green-400)" : "rgba(255,255,255,0.7)", 
-                    fontWeight: isCurrent ? 900 : 700, 
-                    fontSize: 13
-                  }}>
-                    {m.name} {isCurrent && "💬"}
-                  </span>
-                  {lastPick && (
-                    <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
-                      R{lastPick.round}·{lastPick.overall}
+        {/* Draft Order */}
+        <div className="card-dark" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {sidebarOrder.map((m, idx) => {
+              const picks = DRAFT_HISTORY.filter(p => p.uid === m.uid);
+              const lastPick = picks.length > 0 ? picks[picks.length - 1] : null;
+              const isCurrent = DRAFT_STATE.onTheClock === m.uid;
+
+              return (
+                <div key={idx} style={{ 
+                  padding: "12px 14px", 
+                  borderBottom: "1px solid var(--border-dark)", 
+                  background: isCurrent ? "rgba(0, 217, 107, 0.15)" : undefined,
+                  borderLeft: isCurrent ? "4px solid var(--green-400)" : "4px solid transparent",
+                  opacity: isCurrent ? 1 : 0.85,
+                  boxShadow: isCurrent ? "inset 0 0 10px rgba(0, 217, 107, 0.1)" : undefined
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ 
+                      color: isCurrent ? "var(--green-400)" : "rgba(255,255,255,0.7)", 
+                      fontWeight: isCurrent ? 900 : 700, 
+                      fontSize: 13
+                    }}>
+                      {m.name} {isCurrent && "💬"}
                     </span>
+                    {lastPick && (
+                      <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
+                        R{lastPick.round}·{lastPick.overall}
+                      </span>
+                    )}
+                  </div>
+                  {lastPick ? (
+                    <div style={{ 
+                      color: "white", 
+                      fontWeight: 800, 
+                      fontSize: 16, 
+                      marginTop: 6,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap"
+                    }}>
+                      {playerById(lastPick.playerId).name}
+                    </div>
+                  ) : (
+                    <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 6, fontStyle: "italic" }}>
+                      No picks yet
+                    </div>
                   )}
                 </div>
-                {lastPick ? (
-                  <div style={{ 
-                    color: "white", 
-                    fontWeight: 800, 
-                    fontSize: 16, 
-                    marginTop: 6,
-                    overflow: "hidden",
-                    textOverflow: "ellipsis",
-                    whiteSpace: "nowrap"
-                  }}>
-                    {playerById(lastPick.playerId).name}
-                  </div>
-                ) : (
-                  <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 6, fontStyle: "italic" }}>
-                    No picks yet
-                  </div>
-                )}
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
       </div>
     </div>
