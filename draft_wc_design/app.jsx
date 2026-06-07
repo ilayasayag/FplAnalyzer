@@ -124,6 +124,109 @@ function LobbyScreen({ leagues, loading, onEnter, onSignOut }) {
   );
 }
 
+function TweakDraftSimulator({ lid }) {
+  const [active, setActive] = React.useState(false);
+  const [status, setStatus] = React.useState("idle");
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!lid) return;
+    let interval = null;
+    const fetchState = async () => {
+      try {
+        const res = await apiCall("GET", `/leagues/${lid}/draft/sim/state`);
+        if (res) {
+          setActive(res.active);
+          setStatus(res.status);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch simulator state:", e);
+      }
+    };
+
+    fetchState();
+    interval = setInterval(fetchState, 3000);
+    return () => clearInterval(interval);
+  }, [lid]);
+
+  const handleToggle = async () => {
+    if (!lid) return;
+    setLoading(true);
+    try {
+      const nextActive = !active;
+      const res = await apiCall("POST", `/leagues/${lid}/draft/sim/toggle`, { active: nextActive });
+      if (res) {
+        setActive(res.active);
+        setStatus(res.status);
+      }
+    } catch (e) {
+      alert("Error toggling simulator: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!lid) return;
+    if (!window.confirm("Are you sure you want to reset the draft state? This will wipe all picks and squads.")) return;
+    setLoading(true);
+    try {
+      const res = await apiCall("POST", `/leagues/${lid}/draft/sim/reset`);
+      if (res) {
+        setActive(false);
+        setStatus("idle");
+        alert("Draft state has been reset successfully!");
+      }
+    } catch (e) {
+      alert("Error resetting draft: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!lid) {
+    return <div style={{ fontSize: 10, color: "rgba(41,38,27,0.5)" }}>Please enter a league first to access the simulator.</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontWeight: 600 }}>Status:</span>
+        <span style={{
+          padding: "2px 6px",
+          borderRadius: 4,
+          fontSize: 9,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          background: active ? "rgba(43,240,148,0.15)" : "rgba(0,0,0,0.15)",
+          color: active ? "#2bf094" : "inherit"
+        }}>{active ? "Running" : status}</span>
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={loading}
+          className="twk-btn"
+          style={{ flex: 1, height: 26, fontSize: 10, padding: 0 }}
+        >
+          {active ? "Pause Sim" : "Start Sim"}
+        </button>
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={loading}
+          className="twk-btn secondary"
+          style={{ flex: 1, height: 26, fontSize: 10, padding: 0 }}
+        >
+          Reset Draft
+        </button>
+      </div>
+    </div>
+  );
+}
+
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
@@ -950,6 +1053,9 @@ function App() {
       <PlayerStatsModal />
 
       <TweaksPanel>
+        <TweakSection label="Draft Simulator" />
+        <TweakDraftSimulator lid={activeLid} />
+
         <TweakSection label="League" />
         <TweakRadio label="League size" value={String(t.leagueSize)}
           options={["6", "7", "8", "9", "10"]}

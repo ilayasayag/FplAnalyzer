@@ -46,10 +46,11 @@ _squad_mgr: WCSquadManager = None
 _trade_mgr: WCTradeManager = None
 _waiver_mgr: WCWaiverManager = None
 _wishlist_mgr: WCWishlistManager = None
+_sim = None
 
 
 def init_wc(db, firebase_auth=None):
-    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr
+    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr, _sim
     _db = db
     _wc = WC2026Client(db=db)
     _league_mgr = WCLeagueManager(db)
@@ -57,6 +58,8 @@ def init_wc(db, firebase_auth=None):
     _trade_mgr = WCTradeManager(db, _wc)
     _waiver_mgr = WCWaiverManager(db, _wc)
     _wishlist_mgr = WCWishlistManager(db, _wc)
+    from .game.draft_simulator import DraftSimulator
+    _sim = DraftSimulator(db, _wc)
 
 
 # ---------------------------------------------------------------------------
@@ -656,6 +659,37 @@ def update_watchlist(lid: str):
      .collection(uid).document("list")
      .set({"playerIds": player_ids, "updatedAt": SERVER_TIMESTAMP}))
     return _ok({"playerIds": player_ids})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/toggle", methods=["POST"])
+def toggle_draft_sim(lid: str):
+    body = request.get_json(silent=True) or {}
+    active = body.get("active", False)
+    if active:
+        _sim.start(lid)
+    else:
+        _sim.stop()
+    return _ok({"active": _sim.active, "status": _sim.last_status})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/state", methods=["GET"])
+def get_draft_sim_state(lid: str):
+    return _ok({"active": _sim.active, "status": _sim.last_status})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/reset", methods=["POST"])
+def reset_draft_sim(lid: str):
+    _sim.stop()
+    league_ref = _db.collection("leagues").document(lid)
+    state_ref = league_ref.collection("draft").document("state")
+    if state_ref.get().exists:
+        for pick in state_ref.collection("picks").get():
+            pick.reference.delete()
+        state_ref.delete()
+    for sq in league_ref.collection("squads").get():
+        sq.reference.delete()
+    league_ref.update({"status": "pre_draft", "draftComplete": False})
+    return _ok({"status": "reset"})
 
 
 # ---------------------------------------------------------------------------
