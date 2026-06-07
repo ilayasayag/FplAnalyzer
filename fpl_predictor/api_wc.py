@@ -1344,6 +1344,46 @@ def admin_simulate_tournament(lid: str):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/simulate-gw", methods=["POST"])
+def admin_simulate_one_gw(lid: str):
+    """Generate + score + finalize a SINGLE gameweek (the "play next week"
+    button). Body (optional JSON): ``gw`` (defaults to the league's currentGw),
+    ``seed`` (reproducible RNG). Returns the GW summary + new currentGw so the
+    client can advance week-by-week."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import simulate_one_gw
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = body.get("gw")
+        result = simulate_one_gw(
+            _db, lid,
+            gw=int(gw) if gw is not None else None,
+            seed=body.get("seed"),
+            wc_client=_wc,
+        )
+        return _ok(result)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/sim-reset", methods=["POST"])
+def admin_sim_reset(lid: str):
+    """Wipe the league's simulation state back to a fresh GW1 (deletes fixtures
+    + playerScores, resets player/team flags, clears scores/standings/history/
+    lineups/knockout/windows). Members, squads and the H2H schedule survive."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import reset_simulation
+    try:
+        reset_simulation(_db, lid)
+        return _ok({"league": lid, "currentGw": 1, "status": "group_phase"})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()

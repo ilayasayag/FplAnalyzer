@@ -143,6 +143,9 @@ function App() {
   const [myLeagues, setMyLeagues] = React.useState([]);
   const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
+  // Mock-simulator (admin Tweaks panel) busy flag — disables the buttons + shows
+  // progress while a GW is generated server-side.
+  const [simBusy, setSimBusy] = React.useState("");
   // False until the real /squads/me + lineup fetch resolves (success OR a
   // definitive "no squad" result). Gates the Pick Team render so an
   // authenticated user never sees the data.jsx demo squad flash before the
@@ -1083,6 +1086,48 @@ function App() {
               }
             }} style={{ fontSize: 10, color: "inherit", width: "100%" }} />
           </div>
+        )}
+
+        {window.IS_ADMIN && activeLid && (
+          <>
+            <TweakSection label="Mock Simulator (admin)" />
+            <div style={{ fontSize: 10, color: "rgba(41,38,27,0.55)", lineHeight: 1.4, marginTop: -4 }}>
+              {simBusy ? simBusy : `Generate the mock World Cup for "${activeLid}" — step one GW at a time, or reset to a fresh GW1.`}
+            </div>
+            <TweakButton
+              label={simBusy ? "Working…" : "▶ Simulate next GW"}
+              onClick={async () => {
+                if (simBusy) return;
+                try {
+                  setSimBusy("Simulating next gameweek…");
+                  const res = await apiCall("POST", `/admin/leagues/${activeLid}/simulate-gw`, {});
+                  if (res && res.done) {
+                    alert("Tournament already complete — reset to GW1 to replay.");
+                    setSimBusy("");
+                    return;
+                  }
+                  window.location.reload();
+                } catch (e) {
+                  alert("Simulate GW failed: " + (e && e.message ? e.message : e));
+                  setSimBusy("");
+                }
+              }} />
+            <TweakButton
+              label="⟳ Reset mock to GW1"
+              secondary
+              onClick={async () => {
+                if (simBusy) return;
+                if (!window.confirm(`Reset "${activeLid}" back to a fresh GW1? This wipes all generated fixtures, scores and standings (squads + members are kept).`)) return;
+                try {
+                  setSimBusy("Resetting to GW1…");
+                  await apiCall("POST", `/admin/leagues/${activeLid}/sim-reset`, {});
+                  window.location.reload();
+                } catch (e) {
+                  alert("Reset failed: " + (e && e.message ? e.message : e));
+                  setSimBusy("");
+                }
+              }} />
+          </>
         )}
       </TweaksPanel>
     </div>
