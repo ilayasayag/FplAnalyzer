@@ -141,6 +141,26 @@ live data re-seed is pending; GAP-506 still needs a runtime repro. Severity as b
   `draft_wc_design/` for other bare-lexical consumers (same class as the EP5 lineup bug).
 - **Validates:** new VT-110.
 
+### GAP-507 — Player stats empty + reset orphans playerScores 🔴 ✅ FIXED (PR #42, deployed)
+- **Symptom:** after the prod tournament sim, every player's stats modal showed
+  "No match data yet" even though 6,000+ real `playerScores` rows existed.
+- **Root cause (real one behind GAP-502):** `/players/{id}/scores` runs a
+  collection-group query on `playerScores` filtered by `playerId`. That needs a
+  **single-field `COLLECTION_GROUP` index on `playerScores.playerId`** — which was
+  **never deployed to the `gamedb` database**. The declared `(playerId, gw)`
+  composite does NOT satisfy an equality-only query with no ordering. The GAP-502
+  try/except then masked the `FAILED_PRECONDITION` as an empty `[]` result.
+- **Fix:** added the single-field index via `fieldOverrides` in
+  `firestore.indexes.json`; deployed with `firebase deploy --only firestore:gamedb`
+  (NB: `--only firestore:indexes` crashes with the multi-DB array config in
+  firebase-tools 15.x — use the database name as the target).
+- **Second bug found + fixed:** `reset_simulation` deleted fixture docs but not
+  their `playerScores` subcollections (Firestore does not cascade), so each re-sim
+  left orphaned rows that the now-working query returned as duplicate/stale history
+  (a real `gw2=5` plus an orphaned `gw2=0`). Now deletes the subcollection first;
+  one-time prod cleanup removed 694 orphans. Regression test added.
+- **Validates:** VT-106 (now genuinely testable end-to-end on prod).
+
 ### GAP-502 — Player modal: fabricated ICT/“owned in” + history shows an ERROR not empty-state 🟡 ✅ FIXED (PR #39, deployed v=30)
 - **Fix shipped:** ICT panel replaced with the REAL fantasy-points rank (by position + overall);
   the "Owned in" card now shows honest Owned/Free-agent status for the current league; the
@@ -178,12 +198,13 @@ live data re-seed is pending; GAP-506 still needs a runtime repro. Severity as b
   `qualified`/`knockedOut` by rank vs `knockoutQualifiers` (top-8) and elimination state.
 - **Validates:** new VT-111.
 
-### GAP-504 — Mock-league members malformed: duplicate `teamName`, extra rows 🟡 (data) 🟡 PARTIAL — code side done, data re-seed pending
+### GAP-504 — Mock-league members malformed: duplicate `teamName`, extra rows 🟡 (data) ✅ DONE (data fixed)
 - **Code side (PR #38):** `_update_standings` keys rows by member id, so the table now emits
   exactly one row per member (no duplicate/stale rows from the scoring path).
-- **Still pending (data):** the live `leagues/lg_mock_draft/members` docs may still carry
-  drifted/duplicate `teamName`s — re-seed/clean the collection to make names distinct. Data
-  migration, not code.
+- **Data side (done):** after the clean re-seed + tournament sim, all 8 members have distinct
+  team names. The one leftover — `u_netanel` inherited the prior owner's `"FPLFRAN's Squad"` —
+  was updated to `"Netanel's Squad"` (members doc + `standings/current` snapshot). The
+  `"Opponent XI"` row is the canonical seed name for `u_mk_opp`, not a bug.
 - **Symptom:** three managers (Netanel, Roy, Yuval) all show team name "FPLFRAN's Squad";
   repeated "Opponent XI"; more rows than the league's real member count.
 - **Root cause:** render is faithful (`screens-data.jsx:351` shows `m.teamName`); the
@@ -222,6 +243,11 @@ live data re-seed is pending; GAP-506 still needs a runtime repro. Severity as b
   acceptable). The Wishlist "(0)" is consistent with the window being CLOSED ("Rebuild window is
   closed · 0h remaining") — wishlist bids only resolve during the free-agents window, so nothing
   shows. Bare-`ME` (GAP-501) also weakens the "is this mine?" ownership fallback.
+- **Confirmed (this session):** the "(0)" is correct — on `lg_mock_draft` there were zero
+  wishlist docs and all transfer windows were `closed`, so nothing could show. A free-agents
+  window has now been forced open (`windowOverride={phase:"free_agents", gw:9}`) so the wishlist
+  panel + auction flow can be exercised. The remaining EP7 work is to also surface saved bids
+  while a window is CLOSED (read-only) and add the "run auction" button in the Trades panel.
 - **Open question:** is the empty wishlist correct (window closed) or a persistence/visibility bug?
   This overlaps EP7/GAP-700 and needs a focused two-state repro (window open vs closed).
 - **Fix (pending repro):** confirm wishlist persistence across reload while a free-agents window
