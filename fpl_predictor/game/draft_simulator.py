@@ -99,16 +99,27 @@ class DraftSimulator:
                 
                 if current_drafter != human_uid:
                     print(f"[Draft Simulator] Bot turn: {current_drafter} on clock (Pick #{current_pick + 1})")
-                    player_id = draft._find_best_available(lid, current_drafter, state)
+                    # Sleep 2.0 seconds so it's clear the timer is ticking down for this manager
+                    time.sleep(2.0)
+                    
+                    # Fetch fresh draft state to check if simulator was paused/stopped during sleep
+                    state_doc_fresh = self.db.collection("leagues").document(lid).collection("draft").document("state").get()
+                    if not state_doc_fresh.exists:
+                        continue
+                    state_fresh = state_doc_fresh.to_dict()
+                    if state_fresh.get("paused", False) or not self.active:
+                        continue
+                    
+                    player_id = draft._find_best_available(lid, current_drafter, state_fresh)
                     if player_id > 0:
                         draft.make_pick(lid, current_drafter, player_id, is_auto=True)
                         print(f"[Draft Simulator] Bot {current_drafter} picked player {player_id}")
                     else:
                         print("[Draft Simulator] No legal player found for bot!")
-                        time.sleep(2)
+                        time.sleep(1)
                 else:
                     # Human user turn, do not pick
-                    time.sleep(2)
+                    time.sleep(1.5)
             except Exception as e:
                 print(f"[Draft Simulator] Error in simulation loop: {e}")
                 time.sleep(2)

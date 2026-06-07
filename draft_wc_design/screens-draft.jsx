@@ -209,7 +209,7 @@ function DraftRoomScreen({ onTab }) {
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 700 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 640 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
