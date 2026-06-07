@@ -381,7 +381,7 @@ const DRAFT_STATE = {
   onTheClock: "u_yuval",
   totalRounds: 15,
   totalPicks: 150,
-  pickTimer: 60,
+  pickTimer: 30,
   secondsLeft: 38,
   isMyTurn: false,
 };
@@ -431,7 +431,7 @@ const LEAGUE = {
   knockoutStartGw: 7,
   leaguePhaseGws: [1, 2, 3, 4, 5, 6],
   knockoutQualifiers: 4,
-  pickTimer: 60,
+  pickTimer: 30,
   tradeApproval: "vote",
   admin: "u_roy",
 };

@@ -360,7 +360,7 @@ def create_league():
             name=body.get("name", ""),
             display_name=body.get("displayName", "Manager"),
             trade_approval=body.get("tradeApproval", "vote"),
-            pick_timer=body.get("pickTimer", 60),
+            pick_timer=body.get("pickTimer", 30),
             max_members=body.get("maxMembers", 8),
         )
         return _ok(result, 201)

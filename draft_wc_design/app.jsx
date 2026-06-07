@@ -462,7 +462,7 @@ function App() {
             onTheClock: currentDrafter || "",
             totalRounds: 15,
             totalPicks: data.totalPicks || 150,
-            pickTimer: data.pickTimer || 60,
+            pickTimer: data.pickTimer || 30,
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
             isMyTurn: currentDrafter === user.uid,
           };

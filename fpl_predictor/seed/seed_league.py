@@ -515,7 +515,7 @@ def seed_pre_draft_league(db, USER_UID, USER_NAME):
         # the data-source banner (down | simulated | live) on the frontend.
         "simulated": False,
         "maxMembers": 7,
-        "pickTimer": 90,
+        "pickTimer": 30,
         "tradeApproval": "vote",
         "knockoutStartGw": 7,
         "leaguePhaseGws": [1, 2, 3, 4, 5, 6],
