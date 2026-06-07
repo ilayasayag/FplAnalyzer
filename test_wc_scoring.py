@@ -165,3 +165,27 @@ def test_engine_regression_matrix(name, stats, position, expected):
 def test_compute_bps_bonus_removed():
     import fpl_predictor.game.wc_scoring as ws
     assert not hasattr(ws, "compute_bps_bonus")
+
+
+# ---------------------------------------------------------------------------
+# Auto-subs must preserve the squad (swap, not drop)
+# ---------------------------------------------------------------------------
+def test_auto_sub_swaps_and_preserves_squad_size():
+    """A non-playing starter is swapped to the bench with the incoming sub —
+    never dropped. Regression for the '14 players' bug where bench.pop() deleted
+    the subbed-out starter, shrinking the 15-man lineup to 14."""
+    from fpl_predictor.game.wc_scoring import apply_auto_subs
+    starting = [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14]   # 1GK 4DEF 4MID 2FWD
+    bench = [10, 15, 16, 12]                          # bench[0]=GK
+    pos = {1: 1, 2: 2, 3: 2, 4: 2, 5: 2, 6: 3, 7: 3, 8: 3, 9: 3,
+           13: 4, 14: 4, 10: 1, 15: 4, 16: 3, 12: 3}
+    minutes = {p: 90 for p in starting + bench}
+    minutes[13] = 0                                   # FWD starter didn't play
+
+    new_starting, new_bench, subs = apply_auto_subs(starting, bench, minutes, pos)
+
+    assert len(new_starting) == 11
+    assert len(new_bench) == 4                        # was 3 before the fix
+    assert set(new_starting + new_bench) == set(starting + bench)  # nobody lost
+    assert 13 not in new_starting and 13 in new_bench  # subbed-out -> bench
+    assert subs and subs[0]["out"] == 13
