@@ -253,93 +253,59 @@ function App() {
 
     const lid = activeLid; // active league ID
 
-    // 1. Sync Standings live or past
-    let unsubStandings = () => {};
+    // 1. Standings — fetched via the API (→ gamedb), NOT a direct client
+    // onSnapshot. The compat Firestore SDK can't select the named "gamedb"
+    // database (it silently reads an empty "(default)"), which left the table
+    // empty/falling back to demo data. The API targets gamedb for both the live
+    // GW (/standings → current doc) and a past GW (?gw=N → that snapshot).
+    let stdCancelled = false;
+    const unsubStandings = () => { stdCancelled = true; };
     const curGw = window.TOURNAMENT.currentGw || 1;
-    if (viewingGw === curGw) {
-      unsubStandings = _db.collection("leagues").doc(lid)
-        .collection("standings").doc("current")
-        .onSnapshot((doc) => {
-          if (doc.exists) {
-            const data = doc.data();
-            if (data && data.managers) {
-              window.STANDINGS = data.managers.map(m => ({
-                uid: m.uid,
-                rank: m.rank || 1,
-                hw: m.hw || 0,
-                hd: m.hd || 0,
-                hl: m.hl || 0,
-                hpts: m.hpts || 0,
-                fpts: m.fpts || 0,
-                mv: m.mv || 0,
-                bonusPoints: m.bonusPoints || 0,
-                knockedOut: m.knockedOut || false,
-                ptsSeed: m.ptsSeed || false,
-              })).sort((a, b) => a.rank - b.rank);
-              forceUpdate();
-            }
-          } else {
-            // No standings yet (e.g. pre-draft league). Show an empty table
-            // rather than silently keeping the static mock standings.
-            window.STANDINGS = [];
-            forceUpdate();
-          }
-        }, (err) => console.error("Standings listen error:", err));
-    } else {
-      apiCall("GET", `/leagues/${lid}/standings?gw=${viewingGw}`)
-        .then(data => {
-          if (data && data.managers) {
-            window.STANDINGS = data.managers.map(m => ({
-              uid: m.uid,
-              rank: m.rank || 1,
-              hw: m.hw || 0,
-              hd: m.hd || 0,
-              hl: m.hl || 0,
-              hpts: m.hpts || 0,
-              fpts: m.fpts || 0,
-              mv: m.mv || 0,
-              bonusPoints: m.bonusPoints || 0,
-              knockedOut: m.knockedOut || false,
-              ptsSeed: m.ptsSeed || false,
-            })).sort((a, b) => a.rank - b.rank);
-            forceUpdate();
-          } else {
-            window.STANDINGS = [];
-            forceUpdate();
-          }
-        }).catch(err => console.error("Past standings fetch error:", err));
-    }
+    const _stdPath = (viewingGw === curGw)
+      ? `/leagues/${lid}/standings`
+      : `/leagues/${lid}/standings?gw=${viewingGw}`;
+    apiCall("GET", _stdPath)
+      .then(data => {
+        if (stdCancelled) return;
+        if (data && data.managers) {
+          window.STANDINGS = data.managers.map(m => ({
+            uid: m.uid,
+            rank: m.rank || 1,
+            hw: m.hw || 0,
+            hd: m.hd || 0,
+            hl: m.hl || 0,
+            hpts: m.hpts || 0,
+            fpts: m.fpts || 0,
+            mv: m.mv || 0,
+            bonusPoints: m.bonusPoints || 0,
+            knockedOut: m.knockedOut || false,
+            ptsSeed: m.ptsSeed || false,
+          })).sort((a, b) => a.rank - b.rank);
+        } else {
+          window.STANDINGS = [];
+        }
+        forceUpdate();
+      })
+      .catch(err => { if (!stdCancelled) console.error("Standings fetch error:", err); });
 
-    // 2. Sync Live Scores / GW Totals live or past
-    let unsubScores = () => {};
-    if (viewingGw === curGw) {
-      unsubScores = _db.collection("leagues").doc(lid)
-        .collection("scores").doc(String(curGw))
-        .onSnapshot((doc) => {
-          if (doc.exists && doc.data() && doc.data().results) {
-            window.GW3_TOTALS = {};
-            Object.entries(doc.data().results).forEach(([uid, res]) => {
-              window.GW3_TOTALS[uid] = res.points || 0;
-            });
-          } else {
-            // No scores for this GW/league yet → clear so a previous league's
-            // totals never persist after a switch.
-            window.GW3_TOTALS = {};
-          }
-          forceUpdate();
-        }, (err) => console.error("Scores listen error:", err));
-    } else {
-      apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
-        .then(data => {
-          window.GW3_TOTALS = {};
-          if (data && data.results) {
-            Object.entries(data.results).forEach(([uid, res]) => {
-              window.GW3_TOTALS[uid] = res.points || 0;
-            });
-          }
-          forceUpdate();
-        }).catch(err => { window.GW3_TOTALS = {}; console.error("Past scores fetch error:", err); });
-    }
+    // 2. Scores / GW totals — via the API (→ gamedb), same reason as standings.
+    // One endpoint serves both the live and past GW; an unfinalized/empty GW
+    // returns no results, which clears GW3_TOTALS (so a previous league's totals
+    // never persist after a switch).
+    let scoresCancelled = false;
+    const unsubScores = () => { scoresCancelled = true; };
+    apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
+      .then(data => {
+        if (scoresCancelled) return;
+        window.GW3_TOTALS = {};
+        if (data && data.results) {
+          Object.entries(data.results).forEach(([uid, res]) => {
+            window.GW3_TOTALS[uid] = res.points || 0;
+          });
+        }
+        forceUpdate();
+      })
+      .catch(err => { if (!scoresCancelled) { window.GW3_TOTALS = {}; console.error("Scores fetch error:", err); } });
 
     // 3. Sync Draft State live
     const unsubDraft = _db.collection("leagues").doc(lid)
