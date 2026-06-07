@@ -360,12 +360,12 @@ function StatusScreen({ onTab }) {
 // ---------- POINTS (finished GW pitch) ----------
 function PointsScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
-  // Use the backend-loaded lineup for the viewed GW (app.jsx sets
-  // window.MY_LINEUP_GW3 from GET /leagues/{lid}/lineup/{gw}). The bare lexical
-  // MY_LINEUP_GW3 is the static demo const — reading it would render a demo
-  // roster while the real per-player points (keyed by real ids) come from the
-  // gw_history snapshot, so the two would never line up.
-  const lineup = window.MY_LINEUP_GW3 || MY_LINEUP_GW3;
+  // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP_GW3
+  // from GET /leagues/{lid}/lineup/{gw}). For a FINISHED gw we instead render
+  // the immutable gw_history snapshot (see snapLineup below) so the pitch shows
+  // exactly the squad that was locked for that GW — not whatever the squad
+  // became after later free-agent/trade moves.
+  const liveLineup = window.MY_LINEUP_GW3 || MY_LINEUP_GW3;
 
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
@@ -376,10 +376,13 @@ function PointsScreen({ onTab }) {
   // snapshot (post-autosub starters+bench). statsById[id] = { points, stats }
   // where points IS the engine output. Empty {} until the fetch lands.
   const [statsById, setStatsById] = React.useState({});
+  // Locked lineup rebuilt from the gw_history snapshot for a finished GW.
+  const [snapLineup, setSnapLineup] = React.useState(null);
   const lid = window.LEAGUE && window.LEAGUE.id;
 
   React.useEffect(() => {
     setStatsById({});
+    setSnapLineup(null);
     if (!lid || !me) return;
     let cancelled = false;
     apiCall("GET", `/leagues/${lid}/gw-history/${me}?gw=${viewingGw}`)
@@ -388,10 +391,31 @@ function PointsScreen({ onTab }) {
         const map = {};
         snap.players.forEach(pl => { map[String(pl.id)] = { points: pl.points || 0, stats: pl.stats || {} }; });
         setStatsById(map);
+        // Prefer the snapshot's frozen starting/bench; older snapshots that
+        // predate those fields fall back to the players order (starting first).
+        const ids = snap.players.map(pl => pl.id);
+        const starting = (Array.isArray(snap.starting) && snap.starting.length) ? snap.starting : ids.slice(0, 11);
+        const bench = Array.isArray(snap.bench) ? snap.bench : ids.slice(11);
+        setSnapLineup({ starting, bench, autoSubs: snap.autoSubs || [] });
       })
       .catch(err => { if (!cancelled) console.error("Failed to fetch gw-history snapshot:", err); });
     return () => { cancelled = true; };
   }, [lid, me, viewingGw]);
+
+  // For a finished GW, render the immutable snapshot lineup; for the live GW,
+  // the editable lineup doc. The Pitch lays starters out by formation, so order
+  // the snapshot's starting XI GK→DEF→MID→FWD and derive the formation from the
+  // players' real positions (resolved via window.PLAYER_MAP).
+  const lineup = React.useMemo(() => {
+    if (!(viewingGw < currentGw && snapLineup)) return liveLineup;
+    const pmap = window.PLAYER_MAP || {};
+    const posOf = (id) => (pmap[String(id)] ? pmap[String(id)].pos : 3);
+    const byPos = { 1: [], 2: [], 3: [], 4: [] };
+    (snapLineup.starting || []).forEach(id => { (byPos[posOf(id)] || byPos[3]).push(id); });
+    const ordered = [...byPos[1], ...byPos[2], ...byPos[3], ...byPos[4]];
+    const formation = [Math.max(1, byPos[1].length), byPos[2].length, byPos[3].length, byPos[4].length];
+    return { starting: ordered, bench: snapLineup.bench || [], formation, autoSubs: snapLineup.autoSubs || [] };
+  }, [viewingGw, currentGw, snapLineup, liveLineup]);
 
   // Points-only map for the pitch slots.
   const gwPointsById = React.useMemo(() => {

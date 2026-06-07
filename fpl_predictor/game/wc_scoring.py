@@ -838,6 +838,12 @@ def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
             "uid": uid,
             "gw": gw,
             "players": players,
+            # Freeze the exact locked lineup that was fielded this GW so the
+            # frontend can render the historical pitch from the snapshot — never
+            # from the live (mutable) lineup doc, which later transfers change.
+            "starting": list(lineup.get("starting", [])),
+            "bench": list(lineup.get("bench", [])),
+            "autoSubs": list(lineup.get("autoSubsMade", [])),
             "totalPoints": total_points,
             "opponent": opponent,
             "opponentPoints": opponent_points,
