@@ -36,12 +36,12 @@ PREV_KO = _utc(2026, 6, 16, 12, 0)
 T0 = _utc(2026, 6, 17, 12, 0)
 PREV_FX = [_fx(PREV_KO, gw=1)]
 UP_FX = [_fx(T0, gw=2)]
-CONFIG = {"trade_window_hours": 5, "free_agent_window_hours": 5,
-          "match_duration_minutes": 150}
+CONFIG = {"fa_open_before_hours": 5, "squad_lock_before_hours": 1,
+          "trade_reopen_after_hours": 1, "match_duration_minutes": 150}
 
-# A `now` deep inside the mid-GW dead zone (well before the trade window opens)
-# so the time-based logic would return NONE — proving the override wins.
-NOW_DEAD = _utc(2026, 6, 16, 0, 0)
+# A `now` inside the locked hour (T0-1h .. T0) so the time-based logic would
+# return NONE — proving the override wins when it forces a window open.
+NOW_DEAD = T0 - timedelta(minutes=30)
 
 
 # ---------------------------------------------------------------------------
@@ -83,7 +83,7 @@ def test_override_force_open_when_clock_says_closed():
 
 def test_invalid_phase_falls_through():
     league = {"currentGw": 2, "windowOverride": {"phase": "bogus"}}
-    # NOW_DEAD is before trade_open -> time-based result is NONE.
+    # NOW_DEAD is in the locked hour -> time-based result is NONE.
     win, gw = current_window(
         league_doc=league,
         fixtures_for_gw=UP_FX,
@@ -124,11 +124,11 @@ def test_no_override_identical_to_time_based():
     # Sample several instants across the timeline and confirm with/without an
     # absent override key produces the same result as a plain league doc.
     samples = [
-        NOW_DEAD,                       # NONE (before trade_open)
-        tprev_end + timedelta(hours=1),  # TRADE
-        tprev_end + timedelta(hours=6),  # FREE_AGENTS
-        tprev_end + timedelta(hours=11),  # NEXT_GW_BID (still before T0)
-        T0 + timedelta(hours=1),        # NONE (locked)
+        NOW_DEAD,                       # NONE (locked hour, T0-30m)
+        tprev_end + timedelta(hours=1),  # TRADE (trade reopened)
+        T0 - timedelta(hours=3),         # FREE_AGENTS (T0-5h .. T0-1h)
+        T0 - timedelta(minutes=20),      # NONE (locked)
+        T0 + timedelta(hours=1),         # NEXT_GW_BID (live GW, offer)
     ]
     for now in samples:
         baseline_win, baseline_gw = current_window(
