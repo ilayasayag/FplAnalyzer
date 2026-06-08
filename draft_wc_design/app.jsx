@@ -521,6 +521,8 @@ function App() {
               name: p.name,
               pos: p.position,
               team: normalizeIso(p.teamIso || p.teamShort || String(p.teamId)),
+              teamName: p.teamName || "",
+              club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));
@@ -747,6 +749,8 @@ function App() {
               name: p.name,
               pos: p.position,
               team: p.teamIso || p.teamShort || String(p.teamId),
+              teamName: p.teamName || "",
+              club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));

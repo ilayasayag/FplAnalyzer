@@ -313,11 +313,40 @@ function StatBlock({ label, value, accent }) {
 
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
+  const [nationFilter, setNationFilter] = React.useState("all");
+  const [clubFilter, setClubFilter] = React.useState("all");
+  const [search, setSearch] = React.useState("");
+  const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
 
-  const list = (window.FREE_AGENTS || []).filter(p => posFilter === "all" || p.pos === Number(posFilter));
+  // playerId -> owning manager's name (for the "All players" view).
+  const ownerByPid = React.useMemo(() => {
+    const map = {}, sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
+    const nameOf = uid => { const m = mgrs.find(x => x.uid === uid); return m ? (m.team || m.name || uid) : uid; };
+    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { map[String(pid)] = nameOf(uid); }));
+    return map;
+  }, []);
+
+  // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
+  // real points. "All players" = the whole pool (owned shown with their manager,
+  // not pickable); "Free agents" = players not owned by any manager. We don't use
+  // the /free-agents endpoint here — it returns a projected, 50-capped subset with
+  // no club/points.
+  const source = (window.PLAYERS || []).filter(p => mode === "all" || !ownerByPid[String(p.id)]);
+  const nations = [...new Set(source.map(p => p.teamName).filter(Boolean))].sort();
+  const clubs = [...new Set(source.map(p => p.club).filter(Boolean))].sort();
+  const q = search.trim().toLowerCase();
+  const filtered = source
+    .filter(p => posFilter === "all" || p.pos === Number(posFilter))
+    .filter(p => nationFilter === "all" || p.teamName === nationFilter)
+    .filter(p => clubFilter === "all" || p.club === clubFilter)
+    .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
+    .sort((a, b) => (b.pts || 0) - (a.pts || 0));
+  const CAP = 120;
+  const shown = filtered.slice(0, CAP);
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
+  const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
 
   const handlePickup = async (p) => {
     if (!playerToDrop) {
@@ -345,20 +374,46 @@ function FreeAgentsTab() {
 
   return (
     <div className="card" style={{ overflow: "hidden" }}>
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <strong>Top Free Agents</strong>
-          <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>· players not owned by any league manager</span>
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <strong>{mode === "all" ? "All Players" : "Top Free Agents"}</strong>
+            <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              · {mode === "all" ? "every player in the pool" : "players not owned by any league manager"}
+              {" · "}{filtered.length} match{filtered.length === 1 ? "" : "es"}{filtered.length > CAP ? ` (top ${CAP} shown)` : ""}
+            </span>
+          </div>
+          <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
+            {[["free", "Free agents"], ["all", "All players"]].map(([m, label]) => (
+              <button key={m} className="btn" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 999, background: mode === m ? "var(--navy-900)" : "transparent", color: mode === m ? "white" : "var(--ink-700)" }} onClick={() => setMode(m)}>{label}</button>
+            ))}
+          </div>
         </div>
-        <div className="row" style={{ gap: 4 }}>
-          {["all", "1", "2", "3", "4"].map(p => (
-            <button key={p}
-              className={"btn " + (posFilter === p ? "btn--solid-dark" : "")}
-              style={{ padding: "6px 12px", fontSize: 12, background: posFilter === p ? undefined : "transparent", color: posFilter === p ? undefined : "var(--ink-700)" }}
-              onClick={() => setPosFilter(p)}>
-              {p === "all" ? "All" : POS_NAMES[Number(p)]}
-            </button>
-          ))}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or club…"
+            style={{ flex: "1 1 200px", minWidth: 160, padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" }} />
+          <select value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={selStyle}>
+            <option value="all">All nations</option>
+            {nations.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          <select value={clubFilter} onChange={e => setClubFilter(e.target.value)} style={selStyle}>
+            <option value="all">All clubs</option>
+            {clubs.map(c => <option key={c} value={c}>{c}</option>)}
+          </select>
+          <div className="row" style={{ gap: 4 }}>
+            {["all", "1", "2", "3", "4"].map(p => (
+              <button key={p}
+                className={"btn " + (posFilter === p ? "btn--solid-dark" : "")}
+                style={{ padding: "6px 12px", fontSize: 12, background: posFilter === p ? undefined : "transparent", color: posFilter === p ? undefined : "var(--ink-700)" }}
+                onClick={() => setPosFilter(p)}>
+                {p === "all" ? "All" : POS_NAMES[Number(p)]}
+              </button>
+            ))}
+          </div>
+          {(search || nationFilter !== "all" || clubFilter !== "all" || posFilter !== "all") && (
+            <button className="btn btn--ghost-dark" style={{ padding: "6px 10px", fontSize: 11 }}
+              onClick={() => { setSearch(""); setNationFilter("all"); setClubFilter("all"); setPosFilter("all"); }}>Clear</button>
+          )}
         </div>
       </div>
       <table className="table-clean">
@@ -367,17 +422,19 @@ function FreeAgentsTab() {
             <th>Player</th>
             <th>Team</th>
             <th>Pos</th>
-            <th>GW4 fixture</th>
+            <th>Owner</th>
             <th style={{ textAlign: "right" }}>Pts</th>
             <th style={{ textAlign: "right" }}>Form</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {list.map(p => {
+          {shown.length === 0 && (
+            <tr><td colSpan="7" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+          )}
+          {shown.map(p => {
             const t = teamById(p.team);
-            const oppMap = { ARG: "ECU", ENG: "URU", NED: "EGY", USA: "BRA", BEL: "AUS", FRA: "POR2", CRO: "POL", BRA: "USA", JPN: "ESP", KOR: "COL", URU: "ENG", COL: "KOR" };
-            const opp = oppMap[p.team] ? teamById(oppMap[p.team]) : null;
+            const owner = ownerByPid[String(p.id)];
             const eligibleDrops = mySquad.filter(s => s.pos === p.pos);
             const isPicking = activePickup?.id === p.id;
 
@@ -389,18 +446,16 @@ function FreeAgentsTab() {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
                         onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
-                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{POS_NAMES[p.pos]}</div>
+                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{p.club || POS_NAMES[p.pos]}</div>
                     </div>
                   </div>
                 </td>
-                <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {t.name}</span></td>
+                <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {p.teamName || (t && t.name) || p.team}</span></td>
                 <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
                 <td>
-                  {opp ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      vs <Flag team={opp} /> {opp.id}
-                    </span>
-                  ) : <span className="muted">—</span>}
+                  {owner
+                    ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
+                    : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
                 <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
                 <td style={{ textAlign: "right" }}>
@@ -409,7 +464,9 @@ function FreeAgentsTab() {
                   </span>
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  {isPicking ? (
+                  {owner ? (
+                    <span className="muted" style={{ fontSize: 11 }}>Owned</span>
+                  ) : isPicking ? (
                     <div className="row" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                       <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
                         <option value="">-- Drop player --</option>
