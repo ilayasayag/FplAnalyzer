@@ -299,9 +299,28 @@ function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const [runningMock, setRunningMock] = React.useState(false);
   const [auctionViz, setAuctionViz] = React.useState(null);  // {gw, executed, skipped}
+  const [switching, setSwitching] = React.useState(false);
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
+  const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
+
+  // MOCK: flip the league's transfer-window phase so the page renders that
+  // window. Trade = manager trades + wishlist; Free agents = instant pickups +
+  // wishlist; Gameweek = wishlist only (no manager trades, picks go to wishlist).
+  const switchWindow = async (phase) => {
+    if (switching || phase === curPhase) return;
+    setSwitching(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+      await apiCall("POST", `/leagues/${lid}/admin/window-override`, { phase, gw });
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to switch window: " + (err.error || err.detail || JSON.stringify(err)));
+      setSwitching(false);
+    }
+  };
 
   // MOCK: open the free-agents window + run the wishlist auction in one click.
   // Auto-fills 1-3 bids for every OTHER manager (top free agents in, their worst
@@ -365,11 +384,36 @@ function TransfersScreen() {
             </div>
           </div>
         </div>
-        <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
-          <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
-          <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
-          <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
-        </div>
+        {isMock ? (
+          <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>Mock · switch window</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[
+                ["trade", "Trade", "manager trades + wishlist"],
+                ["free_agents", "Free agents", "instant pickups + wishlist"],
+                ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
+              ].map(([key, label, hint]) => {
+                const active = curPhase === key;
+                return (
+                  <button key={key} disabled={switching} onClick={() => switchWindow(key)} title={hint}
+                    style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: switching ? "default" : "pointer",
+                      background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
+                      color: active ? "var(--navy-900)" : "white",
+                      border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
+                    {label}
+                    <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
+            <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
+            <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
+            <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
