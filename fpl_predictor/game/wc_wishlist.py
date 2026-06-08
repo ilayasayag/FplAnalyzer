@@ -213,6 +213,81 @@ class WCWishlistManager:
         }
 
     # ------------------------------------------------------------------
+    # Mock helper — auto-fill bids so the auction can be demoed end-to-end
+    # ------------------------------------------------------------------
+
+    def generate_mock_bids(self, lid: str, gw: int, exclude_uid: Optional[str] = None,
+                           min_n: int = 1, max_n: int = 3, seed: int = 2026) -> List[dict]:
+        """MOCK ONLY: auto-submit 1-3 wishlist bids per manager — claim the top
+        available free agents (by total points) while dropping that manager's
+        WORST players (lowest points), same position.
+
+        ``exclude_uid`` (the manager running the demo) is skipped so their own
+        real bids stand. Distinct top free agents are handed to different
+        managers so the auction resolves several successful claims rather than
+        everyone contesting the same player. Returns a per-manager summary.
+        """
+        import random
+        rng = random.Random(seed)
+
+        owned = self._get_all_owned(lid)
+        pts: Dict[int, int] = {}
+        fa_by_pos: Dict[int, List] = {1: [], 2: [], 3: [], 4: []}
+        for doc in self.db.collection("wc_players").get():
+            d = doc.to_dict() or {}
+            try:
+                pid = int(d.get("id", doc.id))
+                pos = int(d.get("position"))
+            except (TypeError, ValueError):
+                continue
+            p = d.get("totalPoints", 0) or 0
+            pts[pid] = p
+            if pid not in owned and pos in (1, 2, 3, 4):
+                fa_by_pos[pos].append((pid, p))
+        for pos in fa_by_pos:
+            fa_by_pos[pos].sort(key=lambda x: -x[1])  # best free agents first
+        cursor = {1: 0, 2: 0, 3: 0, 4: 0}
+
+        def next_fa(pos: int) -> Optional[int]:
+            lst = fa_by_pos[pos]
+            if cursor[pos] >= len(lst):
+                return None
+            pid = lst[cursor[pos]][0]
+            cursor[pos] += 1
+            return pid
+
+        summary: List[dict] = []
+        for uid in self._ordered_managers(lid):
+            if uid == exclude_uid:
+                continue
+            try:
+                squad = self._get_squad(lid, uid)
+            except ValueError:
+                continue
+            worst = sorted(squad, key=lambda p: pts.get(p["playerId"], 0))  # ascending
+            k = rng.randint(min_n, max_n)
+            bids, used_out = [], set()
+            for p_out in worst:
+                if len(bids) >= k:
+                    break
+                pos = int(p_out["position"])
+                if p_out["playerId"] in used_out:
+                    continue
+                fa = next_fa(pos)
+                if fa is None:
+                    continue
+                bids.append({"playerIn": fa, "playerOut": p_out["playerId"],
+                             "position": POS_NAMES.get(pos, "?")})
+                used_out.add(p_out["playerId"])
+            if bids:
+                try:
+                    self.submit_bids(lid, uid, gw, bids)
+                    summary.append({"uid": uid, "bids": len(bids)})
+                except ValueError as exc:
+                    summary.append({"uid": uid, "error": str(exc)})
+        return summary
+
+    # ------------------------------------------------------------------
     # Ordering + tie-break (§4)
     # ------------------------------------------------------------------
 

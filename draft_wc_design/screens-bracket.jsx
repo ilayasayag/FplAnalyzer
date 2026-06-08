@@ -234,8 +234,31 @@ function BracketMatch({ match, result, round }) {
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
+  const [runningMock, setRunningMock] = React.useState(false);
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
+
+  // MOCK: open the free-agents window + run the wishlist auction in one click.
+  // Auto-fills 1-3 bids for every OTHER manager (top free agents in, their worst
+  // players out); the viewed manager's own wishlist is kept. Resolves the
+  // auction so squads actually change, then reloads into the FA-window view.
+  const runMockWishlist = async () => {
+    if (runningMock) return;
+    if (!window.confirm("Mock: close the trade window, open the FREE-AGENTS window and run the wishlist auction now?\n\nEvery other manager gets 1–3 auto bids (top free agents in, worst players out). Your own wishlist is kept.")) return;
+    setRunningMock(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+      const res = await apiCall("POST", `/admin/leagues/${lid}/run-mock-wishlist`, { gw, excludeUid: window.ME });
+      const a = (res && res.wishlistAuction) || {};
+      alert(`Free-agents window opened + wishlist auction run for GW${res.gw}.\n${(a.claimsExecuted || 0)} claim(s) executed across the league. Reloading…`);
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+      setRunningMock(false);
+    }
+  };
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -262,9 +285,16 @@ function TransfersScreen() {
                 Window closes <strong>{activeWindow.closesAt || "—"}</strong> · {activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
+              {isMock && (
+                <button className="btn" disabled={runningMock} onClick={runMockWishlist}
+                  title="Mock: open the free-agents window and resolve the wishlist auction"
+                  style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap", background: runningMock ? "rgba(255,255,255,0.4)" : "var(--gold-500)", color: "var(--navy-900)", border: "none", cursor: runningMock ? "default" : "pointer" }}>
+                  {runningMock ? "Running…" : "▶ Run wishlist (mock)"}
+                </button>
+              )}
             </div>
           </div>
         </div>

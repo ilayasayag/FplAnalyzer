@@ -514,3 +514,42 @@ def test_submit_bids_persists_and_reads_back(mgr, db):
 
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
+
+
+# ---------------------------------------------------------------------------
+# Mock auto-bid generator (generate_mock_bids) — demo helper
+# ---------------------------------------------------------------------------
+
+def test_generate_mock_bids_skips_runner_and_auction_applies(mgr, db):
+    lid = "L"
+    _seed_member(db, lid, "A", 5, 1)   # the runner — excluded, keeps own bids
+    _seed_member(db, lid, "B", 3, 2)
+    _seed_member(db, lid, "C", 1, 3)
+    _seed_squad(db, lid, "A", _legal_squad(100))
+    _seed_squad(db, lid, "B", _legal_squad(200))
+    _seed_squad(db, lid, "C", _legal_squad(300))
+    gw = 3
+
+    summary = mgr.generate_mock_bids(lid, gw, exclude_uid="A")
+    uids = {s["uid"] for s in summary}
+    assert "A" not in uids                      # runner skipped
+    assert {"B", "C"}.issubset(uids)
+
+    # Each generated bid is a valid same-position swap (FA in, own player out).
+    free_ids = {900, 901, 902, 950}
+    for who, base in (("B", 200), ("C", 300)):
+        bids = mgr.get_my_bids(lid, who, gw)["bids"]
+        assert 1 <= len(bids) <= 3
+        own = set(range(base, base + 15))
+        for bd in bids:
+            assert bd["playerIn"] in free_ids
+            assert bd["playerOut"] in own
+    assert mgr.get_my_bids(lid, "A", gw)["bids"] == []   # runner untouched
+
+    # Auction applies them: claimants' squads change but stay 15-man legal.
+    before_b = _squad_ids(db, lid, "B")
+    res = mgr.run_auction(lid, gw)
+    assert res["claimsExecuted"] >= 1
+    after_b = _squad_ids(db, lid, "B")
+    assert len(after_b) == 15 and before_b != after_b
+    assert _squad_ids(db, lid, "A") == set(range(100, 115))  # runner unchanged
