@@ -745,7 +745,9 @@ def update_watchlist(lid: str):
     if err:
         return err
     body = request.get_json(silent=True) or {}
-    player_ids = body.get("playerIds", [])
+    # Dedupe preserving order: a player may occupy only ONE watchlist position per
+    # manager (one player per pick slot; the same player can't sit in two slots).
+    player_ids = list(dict.fromkeys(body.get("playerIds", [])))
     (_db.collection("leagues").document(lid)
      .collection("draft").document("watchlists")
      .collection(uid).document("list")
