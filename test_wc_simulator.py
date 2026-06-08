@@ -41,30 +41,58 @@ def test_group_scoreline_can_draw_and_is_bounded():
 
 
 # ---------------------------------------------------------------------------
-# PURE: team strength tiers + biased scoreline
+# PURE: team strength tiers + crossed match odds
 # ---------------------------------------------------------------------------
 def test_team_tier_classification():
-    assert S.team_tier("Spain") == 1
-    assert S.team_tier("Brazil") == 1
-    assert S.team_tier("Morocco") == 2
-    assert S.team_tier("USA") == 2
-    assert S.team_tier("Saudi Arabia") == 3
-    assert S.team_tier("") == 3
+    assert S.team_tier("Spain") == "elite"
+    assert S.team_tier("France") == "elite"     # France is first tier
+    assert S.team_tier("Turkey") == "strong"    # Turkey second tier
+    assert S.team_tier("Morocco") == "strong"
+    assert S.team_tier("USA") == "mid"
+    assert S.team_tier("Saudi Arabia") == "weak"
+    assert S.team_tier("") == "weak"
     # spelling/iso variants normalise to the canonical tier
-    assert S.team_tier("Columbia") == 2   # Colombia
-    assert S.team_tier("Swiss") == 2      # Switzerland
-    assert S.team_tier("Türkiye") == 2    # Turkey
+    assert S.team_tier("Columbia") == "strong"   # Colombia
+    assert S.team_tier("Swiss") == "mid"         # Switzerland
+    assert S.team_tier("Czechia") == "mid"       # Czech Republic
+    assert S.team_tier("Türkiye") == "strong"    # Turkey
 
 
-def test_win_prob_matches_spec():
-    # tier1 vs tier3 -> 80%, tier2 vs tier3 -> 70%, tier1 vs tier2 -> 70%
-    assert S.win_prob(1, 3) == 0.80
-    assert S.win_prob(2, 3) == 0.70
-    assert S.win_prob(1, 2) == 0.70
-    assert S.win_prob(1, 1) == 0.50
-    # symmetric
-    assert abs(S.win_prob(3, 1) - 0.20) < 1e-9
-    assert abs(S.win_prob(2, 1) - 0.30) < 1e-9
+def test_team_profile_values():
+    assert S.team_profile("Brazil") == (0.70, 0.20, 0.10)
+    assert S.team_profile("Japan") == (0.55, 0.30, 0.15)
+    assert S.team_profile("Mexico") == (0.40, 0.40, 0.20)
+    assert S.team_profile("Qatar") == (0.05, 0.30, 0.65)
+
+
+def test_match_outcome_probs_crosses_profiles():
+    import pytest
+    # Elite vs weak: home ~0.875, draw ~0.115, away ~0.0096 (cross-products).
+    ph, pd, pa = S.match_outcome_probs("Brazil", "Qatar")
+    assert ph == pytest.approx(0.455 / 0.52, abs=1e-6)
+    assert pd == pytest.approx(0.06 / 0.52, abs=1e-6)
+    assert pa == pytest.approx(0.005 / 0.52, abs=1e-6)
+    assert ph + pd + pa == pytest.approx(1.0)
+    assert ph > 0.85 and pa < 0.02
+
+    # Even contest (two elites) is symmetric.
+    ph, pd, pa = S.match_outcome_probs("Spain", "Argentina")
+    assert ph == pytest.approx(pa)
+    assert ph == pytest.approx(0.07 / 0.18, abs=1e-6)
+
+    # Crossing is symmetric: home(a,b) == away(b,a).
+    ph_ab, _, pa_ab = S.match_outcome_probs("Germany", "Morocco")
+    ph_ba, _, pa_ba = S.match_outcome_probs("Morocco", "Germany")
+    assert ph_ab == pytest.approx(pa_ba)
+    assert pa_ab == pytest.approx(ph_ba)
+
+
+def test_match_outcome_knockout_drops_draw():
+    import pytest
+    ph, pd, pa = S.match_outcome_probs("Brazil", "Qatar", knockout=True)
+    assert pd == 0.0
+    assert ph + pa == pytest.approx(1.0)
+    assert ph > pa
 
 
 def test_scoreline_bias_favours_strong_side():
