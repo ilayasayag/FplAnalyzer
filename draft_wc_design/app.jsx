@@ -244,8 +244,13 @@ function App() {
     if (!activeLid) return;
 
     // Update ME global variable to logged-in user's UID
+    window.__AUTH_UID = user.uid;
     window.ME = user.uid;
-    try { ME = user.uid; } catch(e) {}
+    // Mock-only "view as manager" override (admin demo tool): view the showcase
+    // league as any member without separate logins. Reverted below if the saved
+    // override isn't a member of the loaded league; cleared via the Tweaks panel.
+    try { const _m = localStorage.getItem("wc_mock_me"); if (_m) window.ME = _m; } catch (e) { /* ignore */ }
+    try { ME = window.ME; } catch(e) {}
 
     // New league / GW: hide the squad until the real fetch resolves so we never
     // flash the demo squad seeded by data.jsx.
@@ -253,93 +258,59 @@ function App() {
 
     const lid = activeLid; // active league ID
 
-    // 1. Sync Standings live or past
-    let unsubStandings = () => {};
+    // 1. Standings — fetched via the API (→ gamedb), NOT a direct client
+    // onSnapshot. The compat Firestore SDK can't select the named "gamedb"
+    // database (it silently reads an empty "(default)"), which left the table
+    // empty/falling back to demo data. The API targets gamedb for both the live
+    // GW (/standings → current doc) and a past GW (?gw=N → that snapshot).
+    let stdCancelled = false;
+    const unsubStandings = () => { stdCancelled = true; };
     const curGw = window.TOURNAMENT.currentGw || 1;
-    if (viewingGw === curGw) {
-      unsubStandings = _db.collection("leagues").doc(lid)
-        .collection("standings").doc("current")
-        .onSnapshot((doc) => {
-          if (doc.exists) {
-            const data = doc.data();
-            if (data && data.managers) {
-              window.STANDINGS = data.managers.map(m => ({
-                uid: m.uid,
-                rank: m.rank || 1,
-                hw: m.hw || 0,
-                hd: m.hd || 0,
-                hl: m.hl || 0,
-                hpts: m.hpts || 0,
-                fpts: m.fpts || 0,
-                mv: m.mv || 0,
-                bonusPoints: m.bonusPoints || 0,
-                knockedOut: m.knockedOut || false,
-                ptsSeed: m.ptsSeed || false,
-              })).sort((a, b) => a.rank - b.rank);
-              forceUpdate();
-            }
-          } else {
-            // No standings yet (e.g. pre-draft league). Show an empty table
-            // rather than silently keeping the static mock standings.
-            window.STANDINGS = [];
-            forceUpdate();
-          }
-        }, (err) => console.error("Standings listen error:", err));
-    } else {
-      apiCall("GET", `/leagues/${lid}/standings?gw=${viewingGw}`)
-        .then(data => {
-          if (data && data.managers) {
-            window.STANDINGS = data.managers.map(m => ({
-              uid: m.uid,
-              rank: m.rank || 1,
-              hw: m.hw || 0,
-              hd: m.hd || 0,
-              hl: m.hl || 0,
-              hpts: m.hpts || 0,
-              fpts: m.fpts || 0,
-              mv: m.mv || 0,
-              bonusPoints: m.bonusPoints || 0,
-              knockedOut: m.knockedOut || false,
-              ptsSeed: m.ptsSeed || false,
-            })).sort((a, b) => a.rank - b.rank);
-            forceUpdate();
-          } else {
-            window.STANDINGS = [];
-            forceUpdate();
-          }
-        }).catch(err => console.error("Past standings fetch error:", err));
-    }
+    const _stdPath = (viewingGw === curGw)
+      ? `/leagues/${lid}/standings`
+      : `/leagues/${lid}/standings?gw=${viewingGw}`;
+    apiCall("GET", _stdPath)
+      .then(data => {
+        if (stdCancelled) return;
+        if (data && data.managers) {
+          window.STANDINGS = data.managers.map(m => ({
+            uid: m.uid,
+            rank: m.rank || 1,
+            hw: m.hw || 0,
+            hd: m.hd || 0,
+            hl: m.hl || 0,
+            hpts: m.hpts || 0,
+            fpts: m.fpts || 0,
+            mv: m.mv || 0,
+            bonusPoints: m.bonusPoints || 0,
+            knockedOut: m.knockedOut || false,
+            ptsSeed: m.ptsSeed || false,
+          })).sort((a, b) => a.rank - b.rank);
+        } else {
+          window.STANDINGS = [];
+        }
+        forceUpdate();
+      })
+      .catch(err => { if (!stdCancelled) console.error("Standings fetch error:", err); });
 
-    // 2. Sync Live Scores / GW Totals live or past
-    let unsubScores = () => {};
-    if (viewingGw === curGw) {
-      unsubScores = _db.collection("leagues").doc(lid)
-        .collection("scores").doc(String(curGw))
-        .onSnapshot((doc) => {
-          if (doc.exists && doc.data() && doc.data().results) {
-            window.GW3_TOTALS = {};
-            Object.entries(doc.data().results).forEach(([uid, res]) => {
-              window.GW3_TOTALS[uid] = res.points || 0;
-            });
-          } else {
-            // No scores for this GW/league yet → clear so a previous league's
-            // totals never persist after a switch.
-            window.GW3_TOTALS = {};
-          }
-          forceUpdate();
-        }, (err) => console.error("Scores listen error:", err));
-    } else {
-      apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
-        .then(data => {
-          window.GW3_TOTALS = {};
-          if (data && data.results) {
-            Object.entries(data.results).forEach(([uid, res]) => {
-              window.GW3_TOTALS[uid] = res.points || 0;
-            });
-          }
-          forceUpdate();
-        }).catch(err => { window.GW3_TOTALS = {}; console.error("Past scores fetch error:", err); });
-    }
+    // 2. Scores / GW totals — via the API (→ gamedb), same reason as standings.
+    // One endpoint serves both the live and past GW; an unfinalized/empty GW
+    // returns no results, which clears GW3_TOTALS (so a previous league's totals
+    // never persist after a switch).
+    let scoresCancelled = false;
+    const unsubScores = () => { scoresCancelled = true; };
+    apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
+      .then(data => {
+        if (scoresCancelled) return;
+        window.GW3_TOTALS = {};
+        if (data && data.results) {
+          Object.entries(data.results).forEach(([uid, res]) => {
+            window.GW3_TOTALS[uid] = res.points || 0;
+          });
+        }
+        forceUpdate();
+      })
+      .catch(err => { if (!scoresCancelled) { window.GW3_TOTALS = {}; console.error("Scores fetch error:", err); } });
 
     // 3. Sync Draft State live
     const unsubDraft = _db.collection("leagues").doc(lid)
@@ -465,7 +436,9 @@ function App() {
               id: leagueDetails.leagueId,
               name: leagueDetails.name,
               inviteCode: leagueDetails.inviteCode,
-              size: leagueDetails.maxMembers,
+              // Rank denominator = actual managers in the league, not the max
+              // capacity (#48: "Rank #N / 8" while 10 are enrolled).
+              size: leagueDetails.memberCount || leagueDetails.maxMembers,
               knockoutStartGw: leagueDetails.knockoutStartGw,
               leaguePhaseGws: leagueDetails.leaguePhaseGws,
               knockoutQualifiers: leagueDetails.knockoutQualifiers,
@@ -483,6 +456,12 @@ function App() {
                 draftPos: m.draftPosition || 99,
                 waiverPri: m.waiverPriority || 99,
               }));
+              // Revert a stale "view as manager" override if it isn't a member
+              // of this league (e.g. after switching leagues).
+              if (window.ME !== window.__AUTH_UID && !window.MANAGERS.some(mm => mm.uid === window.ME)) {
+                window.ME = window.__AUTH_UID;
+                try { ME = window.__AUTH_UID; } catch (e) {}
+              }
             } else {
               // No members returned → clear so a previous league's managers
               // (or the data.jsx demo roster) can never bleed through.
@@ -542,6 +521,8 @@ function App() {
               name: p.name,
               pos: p.position,
               team: normalizeIso(p.teamIso || p.teamShort || String(p.teamId)),
+              teamName: p.teamName || "",
+              club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));
@@ -643,7 +624,7 @@ function App() {
 
         // Fetch my Squad
         try {
-          const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
+          const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
           if (squad && squad.players && squad.players.length > 0) {
             window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
           } else {
@@ -680,9 +661,30 @@ function App() {
           if (!window.SQUADS_BY_UID) window.SQUADS_BY_UID = {};
         }
 
-        // Fetch my Lineup matching viewingGw
+        // Fetch the lineup for the VIEWED manager matching viewingGw.
+        // IMPORTANT: your OWN team must use the auth endpoint (/lineup/<gw>).
+        // The /lineup/<uid>/<gw> form treats ANY uid as an opponent and 403s an
+        // unlocked GW — even for yourself — so using it for your own team blanks
+        // the pitch (and falls back to the data.jsx demo roster). Only the
+        // "view as another manager" override uses the target form; when that's
+        // blocked (live GW) or empty, derive a shape from THEIR squad instead of
+        // showing the demo roster.
+        const _ownLineup = window.ME === window.__AUTH_UID;
+        const _lineupFromSquad = () => {
+          const byPos = { 1: [], 2: [], 3: [], 4: [] };
+          (window.MY_SQUAD_IDS || []).forEach(id => {
+            const p = playerById(isNaN(Number(id)) ? id : Number(id));
+            if (p && byPos[p.pos]) byPos[p.pos].push(String(id));
+          });
+          const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
+          const starting = [...byPos[1].slice(0, 1), ...byPos[2].slice(0, nd), ...byPos[3].slice(0, nm), ...byPos[4].slice(0, nf)];
+          const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
+          return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
+        };
         try {
-          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${viewingGw}`);
+          const lineup = await apiCall("GET", _ownLineup
+            ? `/leagues/${lid}/lineup/${viewingGw}`
+            : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
           if (lineup && lineup.starting && lineup.starting.length > 0) {
             window.MY_LINEUP_GW3 = {
               starting: (lineup.starting || []).map(String),
@@ -691,16 +693,19 @@ function App() {
               autoSubs: lineup.autoSubsMade || [],
             };
           } else {
-            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
-          // Transient failure: KEEP the last-known-good lineup rather than
-          // blanking the pitch (this was the core "squads disappear" bug).
-          // Only initialise to empty if we have nothing at all yet.
-          if (!window.MY_LINEUP_GW3) {
-            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+          if (e && e.status === 403) {
+            // Viewing another manager's pre-lock lineup is blocked → show their
+            // squad in a default shape, never the demo roster.
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
+          } else if (!(window.MY_LINEUP_GW3 && window.MY_LINEUP_GW3.starting && window.MY_LINEUP_GW3.starting.length)) {
+            // Transient failure with nothing cached yet → derive from the squad.
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
           }
+          // else: keep last-known-good (transient-network resilience).
         }
 
         // Real squad + lineup have now resolved (success OR a definitive
@@ -744,6 +749,8 @@ function App() {
               name: p.name,
               pos: p.position,
               team: p.teamIso || p.teamShort || String(p.teamId),
+              teamName: p.teamName || "",
+              club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
             }));
@@ -1144,6 +1151,28 @@ function App() {
                   alert("Reset failed: " + (e && e.message ? e.message : e));
                   setSimBusy("");
                 }
+              }} />
+
+            <TweakSection label="View as Manager (mock)" />
+            <div style={{ fontSize: 10, color: "rgba(41,38,27,0.55)", lineHeight: 1.4, marginTop: -4 }}>
+              Switch whose squad / points / rank you're viewing — no separate login needed. Reloads as that manager; your real account is unchanged.
+            </div>
+            {(window.MANAGERS || []).map(mgr => (
+              <TweakButton
+                key={mgr.uid}
+                label={(mgr.uid === window.ME ? "● " : "○ ") + (mgr.team || mgr.name || mgr.uid)}
+                secondary={mgr.uid !== window.ME}
+                onClick={() => {
+                  try { localStorage.setItem("wc_mock_me", mgr.uid); } catch (e) { /* ignore */ }
+                  window.location.reload();
+                }} />
+            ))}
+            <TweakButton
+              label="↺ Back to my real account"
+              secondary
+              onClick={() => {
+                try { localStorage.removeItem("wc_mock_me"); } catch (e) { /* ignore */ }
+                window.location.reload();
               }} />
           </>
         )}

@@ -376,6 +376,12 @@ function LeagueScreen({ onTab }) {
 }
 
 function StandingsTable({ onTab }) {
+  const rows = (window.STANDINGS || STANDINGS);
+  // The qualification cut + round name come from the league config, not a
+  // hardcoded "Top 8 / Quarter-Finals" (#48): a league can qualify any N.
+  const qualifiers = (window.LEAGUE && window.LEAGUE.knockoutQualifiers) || 8;
+  const ROUND_BY_QUALS = { 32: "Round of 32", 16: "Round of 16", 8: "Quarter-Finals", 4: "Semi-Finals", 2: "Final" };
+  const roundName = ROUND_BY_QUALS[qualifiers] || "the Knockouts";
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       <table className="table-clean">
@@ -392,12 +398,14 @@ function StandingsTable({ onTab }) {
           </tr>
         </thead>
         <tbody>
-          {(window.STANDINGS || STANDINGS).map((s, i) => {
+          {rows.map((s, i) => {
             const m = managerById(s.uid);
             const t = teamById(m.flag);
             const isMe = s.uid === window.ME;
             const qualified = !s.knockedOut;
-            const showQualLine = i === 7;
+            // Draw the cut line right below the last qualifying place (only if
+            // some teams actually miss out).
+            const showQualLine = i === qualifiers - 1 && qualifiers < rows.length;
             return (
               <React.Fragment key={s.uid}>
                 <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "")}>
@@ -415,7 +423,7 @@ function StandingsTable({ onTab }) {
                         <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.team}</div>
                         <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{m.name}</div>
                       </div>
-                      {qualified && i < 4 && <span className="pill pill--gold" style={{ marginLeft: 4, flexShrink: 0 }}>H2H Seed</span>}
+                      {qualified && !s.ptsSeed && <span className="pill pill--gold" style={{ marginLeft: 4, flexShrink: 0 }}>H2H Seed</span>}
                       {qualified && s.ptsSeed && <span className="pill pill--teal" style={{ marginLeft: 4, flexShrink: 0 }}>Pts Seed</span>}
                     </div>
                   </td>
@@ -432,7 +440,7 @@ function StandingsTable({ onTab }) {
                   <tr>
                     <td colSpan="8" style={{ padding: 0 }}>
                       <div style={{ borderTop: "2px dashed var(--hot-500)", padding: "6px 14px", background: "rgba(255,62,108,0.05)", fontSize: 11, fontWeight: 700, color: "var(--hot-500)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                        ↑ Qualification Line · Top 8 enter Quarter-Finals
+                        ↑ Qualification Line · Top {qualifiers} enter {roundName}
                       </div>
                     </td>
                   </tr>
@@ -443,7 +451,7 @@ function StandingsTable({ onTab }) {
         </tbody>
       </table>
       <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--ink-500)" }}>
-        Seeds 1–4 are top H2H; seeds 5–8 are best remaining by fantasy points (Pts Seed).
+        Top {qualifiers} qualify for {roundName}. H2H Seeds qualify on head-to-head record; Pts Seeds are the best remaining by fantasy points.
       </div>
     </div>
   );
@@ -672,33 +680,57 @@ function TradeCard({ trade, direction }) {
 
 // ---------- MANAGER SQUAD MODAL ----------
 function ManagerSquadModal({ uid, gw, onClose }) {
-  const [players, setPlayers] = React.useState(null); // null = loading
   const m = managerById(uid);
-  const gwPoints = window.GW3_POINTS || {};
-  const gwTotals = (window.ALL_GW_SCORES || {})[gw] || {};
-  const managerTotal = gwTotals[uid] !== undefined ? gwTotals[uid]
-    : (gw === 3 ? (window.GW3_TOTALS || {})[uid] : "—");
+  // Per-GW breakdown from the immutable gw_history snapshot — the SAME source the
+  // Points panel uses. It carries the frozen squad that was actually fielded for
+  // this GW, each player's points FOR THIS GW, and the authoritative total. This
+  // replaces the old GW3-only / season-total (GW3_POINTS) logic, so the league
+  // modal now shows real per-player points for any finished GW (#53), never a
+  // season total (#52-class), and never the post-transfer squad (#50-class).
+  const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot
+  const [fallbackIds, setFallbackIds] = React.useState(null);
 
   React.useEffect(() => {
-    const fetchSquad = async () => {
-      try {
-        const lid = window.LEAGUE.id;
-        const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
-        // API returns players as [{playerId, position, ...}] — normalize to string IDs
-        setPlayers((res.players || []).map(p => String(p.playerId)));
-      } catch (e) {
-        // Fallback: if we're the manager, use MY_SQUAD_IDS
-        setPlayers(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []);
-      }
+    let cancelled = false;
+    setSnap(undefined);
+    setFallbackIds(null);
+    const lid = window.LEAGUE && window.LEAGUE.id;
+    if (!lid) { setSnap(null); return; }
+    const loadCurrentSquad = () => {
+      apiCall("GET", `/leagues/${lid}/squads/${uid}`)
+        .then(res => { if (!cancelled) setFallbackIds((res.players || []).map(p => String(p.playerId))); })
+        .catch(() => { if (!cancelled) setFallbackIds(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []); });
     };
-    fetchSquad();
-  }, [uid]);
+    apiCall("GET", `/leagues/${lid}/gw-history/${uid}?gw=${gw}`)
+      .then(s => {
+        if (cancelled) return;
+        if (s && Array.isArray(s.players) && s.players.length) { setSnap(s); }
+        else { setSnap(null); loadCurrentSquad(); }   // GW not finalized yet → show current squad, dashes
+      })
+      .catch(() => { if (!cancelled) { setSnap(null); loadCurrentSquad(); } });
+    return () => { cancelled = true; };
+  }, [uid, gw]);
 
   React.useEffect(() => {
     const k = e => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, []);
+
+  // Resolve the player-id list + points map: prefer the frozen snapshot, else the
+  // live squad (current/unplayed GW). `players === null` means still loading.
+  const hasSnap = !!snap;
+  const pointsMap = {};
+  let players = null;
+  let managerTotal = "—";
+  if (hasSnap) {
+    snap.players.forEach(pl => { pointsMap[String(pl.id)] = pl.points || 0; });
+    players = [...(snap.starting || []), ...(snap.bench || [])].map(String);
+    if (!players.length) players = snap.players.map(pl => String(pl.id));
+    managerTotal = snap.totalPoints != null ? snap.totalPoints : "—";
+  } else if (snap === null) {
+    players = fallbackIds; // null while the fallback squad loads
+  }
 
   // Group by position
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
@@ -710,11 +742,9 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     });
   }
 
-  const getGwPts = (p) => {
-    if (gw !== 3) return "—";
-    const v = gwPoints[p.id] ?? gwPoints[Number(p.id)] ?? gwPoints[String(p.id)];
-    return v !== undefined ? v : 0;
-  };
+  // Snapshot present → real per-GW points (0 if the player didn't feature);
+  // no snapshot (unplayed GW) → dash.
+  const getGwPts = (p) => hasSnap ? (pointsMap[String(p.id)] ?? 0) : "—";
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
