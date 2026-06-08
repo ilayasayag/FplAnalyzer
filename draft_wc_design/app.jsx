@@ -782,7 +782,11 @@ function App() {
         // the batch auction). The upcoming GW comes from the transfer window.
         window.MY_WISHLIST_BIDS = [];
         try {
-          const wgw = window.WINDOW && window.WINDOW.gw;
+          // The bid GW is the open window's GW when one is open, else the next
+          // GW to be played — so the wishlist loads/persists even while the
+          // window is closed (you queue free agents ahead of the next window).
+          const wgw = (window.WINDOW && window.WINDOW.gw) ||
+                      (window.TOURNAMENT && window.TOURNAMENT.currentGw);
           if (wgw) {
             const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
             if (wl && Array.isArray(wl.bids)) {
