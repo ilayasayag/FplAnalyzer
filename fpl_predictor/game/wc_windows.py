@@ -12,18 +12,31 @@ right now". It replaces three contradictory checks that previously coexisted
 
 Everything now gates on :func:`current_window`.
 
-Timeline (all windows run *before* T0 = the upcoming GW's first kickoff = the
-lineup lock), per WC2026_WINDOWS_DESIGN.md §2.2::
+Timeline, anchored on T0 = the upcoming GW's first kickoff (per
+WC2026_WINDOWS_DESIGN.md §2.2)::
 
-    Tprev_end --TRADE--> +trade_h --FREE_AGENTS--> +fa_h --NEXT_GW_BID--> T0 (lock)
+    Tprev_end+reopen ─TRADE─> T0-5h ─FREE_AGENTS─> T0-1h ─NONE(locked)─> T0
+        T0 ─NEXT_GW_BID (live, OFFER-TRADES)─> Tlast_end+reopen ─TRADE─> …
 
 where
-  * ``Tprev_end`` = final whistle of GW(n-1)'s last match
-                  = last kickoff of GW(n-1) + ``match_duration_minutes``
-  * ``T0``        = first kickoff of GW(n)
+  * ``Tprev_end``  = final whistle of GW(n-1)'s last match
+                   = last kickoff of GW(n-1) + ``match_duration_minutes``
+  * ``T0``         = first kickoff of GW(n)
+  * ``Tlast_end``  = final whistle of GW(n)'s last match
 
-Both are derived purely from ``wc_fixtures`` kickoff times + config durations,
-so the windows do NOT depend on when ``finalize_gw`` actually runs.
+Phases:
+  * TRADE       — execute manager↔manager trades; squads change. Opens
+                  ``reopen_h`` after the previous GW's last match ends, runs
+                  until ``T0 - fa_open_before_h``.
+  * FREE_AGENTS — free-agent pickups (+ the wishlist/waiver draft fires when
+                  this opens). ``T0 - fa_open_before_h`` .. ``T0 - squad_lock_before_h``.
+  * NONE        — squads + XI locked. ``T0 - squad_lock_before_h`` .. ``T0``.
+  * NEXT_GW_BID — the GW is live: managers may only OFFER trades + edit their
+                  bid-wishlist; squads stay frozen. ``T0`` until this GW's last
+                  match end + ``reopen_h``, where it flips back to TRADE.
+
+All boundaries are derived purely from ``wc_fixtures`` kickoff times + config
+durations, so the windows do NOT depend on when ``finalize_gw`` actually runs.
 
 The pure function :func:`current_window` performs no Firestore I/O — it takes
 already-fetched data so it is trivially unit-testable. A thin
@@ -55,9 +68,14 @@ class TransferWindow(str, Enum):
 # Config defaults (see WC2026_WINDOWS_DESIGN.md §3.4 + §11 open item)
 # ---------------------------------------------------------------------------
 
-# Window lengths in hours, configurable via wc_config/tournament.
-DEFAULT_TRADE_WINDOW_HOURS = 5
-DEFAULT_FREE_AGENT_WINDOW_HOURS = 5
+# Window offsets in hours, configurable via wc_config/tournament. The timeline
+# is anchored on T0 = the upcoming GW's first kickoff (see module docstring):
+#   * FREE-AGENT window opens (and trades LOCK) at  T0 - FA_OPEN_BEFORE_HOURS
+#   * squads + XI LOCK at                            T0 - SQUAD_LOCK_BEFORE_HOURS
+#   * trades REOPEN at        (previous GW's last match end) + TRADE_REOPEN_AFTER_HOURS
+DEFAULT_FA_OPEN_BEFORE_HOURS = 5      # T0 - 5h: trades lock + FA window + waiver draft
+DEFAULT_SQUAD_LOCK_BEFORE_HOURS = 1   # T0 - 1h: squads + lineup lock
+DEFAULT_TRADE_REOPEN_AFTER_HOURS = 1  # last match end + 1h: trades reopen
 
 # How long after kickoff a match is considered "ended", used to compute
 # Tprev_end from the previous GW's last kickoff.
@@ -72,17 +90,19 @@ DEFAULT_FREE_AGENT_WINDOW_HOURS = 5
 DEFAULT_MATCH_DURATION_MINUTES = 150
 
 
-def resolve_durations(config: Optional[Dict]) -> Tuple[float, float, float]:
-    """Pull the three window/duration knobs from a ``wc_config/tournament`` dict.
+def resolve_durations(config: Optional[Dict]) -> Tuple[float, float, float, float]:
+    """Pull the window-offset knobs from a ``wc_config/tournament`` dict.
 
     Falls back to the module defaults when keys are absent so nothing breaks on
-    existing data. Returns ``(trade_hours, free_agent_hours, match_minutes)``.
+    existing data. Returns
+    ``(fa_open_before_h, squad_lock_before_h, trade_reopen_after_h, match_minutes)``.
     """
     config = config or {}
-    trade_h = config.get("trade_window_hours", DEFAULT_TRADE_WINDOW_HOURS)
-    fa_h = config.get("free_agent_window_hours", DEFAULT_FREE_AGENT_WINDOW_HOURS)
+    fa_open_h = config.get("fa_open_before_hours", DEFAULT_FA_OPEN_BEFORE_HOURS)
+    squad_lock_h = config.get("squad_lock_before_hours", DEFAULT_SQUAD_LOCK_BEFORE_HOURS)
+    reopen_h = config.get("trade_reopen_after_hours", DEFAULT_TRADE_REOPEN_AFTER_HOURS)
     match_min = config.get("match_duration_minutes", DEFAULT_MATCH_DURATION_MINUTES)
-    return float(trade_h), float(fa_h), float(match_min)
+    return float(fa_open_h), float(squad_lock_h), float(reopen_h), float(match_min)
 
 
 # ---------------------------------------------------------------------------
@@ -132,67 +152,48 @@ def compute_window_boundaries(
     upcoming_fixtures: Iterable[Dict],
     config: Optional[Dict],
 ) -> Optional[Dict[str, datetime]]:
-    """Compute the four window boundary instants for the upcoming GW.
+    """Compute the window boundary instants for the upcoming/live GW.
 
-    Returns a dict with keys ``trade_open``, ``trade_close``, ``fa_close`` and
-    ``t0`` (lineup lock), or ``None`` if the boundaries can't be computed (no
-    upcoming kickoff, i.e. nothing to open a window before).
+    Anchored on ``t0`` = the upcoming GW's first kickoff. Returns a dict with:
+      * ``t0``          — first kickoff of this GW (squads must already be locked)
+      * ``offer_close`` — this GW's last match end + reopen_h; the live-GW
+                          OFFER-TRADES window runs from ``t0`` until here
+      * ``trade_open``  — previous GW's last match end + reopen_h (or ``None`` for
+                          GW1); the TRADE window opens here
+      * ``fa_open``     — ``t0`` - fa_open_before_h; trades LOCK and the
+                          FREE-AGENT window + wishlist/waiver draft start
+      * ``squad_lock``  — ``t0`` - squad_lock_before_h; squads + XI LOCK
+    or ``None`` if there's no upcoming kickoff.
 
-    Applies the short-turnaround guard (§2.2): if there isn't enough room
-    between ``Tprev_end`` and ``T0`` for the full trade + free-agent windows,
-    both are compressed proportionally and NEXT_GW_BID gets whatever (possibly
-    zero) time remains. No window ever closes after ``T0``.
+    Short-turnaround guard: if ``t0`` is so soon that ``squad_lock`` would
+    precede ``fa_open``, both are clamped to keep ``fa_open <= squad_lock <= t0``.
     """
-    upcoming_kos = _kickoffs(upcoming_fixtures)
-    if not upcoming_kos:
+    this_kos = _kickoffs(upcoming_fixtures)
+    if not this_kos:
         return None
-    t0 = upcoming_kos[0]  # first kickoff of upcoming GW = lineup lock
+    fa_open_h, squad_lock_h, reopen_h, match_min = resolve_durations(config)
 
-    trade_h, fa_h, match_min = resolve_durations(config)
+    t0 = this_kos[0]
+    # This GW's last match end (+ reopen) bounds the live OFFER-TRADES window.
+    offer_close = this_kos[-1] + timedelta(minutes=match_min) + timedelta(hours=reopen_h)
+
+    fa_open = t0 - timedelta(hours=fa_open_h)
+    squad_lock = t0 - timedelta(hours=squad_lock_h)
+    if squad_lock > t0:
+        squad_lock = t0
+    if fa_open > squad_lock:
+        fa_open = squad_lock
 
     prev_kos = _kickoffs(prev_fixtures) if prev_fixtures else []
-    if prev_kos:
-        # Final whistle of the previous GW's last match.
-        tprev_end = prev_kos[-1] + timedelta(minutes=match_min)
-    else:
-        # No previous GW (this is GW1) — the trade window opens at the start of
-        # the available runway. Anchor it so the full trade + FA windows fit if
-        # possible, otherwise the guard below compresses against T0.
-        tprev_end = t0 - timedelta(hours=trade_h + fa_h)
-
-    # Tprev_end can't sit after the lock (e.g. ultra-short turnaround). Clamp it.
-    if tprev_end > t0:
-        tprev_end = t0
-
-    gap = (t0 - tprev_end).total_seconds()
-    requested = (trade_h + fa_h) * 3600.0
-
-    if requested <= 0:
-        trade_secs = fa_secs = 0.0
-    elif gap < requested:
-        # Short-turnaround guard: scale trade + FA proportionally to fit `gap`.
-        scale = gap / requested
-        trade_secs = trade_h * 3600.0 * scale
-        fa_secs = fa_h * 3600.0 * scale
-    else:
-        trade_secs = trade_h * 3600.0
-        fa_secs = fa_h * 3600.0
-
-    trade_open = tprev_end
-    trade_close = trade_open + timedelta(seconds=trade_secs)
-    fa_close = trade_close + timedelta(seconds=fa_secs)
-
-    # Float arithmetic guard: never overrun the lock.
-    if fa_close > t0:
-        fa_close = t0
-    if trade_close > fa_close:
-        trade_close = fa_close
+    trade_open = (prev_kos[-1] + timedelta(minutes=match_min)
+                  + timedelta(hours=reopen_h)) if prev_kos else None
 
     return {
-        "trade_open": trade_open,
-        "trade_close": trade_close,
-        "fa_close": fa_close,
         "t0": t0,
+        "offer_close": offer_close,
+        "trade_open": trade_open,
+        "fa_open": fa_open,
+        "squad_lock": squad_lock,
     }
 
 
@@ -248,15 +249,25 @@ def current_window(
     if bounds is None:
         return TransferWindow.NONE, upcoming_gw
 
-    if now < bounds["trade_open"]:
-        return TransferWindow.NONE, upcoming_gw
-    if now < bounds["trade_close"]:
+    t0 = bounds["t0"]
+    if now >= t0:
+        # The GW is live (or just played, pre-finalize). OFFER-TRADES: managers
+        # may offer trades + edit their bid-wishlist, but squads stay frozen.
+        # Once past (last match end + reopen), trades reopen toward the next GW.
+        if now < bounds["offer_close"]:
+            return TransferWindow.NEXT_GW_BID, upcoming_gw
         return TransferWindow.TRADE, upcoming_gw
-    if now < bounds["fa_close"]:
-        return TransferWindow.FREE_AGENTS, upcoming_gw
-    if now < bounds["t0"]:
+
+    # Pre-GW runway toward T0.
+    trade_open = bounds["trade_open"]
+    if trade_open is not None and now < trade_open:
+        # Still inside the previous GW's OFFER-TRADES tail (its end + reopen_h).
         return TransferWindow.NEXT_GW_BID, upcoming_gw
-    # At/after T0 the lineup is locked — nothing is open.
+    if now < bounds["fa_open"]:
+        return TransferWindow.TRADE, upcoming_gw        # execute trades; squads change
+    if now < bounds["squad_lock"]:
+        return TransferWindow.FREE_AGENTS, upcoming_gw  # free-agent pickups (+ waiver draft at open)
+    # squad_lock .. t0: squads + XI locked, nothing changes.
     return TransferWindow.NONE, upcoming_gw
 
 
@@ -305,3 +316,43 @@ def current_window_from_db(
         prev_fixtures=prev_fixtures,
         upcoming_gw=upcoming_gw,
     )
+
+
+# ---------------------------------------------------------------------------
+# Lineup lock (squad + XI freeze at T0 - squad_lock_before_hours)
+# ---------------------------------------------------------------------------
+
+def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[datetime]:
+    """The instant a GW's squads + XI lock = ``T0 - squad_lock_before_hours``,
+    where ``T0`` is the GW's first real kickoff (from durable ``wc_fixtures``).
+
+    Returns ``None`` when the GW has no stored kickoff yet (so callers don't
+    block edits on data that isn't there — e.g. the mock, whose simulated
+    fixtures may carry no real-world clock).
+    """
+    fixtures = [
+        d.to_dict() for d in
+        db.collection("wc_fixtures").where("gw", "==", gw).get()
+    ]
+    if config is None:
+        snap = db.collection("wc_config").document("tournament").get()
+        config = snap.to_dict() if snap.exists else {}
+    bounds = compute_window_boundaries(None, fixtures, config)
+    return bounds["squad_lock"] if bounds else None
+
+
+def is_lineup_locked(db, gw: int, now: Optional[datetime] = None) -> bool:
+    """True once ``now`` has reached the GW's lineup lock (``T0 - 1h`` by
+    default). Squads + XI may no longer change for ``gw`` from this instant.
+
+    Durable: derived from the stored fixture kickoffs, so re-running the
+    simulator never moves the lock. Falls back to *unlocked* when no kickoff is
+    known for the GW.
+    """
+    lock = lineup_lock_time(db, gw)
+    if lock is None:
+        return False
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return now >= lock

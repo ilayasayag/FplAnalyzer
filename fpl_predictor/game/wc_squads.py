@@ -107,9 +107,11 @@ class WCSquadManager:
         captain: Optional[int] = None,
         vice_captain: Optional[int] = None,
     ) -> dict:
-        from fpl_predictor.game.wc_gameweeks import is_locked
+        # Squads + XI freeze at T0 - 1h (the FREE_AGENTS -> NONE boundary), read
+        # from the durable fixture kickoffs so a re-sim never moves the lock.
+        from fpl_predictor.game.wc_windows import is_lineup_locked
 
-        if is_locked(gw):
+        if is_lineup_locked(self.db, gw):
             raise ValueError("LINEUP_LOCKED")
 
         league_doc = self.db.collection("leagues").document(lid).get()
