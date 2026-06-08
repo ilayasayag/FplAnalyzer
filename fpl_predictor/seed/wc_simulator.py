@@ -220,50 +220,85 @@ _ASSIST_PROB = 0.72
 _STARTER_SHAPE = {GK: 1, DEF: 4, MID: 3, FWD: 3}
 
 # --- Team strength tiers ----------------------------------------------------
-# Stronger nations should win more often so the mock World Cup looks plausible
-# (no more Saudi Arabia lifting the trophy). Three tiers; a stronger tier beats
-# a weaker one with the probability in `_TIER_WIN_PROB` (keyed by tier gap):
-#   tier1 vs tier2 (gap 1) -> 70%   tier1 vs tier3 (gap 2) -> 80%
-#   tier2 vs tier3 (gap 1) -> 70%   same tier            -> 50%
-_TIER1 = {  # heavyweights — ~80% vs the weakest tier
-    "spain", "brazil", "argentina", "france", "germany", "england",
-    "belgium", "portugal",
+# Every national team carries a base (win, draw, loss) profile vs an *average*
+# opponent. Four tiers (per the league spec). When two teams meet, their
+# profiles are CROSSED to get the match outcome (see ``match_outcome_probs``):
+# a side wins when it tends to win AND its opponent tends to lose.
+_TIER_PROFILE = {
+    "elite":  (0.70, 0.20, 0.10),
+    "strong": (0.55, 0.30, 0.15),
+    "mid":    (0.40, 0.40, 0.20),
+    "weak":   (0.05, 0.30, 0.65),
 }
-_TIER2 = {  # strong — ~70% vs the weakest tier
-    "canada", "morocco", "uruguay", "colombia", "senegal", "norway",
-    "switzerland", "turkey", "usa", "croatia",
+_ELITE = {
+    "spain", "portugal", "england", "germany", "brazil", "argentina", "belgium",
+    "france",
 }
+_STRONG = {
+    "netherlands", "canada", "morocco", "japan", "colombia", "uruguay",
+    "croatia", "norway", "senegal", "turkey",
+}
+_MID = {
+    "usa", "mexico", "switzerland", "ecuador", "austria", "sweden",
+    "egypt", "ivory coast", "south korea", "paraguay", "australia",
+    "iran", "czech republic", "algeria",
+}
+# Everything else (the weakest qualifiers) falls through to "weak":
+#   tunisia, scotland, ghana, bosnia, cape verde, congo dr, curaçao, haiti,
+#   iraq, jordan, new zealand, panama, qatar, saudi arabia, south africa, uzbekistan
 # Common name/iso spelling variants -> the canonical key used in the tier sets.
-_TIER_ALIASES = {
-    "columbia": "colombia", "swiss": "switzerland", "türkiye": "turkey",
-    "turkiye": "turkey", "united states": "usa", "united states of america": "usa",
-    "usmnt": "usa", "the netherlands": "netherlands",
+_TEAM_ALIASES = {
+    "columbia": "colombia", "swiss": "switzerland", "switerland": "switzerland",
+    "türkiye": "turkey", "turkiye": "turkey", "united states": "usa",
+    "united states of america": "usa", "usmnt": "usa",
+    "the netherlands": "netherlands", "holland": "netherlands",
+    "korea republic": "south korea", "republic of korea": "south korea",
+    "côte d'ivoire": "ivory coast", "cote d'ivoire": "ivory coast",
+    "czechia": "czech republic", "dr congo": "congo dr",
+    "bosnia & herzegovina": "bosnia", "bosnia and herzegovina": "bosnia",
 }
-# P(stronger team wins) by tier gap. Gap 0 (same tier) is a 50/50.
-_TIER_WIN_PROB = {1: 0.70, 2: 0.80}
 
 
-def team_tier(name: str) -> int:
-    """Strength tier for a national team by name: 1 (best) .. 3 (weakest)."""
+def team_tier(name: str) -> str:
+    """Strength tier name for a national team: elite / strong / mid / weak."""
     key = (name or "").strip().lower()
-    key = _TIER_ALIASES.get(key, key)
-    if key in _TIER1:
-        return 1
-    if key in _TIER2:
-        return 2
-    return 3
+    key = _TEAM_ALIASES.get(key, key)
+    if key in _ELITE:
+        return "elite"
+    if key in _STRONG:
+        return "strong"
+    if key in _MID:
+        return "mid"
+    return "weak"
 
 
-def win_prob(home_tier: int, away_tier: int) -> float:
-    """P(home team beats away team) from their tiers. Lower tier number = stronger.
+def team_profile(name: str) -> Tuple[float, float, float]:
+    """Base ``(win, draw, loss)`` probabilities for a team vs an average side."""
+    return _TIER_PROFILE[team_tier(name)]
 
-    Symmetric: ``win_prob(a, b) == 1 - win_prob(b, a)``. Same tier -> 0.5.
+
+def match_outcome_probs(home: str, away: str,
+                        knockout: bool = False) -> Tuple[float, float, float]:
+    """Cross two teams' (W,D,L) profiles into this match's
+    ``(p_home_win, p_draw, p_away_win)``.
+
+    A home win is likely when home TENDS to win and away TENDS to lose, a draw
+    when both tend to draw, etc. The three cross-products are normalised to sum
+    to 1, which naturally balances the odds when the teams play each other.
+    Knockout ties drop the draw and renormalise the decisive split.
     """
-    gap = away_tier - home_tier  # >0 when home is the stronger side
-    if gap == 0:
-        return 0.5
-    fav = _TIER_WIN_PROB.get(abs(gap), 0.85)
-    return fav if gap > 0 else (1.0 - fav)
+    hW, hD, hL = team_profile(home)
+    aW, aD, aL = team_profile(away)
+    ph, pd, pa = hW * aL, hD * aD, hL * aW
+    s = ph + pd + pa
+    if s <= 0:
+        ph, pd, pa, s = 1.0, 1.0, 1.0, 3.0
+    ph, pd, pa = ph / s, pd / s, pa / s
+    if knockout:
+        t = ph + pa
+        ph, pa = (ph / t, pa / t) if t > 0 else (0.5, 0.5)
+        pd = 0.0
+    return ph, pd, pa
 
 
 # ---------------------------------------------------------------------------
@@ -280,24 +315,41 @@ _GROUP_DRAW_PROB = 0.24
 
 
 def simulate_scoreline(rng: random.Random, knockout: bool = False,
-                       p_home_win: float = 0.5) -> Tuple[int, int]:
+                       p_home_win: float = 0.5,
+                       p_draw: Optional[float] = None) -> Tuple[int, int]:
     """Return ``(home_goals, away_goals)``.
 
-    The match OUTCOME is decided first — a draw (group games only) with
-    probability ``_GROUP_DRAW_PROB``, otherwise the home side wins with
-    probability ``p_home_win`` — and a plausible scoreline is sampled to match.
-    ``p_home_win`` lets callers bias results by team strength (see
-    :func:`win_prob`); the default 0.5 is an even contest. Knockout games are
-    forced decisive (extra-time / penalties), so no draw is ever returned.
+    The match OUTCOME is decided first, then a plausible scoreline is sampled to
+    match. Two calling conventions:
+
+      * ``p_draw is None`` (legacy): a group game draws with the fixed
+        ``_GROUP_DRAW_PROB``; otherwise the home side wins with the *conditional*
+        probability ``p_home_win``.
+      * ``p_draw`` given (the tier model, see :func:`match_outcome_probs`):
+        ``(p_home_win, p_draw)`` are *absolute* outcome probabilities
+        (``p_away = 1 - p_home_win - p_draw``). The draw branch only applies to
+        group games.
+
+    Knockout games are forced decisive (extra-time / penalties): no draw is ever
+    returned, and the home/away split is renormalised over the two sides.
     """
-    if not knockout and rng.random() < _GROUP_DRAW_PROB:
+    if p_draw is None:
+        if not knockout and rng.random() < _GROUP_DRAW_PROB:
+            g = rng.choices(_DRAW_GOALS, weights=_DRAW_GOAL_WEIGHTS)[0]
+            return g, g
+        win_g = rng.choices(_WIN_GOALS, weights=_WIN_GOAL_WEIGHTS)[0]
+        lose_g = rng.randint(0, win_g - 1)
+        return (win_g, lose_g) if rng.random() < p_home_win else (lose_g, win_g)
+
+    p_away = max(0.0, 1.0 - p_home_win - p_draw)
+    if not knockout and rng.random() < p_draw:
         g = rng.choices(_DRAW_GOALS, weights=_DRAW_GOAL_WEIGHTS)[0]
         return g, g
+    tot = p_home_win + p_away
+    home_share = (p_home_win / tot) if tot > 0 else 0.5
     win_g = rng.choices(_WIN_GOALS, weights=_WIN_GOAL_WEIGHTS)[0]
     lose_g = rng.randint(0, win_g - 1)
-    if rng.random() < p_home_win:
-        return win_g, lose_g
-    return lose_g, win_g
+    return (win_g, lose_g) if rng.random() < home_share else (lose_g, win_g)
 
 
 def _pick_starting_eleven(players: List[Dict], rng: random.Random) -> List[int]:
@@ -450,18 +502,21 @@ def simulate_team_player_stats(players: List[Dict], goals_for: int,
 def simulate_fixture(home_team_id: int, home_players: List[Dict],
                      away_team_id: int, away_players: List[Dict],
                      rng: random.Random, knockout: bool = False,
-                     p_home_win: float = 0.5
+                     p_home_win: float = 0.5,
+                     p_draw: Optional[float] = None
                      ) -> Tuple[int, int, List[Dict]]:
     """Generate one fixture's scoreline + both teams' api-sports raw_stats.
 
-    ``p_home_win`` biases the result toward the stronger side (see
-    :func:`win_prob`); default 0.5 is an even contest.
+    ``p_home_win`` / ``p_draw`` bias the result toward the stronger side (see
+    :func:`match_outcome_probs`); the defaults (0.5, legacy draw) are an even
+    contest.
 
     Returns ``(home_goals, away_goals, raw_stats)`` where ``raw_stats`` is the
     two-element list the scoring engine expects.
     """
     home_goals, away_goals = simulate_scoreline(rng, knockout=knockout,
-                                                p_home_win=p_home_win)
+                                                p_home_win=p_home_win,
+                                                p_draw=p_draw)
     raw_stats = [
         {"team": {"id": home_team_id},
          "players": simulate_team_player_stats(home_players, home_goals, rng)},
@@ -650,13 +705,14 @@ def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
     eliminated_this_gw: List[int] = []
     for idx, (home_id, away_id) in enumerate(pairs):
         home, away = teams_by_id[home_id], teams_by_id[away_id]
-        # Bias the result by relative team strength so heavyweights advance.
-        p_home = win_prob(team_tier(home.get("name", "")),
-                          team_tier(away.get("name", "")))
+        # Cross the two teams' (W,D,L) profiles into this match's outcome odds
+        # so heavyweights advance and even contests draw more often.
+        p_home, p_draw, _p_away = match_outcome_probs(
+            home.get("name", ""), away.get("name", ""), knockout=knockout)
         hg, ag, raw_stats = simulate_fixture(
             home_id, players_by_team.get(home_id, []),
             away_id, players_by_team.get(away_id, []),
-            rng, knockout=knockout, p_home_win=p_home,
+            rng, knockout=knockout, p_home_win=p_home, p_draw=p_draw,
         )
         # Durable kickoff: scheduled time for this match (spread across the GW's
         # fixtures), else None -> _write_fixture preserves any existing time.
