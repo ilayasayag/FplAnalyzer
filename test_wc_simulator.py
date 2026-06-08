@@ -519,3 +519,87 @@ def test_simulate_full_tournament_start_to_finish():
         assert set(gw_points) >= {str(gw) for gw in range(1, 9)}
     # Every GW has a recorded winner (highest fantasy scorer that GW).
     assert all(export["gws"][str(gw)]["winner"] for gw in range(1, 9))
+
+
+# ---------------------------------------------------------------------------
+# Durable fixture kickoffs (wc_config/schedule)
+# ---------------------------------------------------------------------------
+from datetime import datetime, timezone  # noqa: E402
+
+
+def _utc(y, mo, d, h=0):
+    return datetime(y, mo, d, h, tzinfo=timezone.utc)
+
+
+def test_seed_schedule_defaults_and_roundtrip():
+    db = H.FakeDB()
+    parsed = S.seed_schedule(db)
+    # All 8 GWs seeded from the real WC round dates.
+    assert set(parsed) == set(range(1, 9))
+    assert parsed[1][0] == _utc(2026, 6, 11, 13)
+    assert parsed[8][0] == _utc(2026, 7, 19, 13)
+    # Stored as ISO strings and reloads identically.
+    stored = db.collection("wc_config").document("schedule").get().to_dict()
+    assert isinstance(stored["kickoffs"]["1"], str)
+    assert S._load_schedule_kickoffs(db)[1] == [_utc(2026, 6, 11, 13)]
+
+
+def test_seed_schedule_custom_with_multi_match_gw():
+    db = H.FakeDB()
+    S.seed_schedule(db, {1: ["2026-06-11T16:00:00Z", "2026-06-11T13:00:00Z"],
+                         2: "2026-06-18T20:00:00Z"})
+    kos = S._load_schedule_kickoffs(db)
+    # Multi-match GW is stored as a sorted list.
+    assert kos[1] == [_utc(2026, 6, 11, 13), _utc(2026, 6, 11, 16)]
+    assert kos[2] == [_utc(2026, 6, 18, 20)]
+
+
+def test_load_schedule_empty_when_absent():
+    assert S._load_schedule_kickoffs(H.FakeDB()) == {}
+
+
+def test_write_fixture_uses_scheduled_kickoff():
+    db = H.FakeDB()
+    home = {"id": 1, "isoCode": "AAA", "name": "A"}
+    away = {"id": 2, "isoCode": "BBB", "name": "B"}
+    ko = _utc(2026, 6, 11, 13)
+    S._write_fixture(db, 1000, 1, "Group · MD1", home, away, 2, 1, kickoff=ko)
+    assert db.collection("wc_fixtures").document("1000").get().to_dict()["kickoff"] == ko
+
+
+def test_write_fixture_preserves_existing_kickoff_on_resim():
+    db = H.FakeDB()
+    home = {"id": 1, "isoCode": "AAA", "name": "A"}
+    away = {"id": 2, "isoCode": "BBB", "name": "B"}
+    real = _utc(2026, 6, 11, 13)
+    # First write stamps the real kickoff...
+    S._write_fixture(db, 1000, 1, "Group · MD1", home, away, 2, 1, kickoff=real)
+    # ...a later re-sim with no scheduled time must NOT clobber it.
+    S._write_fixture(db, 1000, 1, "Group · MD1", home, away, 0, 0, kickoff=None)
+    assert db.collection("wc_fixtures").document("1000").get().to_dict()["kickoff"] == real
+
+
+def test_write_fixture_falls_back_to_server_timestamp():
+    db = H.FakeDB()
+    home = {"id": 1, "isoCode": "AAA", "name": "A"}
+    away = {"id": 2, "isoCode": "BBB", "name": "B"}
+    S._write_fixture(db, 1000, 1, "Group · MD1", home, away, 1, 0, kickoff=None)
+    # No schedule, no existing doc -> SERVER_TIMESTAMP sentinel (a real time gets
+    # stamped server-side); just assert it isn't a datetime we control.
+    assert db.collection("wc_fixtures").document("1000").get().to_dict()["kickoff"] == S.SERVER_TIMESTAMP
+
+
+def test_apply_schedule_to_fixtures_restamps_by_gw_order():
+    db = H.FakeDB()
+    # Two GW1 fixtures (ids out of order) + one GW2 fixture, all stale kickoffs.
+    for fid, gw in [(1001, 1), (1000, 1), (2000, 2)]:
+        db.collection("wc_fixtures").document(str(fid)).set(
+            {"id": fid, "gw": gw, "kickoff": _utc(2000, 1, 1)})
+    S.seed_schedule(db, {1: ["2026-06-11T13:00:00Z", "2026-06-11T16:00:00Z"],
+                         2: "2026-06-18T13:00:00Z"})
+    n = S.apply_schedule_to_fixtures(db)
+    assert n == 3
+    # GW1 assigned by ascending fixture id: 1000->13:00, 1001->16:00.
+    assert db.collection("wc_fixtures").document("1000").get().to_dict()["kickoff"] == _utc(2026, 6, 11, 13)
+    assert db.collection("wc_fixtures").document("1001").get().to_dict()["kickoff"] == _utc(2026, 6, 11, 16)
+    assert db.collection("wc_fixtures").document("2000").get().to_dict()["kickoff"] == _utc(2026, 6, 18, 13)

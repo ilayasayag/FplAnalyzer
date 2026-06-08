@@ -213,3 +213,36 @@ def test_is_transfer_window_open_gw1():
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ---------------------------------------------------------------------------
+# Durable lineup lock (is_lineup_locked / lineup_lock_time, db-backed)
+# ---------------------------------------------------------------------------
+
+def _db_with_gw2():
+    import test_helpers as H
+    from fpl_predictor.game.wc_windows import lineup_lock_time, is_lineup_locked
+    db = H.FakeDB()
+    for fid, ko in [(2000, T0), (2001, UP_LAST)]:
+        db.collection("wc_fixtures").document(str(fid)).set(
+            {"id": fid, "gw": 2, "kickoff": ko})
+    return db, lineup_lock_time, is_lineup_locked
+
+
+def test_lineup_lock_time_is_t0_minus_1h():
+    db, lineup_lock_time, _ = _db_with_gw2()
+    assert lineup_lock_time(db, 2) == T0 - timedelta(hours=1)
+
+
+def test_is_lineup_locked_crosses_at_squad_lock():
+    db, _, is_lineup_locked = _db_with_gw2()
+    assert is_lineup_locked(db, 2, now=T0 - timedelta(hours=2)) is False  # FREE_AGENTS
+    assert is_lineup_locked(db, 2, now=T0 - timedelta(minutes=30)) is True  # locked
+    assert is_lineup_locked(db, 2, now=T0 + timedelta(hours=1)) is True   # live
+
+
+def test_is_lineup_locked_unlocked_when_no_kickoff():
+    import test_helpers as H
+    from fpl_predictor.game.wc_windows import is_lineup_locked
+    db = H.FakeDB()  # no fixtures for the GW at all
+    assert is_lineup_locked(db, 5, now=T0) is False

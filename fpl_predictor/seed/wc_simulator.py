@@ -39,6 +39,7 @@ Two layers:
 from __future__ import annotations
 
 import random
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
@@ -48,6 +49,128 @@ from fpl_predictor.seed.seed_league import select_lineup
 
 # --- Position constants (mirrors the rest of the codebase) -----------------
 GK, DEF, MID, FWD = 1, 2, 3, 4
+
+# --- Durable fixture kickoffs ----------------------------------------------
+# The transfer-window state machine (game/wc_windows.py) derives every window
+# boundary from each GW's first/last kickoff. Those times therefore have to be
+# DURABLE: re-running the simulator must not stamp them with "now"
+# (SERVER_TIMESTAMP), or the windows would silently follow whenever a sim last
+# ran. The source of truth is the ``wc_config/schedule`` doc, which survives
+# ``reset_simulation`` (that wipes wc_fixtures + league scoring, never
+# wc_config). ``_write_fixture`` reads kickoffs from there; only when a GW has
+# no scheduled time AND no existing fixture to preserve does it fall back to
+# SERVER_TIMESTAMP.
+#
+# Real WC 2026 round dates (public schedule): group MD1 11 Jun, MD2 18 Jun,
+# MD3 24 Jun; Round-of-32 28 Jun; Round-of-16 4 Jul; QF 9 Jul; SF 14 Jul;
+# Final 19 Jul. Time-of-day is a 13:00 UTC PLACEHOLDER (the source data has
+# day-granularity only) — replace with real per-match kickoff times via
+# ``seed_schedule`` and every window recomputes automatically.
+DEFAULT_GW_KICKOFFS: Dict[int, str] = {
+    1: "2026-06-11T13:00:00+00:00",
+    2: "2026-06-18T13:00:00+00:00",
+    3: "2026-06-24T13:00:00+00:00",
+    4: "2026-06-28T13:00:00+00:00",
+    5: "2026-07-04T13:00:00+00:00",
+    6: "2026-07-09T13:00:00+00:00",
+    7: "2026-07-14T13:00:00+00:00",
+    8: "2026-07-19T13:00:00+00:00",
+}
+
+
+def _coerce_kickoff(value) -> Optional[datetime]:
+    """Coerce a stored kickoff (ISO string / datetime) to an aware UTC datetime."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        try:
+            value = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+    if isinstance(value, datetime):
+        return value if value.tzinfo else value.replace(tzinfo=timezone.utc)
+    return None
+
+
+def _load_schedule_kickoffs(db) -> Dict[int, List[datetime]]:
+    """Read ``wc_config/schedule`` into ``{gw: [sorted kickoff datetimes]}``.
+
+    Each GW's value may be a single time (all matches share it) or a list (one
+    per match, assigned by fixture index). Returns ``{}`` when the doc is absent
+    so callers transparently fall back to preserve-existing / SERVER_TIMESTAMP.
+    """
+    snap = db.collection("wc_config").document("schedule").get()
+    raw = ((snap.to_dict() or {}).get("kickoffs") or {}) if snap.exists else {}
+    out: Dict[int, List[datetime]] = {}
+    for key, val in raw.items():
+        try:
+            gw = int(key)
+        except (TypeError, ValueError):
+            continue
+        times = val if isinstance(val, list) else [val]
+        dts = [d for d in (_coerce_kickoff(t) for t in times) if d is not None]
+        if dts:
+            out[gw] = sorted(dts)
+    return out
+
+
+def seed_schedule(db, kickoffs: Optional[Dict[int, object]] = None) -> Dict[int, List[datetime]]:
+    """Persist the durable per-GW kickoff schedule to ``wc_config/schedule``.
+
+    ``kickoffs`` maps GW -> an ISO string / datetime, or a list of them (for a
+    GW with several matches at different times). Defaults to
+    :data:`DEFAULT_GW_KICKOFFS` (real WC round dates, 13:00 UTC placeholder).
+    Stores ISO strings and returns the parsed ``{gw: [datetimes]}``.
+    """
+    src = kickoffs if kickoffs is not None else DEFAULT_GW_KICKOFFS
+    stored: Dict[str, object] = {}
+    parsed: Dict[int, List[datetime]] = {}
+    for gw, val in src.items():
+        items = val if isinstance(val, list) else [val]
+        dts = [d for d in (_coerce_kickoff(v) for v in items) if d is not None]
+        if not dts:
+            continue
+        dts.sort()
+        parsed[int(gw)] = dts
+        iso = [d.isoformat() for d in dts]
+        stored[str(int(gw))] = iso if isinstance(val, list) else iso[0]
+    db.collection("wc_config").document("schedule").set(
+        {"kickoffs": stored}, merge=True)
+    return parsed
+
+
+def apply_schedule_to_fixtures(db) -> int:
+    """Re-stamp every existing ``wc_fixtures`` doc's ``kickoff`` from the stored
+    schedule (matching by GW, assigning multi-match GWs by fixture order).
+
+    Idempotent; used to align fixtures already in the DB with the durable
+    schedule without re-simulating. Returns the number of fixtures updated.
+    """
+    kickoffs = _load_schedule_kickoffs(db)
+    if not kickoffs:
+        return 0
+    by_gw: Dict[int, List] = {}
+    for fdoc in db.collection("wc_fixtures").get():
+        gw = (fdoc.to_dict() or {}).get("gw")
+        if gw is not None:
+            by_gw.setdefault(int(gw), []).append(fdoc)
+    updated = 0
+    batch = db.batch()
+    n = 0
+    for gw, docs in by_gw.items():
+        kos = kickoffs.get(gw)
+        if not kos:
+            continue
+        docs.sort(key=lambda d: int((d.to_dict() or {}).get("id") or 0))
+        for idx, fdoc in enumerate(docs):
+            ko = kos[idx] if idx < len(kos) else kos[-1]
+            batch.update(fdoc.reference, {"kickoff": ko})
+            updated += 1
+            n += 1
+            if n % 400 == 0:
+                batch.commit(); batch = db.batch()
+    batch.commit()
+    return updated
 
 # Goal-count distribution for one team in one match (index == goals scored).
 # Tuned so most matches land 0-3 with an occasional blowout.
@@ -414,16 +537,31 @@ def _pos_map_and_rules(db) -> Tuple[Dict[int, int], Dict]:
 
 
 def _write_fixture(db, fid: int, gw: int, round_name: str,
-                   home: Dict, away: Dict, hg: int, ag: int):
+                   home: Dict, away: Dict, hg: int, ag: int,
+                   kickoff=None):
     """Persist a wc_fixtures doc (real team ids + isoCodes so the engine resolves
-    is_home/goals-conceded correctly and the WC group tables read the scoreline)."""
-    db.collection("wc_fixtures").document(str(fid)).set({
+    is_home/goals-conceded correctly and the WC group tables read the scoreline).
+
+    The ``kickoff`` is DURABLE: use the scheduled time when given, else preserve
+    the existing fixture's kickoff (so a re-sim never clobbers a real time), and
+    only fall back to SERVER_TIMESTAMP when neither exists. See the
+    ``wc_config/schedule`` note at the top of this module.
+    """
+    doc_ref = db.collection("wc_fixtures").document(str(fid))
+    ko = kickoff
+    if ko is None:
+        existing = doc_ref.get()
+        if existing.exists:
+            ko = (existing.to_dict() or {}).get("kickoff")
+    if ko is None:
+        ko = SERVER_TIMESTAMP
+    doc_ref.set({
         "id": fid,
         "gw": gw,
         "wcRound": round_name,
         "homeTeam": {"id": home["id"], "isoCode": home["isoCode"], "name": home["name"]},
         "awayTeam": {"id": away["id"], "isoCode": away["isoCode"], "name": away["name"]},
-        "kickoff": SERVER_TIMESTAMP,
+        "kickoff": ko,
         "status": "FT",
         "score": {"home": hg, "away": ag},
         "processedForFantasy": False,
@@ -449,7 +587,8 @@ def _write_lineups(db, lid: str, gw: int):
 def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
                 teams: List[Dict], players_by_team: Dict[int, List[Dict]],
                 pos_map: Dict[int, int], rules: Dict, wc_client,
-                group_schedule: Optional[Dict[int, List[Tuple[int, int]]]] = None
+                group_schedule: Optional[Dict[int, List[Tuple[int, int]]]] = None,
+                kickoffs: Optional[Dict[int, List[datetime]]] = None
                 ) -> Dict:
     """Generate, score and finalize ONE gameweek.
 
@@ -480,6 +619,7 @@ def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
         round_name = _KNOCKOUT_ROUND_NAMES.get(len(survivors), f"Knockout · GW{gw}")
 
     fid_base = gw * 1000
+    gw_kos = (kickoffs or {}).get(gw) or []
     eliminated_this_gw: List[int] = []
     for idx, (home_id, away_id) in enumerate(pairs):
         home, away = teams_by_id[home_id], teams_by_id[away_id]
@@ -491,7 +631,11 @@ def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
             away_id, players_by_team.get(away_id, []),
             rng, knockout=knockout, p_home_win=p_home,
         )
-        _write_fixture(db, fid_base + idx, gw, round_name, home, away, hg, ag)
+        # Durable kickoff: scheduled time for this match (by fixture order),
+        # else None -> _write_fixture preserves any existing time.
+        ko = gw_kos[idx] if idx < len(gw_kos) else (gw_kos[-1] if gw_kos else None)
+        _write_fixture(db, fid_base + idx, gw, round_name, home, away, hg, ag,
+                       kickoff=ko)
         process_fixture(fid_base + idx, raw_stats, wc_client, db,
                         pos_map=pos_map, rules=rules)
 
@@ -614,13 +758,14 @@ def simulate_tournament(db, lid: str, *, seed: Optional[int] = None,
     players_by_team = _load_players_by_team(db)
     pos_map, rules = _pos_map_and_rules(db)
     group_schedule = build_group_schedule(teams)
+    kickoffs = _load_schedule_kickoffs(db)
 
     per_gw = []
     for gw in range(start_gw, end_gw + 1):
         res = simulate_gw(db, lid, gw, rng, teams=teams,
                           players_by_team=players_by_team, pos_map=pos_map,
                           rules=rules, wc_client=wc_client,
-                          group_schedule=group_schedule)
+                          group_schedule=group_schedule, kickoffs=kickoffs)
         per_gw.append(res)
         print(f"  ✓ GW{gw}: {res['matches']} matches"
               + (f", {len(res['eliminated'])} eliminated" if res["knockout"] else ""))
@@ -658,11 +803,12 @@ def simulate_one_gw(db, lid: str, *, gw: Optional[int] = None,
     players_by_team = _load_players_by_team(db)
     pos_map, rules = _pos_map_and_rules(db)
     group_schedule = build_group_schedule(teams)
+    kickoffs = _load_schedule_kickoffs(db)
 
     res = simulate_gw(db, lid, gw, rng, teams=teams,
                       players_by_team=players_by_team, pos_map=pos_map,
                       rules=rules, wc_client=wc_client,
-                      group_schedule=group_schedule)
+                      group_schedule=group_schedule, kickoffs=kickoffs)
     export = build_tournament_export(db, lid)
     new_cur = int((league_ref.get().to_dict() or {}).get("currentGw", gw))
     return {"done": False, "gw": gw, "currentGw": new_cur,

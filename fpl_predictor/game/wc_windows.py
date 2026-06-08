@@ -316,3 +316,43 @@ def current_window_from_db(
         prev_fixtures=prev_fixtures,
         upcoming_gw=upcoming_gw,
     )
+
+
+# ---------------------------------------------------------------------------
+# Lineup lock (squad + XI freeze at T0 - squad_lock_before_hours)
+# ---------------------------------------------------------------------------
+
+def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[datetime]:
+    """The instant a GW's squads + XI lock = ``T0 - squad_lock_before_hours``,
+    where ``T0`` is the GW's first real kickoff (from durable ``wc_fixtures``).
+
+    Returns ``None`` when the GW has no stored kickoff yet (so callers don't
+    block edits on data that isn't there — e.g. the mock, whose simulated
+    fixtures may carry no real-world clock).
+    """
+    fixtures = [
+        d.to_dict() for d in
+        db.collection("wc_fixtures").where("gw", "==", gw).get()
+    ]
+    if config is None:
+        snap = db.collection("wc_config").document("tournament").get()
+        config = snap.to_dict() if snap.exists else {}
+    bounds = compute_window_boundaries(None, fixtures, config)
+    return bounds["squad_lock"] if bounds else None
+
+
+def is_lineup_locked(db, gw: int, now: Optional[datetime] = None) -> bool:
+    """True once ``now`` has reached the GW's lineup lock (``T0 - 1h`` by
+    default). Squads + XI may no longer change for ``gw`` from this instant.
+
+    Durable: derived from the stored fixture kickoffs, so re-running the
+    simulator never moves the lock. Falls back to *unlocked* when no kickoff is
+    known for the GW.
+    """
+    lock = lineup_lock_time(db, gw)
+    if lock is None:
+        return False
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+    return now >= lock
