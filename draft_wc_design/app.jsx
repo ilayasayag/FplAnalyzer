@@ -244,8 +244,13 @@ function App() {
     if (!activeLid) return;
 
     // Update ME global variable to logged-in user's UID
+    window.__AUTH_UID = user.uid;
     window.ME = user.uid;
-    try { ME = user.uid; } catch(e) {}
+    // Mock-only "view as manager" override (admin demo tool): view the showcase
+    // league as any member without separate logins. Reverted below if the saved
+    // override isn't a member of the loaded league; cleared via the Tweaks panel.
+    try { const _m = localStorage.getItem("wc_mock_me"); if (_m) window.ME = _m; } catch (e) { /* ignore */ }
+    try { ME = window.ME; } catch(e) {}
 
     // New league / GW: hide the squad until the real fetch resolves so we never
     // flash the demo squad seeded by data.jsx.
@@ -451,6 +456,12 @@ function App() {
                 draftPos: m.draftPosition || 99,
                 waiverPri: m.waiverPriority || 99,
               }));
+              // Revert a stale "view as manager" override if it isn't a member
+              // of this league (e.g. after switching leagues).
+              if (window.ME !== window.__AUTH_UID && !window.MANAGERS.some(mm => mm.uid === window.ME)) {
+                window.ME = window.__AUTH_UID;
+                try { ME = window.__AUTH_UID; } catch (e) {}
+              }
             } else {
               // No members returned → clear so a previous league's managers
               // (or the data.jsx demo roster) can never bleed through.
@@ -611,7 +622,7 @@ function App() {
 
         // Fetch my Squad
         try {
-          const squad = await apiCall("GET", `/leagues/${lid}/squads/me`);
+          const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
           if (squad && squad.players && squad.players.length > 0) {
             window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
           } else {
@@ -650,7 +661,7 @@ function App() {
 
         // Fetch my Lineup matching viewingGw
         try {
-          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${viewingGw}`);
+          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
           if (lineup && lineup.starting && lineup.starting.length > 0) {
             window.MY_LINEUP_GW3 = {
               starting: (lineup.starting || []).map(String),
@@ -1112,6 +1123,28 @@ function App() {
                   alert("Reset failed: " + (e && e.message ? e.message : e));
                   setSimBusy("");
                 }
+              }} />
+
+            <TweakSection label="View as Manager (mock)" />
+            <div style={{ fontSize: 10, color: "rgba(41,38,27,0.55)", lineHeight: 1.4, marginTop: -4 }}>
+              Switch whose squad / points / rank you're viewing — no separate login needed. Reloads as that manager; your real account is unchanged.
+            </div>
+            {(window.MANAGERS || []).map(mgr => (
+              <TweakButton
+                key={mgr.uid}
+                label={(mgr.uid === window.ME ? "● " : "○ ") + (mgr.team || mgr.name || mgr.uid)}
+                secondary={mgr.uid !== window.ME}
+                onClick={() => {
+                  try { localStorage.setItem("wc_mock_me", mgr.uid); } catch (e) { /* ignore */ }
+                  window.location.reload();
+                }} />
+            ))}
+            <TweakButton
+              label="↺ Back to my real account"
+              secondary
+              onClick={() => {
+                try { localStorage.removeItem("wc_mock_me"); } catch (e) { /* ignore */ }
+                window.location.reload();
               }} />
           </>
         )}
