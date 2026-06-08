@@ -957,14 +957,24 @@ def set_window_override(lid: str):
     Body ``{phase, gw}``. ``phase`` of None/""/"auto" clears the override and
     returns to the time-based fixture-clock logic. A valid phase forces that
     window. Echoes the resolved effective window so the client can update.
+
+    Admin-only on real leagues; on ``simulated`` (mock) leagues any authenticated
+    member can flip the window so the showcase window-switcher works.
     """
-    uid, err = _require_admin()
+    uid, err = _require_auth()
     if err:
         return err
+    league_ref = _db.collection("leagues").document(lid)
+    league_snap = league_ref.get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    if not (league_snap.to_dict() or {}).get("simulated"):
+        _, admin_err = _require_admin()
+        if admin_err:
+            return admin_err
     body = request.get_json(silent=True) or {}
     phase = body.get("phase")
     gw = body.get("gw")
-    league_ref = _db.collection("leagues").document(lid)
     if phase in (None, "", "auto"):
         league_ref.update({"windowOverride": firestore.DELETE_FIELD})
     elif phase in {"none", "trade", "free_agents", "next_gw_bid"}:

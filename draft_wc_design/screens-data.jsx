@@ -546,13 +546,28 @@ function TradesScreen() {
   const [showPropose, setShowPropose] = React.useState(false);
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
+  // Manager↔manager trades are only open during the TRADE window. In the
+  // free-agents and gameweek windows the squad is otherwise managed (free-agent
+  // pickups / wishlist), so proposing a new trade is blocked.
+  const phase = (window.WINDOW && window.WINDOW.phase) || "none";
+  const tradesOpen = phase === "trade";
+  const phaseLabel = { free_agents: "free-agents window", next_gw_bid: "gameweek (wishlist only)", none: "closed window" }[phase] || "this window";
   return (
     <div className="col" style={{ gap: 16 }}>
-      {showPropose && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
+      {showPropose && tradesOpen && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Trades</h2>
-        <button className="btn btn--primary" onClick={() => setShowPropose(true)}>+ Propose Trade</button>
+        <button className="btn btn--primary" disabled={!tradesOpen}
+          title={tradesOpen ? "" : `Manager trades are closed during the ${phaseLabel}`}
+          style={{ opacity: tradesOpen ? 1 : 0.45, cursor: tradesOpen ? "pointer" : "not-allowed" }}
+          onClick={() => tradesOpen && setShowPropose(true)}>+ Propose Trade</button>
       </div>
+      {!tradesOpen && (
+        <div className="alert alert--gold">
+          <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
+          <div>Manager trades are open only during the <strong>trade window</strong>. You're in the <strong>{phaseLabel}</strong> — you can still respond to existing offers and build your wishlist.</div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
