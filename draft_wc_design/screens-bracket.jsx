@@ -355,6 +355,15 @@ function FreeAgentsTab() {
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
   const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
 
+  // Free-agent pickups are only INSTANT during the FREE_AGENTS window. At any
+  // other time the squad is locked, so the same drop-selection instead queues
+  // the player onto your bid-wishlist (resolved by the auction when the window
+  // opens). Target GW = the open window's GW, else the next GW to be played.
+  const faOpen = (window.WINDOW && window.WINDOW.phase) === "free_agents";
+  const bidGw = (window.WINDOW && window.WINDOW.gw) ||
+                (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+  const _pid = (v) => (isNaN(Number(v)) ? Number(String(v).replace("p_", "")) : Number(v));
+
   const handlePickup = async (p) => {
     if (!playerToDrop) {
       alert("Please select a player to drop.");
@@ -363,9 +372,9 @@ function FreeAgentsTab() {
     try {
       const lid = window.LEAGUE.id;
       const winNum = window.WINDOW.windowNumber || 1;
-      const pIn = isNaN(Number(p.id)) ? Number(p.id.replace("p_", "")) : Number(p.id);
-      const pOut = isNaN(Number(playerToDrop)) ? Number(playerToDrop.replace("p_", "")) : Number(playerToDrop);
-      
+      const pIn = _pid(p.id);
+      const pOut = _pid(playerToDrop);
+
       await apiCall("POST", `/leagues/${lid}/free-agent`, {
         playerIn: pIn,
         playerOut: pOut,
@@ -376,6 +385,31 @@ function FreeAgentsTab() {
       window.location.reload();
     } catch (err) {
       alert("Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
+  // Window closed → add this free agent to the bid-wishlist (same in/out swap
+  // the pickup would do), appending to the manager's ordered bids for bidGw.
+  const handleAddWishlist = async (p) => {
+    if (!playerToDrop) { alert("Please select a player to drop."); return; }
+    if (!bidGw) { alert("No upcoming gameweek to bid for yet."); return; }
+    const pIn = _pid(p.id), pOut = _pid(playerToDrop);
+    const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    if (existing.some(b => b.playerIn === pIn)) {
+      alert(`${p.name} is already on your wishlist.`); setActivePickup(null); return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const cp = window.PLAYER_MAP[String(p.id)];
+      const next = [...existing, { playerIn: pIn, playerOut: pOut, position: cp ? POS_NAMES[cp.pos] : "?" }];
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids`, { gw: bidGw, bids: next });
+      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : next;
+      alert(`Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.`);
+      setActivePickup(null);
+    } catch (err) {
+      alert("Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err)));
     }
   };
 
@@ -479,16 +513,18 @@ function FreeAgentsTab() {
                   ) : isPicking ? (
                     <div className="row" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                       <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
-                        <option value="">-- Drop player --</option>
+                        <option value="">{faOpen ? "-- Drop player --" : "-- Swap out --"}</option>
                         {eligibleDrops.map(s => (
                           <option key={s.id} value={s.id}>{s.name} ({s.teamName || s.team})</option>
                         ))}
                       </select>
-                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => handlePickup(p)}>✔</button>
+                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => faOpen ? handlePickup(p) : handleAddWishlist(p)}>✔</button>
                       <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => setActivePickup(null)}>✖</button>
                     </div>
-                  ) : (
+                  ) : faOpen ? (
                     <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>Pick up</button>
+                  ) : (
+                    <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11, background: "var(--gold-500)", color: "var(--navy-900)" }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>+ Wishlist</button>
                   )}
                 </td>
               </tr>
@@ -512,7 +548,7 @@ function WishlistTab() {
   const [saving, setSaving] = React.useState(false);
 
   const win = window.WINDOW || {};
-  const upcomingGw = win.gw;
+  const upcomingGw = win.gw || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
   const phase = win.phase || "none";
   const isFaWindow = phase === "free_agents";
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
