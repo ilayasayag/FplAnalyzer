@@ -202,6 +202,41 @@ class WCWishlistManager:
                     progressing = True
                     break  # one successful claim per manager per round
 
+        # Persist a DURABLE per-GW record of the auction: every manager's ORDERED
+        # bids with each bid's outcome (claimed vs cancelled). The wishlist_bids
+        # docs are deleted below, so without this the wishlist order — and which
+        # bids failed — would be lost the moment the auction runs. Surfaced in
+        # the Transfers > History tab.
+        exec_set = {(e["uid"], e["playerIn"]) for e in executed}
+        skip_map = {(s["uid"], s["playerIn"]): s.get("reason") for s in skipped}
+        results: List[dict] = []
+        failed: List[dict] = []
+        for uid in order:
+            wl = bids_by_uid.get(uid)
+            if not wl:
+                continue
+            rows = []
+            for bid in wl:
+                claimed = (uid, bid["playerIn"]) in exec_set
+                row = {
+                    "playerIn": bid["playerIn"],
+                    "playerOut": bid["playerOut"],
+                    "position": bid.get("position", ""),
+                    "status": "claimed" if claimed else "cancelled",
+                    "reason": None if claimed else (skip_map.get((uid, bid["playerIn"])) or "UNAVAILABLE"),
+                }
+                rows.append(row)
+                if not claimed:
+                    failed.append({"uid": uid, "playerIn": bid["playerIn"],
+                                   "playerOut": bid["playerOut"], "reason": row["reason"]})
+            results.append({"uid": uid, "bids": rows})
+        league_ref.collection("wishlist_results").document(str(gw)).set({
+            "gw": gw,
+            "ranAt": SERVER_TIMESTAMP,
+            "claimsExecuted": len(executed),
+            "results": results,
+        })
+
         # Batch-delete all wishlist_bids for this gw.
         self._delete_bids(lid, bid_doc_ids)
 
@@ -209,6 +244,8 @@ class WCWishlistManager:
             "gw": gw,
             "executed": executed,
             "skipped": skipped,
+            "failed": failed,
+            "results": results,
             "claimsExecuted": len(executed),
         }
 

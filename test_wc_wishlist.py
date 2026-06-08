@@ -553,3 +553,36 @@ def test_generate_mock_bids_skips_runner_and_auction_applies(mgr, db):
     after_b = _squad_ids(db, lid, "B")
     assert len(after_b) == 15 and before_b != after_b
     assert _squad_ids(db, lid, "A") == set(range(100, 115))  # runner unchanged
+
+
+# ---------------------------------------------------------------------------
+# Durable auction history (wishlist_results) + failed-bid tracking
+# ---------------------------------------------------------------------------
+
+def test_auction_persists_results_with_claimed_and_cancelled(mgr, db):
+    lid = "L"
+    _seed_member(db, lid, "A", 5, 1)   # higher waiver priority → picks first
+    _seed_member(db, lid, "B", 3, 2)
+    _seed_squad(db, lid, "A", _legal_squad(100))
+    _seed_squad(db, lid, "B", _legal_squad(200))
+    gw = 3
+    # Both contest the same free MID (900); A drops own MID 107, B drops 207.
+    _seed_bid_doc(db, lid, "A", gw, [_bid(900, 107)])
+    _seed_bid_doc(db, lid, "B", gw, [_bid(900, 207)])
+
+    res = mgr.run_auction(lid, gw)
+
+    # One claim executed (A by priority), the other cancelled.
+    assert res["claimsExecuted"] == 1
+    assert res["executed"] == [{"uid": "A", "playerIn": 900, "playerOut": 107}]
+    assert len(res["failed"]) == 1 and res["failed"][0]["uid"] == "B"
+
+    # Durable record persisted (survives bid deletion), ordered per manager.
+    doc = (db.collection("leagues").document(lid)
+           .collection("wishlist_results").document(str(gw)).get()).to_dict()
+    assert doc["gw"] == gw and doc["claimsExecuted"] == 1
+    by_uid = {r["uid"]: r["bids"] for r in doc["results"]}
+    assert by_uid["A"][0]["status"] == "claimed"
+    assert by_uid["B"][0]["status"] == "cancelled"
+    # Bids themselves are gone, but the history remains.
+    assert mgr.get_my_bids(lid, "A", gw)["bids"] == []

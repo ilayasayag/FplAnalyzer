@@ -1263,6 +1263,21 @@ def get_transactions(lid: str):
     return _ok(txns)
 
 
+@wc_bp.route("/leagues/<lid>/wishlist-results", methods=["GET"])
+def get_wishlist_results(lid: str):
+    """Durable per-GW wishlist-auction records (ordered bids + claimed/cancelled
+    outcome per manager). Survives the bids being deleted at auction time, so
+    the wishlist history is viewable after the fact. Newest GW first."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    docs = (_db.collection("leagues").document(lid)
+            .collection("wishlist_results").get())
+    out = [d.to_dict() for d in docs]
+    out.sort(key=lambda r: r.get("gw", 0), reverse=True)
+    return _ok({"results": out})
+
+
 # ---------------------------------------------------------------------------
 # §14 — Admin / background operations
 # ---------------------------------------------------------------------------
