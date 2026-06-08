@@ -659,9 +659,30 @@ function App() {
           if (!window.SQUADS_BY_UID) window.SQUADS_BY_UID = {};
         }
 
-        // Fetch my Lineup matching viewingGw
+        // Fetch the lineup for the VIEWED manager matching viewingGw.
+        // IMPORTANT: your OWN team must use the auth endpoint (/lineup/<gw>).
+        // The /lineup/<uid>/<gw> form treats ANY uid as an opponent and 403s an
+        // unlocked GW — even for yourself — so using it for your own team blanks
+        // the pitch (and falls back to the data.jsx demo roster). Only the
+        // "view as another manager" override uses the target form; when that's
+        // blocked (live GW) or empty, derive a shape from THEIR squad instead of
+        // showing the demo roster.
+        const _ownLineup = window.ME === window.__AUTH_UID;
+        const _lineupFromSquad = () => {
+          const byPos = { 1: [], 2: [], 3: [], 4: [] };
+          (window.MY_SQUAD_IDS || []).forEach(id => {
+            const p = playerById(isNaN(Number(id)) ? id : Number(id));
+            if (p && byPos[p.pos]) byPos[p.pos].push(String(id));
+          });
+          const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
+          const starting = [...byPos[1].slice(0, 1), ...byPos[2].slice(0, nd), ...byPos[3].slice(0, nm), ...byPos[4].slice(0, nf)];
+          const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
+          return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
+        };
         try {
-          const lineup = await apiCall("GET", `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
+          const lineup = await apiCall("GET", _ownLineup
+            ? `/leagues/${lid}/lineup/${viewingGw}`
+            : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
           if (lineup && lineup.starting && lineup.starting.length > 0) {
             window.MY_LINEUP_GW3 = {
               starting: (lineup.starting || []).map(String),
@@ -670,16 +691,19 @@ function App() {
               autoSubs: lineup.autoSubsMade || [],
             };
           } else {
-            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
-          // Transient failure: KEEP the last-known-good lineup rather than
-          // blanking the pitch (this was the core "squads disappear" bug).
-          // Only initialise to empty if we have nothing at all yet.
-          if (!window.MY_LINEUP_GW3) {
-            window.MY_LINEUP_GW3 = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+          if (e && e.status === 403) {
+            // Viewing another manager's pre-lock lineup is blocked → show their
+            // squad in a default shape, never the demo roster.
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
+          } else if (!(window.MY_LINEUP_GW3 && window.MY_LINEUP_GW3.starting && window.MY_LINEUP_GW3.starting.length)) {
+            // Transient failure with nothing cached yet → derive from the squad.
+            window.MY_LINEUP_GW3 = _lineupFromSquad();
           }
+          // else: keep last-known-good (transient-network resilience).
         }
 
         // Real squad + lineup have now resolved (success OR a definitive
