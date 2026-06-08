@@ -445,6 +445,7 @@ function App() {
               pickTimer: leagueDetails.pickTimer,
               tradeApproval: leagueDetails.tradeApproval,
               admin: leagueDetails.adminUid,
+              simulated: !!leagueDetails.simulated,
             };
 
             if (leagueDetails.members) {

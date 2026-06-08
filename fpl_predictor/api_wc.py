@@ -1489,6 +1489,56 @@ def admin_open_trade_window(lid: str, gw: int):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/run-mock-wishlist", methods=["POST"])
+def admin_run_mock_wishlist(lid: str):
+    """MOCK ONLY: demo the wishlist auction end-to-end in one click.
+
+    Opens the FREE_AGENTS window (closing the trade window), auto-fills 1-3
+    wishlist bids for every manager EXCEPT the caller/viewed manager (top free
+    agents in, their worst players out — same position), then resolves the
+    auction so squads actually change. Gated to ``simulated`` leagues so it can
+    never touch the real league.
+
+    Body: ``{gw?, excludeUid?}``. ``excludeUid`` (the manager running it) keeps
+    their own real bids; defaults to the authenticated uid.
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    league_snap = _db.collection("leagues").document(lid).get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    ld = league_snap.to_dict() or {}
+    if not ld.get("simulated"):
+        return _err("MOCK_ONLY: this endpoint only runs on simulated leagues", 403)
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = int(body.get("gw") or ld.get("currentGw") or 1)
+    except (TypeError, ValueError):
+        gw = int(ld.get("currentGw") or 1)
+    exclude_uid = body.get("excludeUid") or uid
+    try:
+        mock = _wishlist_mgr.generate_mock_bids(lid, gw, exclude_uid=exclude_uid)
+        # Open the FREE_AGENTS window (closes the trade window) so the page
+        # re-renders into the free-agent phase. current_window honours this.
+        _db.collection("leagues").document(lid).update(
+            {"windowOverride": {"phase": "free_agents", "gw": gw}})
+        try:
+            deferred = _trade_mgr.process_deferred_trades(lid, gw)
+        except Exception:
+            deferred = {"skipped": True}
+        auction = _wishlist_mgr.run_auction(lid, gw)
+        return _ok({
+            "gw": gw,
+            "mockBidsGenerated": mock,
+            "deferredTrades": deferred,
+            "wishlistAuction": auction,
+            "window": {"phase": "free_agents", "gw": gw},
+        })
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/detect-eliminations", methods=["POST"])
 def admin_detect_eliminations():
     uid, err = _require_auth()
