@@ -231,10 +231,74 @@ function BracketMatch({ match, result, round }) {
 }
 
 
+// Animated replay of a wishlist auction — reveals each executed claim one-by-one
+// in resolution order (waiver priority), showing the manager + player IN/OUT.
+function AuctionViz({ result, onClose }) {
+  const executed = (result && result.executed) || [];
+  const [revealed, setRevealed] = React.useState(0);
+  React.useEffect(() => {
+    if (revealed >= executed.length) return;
+    const t = setTimeout(() => setRevealed(r => r + 1), 700);
+    return () => clearTimeout(t);
+  }, [revealed, executed.length]);
+  const done = revealed >= executed.length;
+
+  const mgrName = (uid) => { const m = managerById(uid); return m ? (m.team || m.name || uid) : uid; };
+  const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
+  const chip = (p, kind) => {
+    const isIn = kind === "in";
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 7,
+        background: isIn ? "rgba(0,217,107,0.18)" : "rgba(230,57,70,0.16)", color: isIn ? "#5ef0a8" : "#ff9aa3", fontSize: 13, fontWeight: 700 }}>
+        <Flag team={teamById(p.team)} /> {p.name}
+        <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 800 }}>{isIn ? `IN · ${POS_NAMES[p.pos]}` : "OUT"}</span>
+      </span>
+    );
+  };
+
+  return (
+    <div onClick={done ? onClose : undefined}
+      style={{ position: "fixed", inset: 0, background: "rgba(8,6,40,0.80)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} className="card-dark"
+        style={{ width: "min(580px, 95vw)", maxHeight: "88vh", overflow: "auto", padding: 26, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+        <div className="h-display" style={{ fontSize: 22, color: "white", marginBottom: 4 }}>⚡ Wishlist auction · GW{result.gw}</div>
+        <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, marginBottom: 18 }}>
+          {done
+            ? `${executed.length} claim${executed.length === 1 ? "" : "s"} resolved by waiver priority.`
+            : `Resolving claims by waiver priority… (${revealed}/${executed.length})`}
+        </div>
+        <div className="col" style={{ gap: 10 }}>
+          {executed.length === 0 && (
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>No claims were executed this round.</div>
+          )}
+          {executed.slice(0, revealed).map((e, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center",
+              padding: "11px 13px", background: "rgba(255,255,255,0.06)", borderRadius: 10, border: "1px solid rgba(255,255,255,0.08)" }}>
+              <div style={{ fontWeight: 800, color: "white", fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{mgrName(e.uid)}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {chip(pl(e.playerIn), "in")}
+                <span style={{ color: "rgba(255,255,255,0.4)" }}>↔</span>
+                {chip(pl(e.playerOut), "out")}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 22, textAlign: "right" }}>
+          <button className="btn btn--primary" disabled={!done} onClick={onClose}
+            style={{ padding: "10px 18px", fontSize: 13, opacity: done ? 1 : 0.5, cursor: done ? "pointer" : "default" }}>
+            {done ? "Done — refresh" : "Resolving…"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const [runningMock, setRunningMock] = React.useState(false);
+  const [auctionViz, setAuctionViz] = React.useState(null);  // {gw, executed, skipped}
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
@@ -252,8 +316,10 @@ function TransfersScreen() {
       const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
       const res = await apiCall("POST", `/admin/leagues/${lid}/run-mock-wishlist`, { gw, excludeUid: window.ME });
       const a = (res && res.wishlistAuction) || {};
-      alert(`Free-agents window opened + wishlist auction run for GW${res.gw}.\n${(a.claimsExecuted || 0)} claim(s) executed across the league. Reloading…`);
-      window.location.reload();
+      // Replay the auction in the UI (claims revealed one-by-one in resolution
+      // order) instead of a bare alert. Closing the modal reloads into the new
+      // FA-window state with the updated squads.
+      setAuctionViz({ gw: res.gw, executed: a.executed || [], skipped: a.skipped || [] });
     } catch (err) {
       alert("Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err)));
       setRunningMock(false);
@@ -262,6 +328,7 @@ function TransfersScreen() {
 
   return (
     <div className="col" style={{ gap: 16 }}>
+      {auctionViz && <AuctionViz result={auctionViz} onClose={() => window.location.reload()} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Transfers</h2>
