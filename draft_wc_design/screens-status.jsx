@@ -406,8 +406,17 @@ function PointsScreen({ onTab }) {
   // the editable lineup doc. The Pitch lays starters out by formation, so order
   // the snapshot's starting XI GK→DEF→MID→FWD and derive the formation from the
   // players' real positions (resolved via window.PLAYER_MAP).
+  const EMPTY_LINEUP = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
   const lineup = React.useMemo(() => {
-    if (!(viewingGw < currentGw && snapLineup)) return liveLineup;
+    // A FINISHED gw must ONLY ever render its frozen gw_history snapshot — never
+    // the live squad, which may include free-agents/trades acquired AFTER that
+    // GW (that bug showed a just-signed player in a past, already-scored GW).
+    // While the snapshot is still loading, show an empty pitch, not the live one.
+    if (viewingGw < currentGw) {
+      if (!snapLineup) return EMPTY_LINEUP;
+    } else {
+      return liveLineup || EMPTY_LINEUP;
+    }
     const pmap = window.PLAYER_MAP || {};
     const posOf = (id) => (pmap[String(id)] ? pmap[String(id)].pos : 3);
     const byPos = { 1: [], 2: [], 3: [], 4: [] };
