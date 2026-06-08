@@ -314,19 +314,23 @@ function StatBlock({ label, value, accent }) {
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
-  const [clubFilter, setClubFilter] = React.useState("all");
+  const [ownerFilter, setOwnerFilter] = React.useState("all"); // "all" | "__free" | manager name
   const [search, setSearch] = React.useState("");
   const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
 
-  // playerId -> owning manager's name (for the "All players" view).
-  const ownerByPid = React.useMemo(() => {
-    const map = {}, sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
+  // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
+  // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
+  // a memo captured on mount could be empty if Transfers opens before that async
+  // load resolves, which made every owned player look like a free agent.
+  const ownerByPid = {};
+  {
+    const sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
     const nameOf = uid => { const m = mgrs.find(x => x.uid === uid); return m ? (m.team || m.name || uid) : uid; };
-    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { map[String(pid)] = nameOf(uid); }));
-    return map;
-  }, []);
+    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { ownerByPid[String(pid)] = nameOf(uid); }));
+  }
+  const ownerNames = [...new Set(Object.values(ownerByPid))].sort();
 
   // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
   // real points. "All players" = the whole pool (owned shown with their manager,
@@ -335,12 +339,15 @@ function FreeAgentsTab() {
   // no club/points.
   const source = (window.PLAYERS || []).filter(p => mode === "all" || !ownerByPid[String(p.id)]);
   const nations = [...new Set(source.map(p => p.teamName).filter(Boolean))].sort();
-  const clubs = [...new Set(source.map(p => p.club).filter(Boolean))].sort();
   const q = search.trim().toLowerCase();
   const filtered = source
     .filter(p => posFilter === "all" || p.pos === Number(posFilter))
     .filter(p => nationFilter === "all" || p.teamName === nationFilter)
-    .filter(p => clubFilter === "all" || p.club === clubFilter)
+    .filter(p => {
+      if (ownerFilter === "all") return true;
+      const o = ownerByPid[String(p.id)];
+      return ownerFilter === "__free" ? !o : o === ownerFilter;
+    })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
     .sort((a, b) => (b.pts || 0) - (a.pts || 0));
   const CAP = 120;
@@ -385,7 +392,7 @@ function FreeAgentsTab() {
           </div>
           <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
             {[["free", "Free agents"], ["all", "All players"]].map(([m, label]) => (
-              <button key={m} className="btn" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 999, background: mode === m ? "var(--navy-900)" : "transparent", color: mode === m ? "white" : "var(--ink-700)" }} onClick={() => setMode(m)}>{label}</button>
+              <button key={m} className="btn" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 999, background: mode === m ? "var(--navy-900)" : "transparent", color: mode === m ? "white" : "var(--ink-700)" }} onClick={() => { setMode(m); setOwnerFilter("all"); }}>{label}</button>
             ))}
           </div>
         </div>
@@ -396,10 +403,13 @@ function FreeAgentsTab() {
             <option value="all">All nations</option>
             {nations.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <select value={clubFilter} onChange={e => setClubFilter(e.target.value)} style={selStyle}>
-            <option value="all">All clubs</option>
-            {clubs.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
+          {mode === "all" && (
+            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
+              <option value="all">Any owner</option>
+              <option value="__free">Free agents</option>
+              {ownerNames.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
           <div className="row" style={{ gap: 4 }}>
             {["all", "1", "2", "3", "4"].map(p => (
               <button key={p}
@@ -410,9 +420,9 @@ function FreeAgentsTab() {
               </button>
             ))}
           </div>
-          {(search || nationFilter !== "all" || clubFilter !== "all" || posFilter !== "all") && (
+          {(search || nationFilter !== "all" || ownerFilter !== "all" || posFilter !== "all") && (
             <button className="btn btn--ghost-dark" style={{ padding: "6px 10px", fontSize: 11 }}
-              onClick={() => { setSearch(""); setNationFilter("all"); setClubFilter("all"); setPosFilter("all"); }}>Clear</button>
+              onClick={() => { setSearch(""); setNationFilter("all"); setOwnerFilter("all"); setPosFilter("all"); }}>Clear</button>
           )}
         </div>
       </div>
