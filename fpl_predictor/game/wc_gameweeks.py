@@ -10,9 +10,9 @@ moves the windows. Keep ``lockAt`` here aligned with that schedule for the
 contexts that have no ``db`` handle (``get_current_gw``, predictions lock, the
 ``is_transfer_window_open`` calendar wrapper).
 
-``lockAt`` = kickoff of the earliest match in that GW (= T0). Dates are the real
-WC 2026 round dates; the 13:00 UTC time-of-day is a placeholder pending real
-per-match kickoff times (mirrors ``wc_simulator.DEFAULT_GW_KICKOFFS``).
+``lockAt`` = kickoff of the earliest match in that GW (= T0). These are the real
+WC 2026 kickoff times (confirmed 6 Dec 2025 draw), in UTC, and mirror the FIRST
+entry of each GW in ``wc_simulator.DEFAULT_GW_KICKOFFS``.
 """
 
 from datetime import datetime, timezone
@@ -22,61 +22,62 @@ from typing import Dict, Optional, Tuple
 # Hardcoded GW calendar — keep in sync with wc_simulator.DEFAULT_GW_KICKOFFS
 # ---------------------------------------------------------------------------
 
-# All times in UTC. Format: (start, end, lockAt, wc_round, label)
+# All times in UTC. Format: (start, end, lockAt, wc_round, label).
+# lockAt = the GW's first real kickoff (T0).
 _GW_CONFIG: Dict[int, Dict] = {
     1: {
         "start":    datetime(2026, 6, 11, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 6, 18, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 11, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 11, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 1",
         "label":    "Group Stage R1",
     },
     2: {
         "start":    datetime(2026, 6, 18, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 6, 24, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 18, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 18, 16, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 2",
         "label":    "Group Stage R2",
     },
     3: {
         "start":    datetime(2026, 6, 24, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 6, 28, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 24, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 24, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 3",
         "label":    "Group Stage R3",
     },
     4: {
         "start":    datetime(2026, 6, 28, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 4, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 28, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 28, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Round of 32",
         "label":    "Round of 32",
     },
     5: {
         "start":    datetime(2026, 7, 4, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 9, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 4, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 4, 17, 0, tzinfo=timezone.utc),
         "wcRound":  "Round of 16",
         "label":    "Round of 16",
     },
     6: {
         "start":    datetime(2026, 7, 9, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 9, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 9, 20, 0, tzinfo=timezone.utc),
         "wcRound":  "Quarter-finals",
         "label":    "Quarter-finals",
     },
     7: {
         "start":    datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 7, 19, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 14, 13, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 7, 18, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 14, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Semi-finals",
         "label":    "Semi-finals",
     },
     8: {
-        "start":    datetime(2026, 7, 19, 0, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 7, 18, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 20, 23, 59, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 19, 13, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 18, 21, 0, tzinfo=timezone.utc),
         "wcRound":  "Final",
         "label":    "Final & 3rd Place",
     },

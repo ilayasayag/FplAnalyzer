@@ -61,20 +61,28 @@ GK, DEF, MID, FWD = 1, 2, 3, 4
 # no scheduled time AND no existing fixture to preserve does it fall back to
 # SERVER_TIMESTAMP.
 #
-# Real WC 2026 round dates (public schedule): group MD1 11 Jun, MD2 18 Jun,
-# MD3 24 Jun; Round-of-32 28 Jun; Round-of-16 4 Jul; QF 9 Jul; SF 14 Jul;
-# Final 19 Jul. Time-of-day is a 13:00 UTC PLACEHOLDER (the source data has
-# day-granularity only) — replace with real per-match kickoff times via
-# ``seed_schedule`` and every window recomputes automatically.
-DEFAULT_GW_KICKOFFS: Dict[int, str] = {
-    1: "2026-06-11T13:00:00+00:00",
-    2: "2026-06-18T13:00:00+00:00",
-    3: "2026-06-24T13:00:00+00:00",
-    4: "2026-06-28T13:00:00+00:00",
-    5: "2026-07-04T13:00:00+00:00",
-    6: "2026-07-09T13:00:00+00:00",
-    7: "2026-07-14T13:00:00+00:00",
-    8: "2026-07-19T13:00:00+00:00",
+# Real WC 2026 kickoff times (public schedule, confirmed 6 Dec 2025 draw),
+# stored as ``[first_kickoff, last_kickoff]`` per GW in UTC. The window state
+# machine uses the GW's FIRST kickoff as T0 (drives the T0-5h / T0-1h locks)
+# and its LAST kickoff for the post-GW trade reopen. Sources cross-checked
+# across ET (UTC-4) and UK (UTC+1) listings:
+#   GW1 group R1 : 11 Jun 15:00 ET (opener) .. 13 Jun 21:00 ET
+#   GW2 group R2 : 18 Jun 12:00 ET          .. 21 Jun 21:00 ET
+#   GW3 group R3 : 24 Jun 15:00 ET          .. 25 Jun 22:00 ET
+#   GW4 Ro32     : 28 Jun 15:00 ET          ..  3 Jul 21:30 ET
+#   GW5 Ro16     :  4 Jul 13:00 ET          ..  7 Jul 16:00 ET
+#   GW6 QF       :  9 Jul 16:00 ET          .. 11 Jul 21:00 ET
+#   GW7 SF       : 14 Jul 15:00 ET          .. 15 Jul 15:00 ET
+#   GW8 3rd+Final: 18 Jul 17:00 ET (3rd)    .. 19 Jul 15:00 ET (final)
+DEFAULT_GW_KICKOFFS: Dict[int, List[str]] = {
+    1: ["2026-06-11T19:00:00+00:00", "2026-06-14T01:00:00+00:00"],
+    2: ["2026-06-18T16:00:00+00:00", "2026-06-22T01:00:00+00:00"],
+    3: ["2026-06-24T19:00:00+00:00", "2026-06-26T02:00:00+00:00"],
+    4: ["2026-06-28T19:00:00+00:00", "2026-07-04T01:30:00+00:00"],
+    5: ["2026-07-04T17:00:00+00:00", "2026-07-07T20:00:00+00:00"],
+    6: ["2026-07-09T20:00:00+00:00", "2026-07-12T01:00:00+00:00"],
+    7: ["2026-07-14T19:00:00+00:00", "2026-07-15T19:00:00+00:00"],
+    8: ["2026-07-18T21:00:00+00:00", "2026-07-19T19:00:00+00:00"],
 }
 
 
@@ -139,9 +147,27 @@ def seed_schedule(db, kickoffs: Optional[Dict[int, object]] = None) -> Dict[int,
     return parsed
 
 
+def _kickoff_for_fixture(kos: List[datetime], idx: int, count: int) -> datetime:
+    """Pick a fixture's kickoff from a GW's scheduled times.
+
+    * Exact per-match times available (``count <= len(kos)``) -> use ``kos[idx]``.
+    * Only bounds available (typically ``[first, last]``) -> spread the GW's
+      ``count`` fixtures evenly between the first and last kickoff, so the window
+      machine sees the right T0 (min) and last-match (max) and the fixtures show
+      a realistic intra-GW spread rather than all sharing one time.
+    """
+    if count <= len(kos):
+        return kos[idx]
+    first, last = kos[0], kos[-1]
+    if count <= 1 or last <= first:
+        return first
+    span = (last - first) / (count - 1)
+    return first + span * idx
+
+
 def apply_schedule_to_fixtures(db) -> int:
     """Re-stamp every existing ``wc_fixtures`` doc's ``kickoff`` from the stored
-    schedule (matching by GW, assigning multi-match GWs by fixture order).
+    schedule (matching by GW, spreading each GW's fixtures across its kickoffs).
 
     Idempotent; used to align fixtures already in the DB with the durable
     schedule without re-simulating. Returns the number of fixtures updated.
@@ -162,8 +188,9 @@ def apply_schedule_to_fixtures(db) -> int:
         if not kos:
             continue
         docs.sort(key=lambda d: int((d.to_dict() or {}).get("id") or 0))
+        count = len(docs)
         for idx, fdoc in enumerate(docs):
-            ko = kos[idx] if idx < len(kos) else kos[-1]
+            ko = _kickoff_for_fixture(kos, idx, count)
             batch.update(fdoc.reference, {"kickoff": ko})
             updated += 1
             n += 1
@@ -631,9 +658,9 @@ def simulate_gw(db, lid: str, gw: int, rng: random.Random, *,
             away_id, players_by_team.get(away_id, []),
             rng, knockout=knockout, p_home_win=p_home,
         )
-        # Durable kickoff: scheduled time for this match (by fixture order),
-        # else None -> _write_fixture preserves any existing time.
-        ko = gw_kos[idx] if idx < len(gw_kos) else (gw_kos[-1] if gw_kos else None)
+        # Durable kickoff: scheduled time for this match (spread across the GW's
+        # fixtures), else None -> _write_fixture preserves any existing time.
+        ko = _kickoff_for_fixture(gw_kos, idx, len(pairs)) if gw_kos else None
         _write_fixture(db, fid_base + idx, gw, round_name, home, away, hg, ag,
                        kickoff=ko)
         process_fixture(fid_base + idx, raw_stats, wc_client, db,

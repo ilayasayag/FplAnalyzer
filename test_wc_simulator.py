@@ -534,14 +534,16 @@ def _utc(y, mo, d, h=0):
 def test_seed_schedule_defaults_and_roundtrip():
     db = H.FakeDB()
     parsed = S.seed_schedule(db)
-    # All 8 GWs seeded from the real WC round dates.
+    # All 8 GWs seeded from the real WC kickoff times (first + last per GW).
     assert set(parsed) == set(range(1, 9))
-    assert parsed[1][0] == _utc(2026, 6, 11, 13)
-    assert parsed[8][0] == _utc(2026, 7, 19, 13)
-    # Stored as ISO strings and reloads identically.
+    assert parsed[1][0] == _utc(2026, 6, 11, 19)   # opener, 3pm ET = 19:00 UTC
+    assert parsed[1][-1] == _utc(2026, 6, 14, 1)   # last MD1 kickoff
+    assert parsed[8][-1] == _utc(2026, 7, 19, 19)  # final, 3pm ET = 19:00 UTC
+    # Stored as ISO-string lists and reloads identically.
     stored = db.collection("wc_config").document("schedule").get().to_dict()
-    assert isinstance(stored["kickoffs"]["1"], str)
-    assert S._load_schedule_kickoffs(db)[1] == [_utc(2026, 6, 11, 13)]
+    assert isinstance(stored["kickoffs"]["1"], list)
+    assert S._load_schedule_kickoffs(db)[1] == [_utc(2026, 6, 11, 19),
+                                                _utc(2026, 6, 14, 1)]
 
 
 def test_seed_schedule_custom_with_multi_match_gw():
@@ -603,3 +605,30 @@ def test_apply_schedule_to_fixtures_restamps_by_gw_order():
     assert db.collection("wc_fixtures").document("1000").get().to_dict()["kickoff"] == _utc(2026, 6, 11, 13)
     assert db.collection("wc_fixtures").document("1001").get().to_dict()["kickoff"] == _utc(2026, 6, 11, 16)
     assert db.collection("wc_fixtures").document("2000").get().to_dict()["kickoff"] == _utc(2026, 6, 18, 13)
+
+
+def test_kickoff_for_fixture_spreads_between_bounds():
+    # 5 fixtures, only [first, last] known -> evenly spread, exact endpoints.
+    kos = [_utc(2026, 6, 11, 19), _utc(2026, 6, 14, 1)]  # 54h span
+    first = S._kickoff_for_fixture(kos, 0, 5)
+    mid = S._kickoff_for_fixture(kos, 2, 5)
+    last = S._kickoff_for_fixture(kos, 4, 5)
+    assert first == kos[0]
+    assert last == kos[-1]
+    assert mid == kos[0] + (kos[-1] - kos[0]) / 2  # 13.5h steps -> midpoint at idx 2
+    # Exact per-match times available -> used as-is.
+    assert S._kickoff_for_fixture(kos, 1, 2) == kos[1]
+
+
+def test_apply_schedule_min_max_preserved_for_windows():
+    db = H.FakeDB()
+    for fid in (1000, 1001, 1002, 1003):
+        db.collection("wc_fixtures").document(str(fid)).set(
+            {"id": fid, "gw": 1, "kickoff": _utc(2000, 1, 1)})
+    S.seed_schedule(db)  # GW1 = [11 Jun 19:00, 14 Jun 01:00]
+    S.apply_schedule_to_fixtures(db)
+    kos = sorted(d.to_dict()["kickoff"]
+                 for d in db.collection("wc_fixtures").where("gw", "==", 1).get())
+    # T0 (min) and last (max) match the real schedule -> windows compute right.
+    assert kos[0] == _utc(2026, 6, 11, 19)
+    assert kos[-1] == _utc(2026, 6, 14, 1)
