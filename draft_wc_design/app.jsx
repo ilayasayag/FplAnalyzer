@@ -17,6 +17,14 @@ const ACCENT_THEMES = {
   forest:{ grad: "linear-gradient(94deg, #0d2818 0%, #1f6b3e 35%, #2eb05c 65%, #ffc844 100%)", pill: "linear-gradient(94deg, #00e87b 0%, #ffd56b 100%)" },
 };
 
+// Set the data-source banner state AND notify the TopBar chip so it always
+// reflects the latest value (it reads a window global, so without an event it
+// can latch a stale cold-start "down" after the real data resolves).
+function setDataSource(v) {
+  window.__DATA_SOURCE__ = v;
+  try { window.dispatchEvent(new CustomEvent("wc-datasource", { detail: v })); } catch (e) {}
+}
+
 // =====================================================================
 // Platform-selector LOBBY — the home page after sign-in.
 // The user explicitly chooses which league/platform to enter; no league is
@@ -991,18 +999,18 @@ function App() {
         }
 
         if (criticalFailed) {
-          window.__DATA_SOURCE__ = "down";
+          setDataSource("down");
         } else if (leagueDetails && leagueDetails.simulated === true) {
           // The backend marks each league explicitly: Platform A (mock) carries
           // simulated:true, the real 7-player draft carries simulated:false.
-          window.__DATA_SOURCE__ = "simulated";
+          setDataSource("simulated");
         } else {
-          window.__DATA_SOURCE__ = "live";
+          setDataSource("live");
         }
         forceUpdate();
       } catch (err) {
         console.error("Failed to load initial live data:", err);
-        window.__DATA_SOURCE__ = "down";
+        setDataSource("down");
         // Don't strand the Pick Team screen on the skeleton forever if the
         // bootstrap threw before the squad fetch ran.
         setSquadLoaded(true);

@@ -1562,11 +1562,12 @@ def admin_reset_to_roster(lid: str):
     if err:
         return err
     from .game.wc_scoring import finalize_gw
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
 
     league_ref = _db.collection("leagues").document(lid)
     keep = set(MOCK_CANONICAL_ROSTER)
     summary = {"removedMembers": [], "junkPlayersDeleted": 0,
-               "finalized": [], "finalizeErrors": {}}
+               "finalized": [], "finalizeErrors": {}, "fixtures": None}
 
     # 1. Remove non-canonical members + their squads.
     for m in league_ref.collection("members").get():
@@ -1631,6 +1632,20 @@ def admin_reset_to_roster(lid: str):
         "knockoutQualifiers": 4, "maxMembers": 6,
         "windowOverride": firestore.DELETE_FIELD,
     })
+
+    # 6b. Rebuild the team fixtures to the REAL group-stage schedule (3 rounds ×
+    #     24 games, correct isos). Wipes the old fabricated/duplicate wc_fixtures
+    #     + playerScores, scores GW1-2 from the 6 managers' drafted players, and
+    #     leaves GW3 upcoming.
+    drafted = {}
+    for uid in present:
+        sqd = league_ref.collection("squads").document(uid).get()
+        for p in (sqd.to_dict() or {}).get("players", []) if sqd.exists else []:
+            drafted[int(p["playerId"])] = {
+                "id": int(p["playerId"]), "name": p.get("name", ""),
+                "position": int(p["position"]), "teamIso": p.get("teamIso", ""),
+            }
+    summary["fixtures"] = seed_real_fixtures(_db, drafted, GROUP_STAGE_EVENTS, played_gws=(1, 2))
 
     # 7. Re-finalize GW1 then GW2 → clean scores/standings for the 6; advances
     #    currentGw to 3. Each finalize is best-effort so one bad GW can't half-
