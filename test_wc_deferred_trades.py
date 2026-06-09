@@ -442,6 +442,32 @@ def test_instant_accept_outside_next_gw_bid_executes(mgr, db):
     assert 3 in _squad_ids(db, "lg1", "bob")
 
 
+def test_simulated_league_finalizes_vote_trade_immediately(mgr, db):
+    # A mock (simulated) league has no veto vote / admin to resolve an
+    # awaiting_vote trade, so a both-sides-agree accept must execute now even
+    # under the default "vote" approval mode — otherwise squads never swap.
+    db.collection("leagues").document("lg1").set({
+        "status": "group_phase", "tradeApproval": "vote",
+        "adminUid": "admin", "currentGw": 4, "simulated": True,
+    })
+    _seed_squad(db, "lg1", "alice", ALICE)
+    _seed_squad(db, "lg1", "bob", BOB)
+    _seed_member(db, "lg1", "alice")
+    _seed_member(db, "lg1", "bob")
+    _seed_trade(db, "lg1", "t1", {
+        "proposerUid": "alice", "targetUid": "bob",
+        "proposerPlayers": [_trade_player(ALICE[2])],
+        "targetPlayers": [_trade_player(BOB[2])],
+        "status": "pending",
+    })
+
+    result = mgr.respond_trade("lg1", "t1", "bob", "accept")
+
+    assert result["status"] == "accepted"          # NOT awaiting_vote
+    assert 13 in _squad_ids(db, "lg1", "alice")
+    assert 3 in _squad_ids(db, "lg1", "bob")
+
+
 # ---------------------------------------------------------------------------
 # 2. process_deferred_trades executes a still-valid deferred trade atomically
 # ---------------------------------------------------------------------------

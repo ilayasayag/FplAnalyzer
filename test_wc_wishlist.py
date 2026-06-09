@@ -586,3 +586,58 @@ def test_auction_persists_results_with_claimed_and_cancelled(mgr, db):
     assert by_uid["B"][0]["status"] == "cancelled"
     # Bids themselves are gone, but the history remains.
     assert mgr.get_my_bids(lid, "A", gw)["bids"] == []
+
+
+def test_auction_events_are_ordered_and_name_the_winner(mgr, db):
+    """The ordered event log interleaves claims + cancels in resolution order,
+    and a contested cancel records WHICH manager won the player it wanted."""
+    lid = "L"
+    _seed_member(db, lid, "A", 5, 1)   # higher waiver priority → wins 900
+    _seed_member(db, lid, "B", 3, 2)
+    _seed_squad(db, lid, "A", _legal_squad(100))
+    _seed_squad(db, lid, "B", _legal_squad(200))
+    gw = 3
+    _seed_bid_doc(db, lid, "A", gw, [_bid(900, 107)])
+    _seed_bid_doc(db, lid, "B", gw, [_bid(900, 207)])
+
+    res = mgr.run_auction(lid, gw)
+
+    events = res["events"]
+    assert [e["type"] for e in events] == ["claim", "cancel"]   # chronological
+    assert [e["seq"] for e in events] == [0, 1]                  # monotonic seq
+    claim, cancel = events
+    assert (claim["uid"], claim["playerIn"]) == ("A", 900)
+    # The cancelled bid keeps its IN/OUT pair AND names the winner.
+    assert cancel["uid"] == "B"
+    assert cancel["playerIn"] == 900 and cancel["playerOut"] == 207
+    assert cancel["wonByUid"] == "A"
+
+    # Persisted to the durable record + the per-manager row carries wonByUid.
+    doc = (db.collection("leagues").document(lid)
+           .collection("wishlist_results").document(str(gw)).get()).to_dict()
+    assert [e["type"] for e in doc["events"]] == ["claim", "cancel"]
+    by_uid = {r["uid"]: r["bids"] for r in doc["results"]}
+    assert by_uid["B"][0]["wonByUid"] == "A"
+
+
+def test_generate_mock_bids_respects_existing_real_bids(mgr, db):
+    """A manager who already submitted a real wishlist is never mock-bid for —
+    their own list stands untouched (the view-as / own-squad regression)."""
+    lid = "L"
+    _seed_member(db, lid, "A", 5, 1)
+    _seed_member(db, lid, "B", 3, 2)
+    _seed_squad(db, lid, "A", _legal_squad(100))
+    _seed_squad(db, lid, "B", _legal_squad(200))
+    gw = 3
+    # B already has a real bid; A is the (excluded) runner.
+    _seed_bid_doc(db, lid, "B", gw, [_bid(900, 207)])
+
+    summary = mgr.generate_mock_bids(lid, gw, exclude_uid="A")
+
+    b_entry = next(s for s in summary if s["uid"] == "B")
+    assert b_entry.get("skipped") == "has_real_bids"
+    # B's real wishlist is preserved exactly (not appended to / overwritten).
+    b_bids = mgr.get_my_bids(lid, "B", gw)["bids"]
+    assert len(b_bids) == 1 and b_bids[0]["playerIn"] == 900 and b_bids[0]["playerOut"] == 207
+    # A (runner) still untouched.
+    assert mgr.get_my_bids(lid, "A", gw)["bids"] == []

@@ -279,6 +279,17 @@ def test_one_for_one_writes_audit_transaction(mgr, db):
     assert txn_doc["type"] == "trade_accepted"
     assert txn_doc["proposerUid"] == "alice"
     assert txn_doc["targetUid"] == "bob"
+    # gw is stamped (None when the league doc has no currentGw) so the per-GW
+    # transfer history can group the trade with that window's wishlist auction.
+    assert "gw" in txn_doc
+
+
+def test_audit_transaction_stamps_current_gw(mgr, db):
+    db.collection("leagues").document("lg1").set({"currentGw": 4})
+    trade = _trade("alice", "bob", [ALICE[2]], [BOB[2]])
+    mgr._execute_trade("lg1", trade)
+    txn_doc = db._store.get("leagues/lg1/transactions/auto-1")
+    assert txn_doc["gw"] == 4
 
 
 def test_squad_sizes_preserved(mgr, db):

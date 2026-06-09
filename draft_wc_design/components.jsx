@@ -215,26 +215,23 @@ function isSwapLegal(lineup, idA, idB) {
 }
 
 function getNextFixtureOpponent(teamIso) {
-  // Team-vs-team fixtures for the viewing GW. Primary source is the live
-  // window.WC_FIXTURES_BY_TEAM map (built in app.jsx from GET /fixtures?gw=N,
-  // keyed by the same iso the players use; backend resolves isoCode from the
-  // team map). Falls back to the static WC_FIXTURES_GW4 round only when the
-  // live map isn't loaded yet. Teams not playing this GW (eliminated / bye)
-  // resolve to "—". window.SCHEDULE is the H2H *manager* schedule, not team
-  // fixtures, so it is never used here.
+  // Team-vs-team fixtures for the relevant GW. Sole source is the live
+  // window.WC_FIXTURES_BY_TEAM map (built in app.jsx from GET /fixtures, keyed
+  // by the same iso the players use; backend resolves isoCode from the team
+  // map). A team with no entry — genuinely not playing the resolved round —
+  // shows "—". We deliberately do NOT fall back to the static WC_FIXTURES_GW4
+  // round: that prototype set contains placeholder teams (e.g. POR2=Türkiye,
+  // MEX2=Peru) that don't exist in the backend, so it fabricated wrong
+  // opponents whenever the live map was empty. window.SCHEDULE is the H2H
+  // *manager* schedule, not team fixtures, so it is never used here.
   if (!teamIso) return "—";
   const iso = String(teamIso).toUpperCase();
   const byTeam = window.WC_FIXTURES_BY_TEAM;
-  if (byTeam && typeof byTeam === "object" && Object.keys(byTeam).length > 0) {
+  if (byTeam && typeof byTeam === "object") {
     const entry = byTeam[iso];
-    return entry && entry.opp ? `v ${entry.opp}` : "—";
+    if (entry && entry.opp) return `v ${entry.opp}`;
   }
-  // Fallback: static single-round set (pre-load / fixtures fetch failed).
-  const fixtures = (window.WC_FIXTURES_GW4 || []);
-  if (!Array.isArray(fixtures)) return "—";
-  const fix = fixtures.find(f => f && (f.home === iso || f.away === iso));
-  if (!fix) return "—";
-  return fix.home === iso ? `v ${fix.away}` : `v ${fix.home}`;
+  return "—";
 }
 
 // ---------- Player Slot (used on pitch) ----------

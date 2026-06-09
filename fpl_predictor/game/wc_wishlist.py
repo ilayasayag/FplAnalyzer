@@ -145,6 +145,12 @@ class WCWishlistManager:
         consumed_idx: Dict[str, set] = {}   # uid -> bid indices already consumed
         executed: List[dict] = []
         skipped: List[dict] = []
+        # player_in -> uid that won it (so a cancelled bid can name who beat it).
+        winner_by_player: Dict[int, str] = {}
+        # Chronological resolution log: claims and cancels in the exact order the
+        # auction decided them, so the replay/history can show "Yuval wanted X
+        # ↔ Y but it was won by Ilay" inline instead of dumping fails at the end.
+        events: List[dict] = []
 
         progressing = True
         while progressing:
@@ -173,9 +179,17 @@ class WCWishlistManager:
                         # round to retry.
                         if reason != "RETRY":
                             used.add(idx)
+                            won_by = winner_by_player.get(player_in)
                             skipped.append({
                                 "uid": uid, "playerIn": player_in,
                                 "playerOut": player_out, "reason": reason,
+                                "wonByUid": won_by,
+                            })
+                            events.append({
+                                "seq": len(events), "type": "cancel",
+                                "uid": uid, "playerIn": player_in,
+                                "playerOut": player_out, "position": bid.get("position", ""),
+                                "reason": reason, "wonByUid": won_by,
                             })
                         continue
 
@@ -184,6 +198,7 @@ class WCWishlistManager:
                     self._execute_swap(lid, uid, player_in, player_out, player_in_doc)
 
                     claimed_in.add(player_in)
+                    winner_by_player[player_in] = uid
                     replaced_out.add((uid, player_out))
                     used.add(idx)
 
@@ -199,6 +214,11 @@ class WCWishlistManager:
                     executed.append({
                         "uid": uid, "playerIn": player_in, "playerOut": player_out,
                     })
+                    events.append({
+                        "seq": len(events), "type": "claim",
+                        "uid": uid, "playerIn": player_in,
+                        "playerOut": player_out, "position": bid.get("position", ""),
+                    })
                     progressing = True
                     break  # one successful claim per manager per round
 
@@ -208,7 +228,7 @@ class WCWishlistManager:
         # bids failed — would be lost the moment the auction runs. Surfaced in
         # the Transfers > History tab.
         exec_set = {(e["uid"], e["playerIn"]) for e in executed}
-        skip_map = {(s["uid"], s["playerIn"]): s.get("reason") for s in skipped}
+        skip_map = {(s["uid"], s["playerIn"]): s for s in skipped}
         results: List[dict] = []
         failed: List[dict] = []
         for uid in order:
@@ -218,23 +238,29 @@ class WCWishlistManager:
             rows = []
             for bid in wl:
                 claimed = (uid, bid["playerIn"]) in exec_set
+                skip = skip_map.get((uid, bid["playerIn"])) or {}
                 row = {
                     "playerIn": bid["playerIn"],
                     "playerOut": bid["playerOut"],
                     "position": bid.get("position", ""),
                     "status": "claimed" if claimed else "cancelled",
-                    "reason": None if claimed else (skip_map.get((uid, bid["playerIn"])) or "UNAVAILABLE"),
+                    "reason": None if claimed else (skip.get("reason") or "UNAVAILABLE"),
+                    # Who claimed the player this bid wanted (names the manager
+                    # that beat this bid), when the cancel was a contested loss.
+                    "wonByUid": None if claimed else skip.get("wonByUid"),
                 }
                 rows.append(row)
                 if not claimed:
                     failed.append({"uid": uid, "playerIn": bid["playerIn"],
-                                   "playerOut": bid["playerOut"], "reason": row["reason"]})
+                                   "playerOut": bid["playerOut"], "reason": row["reason"],
+                                   "wonByUid": row["wonByUid"]})
             results.append({"uid": uid, "bids": rows})
         league_ref.collection("wishlist_results").document(str(gw)).set({
             "gw": gw,
             "ranAt": SERVER_TIMESTAMP,
             "claimsExecuted": len(executed),
             "results": results,
+            "events": events,
         })
 
         # Batch-delete all wishlist_bids for this gw.
@@ -246,6 +272,7 @@ class WCWishlistManager:
             "skipped": skipped,
             "failed": failed,
             "results": results,
+            "events": events,
             "claimsExecuted": len(executed),
         }
 
@@ -296,6 +323,14 @@ class WCWishlistManager:
         summary: List[dict] = []
         for uid in self._ordered_managers(lid):
             if uid == exclude_uid:
+                continue
+            # Never mock-bid for a manager who already submitted a real wishlist
+            # for this GW — use their own list untouched. This is the robust
+            # guard: it protects the viewer's real bids even when exclude_uid was
+            # pointed at a different "viewed" manager (the view-as switcher bug
+            # that auto-bid the viewer's own squad).
+            if self.get_my_bids(lid, uid, gw).get("bids"):
+                summary.append({"uid": uid, "skipped": "has_real_bids"})
                 continue
             try:
                 squad = self._get_squad(lid, uid)
