@@ -282,6 +282,14 @@ class DraftEngine:
         ).get()
         return [p.to_dict() for p in picks]
 
+    def _get_watchlist(self, lid: str, uid: str) -> list:
+        """The manager's ordered draft watchlist (player ids) — the same
+        per-manager doc the /draft/watchlist API reads/writes. ``[]`` if none."""
+        doc = (self.db.collection("leagues").document(lid)
+               .collection("draft").document("watchlists")
+               .collection(uid).document("list").get())
+        return (doc.to_dict() or {}).get("playerIds", []) if doc.exists else []
+
     def _find_best_available(self, lid: str, uid: str, state: dict) -> int:
         draft_ref = (self.db.collection("leagues").document(lid)
                      .collection("draft").document("state"))
@@ -299,6 +307,30 @@ class DraftEngine:
 
         picked_ids = set(state.get("pickedPlayerIds", []))
         players = self.fpl.get_players()
+
+        # Honor the manager's saved watchlist FIRST (the priority queue they
+        # built in the Draft Room). Pick the highest-priority watchlisted player
+        # that is still available AND keeps the squad within its position quota.
+        # Only if none qualifies do we fall back to the best-available-by-draft-
+        # rank heuristic below. (Bots / managers with no watchlist skip this.)
+        watchlist = self._get_watchlist(lid, uid)
+        if watchlist:
+            by_id = {}
+            for p in players:
+                by_id[p["id"]] = p
+                by_id[str(p["id"])] = p   # tolerate string-typed ids from the client
+            for wid in watchlist:
+                p = by_id.get(wid)
+                if p is None:
+                    try:
+                        p = by_id.get(int(wid))
+                    except (TypeError, ValueError):
+                        p = None
+                if not p or p["id"] in picked_ids:
+                    continue
+                pos = p.get("element_type")
+                if pos_counts.get(pos, 0) < POSITION_QUOTA.get(pos, 0):
+                    return p["id"]
 
         for _, target_pos in needs:
             candidates = [
