@@ -99,7 +99,7 @@
     "pos": 1,
     "rank": 655
    },
-   "nico o reilly": {
+   "nico oreilly": {
     "name": "Nico O'Reilly",
     "pos": 2,
     "rank": 686
@@ -231,7 +231,7 @@
     "pos": 2,
     "rank": 481
    },
-   "n golo kante": {
+   "ngolo kante": {
     "name": "N'Golo Kanté",
     "pos": 3,
     "rank": 482
@@ -5178,7 +5178,7 @@
     "pos": 4,
     "rank": 576
    },
-   "ngal ayel mukau": {
+   "ngalayel mukau": {
     "name": "Ngal'ayel Mukau",
     "pos": 3,
     "rank": 577
@@ -5716,7 +5716,7 @@
     "pos": 3,
     "rank": 345
    },
-   "aziz g aniev": {
+   "aziz ganiev": {
     "name": "Aziz G'aniev",
     "pos": 3,
     "rank": 449
@@ -5781,7 +5781,7 @@
     "pos": 3,
     "rank": 990
    },
-   "abduvokhid ne matov": {
+   "abduvokhid nematov": {
     "name": "Abduvokhid Ne'matov",
     "pos": 1,
     "rank": 1121
@@ -5811,7 +5811,7 @@
     "pos": 2,
     "rank": 1364
    },
-   "avazbek o lmasaliev": {
+   "avazbek olmasaliev": {
     "name": "Avazbek O'lmasaliev",
     "pos": 2,
     "rank": 1480
@@ -6157,7 +6157,7 @@
     "pos": 3,
     "rank": 292
    },
-   "aiden o neill": {
+   "aiden oneill": {
     "name": "Aiden O'Neill",
     "pos": 3,
     "rank": 382
@@ -6977,7 +6977,7 @@
     "pos": 3,
     "rank": 702
    },
-   "raja ei ayed": {
+   "rajaei ayed": {
     "name": "Raja'ei Ayed",
     "pos": 3,
     "rank": 800
@@ -7478,7 +7478,7 @@
     "pos": 1,
     "rank": 1320
    },
-   "ar jany martha": {
+   "arjany martha": {
     "name": "Ar'Jany Martha",
     "pos": 2,
     "rank": 1387
@@ -7647,10 +7647,10 @@
   },
   "UZB": {
    "abbosbek fayzullayev": "abbosbek fayzullaev",
-   "abduvohid nematov": "abduvokhid ne matov",
-   "avazbek ulmasaliev": "avazbek o lmasaliev",
+   "abduvohid nematov": "abduvokhid nematov",
+   "avazbek ulmasaliev": "avazbek olmasaliev",
    "azizbek amonov": "azizbek amanov",
-   "azizjon ganiev": "aziz g aniev",
+   "azizjon ganiev": "aziz ganiev",
    "behruz karimov": "bekhruz karimov"
   }
  },

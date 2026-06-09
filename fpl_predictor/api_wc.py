@@ -1828,7 +1828,7 @@ def _fifa_norm(s):
     NFKD -> ASCII-ignore (drops ø/ß/accents to nothing) -> lower -> strip '/./-."""
     import unicodedata
     s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
-    s = s.replace("'", " ").replace(".", " ").replace("-", " ")
+    s = s.replace("'", "").replace(".", " ").replace("-", " ")
     return " ".join(s.split())
 
 
@@ -1870,7 +1870,7 @@ def admin_align_to_fifa(lid: str):
     dry = bool(body.get("dryRun"))
     spec = _load_align_spec()
     teams, renames = spec["teams"], spec["renames"]
-    collisions = set(spec["collisions"])
+    collisions = {tuple(c.split("|", 1)) for c in spec["collisions"]}
     drops_set = {(d["iso"], d["norm"]) for d in spec["drops"]}
     from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
     league_ref = _db.collection("leagues").document(lid)
