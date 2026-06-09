@@ -137,9 +137,11 @@ function App() {
   const [displayName, setDisplayName] = React.useState("");
   const [authError, setAuthError] = React.useState("");
   const [isSignUp, setIsSignUp] = React.useState(false);
-  // activeLid === null means we are on the platform-selector lobby (home page).
-  // No league data is synced until the user explicitly enters a platform.
-  const [activeLid, setActiveLid] = React.useState(null);
+  // The app boots straight into the single league — the mock-data showcase
+  // (lg_mock_draft), which "transforms" into the real league once its data is
+  // updated. There is no platform-chooser lobby any more: lg_mock_draft IS the
+  // home/default. (No data syncs until `user` resolves — see the sync effect.)
+  const [activeLid, setActiveLid] = React.useState("lg_mock_draft");
   const [myLeagues, setMyLeagues] = React.useState([]);
   const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
@@ -161,8 +163,9 @@ function App() {
   // Expose global league switch/refresh handlers
   React.useEffect(() => {
     window.setActiveLeagueId = setActiveLid;
-    // Return to the platform-selector lobby (used by the TopBar "Switch league" button).
-    window.goToLobby = () => setActiveLid(null);
+    // The lobby is gone — there is only the one league. Any stray call just
+    // keeps the user on the mock-data league rather than showing a chooser.
+    window.goToLobby = () => setActiveLid("lg_mock_draft");
     // Re-fetch the user's league list WITHOUT auto-selecting one. Callers that
     // want to enter a specific league (create/join) call setActiveLeagueId themselves.
     window.refreshActiveLeague = async () => {
