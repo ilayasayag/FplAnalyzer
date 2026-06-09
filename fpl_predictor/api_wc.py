@@ -1889,6 +1889,22 @@ def admin_align_to_fifa(lid: str):
 
     # 2. Walk wc_players: relabel / flip / rename / collision-keep / mark drops.
     all_docs = list(_db.collection("wc_players").get())
+
+    # 2a. Backup the pre-migration pool + squads to a single doc (apply only) so
+    #     the change has a one-shot rollback point. gamedb is not writable from a
+    #     local SDK, so the snapshot lives server-side.
+    if not dry:
+        backup = {"ts": SERVER_TIMESTAMP, "players": {}, "squads": {}}
+        for d in all_docs:
+            pd = d.to_dict() or {}
+            backup["players"][str(d.id)] = {
+                "name": pd.get("name"), "position": pd.get("position"),
+                "positionName": pd.get("positionName"),
+                "draftRank": pd.get("draftRank")}
+        for uid, players in squads.items():
+            backup["squads"][uid] = players
+        _db.collection("wc_config").document("fifa_align_backup").set(backup)
+
     new_by_id = {}        # pid -> {pos,name,iso,rank,teamId,teamName}
     existing_norm = {}    # (iso, norm) -> pid  (post-rename; for add idempotency)
     team_meta = {}        # iso -> {teamId, teamName}
