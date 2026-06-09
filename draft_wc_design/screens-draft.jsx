@@ -269,10 +269,15 @@ function DraftRoomScreen({ onTab }) {
                   >
                     <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
                     <span className="mono" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, minWidth: 16, flexShrink: 0 }}>{idx + 1}</span>
-                    <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white" }}>{p.name}</div>
-                      <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                    <div 
+                      style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}
+                      onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: p.id } }))}
+                    >
+                      <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white", textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
+                        <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                      </div>
                     </div>
                     <button
                       onClick={() => handleDraftPick(id)}
@@ -459,10 +464,13 @@ function DraftRoomScreen({ onTab }) {
               const isWatched = watchlistSet.has(getNormalizedPlayerId(p.id));
               return (
                 <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div 
+                    style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: p.id } }))}
+                  >
                     <div style={{ width: 30, height: 30 }}><Jersey team={t} pos={p.pos} /></div>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{p.name}</div>
+                      <div style={{ fontWeight: 700, textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
                       <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Group {t.grp}</div>
                     </div>
                   </div>
@@ -518,10 +526,15 @@ function DraftRoomScreen({ onTab }) {
               return (
                 <div key={i} className="card-section" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
                   <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>R{p.round}</span>
-                  <div style={{ width: 28, height: 28 }}><Jersey team={plT} pos={pl.pos} /></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{pl.name}</div>
-                    <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
+                  <div 
+                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", minWidth: 0 }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: pl.id } }))}
+                  >
+                    <div style={{ width: 28, height: 28, flexShrink: 0 }}><Jersey team={plT} pos={pl.pos} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{pl.name}</div>
+                      <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
+                    </div>
                   </div>
                   <span className="mono" style={{ color: "var(--green-400)", fontWeight: 700, fontSize: 13 }}>{pl.pts}</span>
                 </div>
@@ -570,8 +583,13 @@ function DraftRoomScreen({ onTab }) {
                       marginTop: 6,
                       overflow: "hidden",
                       textOverflow: "ellipsis",
-                      whiteSpace: "nowrap"
-                    }}>
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      decorationColor: "rgba(255,255,255,0.15)"
+                    }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: lastPick.playerId } }))}
+                    >
                       {playerById(lastPick.playerId).name}
                     </div>
                   ) : (

@@ -269,7 +269,14 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
   return (
     <div
       className={`player-slot ${isElim ? "player-slot--eliminated" : ""} ${disabled ? "player-slot--disabled" : ""} ${selected ? "player-slot--selected" : ""}`}
-      onClick={onClick}
+      style={{ cursor: "pointer" }}
+      onClick={(e) => {
+        if (onClick) {
+          onClick(e);
+        } else {
+          openStats(e);
+        }
+      }}
     >
       <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
