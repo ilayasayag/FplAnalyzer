@@ -992,9 +992,12 @@ function TransferHistoryTab() {
   // to ids so the chip helper can look them up in PLAYER_MAP like everything else.
   const tradePids = (arr) => (arr || []).map(p => (p && typeof p === "object") ? p.playerId : p);
   const trades = (txns || []).filter(t => t && t.type === "trade_accepted");
+  // Free-agent pickups (playerIn + playerOut) and pure drops (playerOut only).
+  const moves = (txns || []).filter(t => t && (t.type === "free_agent" || t.type === "drop"));
   const gws = [...new Set([
     ...(wl || []).map(r => r.gw),
     ...trades.map(t => t.gw),
+    ...moves.map(t => t.gw),
   ].filter(g => g != null))].sort((a, b) => b - a);
 
   if (!gws.length) {
@@ -1010,13 +1013,14 @@ function TransferHistoryTab() {
       {gws.map(gw => {
         const items = auctionItems((wl || []).find(r => r.gw === gw));
         const gwTrades = trades.filter(t => t.gw === gw);
+        const gwMoves = moves.filter(m => m.gw === gw);
         const nClaimed = items.filter(i => i.claimed).length;
         return (
           <div key={gw} className="card" style={{ overflow: "hidden" }}>
             <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
               <strong>Gameweek {gw}</strong>
               <span className="muted" style={{ fontSize: 12 }}>
-                {gwTrades.length} trade{gwTrades.length === 1 ? "" : "s"} · {nClaimed} claimed · {items.length - nClaimed} cancelled
+                {gwTrades.length} trade{gwTrades.length === 1 ? "" : "s"} · {gwMoves.length} free agent{gwMoves.length === 1 ? "" : "s"} · {nClaimed} claimed · {items.length - nClaimed} cancelled
               </span>
             </div>
 
@@ -1047,6 +1051,21 @@ function TransferHistoryTab() {
                       ? "✓ Claimed"
                       : <span title="cancelled — player went to another manager">↓ {it.wonByUid ? `won by ${mgr(it.wonByUid)}` : "Cancelled"}</span>}
                   </span>
+                </div>
+              );
+            })}
+
+            {/* Free-agent pickups / drops (instant moves outside the auction) */}
+            {gwMoves.map((m, i) => {
+              const pIn = m.playerIn != null ? pl(m.playerIn) : null;
+              const pOut = m.playerOut != null ? pl(m.playerOut) : null;
+              return (
+                <div key={`fa${i}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 16px", borderTop: "1px solid var(--border)", background: "rgba(0,168,67,0.04)" }}>
+                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#0a7d3c", background: "rgba(0,168,67,0.12)", padding: "3px 7px", borderRadius: 6 }}>FREE AGENT</span>
+                  <strong style={{ fontSize: 13, minWidth: 90 }}>{mgr(m.uid)}</strong>
+                  {pIn && chip(pIn, "in")}
+                  {pIn && pOut && <span style={{ color: "var(--ink-400)" }}>↔</span>}
+                  {pOut && chip(pOut, "out")}
                 </div>
               );
             })}
