@@ -3,6 +3,7 @@ import json
 import unicodedata
 import firebase_admin
 from firebase_admin import firestore
+from datetime import datetime, timedelta, timezone
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 from fpl_predictor.game.wc_scoring import process_fixture, finalize_gw
 from fpl_predictor.data.wc_api import WC2026Client
@@ -292,6 +293,48 @@ def _mock_scoreline(home, away, gw):
     return {"home": g(home + away) % 4, "away": g(away + home) % 3}
 
 
+# Real per-fixture kickoffs as ISRAEL local wall-clock (the schedule is in
+# Israel time; June 2026 = IDT = UTC+3). Keyed by fixture id. _kickoff_utc()
+# converts to a UTC instant for storage; the client renders it in the viewer's
+# local zone, so an Israeli viewer sees exactly these times/dates.
+GROUP_STAGE_KICKOFFS = {
+    101: "2026-06-11T22:00", 102: "2026-06-12T05:00", 103: "2026-06-12T22:00",
+    104: "2026-06-13T04:00", 105: "2026-06-13T22:00", 106: "2026-06-14T01:00",
+    107: "2026-06-14T04:00", 108: "2026-06-14T07:00", 109: "2026-06-14T20:00",
+    110: "2026-06-14T23:00", 111: "2026-06-15T02:00", 112: "2026-06-15T05:00",
+    113: "2026-06-15T19:00", 114: "2026-06-15T22:00", 115: "2026-06-16T01:00",
+    116: "2026-06-16T04:00", 117: "2026-06-16T22:00", 118: "2026-06-17T01:00",
+    119: "2026-06-17T04:00", 120: "2026-06-17T07:00", 121: "2026-06-17T20:00",
+    122: "2026-06-17T23:00", 123: "2026-06-18T02:00", 124: "2026-06-18T05:00",
+    201: "2026-06-18T19:00", 202: "2026-06-18T22:00", 203: "2026-06-19T01:00",
+    204: "2026-06-19T04:00", 205: "2026-06-19T22:00", 206: "2026-06-20T01:00",
+    207: "2026-06-20T03:30", 208: "2026-06-20T06:00", 209: "2026-06-20T20:00",
+    210: "2026-06-20T23:00", 211: "2026-06-21T03:00", 212: "2026-06-21T07:00",
+    213: "2026-06-21T19:00", 214: "2026-06-21T22:00", 215: "2026-06-22T01:00",
+    216: "2026-06-22T04:00", 217: "2026-06-22T20:00", 218: "2026-06-23T00:00",
+    219: "2026-06-23T03:00", 220: "2026-06-23T06:00", 221: "2026-06-23T20:00",
+    222: "2026-06-23T23:00", 223: "2026-06-24T02:00", 224: "2026-06-24T05:00",
+    301: "2026-06-24T22:00", 302: "2026-06-24T22:00", 303: "2026-06-25T01:00",
+    304: "2026-06-25T01:00", 305: "2026-06-25T04:00", 306: "2026-06-25T04:00",
+    307: "2026-06-25T23:00", 308: "2026-06-25T23:00", 309: "2026-06-26T02:00",
+    310: "2026-06-26T02:00", 311: "2026-06-26T05:00", 312: "2026-06-26T05:00",
+    313: "2026-06-26T22:00", 314: "2026-06-26T22:00", 315: "2026-06-27T03:00",
+    316: "2026-06-27T03:00", 317: "2026-06-27T06:00", 318: "2026-06-27T06:00",
+    319: "2026-06-28T00:00", 320: "2026-06-28T00:00", 321: "2026-06-28T02:30",
+    322: "2026-06-28T02:30", 323: "2026-06-28T05:00", 324: "2026-06-28T05:00",
+}
+
+_ISRAEL_TZ = timezone(timedelta(hours=3))  # IDT (June)
+
+
+def _kickoff_utc(fid):
+    """Israel-local kickoff (GROUP_STAGE_KICKOFFS) -> UTC datetime for Firestore."""
+    s = GROUP_STAGE_KICKOFFS.get(fid)
+    if not s:
+        return SERVER_TIMESTAMP
+    return datetime.fromisoformat(s).replace(tzinfo=_ISRAEL_TZ).astimezone(timezone.utc)
+
+
 def seed_real_fixtures(db, drafted_players, events_by_gw, played_gws=(1, 2)):
     """Wipe wc_fixtures and write the real WC group-stage schedule (72 games).
 
@@ -326,7 +369,7 @@ def seed_real_fixtures(db, drafted_players, events_by_gw, played_gws=(1, 2)):
                 "id": fid, "gw": gw, "wcRound": f"Group Stage · MD{gw}", "group": group,
                 "homeTeam": {"id": 1, "isoCode": home, "name": home},
                 "awayTeam": {"id": 2, "isoCode": away, "name": away},
-                "kickoff": SERVER_TIMESTAMP,
+                "kickoff": _kickoff_utc(fid),
                 "status": "FT" if played else "NS",
                 "processedForFantasy": False,
             }
