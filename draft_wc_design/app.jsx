@@ -605,21 +605,33 @@ function App() {
         // WC_FIXTURES_GW4 round. Keyed by the same iso the players use
         // (backend resolves homeTeam/awayTeam isoCode from the team map).
         try {
-          const fixtures = await apiCall("GET", `/fixtures?gw=${viewingGw}`);
-          const byTeam = {};
-          (fixtures || []).forEach(fx => {
-            const h = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
-            const a = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
-            if (h && a) {
-              byTeam[h] = { opp: a, home: true };
-              byTeam[a] = { opp: h, home: false };
-            }
-          });
+          // Build the by-team map for the viewed GW. If that GW has no fixtures
+          // yet (e.g. the mock sits at currentGw=4/knockout but only GW1-3 are
+          // scheduled), walk back to the most recent GW that DOES have fixtures
+          // so every active player still shows a real opponent instead of "—".
+          // There is no static fallback any more — an empty map just yields "—".
+          const buildByTeam = (fixtures) => {
+            const byTeam = {};
+            (fixtures || []).forEach(fx => {
+              const h = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
+              const a = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
+              if (h && a) {
+                byTeam[h] = { opp: a, home: true };
+                byTeam[a] = { opp: h, home: false };
+              }
+            });
+            return byTeam;
+          };
+          let byTeam = {};
+          for (let g = viewingGw; g >= 1; g--) {
+            const fixtures = await apiCall("GET", `/fixtures?gw=${g}`);
+            byTeam = buildByTeam(fixtures);
+            if (Object.keys(byTeam).length > 0) break;
+          }
           window.WC_FIXTURES_BY_TEAM = byTeam;
         } catch (e) {
           console.warn("Failed to fetch per-team fixtures", e);
-          // Keep any previously-loaded map; getNextFixtureOpponent falls back
-          // to the static WC_FIXTURES_GW4 round when this is empty.
+          // Keep any previously-loaded map; an empty map just renders "—".
           if (!window.WC_FIXTURES_BY_TEAM) window.WC_FIXTURES_BY_TEAM = {};
         }
 

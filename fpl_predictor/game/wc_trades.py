@@ -200,7 +200,11 @@ class WCTradeManager:
                                   "declineReason": str(e)})
                 raise
 
-            if mode == "instant":
+            # Mock (simulated) leagues finalize the instant both-sides-agree
+            # deal immediately — there's no league veto vote / admin to resolve
+            # an `awaiting_vote`/`awaiting_admin` trade in the showcase, so it
+            # would otherwise sit unexecuted forever (squads never swap).
+            if mode == "instant" or league.get("simulated"):
                 return self._finalize_trade(lid, trade_ref, trade)
             elif mode == "admin":
                 trade_ref.update({"status": "awaiting_admin"})
@@ -468,8 +472,12 @@ class WCTradeManager:
         _swap(self.db.transaction(), prop_squad_ref, tgt_squad_ref,
               prop_out_ids, tgt_out_ids)
 
+        # Stamp the GW so the per-GW transfer history can group this trade with
+        # the same window's wishlist auction (wishlist_results/{gw}).
+        cur_gw = (league_ref.get().to_dict() or {}).get("currentGw")
         league_ref.collection("transactions").document().set({
             "type": "trade_accepted",
+            "gw": cur_gw,
             "proposerUid": prop_uid,
             "targetUid": tgt_uid,
             "proposerPlayers": trade["proposerPlayers"],

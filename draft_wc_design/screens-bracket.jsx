@@ -234,14 +234,20 @@ function BracketMatch({ match, result, round }) {
 // Animated replay of a wishlist auction — reveals each executed claim one-by-one
 // in resolution order (waiver priority), showing the manager + player IN/OUT.
 function AuctionViz({ result, onClose }) {
-  // Reveal claimed swaps first (↔), then the cancelled bids (↓) — players that
-  // were contested/unavailable so the swap didn't go through.
-  const items = React.useMemo(() => [
-    ...((result && result.executed) || []).map(e => ({ ...e, ok: true })),
-    ...((result && result.failed) || []).map(f => ({ ...f, ok: false })),
-  ], [result]);
-  const nClaimed = ((result && result.executed) || []).length;
-  const nFailed = ((result && result.failed) || []).length;
+  // Reveal events in the EXACT order the auction resolved them — claims (↔) and
+  // cancels (↓) interleaved — so a cancelled bid appears the moment it lost,
+  // next to the claim that beat it. Falls back to executed-then-failed for an
+  // older payload with no ordered event log.
+  const items = React.useMemo(() => {
+    const ev = (result && result.events) || [];
+    if (ev.length) return ev.map(e => ({ ...e, ok: e.type === "claim" }));
+    return [
+      ...((result && result.executed) || []).map(e => ({ ...e, ok: true })),
+      ...((result && result.failed) || []).map(f => ({ ...f, ok: false })),
+    ];
+  }, [result]);
+  const nClaimed = items.filter(it => it.ok).length;
+  const nFailed = items.length - nClaimed;
   const [revealed, setRevealed] = React.useState(0);
   React.useEffect(() => {
     if (revealed >= items.length) return;
@@ -295,8 +301,12 @@ function AuctionViz({ result, onClose }) {
                 ) : (
                   <React.Fragment>
                     {chip(pl(it.playerIn), "in")}
-                    <span title="bid cancelled — player unavailable" style={{ color: "#ff9aa3", fontWeight: 900, fontSize: 16 }}>↓</span>
-                    <span style={{ fontSize: 11, fontWeight: 700, color: "#ff9aa3" }}>cancelled · taken by a higher pick</span>
+                    <span style={{ color: "rgba(255,255,255,0.4)" }}>↔</span>
+                    {chip(pl(it.playerOut), "out")}
+                    <span title="bid cancelled — player went to another manager" style={{ color: "#ff9aa3", fontWeight: 900, fontSize: 16 }}>↓</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#ff9aa3" }}>
+                      {it.wonByUid ? `cancelled · won by ${mgrName(it.wonByUid)}` : "cancelled · unavailable"}
+                    </span>
                   </React.Fragment>
                 )}
               </div>
@@ -358,7 +368,7 @@ function TransfersScreen() {
       // Replay the auction in the UI (claims revealed one-by-one in resolution
       // order) instead of a bare alert. Closing the modal reloads into the new
       // FA-window state with the updated squads.
-      setAuctionViz({ gw: res.gw, executed: a.executed || [], failed: a.failed || [] });
+      setAuctionViz({ gw: res.gw, executed: a.executed || [], failed: a.failed || [], events: a.events || [] });
     } catch (err) {
       alert("Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err)));
       setRunningMock(false);
@@ -921,71 +931,128 @@ function MySquadTab() {
 }
 
 function TransferHistoryTab() {
-  // Durable wishlist-auction history (survives the bids being deleted at auction
-  // time): the manager's ORDERED bids per GW with each one's outcome — claimed
-  // (✓) or cancelled (↓, the player went to a higher pick / was unavailable).
-  const [rows, setRows] = React.useState(null);
+  // League-wide transfer history grouped per gameweek (newest first). Each GW
+  // shows BOTH:
+  //   • manager↔manager trades that resolved that GW (transactions, type="trade")
+  //   • the wishlist auction — EVERY manager's bids in resolution order, each
+  //     claimed (✓) or cancelled (↓ with the manager who won the player).
+  // Sources: GET /wishlist-results (durable ordered events) + GET /transactions.
+  const [wl, setWl] = React.useState(null);
+  const [txns, setTxns] = React.useState(null);
   React.useEffect(() => {
     const lid = window.LEAGUE && window.LEAGUE.id;
-    if (!lid) { setRows([]); return; }
+    if (!lid) { setWl([]); setTxns([]); return; }
     let cancelled = false;
     apiCall("GET", `/leagues/${lid}/wishlist-results`)
-      .then(res => { if (!cancelled) setRows((res && res.results) || []); })
-      .catch(() => { if (!cancelled) setRows([]); });
+      .then(res => { if (!cancelled) setWl((res && res.results) || []); })
+      .catch(() => { if (!cancelled) setWl([]); });
+    apiCall("GET", `/leagues/${lid}/transactions?limit=500`)
+      .then(res => { if (!cancelled) setTxns(Array.isArray(res) ? res : ((res && res.transactions) || [])); })
+      .catch(() => { if (!cancelled) setTxns([]); });
     return () => { cancelled = true; };
   }, []);
 
-  const me = window.ME;
   const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
-  const mine = (rows || [])
-    .map(r => ({ gw: r.gw, bids: ((r.results || []).find(x => x.uid === me) || {}).bids || [] }))
-    .filter(x => x.bids.length);
+  const mgr = (uid) => { const m = managerById(uid); return m ? (m.team || m.name || uid) : uid; };
 
-  if (rows === null) {
-    return <div className="card" style={{ padding: "24px 18px", textAlign: "center", color: "var(--ink-500)" }}>Loading wishlist history…</div>;
+  // Flatten one auction doc into an ordered list of {uid, playerIn, playerOut,
+  // claimed, wonByUid}. Prefer the chronological `events`; fall back to the
+  // per-manager `results` for older payloads with no event log.
+  const auctionItems = (auction) => {
+    if (!auction) return [];
+    if ((auction.events || []).length) {
+      return auction.events.map(e => ({
+        uid: e.uid, playerIn: e.playerIn, playerOut: e.playerOut,
+        claimed: e.type === "claim", wonByUid: e.wonByUid,
+      }));
+    }
+    const out = [];
+    (auction.results || []).forEach(r => (r.bids || []).forEach(b => out.push({
+      uid: r.uid, playerIn: b.playerIn, playerOut: b.playerOut,
+      claimed: b.status === "claimed", wonByUid: b.wonByUid,
+    })));
+    return out;
+  };
+
+  const chip = (p, kind) => {
+    const isIn = kind === "in";
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px", borderRadius: 7,
+        background: isIn ? "rgba(0,168,67,0.12)" : "rgba(230,57,70,0.10)", color: isIn ? "#0a7d3c" : "#b3303a", fontWeight: 700, fontSize: 13 }}>
+        <Flag team={teamById(p.team)} /> {p.name} <span style={{ fontSize: 10, opacity: 0.8 }}>{isIn ? "IN" : "OUT"}</span>
+      </span>
+    );
+  };
+
+  if (wl === null || txns === null) {
+    return <div className="card" style={{ padding: "24px 18px", textAlign: "center", color: "var(--ink-500)" }}>Loading transfer history…</div>;
   }
-  if (!mine.length) {
+
+  // Trade transactions store players as objects ({playerId, name, ...}); resolve
+  // to ids so the chip helper can look them up in PLAYER_MAP like everything else.
+  const tradePids = (arr) => (arr || []).map(p => (p && typeof p === "object") ? p.playerId : p);
+  const trades = (txns || []).filter(t => t && t.type === "trade_accepted");
+  const gws = [...new Set([
+    ...(wl || []).map(r => r.gw),
+    ...trades.map(t => t.gw),
+  ].filter(g => g != null))].sort((a, b) => b - a);
+
+  if (!gws.length) {
     return (
       <div className="card" style={{ padding: "24px 18px", textAlign: "center", color: "var(--ink-500)" }}>
-        No wishlist history yet — run a wishlist auction and your ordered bids (claimed + cancelled) will be recorded here per gameweek.
+        No transfer history yet — manager trades and wishlist auctions across the league will appear here per gameweek.
       </div>
     );
   }
 
   return (
-    <div className="col" style={{ gap: 14 }}>
-      {mine.map(({ gw, bids }) => (
-        <div key={gw} className="card" style={{ overflow: "hidden" }}>
-          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-            <strong>Wishlist auction · GW{gw}</strong>
-            <span className="muted" style={{ fontSize: 12 }}>
-              {bids.filter(b => b.status === "claimed").length} claimed · {bids.filter(b => b.status !== "claimed").length} cancelled
-            </span>
-          </div>
-          <div className="col" style={{ gap: 0 }}>
-            {bids.map((b, i) => {
-              const pIn = pl(b.playerIn), pOut = pl(b.playerOut);
-              const ok = b.status === "claimed";
+    <div className="col" style={{ gap: 16 }}>
+      {gws.map(gw => {
+        const items = auctionItems((wl || []).find(r => r.gw === gw));
+        const gwTrades = trades.filter(t => t.gw === gw);
+        const nClaimed = items.filter(i => i.claimed).length;
+        return (
+          <div key={gw} className="card" style={{ overflow: "hidden" }}>
+            <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+              <strong>Gameweek {gw}</strong>
+              <span className="muted" style={{ fontSize: 12 }}>
+                {gwTrades.length} trade{gwTrades.length === 1 ? "" : "s"} · {nClaimed} claimed · {items.length - nClaimed} cancelled
+              </span>
+            </div>
+
+            {/* Manager↔manager trades */}
+            {gwTrades.map((t, i) => (
+              <div key={`t${i}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 16px", borderTop: "1px solid var(--border)", background: "rgba(46,91,255,0.04)" }}>
+                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#2e5bff", background: "rgba(46,91,255,0.12)", padding: "3px 7px", borderRadius: 6 }}>TRADE</span>
+                <strong style={{ fontSize: 13 }}>{mgr(t.proposerUid)}</strong>
+                {tradePids(t.proposerPlayers).map((id, k) => <span key={`p${k}`}>{chip(pl(id), "out")}</span>)}
+                <span style={{ color: "var(--ink-400)" }}>↔</span>
+                {tradePids(t.targetPlayers).map((id, k) => <span key={`g${k}`}>{chip(pl(id), "in")}</span>)}
+                <strong style={{ fontSize: 13 }}>{mgr(t.targetUid)}</strong>
+              </div>
+            ))}
+
+            {/* Wishlist auction — every manager, in resolution order */}
+            {items.map((it, i) => {
+              const pIn = pl(it.playerIn), pOut = pl(it.playerOut);
               return (
-                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
-                  <span style={{ fontWeight: 800, color: "var(--ink-400)", width: 26 }}>#{i + 1}</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px", borderRadius: 7, background: "rgba(0,168,67,0.12)", color: "#0a7d3c", fontWeight: 700, fontSize: 13 }}>
-                    <Flag team={teamById(pIn.team)} /> {pIn.name} <span style={{ fontSize: 10, opacity: 0.8 }}>IN</span>
-                  </span>
+                <div key={`w${i}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 16px", borderTop: "1px solid var(--border)" }}>
+                  <strong style={{ fontSize: 13, minWidth: 90 }}>{mgr(it.uid)}</strong>
+                  {chip(pIn, "in")}
                   <span style={{ color: "var(--ink-400)" }}>↔</span>
-                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px", borderRadius: 7, background: "rgba(230,57,70,0.10)", color: "#b3303a", fontWeight: 700, fontSize: 13 }}>
-                    <Flag team={teamById(pOut.team)} /> {pOut.name} <span style={{ fontSize: 10, opacity: 0.8 }}>OUT</span>
-                  </span>
+                  {chip(pOut, "out")}
                   <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800,
-                    color: ok ? "#0a8043" : "#c0392b" }}>
-                    {ok ? "✓ Claimed" : (<span title="cancelled — player went to a higher pick / unavailable">↓ Cancelled</span>)}
+                    color: it.claimed ? "#0a8043" : "#c0392b" }}>
+                    {it.claimed
+                      ? "✓ Claimed"
+                      : <span title="cancelled — player went to another manager">↓ {it.wonByUid ? `won by ${mgr(it.wonByUid)}` : "Cancelled"}</span>}
                   </span>
                 </div>
               );
             })}
           </div>
-        </div>
-      ))}
+        );
+      })}
     </div>
   );
 }
