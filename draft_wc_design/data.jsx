@@ -83,7 +83,7 @@ const PLAYERS = [
   { id: "p_alisson", name: "Alisson",   pos: 1, team: "BRA", pts: 38, dr: 28 },
   { id: "p_marquinhos", name: "Marquinhos", pos: 2, team: "BRA", pts: 24, dr: 41 },
   { id: "p_militao", name: "Militão",  pos: 2, team: "BRA", pts: 19, dr: 84 },
-  { id: "p_vinijr", name: "Vinícius Jr", pos: 4, team: "BRA", pts: 52, dr: 3 },
+  { id: "p_vinijr", name: "Vinícius Júnior", pos: 4, team: "BRA", pts: 52, dr: 3 },
   { id: "p_rodrygo", name: "Rodrygo",   pos: 3, team: "BRA", pts: 31, dr: 19 },
   { id: "p_neymar", name: "Neymar",    pos: 3, team: "BRA", pts: 28, dr: 8 },
   { id: "p_endrick", name: "Endrick",   pos: 4, team: "BRA", pts: 18, dr: 47 },
@@ -93,8 +93,8 @@ const PLAYERS = [
   { id: "p_lisandro", name: "L. Martínez", pos: 2, team: "ARG", pts: 22, dr: 38 },
   { id: "p_otamendi", name: "Otamendi",  pos: 2, team: "ARG", pts: 17, dr: 92 },
   { id: "p_demaria", name: "Di María",   pos: 3, team: "ARG", pts: 25, dr: 33 },
-  { id: "p_alvarez", name: "J. Álvarez", pos: 4, team: "ARG", pts: 41, dr: 6 },
-  { id: "p_messi", name: "Messi",     pos: 3, team: "ARG", pts: 48, dr: 1 },
+  { id: "p_alvarez", name: "Julián Álvarez", pos: 4, team: "ARG", pts: 41, dr: 6 },
+  { id: "p_messi", name: "Lionel Messi",     pos: 3, team: "ARG", pts: 48, dr: 1 },
   { id: "p_macallister", name: "Mac Allister", pos: 3, team: "ARG", pts: 27, dr: 22 },
 
   // ----- France -----
@@ -102,25 +102,25 @@ const PLAYERS = [
   { id: "p_kounde", name: "Koundé",    pos: 2, team: "FRA", pts: 21, dr: 51 },
   { id: "p_saliba", name: "Saliba",    pos: 2, team: "FRA", pts: 26, dr: 32 },
   { id: "p_tchouameni", name: "Tchouaméni", pos: 3, team: "FRA", pts: 19, dr: 76 },
-  { id: "p_mbappe", name: "Mbappé",    pos: 4, team: "FRA", pts: 49, dr: 2 },
-  { id: "p_dembele", name: "O. Dembélé", pos: 3, team: "FRA", pts: 34, dr: 11 },
+  { id: "p_mbappe", name: "Kylian Mbappé",    pos: 4, team: "FRA", pts: 49, dr: 2 },
+  { id: "p_dembele", name: "Ousmane Dembélé", pos: 3, team: "FRA", pts: 34, dr: 11 },
   { id: "p_kolo_muani", name: "Kolo Muani", pos: 4, team: "FRA", pts: 23, dr: 43 },
 
   // ----- England -----
   { id: "p_pickford", name: "Pickford",  pos: 1, team: "ENG", pts: 25, dr: 42 },
   { id: "p_stones", name: "Stones",    pos: 2, team: "ENG", pts: 20, dr: 65 },
   { id: "p_walker", name: "Walker",    pos: 2, team: "ENG", pts: 18, dr: 88 },
-  { id: "p_bellingham", name: "Bellingham", pos: 3, team: "ENG", pts: 42, dr: 5 },
-  { id: "p_foden", name: "Foden",     pos: 3, team: "ENG", pts: 36, dr: 9 },
-  { id: "p_saka", name: "Saka",      pos: 3, team: "ENG", pts: 33, dr: 13 },
-  { id: "p_kane", name: "Kane",      pos: 4, team: "ENG", pts: 44, dr: 4 },
+  { id: "p_bellingham", name: "Jude Bellingham", pos: 3, team: "ENG", pts: 42, dr: 5 },
+  { id: "p_foden", name: "Phil Foden",     pos: 3, team: "ENG", pts: 36, dr: 9 },
+  { id: "p_saka", name: "Bukayo Saka",      pos: 3, team: "ENG", pts: 33, dr: 13 },
+  { id: "p_kane", name: "Harry Kane",      pos: 4, team: "ENG", pts: 44, dr: 4 },
 
   // ----- Spain -----
   { id: "p_simon", name: "U. Simón",  pos: 1, team: "ESP", pts: 27, dr: 36 },
   { id: "p_lenormand", name: "Le Normand", pos: 2, team: "ESP", pts: 23, dr: 44 },
   { id: "p_carvajal", name: "Carvajal",  pos: 2, team: "ESP", pts: 21, dr: 56 },
   { id: "p_pedri", name: "Pedri",     pos: 3, team: "ESP", pts: 32, dr: 17 },
-  { id: "p_yamal", name: "L. Yamal",  pos: 3, team: "ESP", pts: 38, dr: 7 },
+  { id: "p_yamal", name: "Lamine Yamal",  pos: 3, team: "ESP", pts: 38, dr: 7 },
   { id: "p_rodri", name: "Rodri",     pos: 3, team: "ESP", pts: 22, dr: 39 },
   { id: "p_morata", name: "Morata",    pos: 4, team: "ESP", pts: 24, dr: 35 },
 
@@ -381,9 +381,10 @@ const DRAFT_STATE = {
   onTheClock: "u_yuval",
   totalRounds: 15,
   totalPicks: 150,
-  pickTimer: 60,
+  pickTimer: 30,
   secondsLeft: 38,
   isMyTurn: false,
+  order: ["u_roy", "u_yonatan", "u_nadav", "u_yuval", "u_ido", "u_shai", "u_me"],
 };
 
 const DRAFT_HISTORY = [
@@ -431,7 +432,7 @@ const LEAGUE = {
   knockoutStartGw: 7,
   leaguePhaseGws: [1, 2, 3, 4, 5, 6],
   knockoutQualifiers: 4,
-  pickTimer: 60,
+  pickTimer: 30,
   tradeApproval: "vote",
   admin: "u_roy",
 };

@@ -35,7 +35,7 @@ class WCLeagueManager:
         name: str,
         display_name: str,
         trade_approval: str = "vote",
-        pick_timer: int = 60,
+        pick_timer: int = 30,
         max_members: int = 8,
         draft_at: datetime = None,
     ) -> dict:

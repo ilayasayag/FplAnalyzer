@@ -2,11 +2,23 @@
 // WC26 — Screens: Draft Room (live snake draft) + Create/Join League
 // =====================================================================
 
+const getNormalizedPlayerId = (id) => {
+  if (id === null || id === undefined) return "";
+  if (typeof id === "number") return id;
+  const num = Number(id);
+  if (!isNaN(num)) return num;
+  const cleaned = String(id).replace("p_", "");
+  const numCleaned = Number(cleaned);
+  if (!isNaN(numCleaned)) return numCleaned;
+  return id;
+};
+
 // ---------- DRAFT ROOM ----------
 function DraftRoomScreen({ onTab }) {
   // The clock reflects the REAL server deadline (DRAFT_STATE.secondsLeft), not a
   // hardcoded countdown. 0 when no draft is running for the active league.
   const serverSeconds = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.secondsLeft) ? DRAFT_STATE.secondsLeft : 0;
+  const isPaused = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.paused : false;
   const [secondsLeft, setSecondsLeft] = React.useState(serverSeconds);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
@@ -15,7 +27,7 @@ function DraftRoomScreen({ onTab }) {
   const [watchlistIds, setWatchlistIds] = React.useState([]);
   const [loadingWatchlist, setLoadingWatchlist] = React.useState(false);
   const [draggedIdx, setDraggedIdx] = React.useState(null);
-  const watchlistSet = React.useMemo(() => new Set(watchlistIds), [watchlistIds]);
+  const watchlistSet = React.useMemo(() => new Set(watchlistIds.map(getNormalizedPlayerId)), [watchlistIds]);
   const [nationFilter, setNationFilter] = React.useState("all");
 
   const handleDraftPick = async (playerId) => {
@@ -42,10 +54,10 @@ function DraftRoomScreen({ onTab }) {
 
   // Toggle a player in/out of the watchlist, then persist.
   const handleToggleWatchlist = async (playerId) => {
-    const id = Number(playerId);
+    const id = getNormalizedPlayerId(playerId);
     const newIds = watchlistSet.has(id)
-      ? watchlistIds.filter(x => x !== id)
-      : [...watchlistIds, id];
+      ? watchlistIds.map(getNormalizedPlayerId).filter(x => x !== id)
+      : [...watchlistIds.map(getNormalizedPlayerId), id];
     setWatchlistIds(newIds);
     await saveWatchlist(newIds);
   };
@@ -61,13 +73,33 @@ function DraftRoomScreen({ onTab }) {
       .finally(() => setLoadingWatchlist(false));
   }, []);
 
-  // Re-sync the clock whenever the server-provided deadline changes.
-  React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
+  const lastPickRef = React.useRef(DRAFT_STATE.pickOverall);
+  const lastPausedRef = React.useRef(isPaused);
 
   React.useEffect(() => {
-    const t = setInterval(() => setSecondsLeft(s => Math.max(0, s - 1)), 1000);
+    if (draftNotStarted) {
+      setSecondsLeft(0);
+      return;
+    }
+    const timerVal = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.pickTimer) ? DRAFT_STATE.pickTimer : 30;
+    
+    if (DRAFT_STATE.pickOverall !== lastPickRef.current || (lastPausedRef.current && !isPaused)) {
+      setSecondsLeft(timerVal);
+    }
+    
+    lastPickRef.current = DRAFT_STATE.pickOverall;
+    lastPausedRef.current = isPaused;
+  }, [DRAFT_STATE.pickOverall, isPaused]);
+
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setSecondsLeft(s => {
+        if (isPaused) return s;
+        return Math.max(0, s - 1);
+      });
+    }, 1000);
     return () => clearInterval(t);
-  }, []);
+  }, [isPaused]);
 
   // Auto-pick watchdog: when the on-screen timer hits 0 AND a draft is active,
   // fire /draft/auto-pick. Any client in the room can fire this — the engine
@@ -79,6 +111,7 @@ function DraftRoomScreen({ onTab }) {
   React.useEffect(() => {
     const deadline = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.pickDeadline : null;
     const status = (typeof DRAFT_STATE !== "undefined") ? DRAFT_STATE.status : null;
+    if (isPaused) return;
     if (secondsLeft === 0 && status === "active" && deadline && lastFiredFor.current !== deadline) {
       lastFiredFor.current = deadline;
       const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
@@ -89,13 +122,12 @@ function DraftRoomScreen({ onTab }) {
         console.debug("auto-pick declined:", err && (err.error || err.detail));
       });
     }
-  }, [secondsLeft]);
+  }, [secondsLeft, isPaused]);
 
   const onClock = managerById(DRAFT_STATE.onTheClock) || { name: "TBD", team: "Draft Pending", flag: "GER" };
-  const onClockTeam = teamById(onClock.flag) || teamById("GER");
 
   // Players already picked
-  const taken = new Set(DRAFT_HISTORY.map(p => p.playerId));
+  const taken = new Set(DRAFT_HISTORY.map(p => getNormalizedPlayerId(p.playerId)));
   // Get unique nations list
   const activePlayers = window.PLAYERS || PLAYERS;
   const nationsList = React.useMemo(() => {
@@ -113,26 +145,67 @@ function DraftRoomScreen({ onTab }) {
   }, [activePlayers]);
 
   const pool = activePlayers.filter(p => {
-    if (taken.has(p.id)) return false;
+    if (taken.has(getNormalizedPlayerId(p.id))) return false;
     if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
     if (nationFilter !== "all" && p.team !== nationFilter) return false;
     return true;
   }).sort((a, b) => a.dr - b.dr);
 
+  const sidebarOrder = (DRAFT_STATE.order && DRAFT_STATE.order.length > 0)
+    ? DRAFT_STATE.order.map(uid => managerById(uid)).filter(Boolean)
+    : MANAGERS;
+
   // Snake order projection for next ~10 picks
   const upcoming = [];
   let pickN = DRAFT_STATE.pickOverall || 1;
   let round = DRAFT_STATE.round || 1;
   let inRound = DRAFT_STATE.pickInRound || 1;
-  const numManagers = MANAGERS.length || 10;
+  const numManagers = sidebarOrder.length || 10;
   while (upcoming.length < 8 && pickN <= (numManagers * 15)) {
-    const order = round % 2 === 1 ? MANAGERS : [...MANAGERS].reverse();
+    const order = round % 2 === 1 ? sidebarOrder : [...sidebarOrder].reverse();
     const uid = order[inRound - 1]?.uid;
     upcoming.push({ overall: pickN, round, uid });
     pickN++;
     inRound++;
     if (inRound > numManagers) { round++; inRound = 1; }
+  }
+
+  // Project all draft picks to find when ME picks next
+  let picksUntilMyTurn = null;
+  let roundsUntilMyTurn = null;
+  if (typeof DRAFT_STATE !== "undefined" && typeof ME !== "undefined") {
+    const currentPick = DRAFT_STATE.pickOverall || 1;
+    const onClockUid = DRAFT_STATE.onTheClock;
+    const isMeOnClock = onClockUid === ME;
+    const searchStart = isMeOnClock ? currentPick + 1 : currentPick;
+    const numM = sidebarOrder.length || 10;
+    
+    let nextMyPickOverall = null;
+    let nextMyPickRound = null;
+    
+    let pN = 1;
+    let r = 1;
+    let iR = 1;
+    while (pN <= (numM * 15)) {
+      const order = r % 2 === 1 ? sidebarOrder : [...sidebarOrder].reverse();
+      const uid = order[iR - 1]?.uid;
+      
+      if (pN >= searchStart && uid === ME) {
+        nextMyPickOverall = pN;
+        nextMyPickRound = r;
+        break;
+      }
+      
+      pN++;
+      iR++;
+      if (iR > numM) { r++; iR = 1; }
+    }
+    
+    if (nextMyPickOverall !== null) {
+      picksUntilMyTurn = nextMyPickOverall - currentPick;
+      roundsUntilMyTurn = nextMyPickRound - (DRAFT_STATE.round || 1);
+    }
   }
 
   // My squad so far
@@ -146,99 +219,199 @@ function DraftRoomScreen({ onTab }) {
   // live draft. Show a clear notice instead of a misleading "running" board.
   const draftNotStarted = (typeof DRAFT_STATE !== "undefined") && (DRAFT_STATE.notStarted || !DRAFT_STATE.round) && DRAFT_HISTORY.length === 0;
 
+  const activeWatchlistIds = watchlistIds.filter(id => !taken.has(getNormalizedPlayerId(id)));
+
+  const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
+
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "260px 1fr 320px", gap: 16, minHeight: 700 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 480 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
         </div>
       )}
-      {/* LEFT — Draft order */}
-      <div className="card-dark" style={{ overflow: "hidden", maxHeight: 700 }}>
-        <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
-        <div style={{ overflowY: "auto", maxHeight: 640 }}>
-          {DRAFT_HISTORY.map((p, i) => {
-            const m = managerById(p.uid);
-            const t = teamById(m.flag);
-            const pl = playerById(p.playerId);
-            const plT = teamById(pl.team);
-            return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "36px 1fr 6px", gap: 8, padding: "8px 12px", borderBottom: "1px solid var(--border-dark)", alignItems: "center", fontSize: 12, opacity: 0.85 }}>
-                <span className="mono" style={{ color: "rgba(255,255,255,0.5)", fontSize: 10, whiteSpace: "nowrap" }}>R{p.round}·{String(p.overall).padStart(2,"0")}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 0 }}>
-                  <Flag team={t} />
-                  <div style={{ minWidth: 0, flex: 1 }}>
-                    <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 10, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{m.team}</div>
-                    <div style={{ color: "white", fontWeight: 700, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{pl.name}</div>
-                  </div>
-                </div>
-                <span style={{ width: 6, height: 22, background: plT.flag?.[0] || "#888", borderRadius: 1 }} />
-              </div>
-            );
-          })}
-          {/* On the clock */}
-          <div style={{ padding: "12px 12px", borderBottom: "1px solid var(--border-dark)", background: "rgba(0,217,107,0.10)" }}>
-            <div className="row" style={{ gap: 6, fontSize: 10, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--green-400)", marginBottom: 6 }}>
-              <span className="dot dot--green" /> On the clock · R{DRAFT_STATE.round}·{DRAFT_STATE.pickOverall}
-            </div>
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <Flag team={onClockTeam} size="lg" />
-              <div>
-                <div style={{ color: "white", fontWeight: 700 }}>{onClock.team}</div>
-                <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>{onClock.name}</div>
-              </div>
-            </div>
+
+      {/* LEFT COLUMN — Watchlist */}
+      <div className="col" style={{ gap: 12, height: "100%" }}>
+        {/* Watchlist */}
+        <div className="card-dark" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
+          <div className="card-dark__title">
+            ★ Watchlist ({activeWatchlistIds.length})
+            {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
           </div>
-          {/* Upcoming */}
-          {upcoming.slice(1).map((p, i) => {
-            const m = managerById(p.uid);
-            const t = teamById(m.flag);
-            const isMe = p.uid === window.ME;
-            return (
-              <div key={i} style={{ display: "grid", gridTemplateColumns: "36px 1fr", gap: 8, padding: "7px 12px", borderBottom: "1px solid var(--border-dark)", alignItems: "center", fontSize: 12, background: isMe ? "rgba(255,200,68,0.10)" : undefined }}>
-                <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10, whiteSpace: "nowrap" }}>R{p.round}·{String(p.overall).padStart(2,"0")}</span>
-                <div style={{ display: "flex", alignItems: "center", gap: 6, color: isMe ? "var(--gold-500)" : "rgba(255,255,255,0.65)", minWidth: 0 }}>
-                  <Flag team={t} /> <span style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{isMe ? <strong>You're up</strong> : m.team}</span>
-                </div>
-              </div>
-            );
-          })}
+          {activeWatchlistIds.length === 0 ? (
+            <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", fontSize: 12, padding: "14px 16px", lineHeight: 1.5 }}>
+              Star players (☆) to queue them.<br />Auto-pick uses this order.
+            </div>
+          ) : (
+            <div style={{ overflowY: "auto", flex: 1 }}>
+              {activeWatchlistIds.map((id, idx) => {
+                const p = playerById(id);
+                if (!p) return null;
+                const t = teamById(p.team);
+                return (
+                  <div
+                    key={id}
+                    draggable={true}
+                    onDragStart={() => setDraggedIdx(idx)}
+                    onDragOver={e => e.preventDefault()}
+                    onDrop={async () => {
+                      if (draggedIdx === null || draggedIdx === idx) { setDraggedIdx(null); return; }
+                      const reordered = [...watchlistIds];
+                      const [moved] = reordered.splice(draggedIdx, 1);
+                      reordered.splice(idx, 0, moved);
+                      setWatchlistIds(reordered);
+                      setDraggedIdx(null);
+                      await saveWatchlist(reordered);
+                    }}
+                    className="card-section"
+                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 14px", cursor: "grab" }}
+                  >
+                    <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
+                    <span className="mono" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, minWidth: 16, flexShrink: 0 }}>{idx + 1}</span>
+                    <div 
+                      style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}
+                      onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: p.id } }))}
+                    >
+                      <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white", textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
+                        <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => handleDraftPick(id)}
+                      className="btn btn--draft"
+                      style={{ padding: "3px 8px", fontSize: 10, flexShrink: 0 }}
+                      disabled={!DRAFT_STATE.isMyTurn}
+                    >Pick</button>
+                    <button
+                      onClick={() => handleToggleWatchlist(id)}
+                      style={{ padding: "3px 5px", fontSize: 11, background: "transparent", color: "rgba(255,255,255,0.35)", flexShrink: 0 }}
+                      title="Remove from watchlist"
+                    >✕</button>
+                  </div>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
 
-      {/* CENTER — main draft area */}
-      <div className="col" style={{ gap: 14 }}>
+      {/* CENTER COLUMN — main draft area */}
+      <div className="col" style={{ gap: 14, height: "100%" }}>
         {/* Clock */}
         <div className="card-dark" style={{ padding: "20px 24px", display: "grid", gridTemplateColumns: "1fr auto 1fr", alignItems: "center", gap: 20 }}>
           <div>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase" }}>On the clock · Round {DRAFT_STATE.round}</div>
-            <div className="h-display" style={{ fontSize: 24, color: "white", marginTop: 2, display: "flex", alignItems: "center", gap: 10 }}>
-              <Flag team={onClockTeam} size="lg" />
-              {onClock.team}
+            <div style={{
+              fontSize: 16,
+              fontWeight: 900,
+              color: "white",
+              letterSpacing: "0.08em",
+              textTransform: "uppercase",
+              background: "linear-gradient(90deg, #10b981, #059669)",
+              padding: "6px 12px",
+              borderRadius: 6,
+              display: "inline-block",
+              boxShadow: "0 2px 4px rgba(0,0,0,0.15)"
+            }}>
+              {draftNotStarted ? "PRE-DRAFT" : `ROUND ${DRAFT_STATE.round} · PICK ${DRAFT_STATE.pickOverall}`}
             </div>
-            <div className="muted" style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>Pick {DRAFT_STATE.pickOverall} of {DRAFT_STATE.totalPicks}</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "var(--green-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 14 }}>
+              On The Clock
+            </div>
+            <div className="h-display" style={{ 
+              fontSize: 48, 
+              color: "#ffffff", 
+              marginTop: 4, 
+              fontWeight: 900, 
+              letterSpacing: "-0.03em",
+              textTransform: "uppercase",
+              textShadow: "0 0 12px rgba(255,255,255,0.2)"
+            }}>
+              {onClockName}
+            </div>
           </div>
           <div style={{
             width: 130, height: 130,
-            border: "5px solid " + (secondsLeft <= 15 ? "var(--red-500)" : "var(--green-400)"),
+            border: "5px solid " + (isPaused ? "var(--gold-500)" : (secondsLeft <= 15 ? "var(--red-500)" : (draftNotStarted ? "#334155" : "var(--green-400)"))),
             borderRadius: "50%",
             display: "flex", alignItems: "center", justifyContent: "center",
             flexDirection: "column",
             position: "relative",
           }}>
-            <div className="mono" style={{ fontSize: 36, fontWeight: 800, color: "white", lineHeight: 1 }}>{formatTime(secondsLeft)}</div>
-            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>SECONDS</div>
+            <div className="mono" style={{ fontSize: isPaused ? 24 : 36, fontWeight: 800, color: (draftNotStarted && !isPaused) ? "#475569" : "white", lineHeight: 1 }}>
+              {isPaused ? "PAUSED" : (draftNotStarted ? "0:00" : formatTime(secondsLeft))}
+            </div>
+            <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.1em", marginTop: 2 }}>
+              {isPaused ? `(${formatTime(secondsLeft)})` : "SECONDS"}
+            </div>
           </div>
           <div style={{ textAlign: "right" }}>
-            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next up</div>
-            <div className="h-display" style={{ fontSize: 18, color: "white", marginTop: 2 }}>{managerById(upcoming[1].uid).team}</div>
-            <div className="muted" style={{ fontSize: 12, color: "rgba(255,255,255,0.55)" }}>then {managerById(upcoming[2].uid).team}, {managerById(upcoming[3].uid).team}…</div>
+            <div style={{ fontSize: 11, fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next Up</div>
+            <div style={{ 
+              fontSize: 16, 
+              color: "rgba(255,255,255,0.45)", 
+              marginTop: 6, 
+              fontWeight: 600,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em"
+            }}>
+              {draftNotStarted ? "—" : (upcoming[1] ? managerById(upcoming[1].uid).name : "—")}
+            </div>
           </div>
+          {draftNotStarted ? (
+            <div style={{
+              gridColumn: "1 / -1",
+              marginTop: 12,
+              padding: "14px 20px",
+              background: "rgba(255, 255, 255, 0.05)",
+              border: "2px solid rgba(255, 255, 255, 0.15)",
+              borderRadius: 8,
+              color: "rgba(255, 255, 255, 0.6)",
+              fontSize: "18px",
+              fontWeight: "900",
+              textAlign: "center",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              gap: 8,
+              boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+            }}>
+              <span>⏳ Draft has not opened yet</span>
+            </div>
+          ) : (
+            picksUntilMyTurn !== null && (
+              <div style={{
+                gridColumn: "1 / -1",
+                marginTop: 12,
+                padding: "14px 20px",
+                background: DRAFT_STATE.isMyTurn ? "rgba(0, 217, 107, 0.15)" : "rgba(255, 170, 0, 0.15)",
+                border: DRAFT_STATE.isMyTurn ? "2px solid var(--green-400)" : "2px solid var(--gold-500)",
+                borderRadius: 8,
+                color: DRAFT_STATE.isMyTurn ? "var(--green-400)" : "var(--gold-500)",
+                fontSize: "18px",
+                fontWeight: "900",
+                textAlign: "center",
+                display: "flex",
+                alignItems: "center",
+                justifyContent: "center",
+                gap: 8,
+                boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
+              }}>
+                {DRAFT_STATE.isMyTurn ? (
+                  <span>⚡ It's your turn to pick!</span>
+                ) : (
+                  <span>⏳ You pick in {picksUntilMyTurn} {picksUntilMyTurn === 1 ? "pick" : "picks"}</span>
+                )}
+              </div>
+            )
+          )}
         </div>
 
         {/* Filters + player pool */}
-        <div className="card-dark" style={{ padding: 18 }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto auto", gap: 12, marginBottom: 14 }}>
+        <div className="card-dark" style={{ padding: 18, display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1.5fr 1fr auto", gap: 12, marginBottom: 14 }}>
             <input
               type="text"
               placeholder="Search players…"
@@ -277,31 +450,28 @@ function DraftRoomScreen({ onTab }) {
                 </button>
               ))}
             </div>
-            <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.25)", borderRadius: 999, color: "white", alignItems: "center", padding: "6px 12px", fontSize: 12 }}>
-              <span style={{ opacity: 0.6 }}>Sort:</span>&nbsp;<strong>Draft rank</strong>
-            </div>
           </div>
 
-          <div style={{ background: "rgba(0,0,0,0.18)", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.6)", display: "grid", gridTemplateColumns: "40px 1fr 100px 80px 80px 100px", gap: 8 }}>
-            <span>DR</span>
+          <div style={{ background: "rgba(0,0,0,0.18)", padding: "8px 12px", borderRadius: 6, fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", color: "rgba(255,255,255,0.6)", display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8 }}>
             <span>PLAYER</span>
             <span>TEAM</span>
             <span style={{ textAlign: "center" }}>POS</span>
-            <span style={{ textAlign: "right" }}>PROJ</span>
             <span></span>
           </div>
-          <div style={{ maxHeight: 420, overflowY: "auto", marginTop: 4 }}>
+          <div style={{ flex: 1, overflowY: "auto", marginTop: 4 }}>
             {pool.slice(0, 30).map(p => {
               const t = teamById(p.team);
-              const isWatched = watchlistSet.has(p.id);
+              const isWatched = watchlistSet.has(getNormalizedPlayerId(p.id));
               return (
-                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "40px 1fr 100px 80px 80px 100px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
-                  <span className="mono" style={{ color: "rgba(255,255,255,0.6)" }}>{p.dr}</span>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div key={p.id} style={{ display: "grid", gridTemplateColumns: "1fr 120px 80px 120px", gap: 8, padding: "10px 12px", borderTop: "1px solid var(--border-dark)", alignItems: "center", color: "white" }}>
+                  <div 
+                    style={{ display: "flex", alignItems: "center", gap: 10, cursor: "pointer" }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: p.id } }))}
+                  >
                     <div style={{ width: 30, height: 30 }}><Jersey team={t} pos={p.pos} /></div>
                     <div>
-                      <div style={{ fontWeight: 700 }}>{p.name}</div>
-                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.5)" }}>Group {t.grp}</div>
+                      <div style={{ fontWeight: 700, textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
+                      <div style={{ fontSize: 11, color: "rgba(255,255,255,0.8)" }}>Group {t.grp}</div>
                     </div>
                   </div>
                   <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 12 }}>
@@ -310,11 +480,18 @@ function DraftRoomScreen({ onTab }) {
                   <span style={{ textAlign: "center" }}>
                     <span className="pill" style={{ background: "rgba(255,255,255,0.10)", color: "white", fontSize: 10 }}>{POS_NAMES[p.pos]}</span>
                   </span>
-                  <span className="mono" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</span>
                   <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
                     <button
                       onClick={() => handleToggleWatchlist(p.id)}
-                      style={{ padding: "4px 8px", fontSize: 14, background: "transparent", color: isWatched ? "var(--gold-500)" : "rgba(255,255,255,0.4)" }}
+                      style={{
+                        padding: "4px 8px",
+                        fontSize: 24,
+                        background: "transparent",
+                        color: isWatched ? "#ffd700" : "rgba(255,255,255,0.4)",
+                        border: "none",
+                        cursor: "pointer",
+                        textShadow: isWatched ? "0 0 8px rgba(255, 215, 0, 0.6)" : "none"
+                      }}
                       title={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
                       {isWatched ? "★" : "☆"}
                     </button>
@@ -327,9 +504,10 @@ function DraftRoomScreen({ onTab }) {
         </div>
       </div>
 
-      {/* RIGHT — my roster */}
-      <div className="col" style={{ gap: 12 }}>
-        <div className="card-dark">
+      {/* RIGHT COLUMN — My Squad & Draft Order */}
+      <div className="col" style={{ gap: 12, height: "100%" }}>
+        {/* My Squad */}
+        <div className="card-dark" style={{ flexShrink: 0 }}>
           <div className="card-dark__title">My Squad ({myPicks.length}/15)</div>
           <div className="card-section" style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: 8, padding: 14 }}>
             <SquadCount label="GK" cur={mySquadByPos[1]} max={2} />
@@ -348,10 +526,15 @@ function DraftRoomScreen({ onTab }) {
               return (
                 <div key={i} className="card-section" style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 14px" }}>
                   <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 11 }}>R{p.round}</span>
-                  <div style={{ width: 28, height: 28 }}><Jersey team={plT} pos={pl.pos} /></div>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{pl.name}</div>
-                    <div style={{ color: "rgba(255,255,255,0.55)", fontSize: 11 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
+                  <div 
+                    style={{ flex: 1, display: "flex", alignItems: "center", gap: 10, cursor: "pointer", minWidth: 0 }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: pl.id } }))}
+                  >
+                    <div style={{ width: 28, height: 28, flexShrink: 0 }}><Jersey team={plT} pos={pl.pos} /></div>
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{pl.name}</div>
+                      <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
+                    </div>
                   </div>
                   <span className="mono" style={{ color: "var(--green-400)", fontWeight: 700, fontSize: 13 }}>{pl.pts}</span>
                 </div>
@@ -360,61 +543,64 @@ function DraftRoomScreen({ onTab }) {
           )}
         </div>
 
-        <div className="card-dark">
-          <div className="card-dark__title">
-            ★ Watchlist ({watchlistIds.length})
-            {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
-          </div>
-          {watchlistIds.length === 0 ? (
-            <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", fontSize: 12, padding: "14px 16px", lineHeight: 1.5 }}>
-              Star players (☆) to queue them.<br />Auto-pick uses this order.
-            </div>
-          ) : (
-            watchlistIds.map((id, idx) => {
-              const p = playerById(id);
-              if (!p) return null;
-              const t = teamById(p.team);
-              const alreadyPicked = taken.has(id);
+        {/* Draft Order */}
+        <div className="card-dark" style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
+          <div className="card-dark__title" style={{ fontSize: 14 }}>Draft Order</div>
+          <div style={{ overflowY: "auto", flex: 1 }}>
+            {sidebarOrder.map((m, idx) => {
+              const picks = DRAFT_HISTORY.filter(p => p.uid === m.uid);
+              const lastPick = picks.length > 0 ? picks[picks.length - 1] : null;
+              const isCurrent = DRAFT_STATE.onTheClock === m.uid;
+
               return (
-                <div
-                  key={id}
-                  draggable={!alreadyPicked}
-                  onDragStart={() => setDraggedIdx(idx)}
-                  onDragOver={e => e.preventDefault()}
-                  onDrop={async () => {
-                    if (draggedIdx === null || draggedIdx === idx) { setDraggedIdx(null); return; }
-                    const reordered = [...watchlistIds];
-                    const [moved] = reordered.splice(draggedIdx, 1);
-                    reordered.splice(idx, 0, moved);
-                    setWatchlistIds(reordered);
-                    setDraggedIdx(null);
-                    await saveWatchlist(reordered);
-                  }}
-                  className="card-section"
-                  style={{ display: "flex", alignItems: "center", gap: 7, padding: "9px 12px", opacity: alreadyPicked ? 0.4 : 1, cursor: alreadyPicked ? "default" : "grab" }}
-                >
-                  <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
-                  <span className="mono" style={{ color: "rgba(255,255,255,0.4)", fontSize: 10, minWidth: 14, flexShrink: 0 }}>{idx + 1}</span>
-                  <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{ fontWeight: 700, fontSize: 12, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{p.name}</div>
-                    <div style={{ color: "rgba(255,255,255,0.5)", fontSize: 10 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                <div key={idx} style={{ 
+                  padding: "12px 14px", 
+                  borderBottom: "1px solid var(--border-dark)", 
+                  background: isCurrent ? "rgba(0, 217, 107, 0.15)" : undefined,
+                  borderLeft: isCurrent ? "4px solid var(--green-400)" : "4px solid transparent",
+                  opacity: isCurrent ? 1 : 0.85,
+                  boxShadow: isCurrent ? "inset 0 0 10px rgba(0, 217, 107, 0.1)" : undefined
+                }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline" }}>
+                    <span style={{ 
+                      color: isCurrent ? "var(--green-400)" : "rgba(255,255,255,0.7)", 
+                      fontWeight: isCurrent ? 900 : 700, 
+                      fontSize: 13
+                    }}>
+                      {m.name} {isCurrent && "💬"}
+                    </span>
+                    {lastPick && (
+                      <span className="mono" style={{ color: "rgba(255,255,255,0.45)", fontSize: 10 }}>
+                        R{lastPick.round}·{lastPick.overall}
+                      </span>
+                    )}
                   </div>
-                  <button
-                    onClick={() => handleDraftPick(id)}
-                    className="btn btn--draft"
-                    style={{ padding: "3px 8px", fontSize: 10, flexShrink: 0 }}
-                    disabled={!DRAFT_STATE.isMyTurn || alreadyPicked}
-                  >Pick</button>
-                  <button
-                    onClick={() => handleToggleWatchlist(id)}
-                    style={{ padding: "3px 5px", fontSize: 11, background: "transparent", color: "rgba(255,255,255,0.35)", flexShrink: 0 }}
-                    title="Remove from watchlist"
-                  >✕</button>
+                  {lastPick ? (
+                    <div style={{ 
+                      color: "white", 
+                      fontWeight: 800, 
+                      fontSize: 16, 
+                      marginTop: 6,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                      cursor: "pointer",
+                      textDecoration: "underline",
+                      decorationColor: "rgba(255,255,255,0.15)"
+                    }}
+                    onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: lastPick.playerId } }))}
+                    >
+                      {playerById(lastPick.playerId).name}
+                    </div>
+                  ) : (
+                    <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 13, marginTop: 6, fontStyle: "italic" }}>
+                      No picks yet
+                    </div>
+                  )}
                 </div>
               );
-            })
-          )}
+            })}
+          </div>
         </div>
       </div>
     </div>
@@ -606,7 +792,7 @@ function MetricChip({ label, value, accent }) {
 function CreateForm({ onBack, onTab }) {
   const [name, setName] = React.useState("");
   const [size, setSize] = React.useState(10);
-  const [timer, setTimer] = React.useState(60);
+  const [timer, setTimer] = React.useState(30);
   const [tradeRule, setTradeRule] = React.useState("vote");
   const [draftDate, setDraftDate] = React.useState("2026-06-08T18:00");
 

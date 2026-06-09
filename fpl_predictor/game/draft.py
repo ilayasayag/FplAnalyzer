@@ -51,12 +51,14 @@ class DraftEngine:
         draft_ref = league_ref.collection("draft").document("state")
         draft_ref.set({
             "status": "active",
+            "paused": False,
             "order": member_uids,
             "currentPick": 0,
             "totalPicks": total_picks,
             "pickDeadline": deadline,
             "pickTimer": pick_timer,
             "pickedPlayerIds": [],
+            "currentDrafter": member_uids[0],
             "startedAt": SERVER_TIMESTAMP,
         })
 
@@ -181,10 +183,16 @@ class DraftEngine:
         picked_ids.append(player_id)
         pick_timer = state.get("pickTimer", 30)
 
+        if new_pick < state["totalPicks"]:
+            next_drafter = self._get_drafter(new_pick, order)
+        else:
+            next_drafter = None
+
         update = {
             "currentPick": new_pick,
             "pickedPlayerIds": picked_ids,
             "pickDeadline": time.time() + pick_timer,
+            "currentDrafter": next_drafter,
         }
 
         if new_pick >= state["totalPicks"]:
@@ -215,6 +223,9 @@ class DraftEngine:
         state = draft_doc.to_dict()
         if state["status"] != "active":
             raise ValueError("Draft is not active")
+
+        if state.get("paused", False):
+            raise ValueError("Draft is paused")
 
         if time.time() < state.get("pickDeadline", float("inf")):
             raise ValueError("Pick timer has not expired")

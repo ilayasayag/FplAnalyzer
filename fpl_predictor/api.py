@@ -25,7 +25,7 @@ else:
         firebase_admin.initialize_app(options={"projectId": "fpl-analyzer-792eb"})
     except ValueError:
         pass
-db = fb_firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
+db = fb_firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "(default)"))
 log = logging.getLogger(__name__)
 
 from .data.fpl_api import FPLClient

@@ -250,6 +250,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
   const openStats = (e) => {
     e.stopPropagation();
+    console.log("Stats button clicked for player ID:", playerId);
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
@@ -265,7 +266,14 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
   return (
     <div
       className={`player-slot ${isElim ? "player-slot--eliminated" : ""} ${disabled ? "player-slot--disabled" : ""} ${selected ? "player-slot--selected" : ""}`}
-      onClick={onClick}
+      style={{ cursor: "pointer" }}
+      onClick={(e) => {
+        if (onClick) {
+          onClick(e);
+        } else {
+          openStats(e);
+        }
+      }}
     >
       <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
@@ -301,7 +309,6 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
   // gw_history snapshot). A player with no snapshot entry didn't feature that
   // GW → PlayerSlot renders 0 (no season-total fallback; see VT-PointsNoStats).
   const ptsOf = (id) => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : undefined;
-
   const isPlayerDisabled = (id) => {
     if (mode !== "pick" || selected === null) return false;
     return !isSwapLegal(lineup, selected, id);

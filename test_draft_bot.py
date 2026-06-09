@@ -49,7 +49,7 @@ if not firebase_admin._apps:
     from google.auth.credentials import AnonymousCredentials
     firebase_admin.initialize_app(credential=AnonymousCredentials(), options={"projectId": PROJECT_ID})
 
-_db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
+_db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "(default)"))
 _token_cache: Dict[str, str] = {}
 
 
