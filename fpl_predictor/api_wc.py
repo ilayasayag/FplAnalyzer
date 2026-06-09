@@ -1663,6 +1663,166 @@ def admin_reset_to_roster(lid: str):
     return _ok(summary)
 
 
+# Wingers to reclassify FWD -> MID. Matched by NAME against the LIVE wc_players
+# pool (the single source of truth — the seed file is divergent), never by id.
+REPOSITION_FWD_TO_MID = [
+    "Julián Alvarez", "Jeremy Doku", "Leandro Trossard", "Bukayo Saka",
+    "Anthony Gordon", "Morgan Rogers", "Bradley Barcola", "Rayan Cherki",
+    "Desire Doue", "Michael Olise", "Rafael Leão", "Lamine Yamal",
+    "Dani Olmo", "Yéremy Pino",
+]
+_POS_NAME = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
+
+
+def _name_tokens(s):
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    return [t for t in s.replace("'", "").replace(".", " ").replace("-", " ").split() if t]
+
+
+def _name_match(target, pname):
+    """Last-name match + first token (full or initial) — robust to 'J. Álvarez'
+    vs 'Julián Alvarez' without false-matching e.g. Wan-Bissaka to Saka."""
+    t, p = _name_tokens(target), _name_tokens(pname)
+    if not t or not p or t[-1] != p[-1]:
+        return False
+    return t[0] == p[0] or t[0][0] == p[0][0]
+
+
+@wc_bp.route("/admin/leagues/<lid>/reposition-fwd-to-mid", methods=["POST"])
+def admin_reposition_fwd_to_mid(lid: str):
+    """MOCK-ONLY: reclassify the REPOSITION_FWD_TO_MID wingers from FWD(4)->MID(3)
+    in the live wc_players pool (matched by name). Any squad that owned one is
+    now 6 MID/2 FWD, so rebalance it back to a legal 2/5/5/3 by dropping a random
+    NON-flipped MID and adding a random free-agent FWD. Then regenerate the
+    affected GW1/GW2 lineups, rebuild playerScores (process_fixture re-reads the
+    new positions -> MID scoring), and re-finalize GW1+GW2 so points/standings
+    are complete. Idempotent. Gated to simulated leagues + authed callers."""
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+    from .game.wc_scoring import finalize_gw
+    import random
+    rng = random.Random(2026)
+    league_ref = _db.collection("leagues").document(lid)
+    summary = {"flipped": [], "alreadyMid": [], "notFound": [],
+               "rebalanced": {}, "finalized": [], "finalizeErrors": {}}
+
+    def _pid(pd, doc):
+        try:
+            return int(pd.get("id", doc.id))
+        except (TypeError, ValueError):
+            return None
+
+    # 1. Flip FWD -> MID in the live pool (source of truth).
+    all_docs = list(_db.collection("wc_players").get())
+    flipped_ids = set()
+    for target in REPOSITION_FWD_TO_MID:
+        matches = [d for d in all_docs if _name_match(target, (d.to_dict() or {}).get("name", ""))]
+        if not matches:
+            summary["notFound"].append(target)
+            continue
+        did = False
+        for d in matches:
+            pd = d.to_dict() or {}
+            if pd.get("position") == 4:
+                d.reference.update({"position": 3, "positionName": "MID", "element_type": 3})
+                pid = _pid(pd, d)
+                if pid is not None:
+                    flipped_ids.add(pid)
+                summary["flipped"].append({"id": pid, "name": pd.get("name")})
+                did = True
+        if not did:
+            summary["alreadyMid"].append(target)
+
+    # 2. Read squads + ownership; build a pool of free-agent FWDs.
+    squads, owned = {}, set()
+    for sq in league_ref.collection("squads").get():
+        players = (sq.to_dict() or {}).get("players", [])
+        squads[sq.id] = players
+        owned.update(int(p["playerId"]) for p in players)
+
+    def _sqplayer(pd, pid):
+        pos = int(pd.get("position", 4))
+        return {"playerId": pid, "draftedRound": 99, "position": pos,
+                "positionName": _POS_NAME.get(pos, "FWD"), "name": pd.get("name", ""),
+                "teamIso": pd.get("teamIso", ""), "teamId": pd.get("teamId", 0),
+                "teamName": pd.get("teamName", ""), "eliminated": False}
+
+    avail_fwds = []
+    for d in all_docs:
+        pd = d.to_dict() or {}
+        if pd.get("position") == 4:
+            pid = _pid(pd, d)
+            if pid is not None and pid not in owned and pid not in flipped_ids:
+                avail_fwds.append(_sqplayer(pd, pid))
+    rng.shuffle(avail_fwds)
+
+    # 3. Per squad: flip owned players -> MID, then rebalance to 5 MID / 3 FWD.
+    affected = set()
+    for uid, players in squads.items():
+        changed = False
+        for p in players:
+            if int(p["playerId"]) in flipped_ids and int(p["position"]) != 3:
+                p["position"] = 3
+                p["positionName"] = "MID"
+                changed = True
+
+        def counts():
+            c = {1: 0, 2: 0, 3: 0, 4: 0}
+            for p in players:
+                c[int(p["position"])] = c.get(int(p["position"]), 0) + 1
+            return c
+
+        swaps, c = [], counts()
+        while c[3] > 5 and c[4] < 3 and avail_fwds:
+            mids = [p for p in players if int(p["position"]) == 3 and int(p["playerId"]) not in flipped_ids]
+            if not mids:
+                break
+            drop = rng.choice(mids)
+            add = avail_fwds.pop()
+            players.remove(drop)
+            players.append(add)
+            owned.discard(int(drop["playerId"]))
+            owned.add(int(add["playerId"]))
+            swaps.append({"out": drop.get("name"), "in": add.get("name")})
+            changed = True
+            c = counts()
+        if changed:
+            league_ref.collection("squads").document(uid).set({"players": players})
+            affected.add(uid)
+            summary["rebalanced"][uid] = {"swaps": swaps, "counts": c}
+
+    # 4. Rebuild playerScores with the new positions, regenerate the AFFECTED
+    #    managers' lineups (their old XI is now an illegal formation), re-finalize.
+    drafted = {}
+    for players in squads.values():
+        for p in players:
+            drafted[int(p["playerId"])] = {
+                "id": int(p["playerId"]), "name": p.get("name", ""),
+                "position": int(p["position"]), "teamIso": p.get("teamIso", ""),
+            }
+    summary["fixtures"] = seed_real_fixtures(_db, drafted, GROUP_STAGE_EVENTS, played_gws=(1, 2))
+
+    for uid in affected:
+        rich = [{"playerId": p["playerId"], "position": int(p["position"])} for p in squads[uid]]
+        for gw in (1, 2):
+            try:
+                league_ref.collection("lineups").document(f"{uid}_{gw}").set(select_lineup(rich))
+            except Exception as exc:
+                summary["finalizeErrors"][f"lineup_{uid}_{gw}"] = str(exc)
+
+    for gw in (1, 2):
+        try:
+            finalize_gw(lid, gw, _db, _wc)
+            summary["finalized"].append(gw)
+        except Exception as exc:
+            summary["finalizeErrors"][gw] = str(exc)
+    league_ref.update({"currentGw": 3, "status": "group_phase"})
+    return _ok(summary)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()
