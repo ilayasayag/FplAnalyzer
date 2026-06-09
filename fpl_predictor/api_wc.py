@@ -758,8 +758,28 @@ def update_watchlist(lid: str):
     return _ok({"playerIds": player_ids})
 
 
+def _require_sim_league(lid: str):
+    """Auth + simulated-only guard for the draft-simulator endpoints. These are
+    mock-testing tools that mutate (and reset() wipes) squads/draft state, so
+    they must never be callable anonymously or against a real league. Returns
+    ``(league_dict, None)`` on success or ``(None, error_response)``."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    snap = _db.collection("leagues").document(lid).get()
+    if not snap.exists:
+        return None, _err("League not found", 404)
+    ld = snap.to_dict() or {}
+    if not ld.get("simulated"):
+        return None, _err("MOCK_ONLY: the draft simulator only runs on simulated leagues", 403)
+    return ld, None
+
+
 @wc_bp.route("/leagues/<lid>/draft/sim/toggle", methods=["POST"])
 def toggle_draft_sim(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
     body = request.get_json(silent=True) or {}
     active = body.get("active", False)
     if active:
@@ -771,11 +791,17 @@ def toggle_draft_sim(lid: str):
 
 @wc_bp.route("/leagues/<lid>/draft/sim/state", methods=["GET"])
 def get_draft_sim_state(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
     return _ok({"active": _sim.active, "status": _sim.last_status})
 
 
 @wc_bp.route("/leagues/<lid>/draft/sim/reset", methods=["POST"])
 def reset_draft_sim(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
     _sim.stop()
     league_ref = _db.collection("leagues").document(lid)
     state_ref = league_ref.collection("draft").document("state")

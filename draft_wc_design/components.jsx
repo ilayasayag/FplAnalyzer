@@ -250,7 +250,6 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
   const openStats = (e) => {
     e.stopPropagation();
-    console.log("Stats button clicked for player ID:", playerId);
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
