@@ -300,12 +300,22 @@ def seed_real_fixtures(db, drafted_players, events_by_gw, played_gws=(1, 2)):
     and run process_fixture -> playerScores. Other GWs are written UPCOMING
     (status NS, unprocessed). ``drafted_players`` maps pid -> {id,name,position,
     teamIso}. Returns counts. (Wiping first kills the duplicate/fabricated docs.)"""
+    # Batched wipe — deleting potentially-hundreds of fixture docs + their
+    # playerScores one-by-one is what blew the function timeout; batches of ~450
+    # ops make it a few round-trips instead.
     deleted = 0
+    batch = db.batch()
+    ops = 0
     for fx in db.collection("wc_fixtures").get():
         for ps in fx.reference.collection("playerScores").get():
-            ps.reference.delete()
-        fx.reference.delete()
-        deleted += 1
+            batch.delete(ps.reference); ops += 1
+            if ops >= 450:
+                batch.commit(); batch = db.batch(); ops = 0
+        batch.delete(fx.reference); ops += 1; deleted += 1
+        if ops >= 450:
+            batch.commit(); batch = db.batch(); ops = 0
+    if ops:
+        batch.commit()
 
     written = 0
     for gw, games in GROUP_STAGE_SCHEDULE.items():
