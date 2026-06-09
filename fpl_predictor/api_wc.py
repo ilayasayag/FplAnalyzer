@@ -1823,6 +1823,269 @@ def admin_reposition_fwd_to_mid(lid: str):
     return _ok(summary)
 
 
+def _fifa_norm(s):
+    """Match the normaliser used to build fifa_alignment_spec.json exactly:
+    NFKD -> ASCII-ignore (drops ø/ß/accents to nothing) -> lower -> strip '/./-."""
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    s = s.replace("'", " ").replace(".", " ").replace("-", " ")
+    return " ".join(s.split())
+
+
+_ALIGN_SPEC = None
+
+
+def _load_align_spec():
+    global _ALIGN_SPEC
+    if _ALIGN_SPEC is None:
+        import json
+        p = os.path.join(os.path.dirname(__file__), "data", "fifa_alignment_spec.json")
+        with open(p, encoding="utf-8") as f:
+            _ALIGN_SPEC = json.load(f)
+    return _ALIGN_SPEC
+
+
+@wc_bp.route("/admin/leagues/<lid>/align-to-fifa", methods=["POST"])
+def admin_align_to_fifa(lid: str):
+    """MOCK-ONLY: align the live wc_players pool + the 6 canonical squads to the
+    FIFA fantasy dataset, then re-score GW1+GW2.
+
+    Per player (matched by team + normalised name against the bundled
+    fifa_alignment_spec.json): adopt FIFA position + canonical name + draftRank
+    (FIFA price ordering). Colliding names (two players sharing a normalised name
+    within a team) KEEP their current position — never guessed. Adds the 244
+    FIFA-only players, drops the 10 DB-only players that are not owned. Each
+    squad is relabelled and rebalanced back to a legal 2/5/5/3 by dropping its
+    lowest-value surplus-position player and adding a VALUE-MATCHED free agent
+    (closest draftRank). GW1/GW2 playerScores + lineups are rebuilt and
+    re-finalised so points/standings reflect the new positions.
+
+    Body ``{"dryRun": true}`` computes the entire plan and returns it with NO
+    writes. Idempotent. Gated to simulated leagues + authenticated callers.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    dry = bool(body.get("dryRun"))
+    spec = _load_align_spec()
+    teams, renames = spec["teams"], spec["renames"]
+    collisions = set(spec["collisions"])
+    drops_set = {(d["iso"], d["norm"]) for d in spec["drops"]}
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+    league_ref = _db.collection("leagues").document(lid)
+    QUOTA = {1: 2, 2: 5, 3: 5, 4: 3}
+    summary = {"dryRun": dry, "poolFlips": [], "poolRenames": [], "added": [],
+               "dropped": [], "dropBlockedOwned": [], "collisionKept": [],
+               "unmatched": [], "rebalanced": {}, "finalized": [],
+               "finalizeErrors": {}}
+
+    # 1. Squads + ownership first (needed for drop-safety + rebalance).
+    squads, owned = {}, set()
+    for sq in league_ref.collection("squads").get():
+        players = (sq.to_dict() or {}).get("players", [])
+        squads[sq.id] = players
+        owned.update(int(p["playerId"]) for p in players)
+
+    # 2. Walk wc_players: relabel / flip / rename / collision-keep / mark drops.
+    all_docs = list(_db.collection("wc_players").get())
+    new_by_id = {}        # pid -> {pos,name,iso,rank,teamId,teamName}
+    existing_norm = {}    # (iso, norm) -> pid  (post-rename; for add idempotency)
+    team_meta = {}        # iso -> {teamId, teamName}
+    drop_refs, max_id = [], 0
+    for d in all_docs:
+        pd = d.to_dict() or {}
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = None
+        if pid and pid > max_id:
+            max_id = pid
+        iso = pd.get("teamIso", "")
+        tid, tname = pd.get("teamId"), pd.get("teamName", "")
+        if iso and iso not in team_meta and tid:
+            team_meta[iso] = {"teamId": tid, "teamName": tname}
+        cur_pos = pd.get("position")
+        name = pd.get("name", "")
+        nn = _fifa_norm(name)
+
+        def _remember(pos, nm, rank, key_norm):
+            if pid is not None:
+                new_by_id[pid] = {"pos": pos, "name": nm, "iso": iso, "rank": rank,
+                                  "teamId": tid, "teamName": tname}
+                existing_norm[(iso, key_norm)] = pid
+
+        if (iso, nn) in collisions:
+            entry = teams.get(iso, {}).get(nn)
+            rank = entry["rank"] if entry else pd.get("draftRank", 0)
+            if not dry:
+                d.reference.update({"draftRank": rank})
+            summary["collisionKept"].append({"id": pid, "name": name, "pos": cur_pos})
+            _remember(cur_pos, name, rank, nn)
+            continue
+
+        target = renames.get(iso, {}).get(nn, nn)
+        entry = teams.get(iso, {}).get(target)
+        if entry:
+            np_, nname, rank = entry["pos"], entry["name"], entry["rank"]
+            if not dry:
+                d.reference.update({"position": np_, "positionName": _POS_NAME[np_],
+                                    "element_type": np_, "name": nname, "draftRank": rank})
+            if np_ != cur_pos:
+                summary["poolFlips"].append({"id": pid, "name": nname,
+                                             "from": cur_pos, "to": np_})
+            if nname != name:
+                summary["poolRenames"].append({"id": pid, "from": name, "to": nname})
+            _remember(np_, nname, rank, _fifa_norm(nname))
+        elif (iso, nn) in drops_set:
+            if pid in owned:
+                summary["dropBlockedOwned"].append({"id": pid, "name": name})
+                _remember(cur_pos, name, pd.get("draftRank", 0), nn)
+            else:
+                drop_refs.append(d.reference)
+                summary["dropped"].append({"id": pid, "name": name, "iso": iso})
+        else:
+            summary["unmatched"].append({"id": pid, "name": name, "iso": iso})
+            _remember(cur_pos, name, pd.get("draftRank", 0), nn)
+
+    # 3. Drop the unowned not-in-FIFA players.
+    if not dry:
+        for ref in drop_refs:
+            ref.delete()
+
+    # 4. Add the FIFA-only players (idempotent — skip any already present).
+    next_id = max_id + 1
+    for a in spec["adds"]:
+        iso, name, pos, rank = a["iso"], a["name"], a["pos"], a["rank"]
+        nn = _fifa_norm(name)
+        if (iso, nn) in existing_norm:
+            continue
+        meta = team_meta.get(iso, {"teamId": 0, "teamName": iso})
+        pid, next_id = next_id, next_id + 1
+        doc = {"id": pid, "name": name, "position": pos, "positionName": _POS_NAME[pos],
+               "element_type": pos, "teamIso": iso, "teamId": meta["teamId"],
+               "teamName": meta["teamName"], "draftRank": rank, "totalPoints": 0,
+               "eliminated": False, "photo": ""}
+        if not dry:
+            _db.collection("wc_players").document(str(pid)).set(doc)
+        summary["added"].append({"id": pid, "name": name, "iso": iso, "pos": pos})
+        new_by_id[pid] = {"pos": pos, "name": name, "iso": iso, "rank": rank,
+                          "teamId": meta["teamId"], "teamName": meta["teamName"]}
+        existing_norm[(iso, nn)] = pid
+
+    # 5. Relabel each squad's denormalised fields, then rebalance to 2/5/5/3.
+    def _free_agents(pos, exclude):
+        out = []
+        for fid, info in new_by_id.items():
+            if info["pos"] == pos and fid not in owned and fid not in exclude:
+                out.append((info["rank"], fid, info))
+        out.sort(key=lambda x: x[0])
+        return out
+
+    picked = set()
+    for uid in MOCK_CANONICAL_ROSTER:
+        players = squads.get(uid)
+        if not players:
+            continue
+        for p in players:
+            info = new_by_id.get(int(p["playerId"]))
+            if info:
+                p["position"] = info["pos"]
+                p["positionName"] = _POS_NAME[info["pos"]]
+                p["name"] = info["name"]
+
+        def _counts():
+            c = {1: 0, 2: 0, 3: 0, 4: 0}
+            for p in players:
+                c[int(p["position"])] += 1
+            return c
+
+        def _rank(p):
+            info = new_by_id.get(int(p["playerId"]))
+            return info["rank"] if info else 99999
+
+        drops, adds = [], []
+        # trim surplus: drop the LOWEST-value (highest rank number) player
+        for pos in (1, 2, 3, 4):
+            while _counts()[pos] > QUOTA[pos]:
+                cands = sorted((p for p in players if int(p["position"]) == pos),
+                               key=_rank)
+                victim = cands[-1]
+                players.remove(victim)
+                owned.discard(int(victim["playerId"]))
+                drops.append(victim)
+        # fill deficits with value-matched free agents (closest rank to a drop)
+        deficit = []
+        cc = _counts()
+        for pos in (1, 2, 3, 4):
+            deficit += [pos] * (QUOTA[pos] - cc[pos])
+        drop_ranks = sorted((_rank(v) for v in drops), reverse=True)
+        for i, pos in enumerate(deficit):
+            target = drop_ranks[i] if i < len(drop_ranks) else 0
+            fa = _free_agents(pos, picked)
+            if not fa:
+                continue
+            fa.sort(key=lambda x: abs(x[0] - target))
+            rank, fid, info = fa[0]
+            picked.add(fid)
+            owned.add(fid)
+            adds.append({"playerId": fid, "draftedRound": 99, "position": pos,
+                         "positionName": _POS_NAME[pos], "name": info["name"],
+                         "teamIso": info["iso"], "teamId": info["teamId"],
+                         "teamName": info["teamName"], "eliminated": False})
+        for a in adds:
+            players.append(a)
+        if drops or adds:
+            if not dry:
+                league_ref.collection("squads").document(uid).update({"players": players})
+            summary["rebalanced"][uid] = {
+                "drop": [v.get("name") for v in drops],
+                "add": [a["name"] for a in adds],
+                "counts": _counts()}
+
+    # 6. Rebuild playerScores with the new positions, regenerate every squad's
+    #    GW1/GW2 lineup (positions changed -> old XI may be illegal) and
+    #    re-finalise so points + standings are consistent. (apply mode only)
+    if not dry:
+        drafted = {}
+        for uid in MOCK_CANONICAL_ROSTER:
+            for p in squads.get(uid, []):
+                drafted[int(p["playerId"])] = {
+                    "id": int(p["playerId"]), "name": p.get("name", ""),
+                    "position": int(p["position"]), "teamIso": p.get("teamIso", "")}
+        summary["fixtures"] = seed_real_fixtures(
+            _db, drafted, GROUP_STAGE_EVENTS, played_gws=(1, 2))
+        for uid in MOCK_CANONICAL_ROSTER:
+            rich = [{"playerId": p["playerId"], "position": int(p["position"])}
+                    for p in squads.get(uid, [])]
+            if not rich:
+                continue
+            for gw in (1, 2):
+                try:
+                    league_ref.collection("lineups").document(f"{uid}_{gw}").set(
+                        select_lineup(rich))
+                except Exception as exc:
+                    summary["finalizeErrors"][f"lineup_{uid}_{gw}"] = str(exc)
+        for gw in (1, 2):
+            try:
+                finalize_gw(lid, gw, _db, _wc)
+                summary["finalized"].append(gw)
+            except Exception as exc:
+                summary["finalizeErrors"][gw] = str(exc)
+        league_ref.update({"currentGw": 3, "status": "group_phase"})
+
+    summary["totals"] = {
+        "poolFlips": len(summary["poolFlips"]),
+        "poolRenames": len(summary["poolRenames"]),
+        "added": len(summary["added"]),
+        "dropped": len(summary["dropped"]),
+        "dropBlockedOwned": len(summary["dropBlockedOwned"]),
+        "collisionKept": len(summary["collisionKept"]),
+        "unmatched": len(summary["unmatched"]),
+        "squadsRebalanced": len(summary["rebalanced"])}
+    return _ok(summary)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()

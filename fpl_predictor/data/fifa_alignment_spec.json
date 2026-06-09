@@ -1,0 +1,9181 @@
+{
+ "normalize": "nfkd-ascii-ignore-lower-strip",
+ "source": "fifa_fantasy_squads + _fuzzy_pairs.json",
+ "counts": {
+  "fifa_players": 1484,
+  "renames": 95,
+  "adds": 244,
+  "drops": 10
+ },
+ "teams": {
+  "ENG": {
+   "harry kane": {
+    "name": "Harry Kane",
+    "pos": 4,
+    "rank": 1
+   },
+   "bukayo saka": {
+    "name": "Bukayo Saka",
+    "pos": 3,
+    "rank": 10
+   },
+   "jude bellingham": {
+    "name": "Jude Bellingham",
+    "pos": 3,
+    "rank": 15
+   },
+   "eberechi eze": {
+    "name": "Eberechi Eze",
+    "pos": 3,
+    "rank": 20
+   },
+   "ollie watkins": {
+    "name": "Ollie Watkins",
+    "pos": 4,
+    "rank": 25
+   },
+   "ivan toney": {
+    "name": "Ivan Toney",
+    "pos": 4,
+    "rank": 40
+   },
+   "marcus rashford": {
+    "name": "Marcus Rashford",
+    "pos": 3,
+    "rank": 41
+   },
+   "morgan rogers": {
+    "name": "Morgan Rogers",
+    "pos": 3,
+    "rank": 57
+   },
+   "anthony gordon": {
+    "name": "Anthony Gordon",
+    "pos": 3,
+    "rank": 63
+   },
+   "declan rice": {
+    "name": "Declan Rice",
+    "pos": 3,
+    "rank": 64
+   },
+   "elliot anderson": {
+    "name": "Elliot Anderson",
+    "pos": 3,
+    "rank": 101
+   },
+   "kobbie mainoo": {
+    "name": "Kobbie Mainoo",
+    "pos": 3,
+    "rank": 173
+   },
+   "noni madueke": {
+    "name": "Noni Madueke",
+    "pos": 4,
+    "rank": 174
+   },
+   "reece james": {
+    "name": "Reece James",
+    "pos": 2,
+    "rank": 457
+   },
+   "jordan henderson": {
+    "name": "Jordan Henderson",
+    "pos": 3,
+    "rank": 479
+   },
+   "marc guehi": {
+    "name": "Marc Guéhi",
+    "pos": 2,
+    "rank": 480
+   },
+   "ezri konsa": {
+    "name": "Ezri Konsa",
+    "pos": 2,
+    "rank": 654
+   },
+   "jordan pickford": {
+    "name": "Jordan Pickford",
+    "pos": 1,
+    "rank": 655
+   },
+   "nico o reilly": {
+    "name": "Nico O'Reilly",
+    "pos": 2,
+    "rank": 686
+   },
+   "john stones": {
+    "name": "John Stones",
+    "pos": 2,
+    "rank": 758
+   },
+   "tino livramento": {
+    "name": "Tino Livramento",
+    "pos": 2,
+    "rank": 759
+   },
+   "dan burn": {
+    "name": "Dan Burn",
+    "pos": 2,
+    "rank": 792
+   },
+   "djed spence": {
+    "name": "Djed Spence",
+    "pos": 2,
+    "rank": 793
+   },
+   "jarell quansah": {
+    "name": "Jarell Quansah",
+    "pos": 2,
+    "rank": 842
+   },
+   "dean henderson": {
+    "name": "Dean Henderson",
+    "pos": 1,
+    "rank": 954
+   },
+   "james trafford": {
+    "name": "James Trafford",
+    "pos": 1,
+    "rank": 1057
+   }
+  },
+  "FRA": {
+   "kylian mbappe": {
+    "name": "Kylian Mbappé",
+    "pos": 4,
+    "rank": 2
+   },
+   "ousmane dembele": {
+    "name": "Ousmane Dembélé",
+    "pos": 3,
+    "rank": 7
+   },
+   "michael olise": {
+    "name": "Michael Olise",
+    "pos": 3,
+    "rank": 11
+   },
+   "bradley barcola": {
+    "name": "Bradley Barcola",
+    "pos": 3,
+    "rank": 21
+   },
+   "rayan cherki": {
+    "name": "Rayan Cherki",
+    "pos": 3,
+    "rank": 22
+   },
+   "desire doue": {
+    "name": "Désiré Doué",
+    "pos": 3,
+    "rank": 42
+   },
+   "marcus thuram": {
+    "name": "Marcus Thuram",
+    "pos": 4,
+    "rank": 43
+   },
+   "aurelien tchouameni": {
+    "name": "Aurélien Tchouaméni",
+    "pos": 3,
+    "rank": 102
+   },
+   "jean philippe mateta": {
+    "name": "Jean-Philippe Mateta",
+    "pos": 4,
+    "rank": 103
+   },
+   "adrien rabiot": {
+    "name": "Adrien Rabiot",
+    "pos": 3,
+    "rank": 120
+   },
+   "maghnes akliouche": {
+    "name": "Maghnes Akliouche",
+    "pos": 3,
+    "rank": 121
+   },
+   "manu kone": {
+    "name": "Manu Koné",
+    "pos": 3,
+    "rank": 175
+   },
+   "warren zaire emery": {
+    "name": "Warren Zaïre-Emery",
+    "pos": 3,
+    "rank": 176
+   },
+   "jules kounde": {
+    "name": "Jules Koundé",
+    "pos": 2,
+    "rank": 385
+   },
+   "dayot upamecano": {
+    "name": "Dayot Upamecano",
+    "pos": 2,
+    "rank": 409
+   },
+   "william saliba": {
+    "name": "William Saliba",
+    "pos": 2,
+    "rank": 410
+   },
+   "lucas hernandez": {
+    "name": "Lucas Hernández",
+    "pos": 2,
+    "rank": 458
+   },
+   "malo gusto": {
+    "name": "Malo Gusto",
+    "pos": 2,
+    "rank": 481
+   },
+   "n golo kante": {
+    "name": "N'Golo Kanté",
+    "pos": 3,
+    "rank": 482
+   },
+   "lucas digne": {
+    "name": "Lucas Digne",
+    "pos": 2,
+    "rank": 523
+   },
+   "mike maignan": {
+    "name": "Mike Maignan",
+    "pos": 1,
+    "rank": 524
+   },
+   "theo hernandez": {
+    "name": "Theo Hernández",
+    "pos": 2,
+    "rank": 525
+   },
+   "ibrahima konate": {
+    "name": "Ibrahima Konaté",
+    "pos": 2,
+    "rank": 597
+   },
+   "brice samba": {
+    "name": "Brice Samba",
+    "pos": 1,
+    "rank": 794
+   },
+   "maxence lacroix": {
+    "name": "Maxence Lacroix",
+    "pos": 2,
+    "rank": 795
+   },
+   "robin risser": {
+    "name": "Robin Risser",
+    "pos": 1,
+    "rank": 1398
+   }
+  },
+  "NOR": {
+   "erling haaland": {
+    "name": "Erling Haaland",
+    "pos": 4,
+    "rank": 3
+   },
+   "martin degaard": {
+    "name": "Martin Ødegaard",
+    "pos": 3,
+    "rank": 34
+   },
+   "alexander srloth": {
+    "name": "Alexander Sørloth",
+    "pos": 4,
+    "rank": 80
+   },
+   "fredrik aursnes": {
+    "name": "Fredrik Aursnes",
+    "pos": 3,
+    "rank": 108
+   },
+   "andreas schjelderup": {
+    "name": "Andreas Schjelderup",
+    "pos": 4,
+    "rank": 155
+   },
+   "kristian thorstvedt": {
+    "name": "Kristian Thorstvedt",
+    "pos": 3,
+    "rank": 156
+   },
+   "antonio nusa": {
+    "name": "Antonio Nusa",
+    "pos": 3,
+    "rank": 184
+   },
+   "jens petter hauge": {
+    "name": "Jens Petter Hauge",
+    "pos": 3,
+    "rank": 246
+   },
+   "jrgen strand larsen": {
+    "name": "Jørgen Strand Larsen",
+    "pos": 4,
+    "rank": 326
+   },
+   "morten thorsby": {
+    "name": "Morten Thorsby",
+    "pos": 3,
+    "rank": 327
+   },
+   "patrick berg": {
+    "name": "Patrick Berg",
+    "pos": 3,
+    "rank": 328
+   },
+   "thelo aasgaard": {
+    "name": "Thelo Aasgaard",
+    "pos": 3,
+    "rank": 370
+   },
+   "oscar bobb": {
+    "name": "Oscar Bobb",
+    "pos": 3,
+    "rank": 492
+   },
+   "sander berge": {
+    "name": "Sander Berge",
+    "pos": 3,
+    "rank": 719
+   },
+   "kristoffer ajer": {
+    "name": "Kristoffer Ajer",
+    "pos": 2,
+    "rank": 912
+   },
+   "julian ryerson": {
+    "name": "Julian Ryerson",
+    "pos": 2,
+    "rank": 971
+   },
+   "rjan nyland": {
+    "name": "Ørjan Nyland",
+    "pos": 1,
+    "rank": 972
+   },
+   "leo stigard": {
+    "name": "Leo Østigård",
+    "pos": 2,
+    "rank": 1000
+   },
+   "marcus pedersen": {
+    "name": "Marcus Pedersen",
+    "pos": 2,
+    "rank": 1001
+   },
+   "david mller wolfe": {
+    "name": "David Møller Wolfe",
+    "pos": 2,
+    "rank": 1081
+   },
+   "fredrik bjrkan": {
+    "name": "Fredrik Bjørkan",
+    "pos": 2,
+    "rank": 1082
+   },
+   "sondre langas": {
+    "name": "Sondre Langås",
+    "pos": 2,
+    "rank": 1083
+   },
+   "egil selvik": {
+    "name": "Egil Selvik",
+    "pos": 1,
+    "rank": 1227
+   },
+   "torbjrn heggem": {
+    "name": "Torbjørn Heggem",
+    "pos": 2,
+    "rank": 1281
+   },
+   "henrik falchener": {
+    "name": "Henrik Falchener",
+    "pos": 2,
+    "rank": 1443
+   },
+   "sander tangvik": {
+    "name": "Sander Tangvik",
+    "pos": 1,
+    "rank": 1444
+   }
+  },
+  "ARG": {
+   "lionel messi": {
+    "name": "Lionel Messi",
+    "pos": 4,
+    "rank": 4
+   },
+   "lautaro martinez": {
+    "name": "Lautaro Martínez",
+    "pos": 4,
+    "rank": 12
+   },
+   "julian alvarez": {
+    "name": "Julián Alvarez",
+    "pos": 4,
+    "rank": 13
+   },
+   "enzo fernandez": {
+    "name": "Enzo Fernández",
+    "pos": 3,
+    "rank": 37
+   },
+   "alexis mac allister": {
+    "name": "Alexis Mac Allister",
+    "pos": 3,
+    "rank": 88
+   },
+   "emiliano buendia": {
+    "name": "Emiliano Buendía",
+    "pos": 3,
+    "rank": 93
+   },
+   "thiago almada": {
+    "name": "Thiago Almada",
+    "pos": 3,
+    "rank": 94
+   },
+   "giovani lo celso": {
+    "name": "Giovani Lo Celso",
+    "pos": 3,
+    "rank": 140
+   },
+   "matias soule": {
+    "name": "Matías Soulé",
+    "pos": 3,
+    "rank": 141
+   },
+   "valentin barco": {
+    "name": "Valentín Barco",
+    "pos": 3,
+    "rank": 142
+   },
+   "exequiel palacios": {
+    "name": "Exequiel Palacios",
+    "pos": 3,
+    "rank": 198
+   },
+   "santiago castro": {
+    "name": "Santiago Castro",
+    "pos": 4,
+    "rank": 199
+   },
+   "nico paz": {
+    "name": "Nico Paz",
+    "pos": 3,
+    "rank": 221
+   },
+   "rodrigo de paul": {
+    "name": "Rodrigo De Paul",
+    "pos": 3,
+    "rank": 222
+   },
+   "franco mastantuono": {
+    "name": "Franco Mastantuono",
+    "pos": 3,
+    "rank": 262
+   },
+   "gianluca prestianni": {
+    "name": "Gianluca Prestianni",
+    "pos": 3,
+    "rank": 285
+   },
+   "giuliano simeone": {
+    "name": "Giuliano Simeone",
+    "pos": 3,
+    "rank": 286
+   },
+   "guido rodriguez": {
+    "name": "Guido Rodríguez",
+    "pos": 3,
+    "rank": 287
+   },
+   "leandro paredes": {
+    "name": "Leandro Paredes",
+    "pos": 3,
+    "rank": 288
+   },
+   "maximo perrone": {
+    "name": "Máximo Perrone",
+    "pos": 3,
+    "rank": 289
+   },
+   "nico gonzalez": {
+    "name": "Nico González",
+    "pos": 3,
+    "rank": 290
+   },
+   "alejandro garnacho": {
+    "name": "Alejandro Garnacho",
+    "pos": 3,
+    "rank": 348
+   },
+   "claudio echeverri": {
+    "name": "Claudio Echeverri",
+    "pos": 3,
+    "rank": 349
+   },
+   "jose manuel lopez": {
+    "name": "José Manuel López",
+    "pos": 4,
+    "rank": 393
+   },
+   "alan varela": {
+    "name": "Alan Varela",
+    "pos": 3,
+    "rank": 506
+   },
+   "anibal moreno": {
+    "name": "Aníbal Moreno",
+    "pos": 3,
+    "rank": 507
+   },
+   "emiliano martinez": {
+    "name": "Emiliano Martínez",
+    "pos": 1,
+    "rank": 508
+   },
+   "equi fernandez": {
+    "name": "Equi Fernández",
+    "pos": 3,
+    "rank": 509
+   },
+   "mateo pellegrino": {
+    "name": "Mateo Pellegrino",
+    "pos": 4,
+    "rank": 510
+   },
+   "nicolas capaldo": {
+    "name": "Nicolás Capaldo",
+    "pos": 3,
+    "rank": 511
+   },
+   "nicolas dominguez": {
+    "name": "Nicolás Domínguez",
+    "pos": 3,
+    "rank": 512
+   },
+   "cristian romero": {
+    "name": "Cristian Romero",
+    "pos": 2,
+    "rank": 563
+   },
+   "marcos senesi": {
+    "name": "Marcos Senesi",
+    "pos": 2,
+    "rank": 669
+   },
+   "lisandro martinez": {
+    "name": "Lisandro Martínez",
+    "pos": 2,
+    "rank": 746
+   },
+   "geronimo rulli": {
+    "name": "Gerónimo Rulli",
+    "pos": 1,
+    "rank": 776
+   },
+   "walter benitez": {
+    "name": "Walter Benítez",
+    "pos": 1,
+    "rank": 777
+   },
+   "nahuel molina": {
+    "name": "Nahuel Molina",
+    "pos": 2,
+    "rank": 827
+   },
+   "nicolas otamendi": {
+    "name": "Nicolás Otamendi",
+    "pos": 2,
+    "rank": 828
+   },
+   "gonzalo montiel": {
+    "name": "Gonzalo Montiel",
+    "pos": 2,
+    "rank": 868
+   },
+   "juan musso": {
+    "name": "Juan Musso",
+    "pos": 1,
+    "rank": 869
+   },
+   "lucas martinez quarta": {
+    "name": "Lucas Martínez Quarta",
+    "pos": 2,
+    "rank": 870
+   },
+   "marcos acuna": {
+    "name": "Marcos Acuña",
+    "pos": 2,
+    "rank": 871
+   },
+   "nicolas tagliafico": {
+    "name": "Nicolás Tagliafico",
+    "pos": 2,
+    "rank": 872
+   },
+   "tomas aranda": {
+    "name": "Tomás Aranda",
+    "pos": 3,
+    "rank": 873
+   },
+   "german pezzella": {
+    "name": "Germán Pezzella",
+    "pos": 2,
+    "rank": 932
+   },
+   "milton delgado": {
+    "name": "Milton Delgado",
+    "pos": 3,
+    "rank": 933
+   },
+   "facundo cambeses": {
+    "name": "Facundo Cambeses",
+    "pos": 1,
+    "rank": 1031
+   },
+   "facundo medina": {
+    "name": "Facundo Medina",
+    "pos": 2,
+    "rank": 1032
+   },
+   "gabriel rojas": {
+    "name": "Gabriel Rojas",
+    "pos": 2,
+    "rank": 1033
+   },
+   "leonardo balerdi": {
+    "name": "Leonardo Balerdi",
+    "pos": 2,
+    "rank": 1034
+   },
+   "santiago beltran": {
+    "name": "Santiago Beltrán",
+    "pos": 1,
+    "rank": 1035
+   },
+   "kevin mac allister": {
+    "name": "Kevin Mac Allister",
+    "pos": 2,
+    "rank": 1200
+   },
+   "agustin giay": {
+    "name": "Agustín Giay",
+    "pos": 2,
+    "rank": 1249
+   },
+   "lautaro di lollo": {
+    "name": "Lautaro Di Lollo",
+    "pos": 2,
+    "rank": 1370
+   },
+   "zaid romero": {
+    "name": "Zaid Romero",
+    "pos": 2,
+    "rank": 1371
+   }
+  },
+  "BRA": {
+   "vinicius junior": {
+    "name": "Vinícius Júnior",
+    "pos": 3,
+    "rank": 5
+   },
+   "raphinha": {
+    "name": "Raphinha",
+    "pos": 3,
+    "rank": 16
+   },
+   "matheus cunha": {
+    "name": "Matheus Cunha",
+    "pos": 4,
+    "rank": 54
+   },
+   "neymar": {
+    "name": "Neymar",
+    "pos": 3,
+    "rank": 56
+   },
+   "bruno guimaraes": {
+    "name": "Bruno Guimarães",
+    "pos": 3,
+    "rank": 73
+   },
+   "gabriel martinelli": {
+    "name": "Gabriel Martinelli",
+    "pos": 3,
+    "rank": 95
+   },
+   "lucas paqueta": {
+    "name": "Lucas Paquetá",
+    "pos": 3,
+    "rank": 96
+   },
+   "casemiro": {
+    "name": "Casemiro",
+    "pos": 3,
+    "rank": 129
+   },
+   "ederson": {
+    "name": "Éderson",
+    "pos": 3,
+    "rank": 130
+   },
+   "luiz henrique": {
+    "name": "Luiz Henrique",
+    "pos": 4,
+    "rank": 169
+   },
+   "igor thiago": {
+    "name": "Igor Thiago",
+    "pos": 4,
+    "rank": 226
+   },
+   "danilo": {
+    "name": "Danilo",
+    "pos": 3,
+    "rank": 298
+   },
+   "rayan": {
+    "name": "Rayan",
+    "pos": 4,
+    "rank": 299
+   },
+   "endrick": {
+    "name": "Endrick",
+    "pos": 4,
+    "rank": 354
+   },
+   "gabriel magalhaes": {
+    "name": "Gabriel Magalhães",
+    "pos": 2,
+    "rank": 355
+   },
+   "fabinho": {
+    "name": "Fabinho",
+    "pos": 3,
+    "rank": 451
+   },
+   "marquinhos": {
+    "name": "Marquinhos",
+    "pos": 2,
+    "rank": 452
+   },
+   "alisson becker": {
+    "name": "Alisson Becker",
+    "pos": 1,
+    "rank": 516
+   },
+   "alex sandro": {
+    "name": "Alex Sandro",
+    "pos": 2,
+    "rank": 780
+   },
+   "wesley": {
+    "name": "Wesley",
+    "pos": 2,
+    "rank": 781
+   },
+   "weverton": {
+    "name": "Weverton",
+    "pos": 1,
+    "rank": 782
+   },
+   "ibanez": {
+    "name": "Ibañez",
+    "pos": 2,
+    "rank": 831
+   },
+   "bremer": {
+    "name": "Bremer",
+    "pos": 2,
+    "rank": 883
+   },
+   "douglas santos": {
+    "name": "Douglas Santos",
+    "pos": 2,
+    "rank": 885
+   },
+   "leo pereira": {
+    "name": "Léo Pereira",
+    "pos": 2,
+    "rank": 939
+   }
+  },
+  "EGY": {
+   "mohamed salah": {
+    "name": "Mohamed Salah",
+    "pos": 3,
+    "rank": 6
+   },
+   "omar marmoush": {
+    "name": "Omar Marmoush",
+    "pos": 4,
+    "rank": 26
+   },
+   "ibrahim adel": {
+    "name": "Ibrahim Adel",
+    "pos": 3,
+    "rank": 235
+   },
+   "trezeguet": {
+    "name": "Trezeguet",
+    "pos": 4,
+    "rank": 311
+   },
+   "mohanad lasheen": {
+    "name": "Mohanad Lasheen",
+    "pos": 3,
+    "rank": 408
+   },
+   "mahmoud saber": {
+    "name": "Mahmoud Saber",
+    "pos": 3,
+    "rank": 596
+   },
+   "emam ashour": {
+    "name": "Emam Ashour",
+    "pos": 3,
+    "rank": 756
+   },
+   "haissem hassan": {
+    "name": "Haissem Hassan",
+    "pos": 4,
+    "rank": 757
+   },
+   "hamdi fathy": {
+    "name": "Hamdi Fathy",
+    "pos": 3,
+    "rank": 841
+   },
+   "aqtay abdallah": {
+    "name": "Aqtay Abdallah",
+    "pos": 4,
+    "rank": 897
+   },
+   "hamza abdelkarim": {
+    "name": "Hamza Abdelkarim",
+    "pos": 4,
+    "rank": 898
+   },
+   "marwan attia": {
+    "name": "Marwan Attia",
+    "pos": 3,
+    "rank": 899
+   },
+   "nabil emad dunga": {
+    "name": "Nabil Emad Dunga",
+    "pos": 3,
+    "rank": 900
+   },
+   "zizo": {
+    "name": "Zizo",
+    "pos": 3,
+    "rank": 901
+   },
+   "mostafa zico": {
+    "name": "Mostafa Zico",
+    "pos": 3,
+    "rank": 953
+   },
+   "mohamed abdelmonem": {
+    "name": "Mohamed Abdelmonem",
+    "pos": 2,
+    "rank": 1056
+   },
+   "ahmed fatouh": {
+    "name": "Ahmed Fatouh",
+    "pos": 2,
+    "rank": 1154
+   },
+   "karim hafez": {
+    "name": "Karim Hafez",
+    "pos": 2,
+    "rank": 1155
+   },
+   "el mahdy soliman": {
+    "name": "El Mahdy Soliman",
+    "pos": 1,
+    "rank": 1323
+   },
+   "hossam abdelmaguid": {
+    "name": "Hossam Abdelmaguid",
+    "pos": 2,
+    "rank": 1324
+   },
+   "mohamed el shenawy": {
+    "name": "Mohamed El Shenawy",
+    "pos": 1,
+    "rank": 1325
+   },
+   "mohamed hany": {
+    "name": "Mohamed Hany",
+    "pos": 2,
+    "rank": 1326
+   },
+   "ramy rabia": {
+    "name": "Ramy Rabia",
+    "pos": 2,
+    "rank": 1327
+   },
+   "mohamed alaa": {
+    "name": "Mohamed Alaa",
+    "pos": 1,
+    "rank": 1394
+   },
+   "mostafa shobeir": {
+    "name": "Mostafa Shobeir",
+    "pos": 1,
+    "rank": 1395
+   },
+   "tarek alaa": {
+    "name": "Tarek Alaa",
+    "pos": 2,
+    "rank": 1396
+   },
+   "yasser ibrahim": {
+    "name": "Yasser Ibrahim",
+    "pos": 2,
+    "rank": 1397
+   }
+  },
+  "POR": {
+   "cristiano ronaldo": {
+    "name": "Cristiano Ronaldo",
+    "pos": 4,
+    "rank": 8
+   },
+   "bruno fernandes": {
+    "name": "Bruno Fernandes",
+    "pos": 3,
+    "rank": 14
+   },
+   "bernardo silva": {
+    "name": "Bernardo Silva",
+    "pos": 3,
+    "rank": 28
+   },
+   "rafael leao": {
+    "name": "Rafael Leão",
+    "pos": 3,
+    "rank": 29
+   },
+   "goncalo ramos": {
+    "name": "Gonçalo Ramos",
+    "pos": 4,
+    "rank": 45
+   },
+   "joao felix": {
+    "name": "João Félix",
+    "pos": 4,
+    "rank": 112
+   },
+   "joao neves": {
+    "name": "João Neves",
+    "pos": 3,
+    "rank": 113
+   },
+   "pedro neto": {
+    "name": "Pedro Neto",
+    "pos": 3,
+    "rank": 126
+   },
+   "vitinha": {
+    "name": "Vitinha",
+    "pos": 3,
+    "rank": 127
+   },
+   "matheus nunes": {
+    "name": "Matheus Nunes",
+    "pos": 3,
+    "rank": 185
+   },
+   "ruben neves": {
+    "name": "Rúben Neves",
+    "pos": 3,
+    "rank": 248
+   },
+   "trincao": {
+    "name": "Trincão",
+    "pos": 4,
+    "rank": 249
+   },
+   "goncalo guedes": {
+    "name": "Gonçalo Guedes",
+    "pos": 4,
+    "rank": 268
+   },
+   "nuno mendes": {
+    "name": "Nuno Mendes",
+    "pos": 2,
+    "rank": 269
+   },
+   "francisco conceicao": {
+    "name": "Francisco Conceição",
+    "pos": 3,
+    "rank": 281
+   },
+   "samu costa": {
+    "name": "Samú Costa",
+    "pos": 3,
+    "rank": 335
+   },
+   "joao cancelo": {
+    "name": "João Cancelo",
+    "pos": 2,
+    "rank": 433
+   },
+   "diogo dalot": {
+    "name": "Diogo Dalot",
+    "pos": 2,
+    "rank": 545
+   },
+   "ruben dias": {
+    "name": "Rúben Dias",
+    "pos": 2,
+    "rank": 546
+   },
+   "diogo costa": {
+    "name": "Diogo Costa",
+    "pos": 1,
+    "rank": 623
+   },
+   "jose sa": {
+    "name": "José Sá",
+    "pos": 1,
+    "rank": 725
+   },
+   "rui silva": {
+    "name": "Rui Silva",
+    "pos": 1,
+    "rank": 726
+   },
+   "goncalo inacio": {
+    "name": "Gonçalo Inácio",
+    "pos": 2,
+    "rank": 770
+   },
+   "nelson semedo": {
+    "name": "Nélson Semedo",
+    "pos": 2,
+    "rank": 914
+   },
+   "renato veiga": {
+    "name": "Renato Veiga",
+    "pos": 2,
+    "rank": 915
+   },
+   "tomas araujo": {
+    "name": "Tomás Araújo",
+    "pos": 2,
+    "rank": 1006
+   },
+   "ricardo velho": {
+    "name": "Ricardo Velho",
+    "pos": 1,
+    "rank": 1094
+   }
+  },
+  "SPA": {
+   "lamine yamal": {
+    "name": "Lamine Yamal",
+    "pos": 3,
+    "rank": 9
+   },
+   "mikel oyarzabal": {
+    "name": "Mikel Oyarzabal",
+    "pos": 4,
+    "rank": 18
+   },
+   "pedri": {
+    "name": "Pedri",
+    "pos": 3,
+    "rank": 19
+   },
+   "ferran torres": {
+    "name": "Ferran Torres",
+    "pos": 4,
+    "rank": 30
+   },
+   "nico williams": {
+    "name": "Nico Williams",
+    "pos": 3,
+    "rank": 31
+   },
+   "dani olmo": {
+    "name": "Dani Olmo",
+    "pos": 3,
+    "rank": 35
+   },
+   "rodri": {
+    "name": "Rodri",
+    "pos": 3,
+    "rank": 46
+   },
+   "borja iglesias": {
+    "name": "Borja Iglesias",
+    "pos": 4,
+    "rank": 82
+   },
+   "fabian ruiz": {
+    "name": "Fabián Ruiz",
+    "pos": 3,
+    "rank": 83
+   },
+   "gavi": {
+    "name": "Gavi",
+    "pos": 3,
+    "rank": 116
+   },
+   "mikel merino": {
+    "name": "Mikel Merino",
+    "pos": 3,
+    "rank": 160
+   },
+   "martin zubimendi": {
+    "name": "Martín Zubimendi",
+    "pos": 3,
+    "rank": 187
+   },
+   "alex baena": {
+    "name": "Álex Baena",
+    "pos": 3,
+    "rank": 215
+   },
+   "yeremy pino": {
+    "name": "Yéremy Pino",
+    "pos": 3,
+    "rank": 253
+   },
+   "aymeric laporte": {
+    "name": "Aymeric Laporte",
+    "pos": 2,
+    "rank": 376
+   },
+   "marcos llorente": {
+    "name": "Marcos Llorente",
+    "pos": 2,
+    "rank": 377
+   },
+   "pedro porro": {
+    "name": "Pedro Porro",
+    "pos": 2,
+    "rank": 378
+   },
+   "marc cucurella": {
+    "name": "Marc Cucurella",
+    "pos": 2,
+    "rank": 501
+   },
+   "david raya": {
+    "name": "David Raya",
+    "pos": 1,
+    "rank": 551
+   },
+   "pau cubarsi": {
+    "name": "Pau Cubarsí",
+    "pos": 2,
+    "rank": 552
+   },
+   "unai simon": {
+    "name": "Unai Simón",
+    "pos": 1,
+    "rank": 553
+   },
+   "alejandro grimaldo": {
+    "name": "Alejandro Grimaldo",
+    "pos": 2,
+    "rank": 640
+   },
+   "eric garcia": {
+    "name": "Eric García",
+    "pos": 2,
+    "rank": 818
+   },
+   "marc pubill": {
+    "name": "Marc Pubill",
+    "pos": 2,
+    "rank": 981
+   },
+   "joan garcia": {
+    "name": "Joan García",
+    "pos": 1,
+    "rank": 1104
+   },
+   "victor munoz": {
+    "name": "Víctor Muñoz",
+    "pos": 4,
+    "rank": 1105
+   }
+  },
+  "COL": {
+   "luis diaz": {
+    "name": "Luis Díaz",
+    "pos": 3,
+    "rank": 17
+   },
+   "james rodriguez": {
+    "name": "James Rodríguez",
+    "pos": 3,
+    "rank": 98
+   },
+   "cucho hernandez": {
+    "name": "Cucho Hernández",
+    "pos": 4,
+    "rank": 131
+   },
+   "jhon arias": {
+    "name": "Jhon Arias",
+    "pos": 3,
+    "rank": 132
+   },
+   "jhon cordoba": {
+    "name": "Jhon Córdoba",
+    "pos": 4,
+    "rank": 170
+   },
+   "jorge carrascal": {
+    "name": "Jorge Carrascal",
+    "pos": 3,
+    "rank": 171
+   },
+   "luis suarez": {
+    "name": "Luis Suárez",
+    "pos": 4,
+    "rank": 275
+   },
+   "juan fernando quintero": {
+    "name": "Juan Fernando Quintero",
+    "pos": 3,
+    "rank": 304
+   },
+   "jaminton campaz": {
+    "name": "Jaminton Campaz",
+    "pos": 3,
+    "rank": 358
+   },
+   "gustavo puerta": {
+    "name": "Gustavo Puerta",
+    "pos": 3,
+    "rank": 403
+   },
+   "andres gomez": {
+    "name": "Andrés Gómez",
+    "pos": 4,
+    "rank": 578
+   },
+   "jefferson lerma": {
+    "name": "Jefferson Lerma",
+    "pos": 3,
+    "rank": 579
+   },
+   "juan portilla": {
+    "name": "Juan Portilla",
+    "pos": 3,
+    "rank": 678
+   },
+   "richard rios": {
+    "name": "Richard Ríos",
+    "pos": 3,
+    "rank": 679
+   },
+   "daniel munoz": {
+    "name": "Daniel Muñoz",
+    "pos": 2,
+    "rank": 753
+   },
+   "camilo vargas": {
+    "name": "Camilo Vargas",
+    "pos": 1,
+    "rank": 889
+   },
+   "davinson sanchez": {
+    "name": "Dávinson Sánchez",
+    "pos": 2,
+    "rank": 890
+   },
+   "jhon lucumi": {
+    "name": "Jhon Lucumí",
+    "pos": 2,
+    "rank": 891
+   },
+   "kevin castano": {
+    "name": "Kevin Castaño",
+    "pos": 3,
+    "rank": 892
+   },
+   "yerry mina": {
+    "name": "Yerry Mina",
+    "pos": 2,
+    "rank": 945
+   },
+   "david ospina": {
+    "name": "David Ospina",
+    "pos": 1,
+    "rank": 1046
+   },
+   "deiver machado": {
+    "name": "Déiver Machado",
+    "pos": 2,
+    "rank": 1137
+   },
+   "johan mojica": {
+    "name": "Johan Mojica",
+    "pos": 2,
+    "rank": 1138
+   },
+   "santiago arias": {
+    "name": "Santiago Arias",
+    "pos": 2,
+    "rank": 1139
+   },
+   "alvaro montero": {
+    "name": "Álvaro Montero",
+    "pos": 1,
+    "rank": 1209
+   },
+   "willer ditta": {
+    "name": "Willer Ditta",
+    "pos": 2,
+    "rank": 1260
+   }
+  },
+  "GER": {
+   "jamal musiala": {
+    "name": "Jamal Musiala",
+    "pos": 3,
+    "rank": 23
+   },
+   "kai havertz": {
+    "name": "Kai Havertz",
+    "pos": 4,
+    "rank": 27
+   },
+   "florian wirtz": {
+    "name": "Florian Wirtz",
+    "pos": 3,
+    "rank": 44
+   },
+   "leroy sane": {
+    "name": "Leroy Sané",
+    "pos": 3,
+    "rank": 51
+   },
+   "nick woltemade": {
+    "name": "Nick Woltemade",
+    "pos": 4,
+    "rank": 58
+   },
+   "deniz undav": {
+    "name": "Deniz Undav",
+    "pos": 4,
+    "rank": 90
+   },
+   "maximilian beier": {
+    "name": "Maximilian Beier",
+    "pos": 4,
+    "rank": 104
+   },
+   "jamie leweling": {
+    "name": "Jamie Leweling",
+    "pos": 3,
+    "rank": 122
+   },
+   "nadiem amiri": {
+    "name": "Nadiem Amiri",
+    "pos": 3,
+    "rank": 133
+   },
+   "leon goretzka": {
+    "name": "Leon Goretzka",
+    "pos": 3,
+    "rank": 177
+   },
+   "angelo stiller": {
+    "name": "Angelo Stiller",
+    "pos": 3,
+    "rank": 265
+   },
+   "felix nmecha": {
+    "name": "Felix Nmecha",
+    "pos": 3,
+    "rank": 312
+   },
+   "pascal gro": {
+    "name": "Pascal Groß",
+    "pos": 3,
+    "rank": 313
+   },
+   "aleksandar pavlovic": {
+    "name": "Aleksandar Pavlovic",
+    "pos": 3,
+    "rank": 361
+   },
+   "antonio rudiger": {
+    "name": "Antonio Rüdiger",
+    "pos": 2,
+    "rank": 362
+   },
+   "joshua kimmich": {
+    "name": "Joshua Kimmich",
+    "pos": 2,
+    "rank": 363
+   },
+   "jonathan tah": {
+    "name": "Jonathan Tah",
+    "pos": 2,
+    "rank": 411
+   },
+   "nico schlotterbeck": {
+    "name": "Nico Schlotterbeck",
+    "pos": 2,
+    "rank": 412
+   },
+   "manuel neuer": {
+    "name": "Manuel Neuer",
+    "pos": 1,
+    "rank": 526
+   },
+   "david raum": {
+    "name": "David Raum",
+    "pos": 2,
+    "rank": 598
+   },
+   "lennart karl": {
+    "name": "Lennart Karl",
+    "pos": 3,
+    "rank": 656
+   },
+   "alexander nubel": {
+    "name": "Alexander Nübel",
+    "pos": 1,
+    "rank": 687
+   },
+   "malick thiaw": {
+    "name": "Malick Thiaw",
+    "pos": 2,
+    "rank": 688
+   },
+   "nathaniel brown": {
+    "name": "Nathaniel Brown",
+    "pos": 2,
+    "rank": 689
+   },
+   "assan ouedraogo": {
+    "name": "Assan Ouédraogo",
+    "pos": 3,
+    "rank": 796
+   },
+   "oliver baumann": {
+    "name": "Oliver Baumann",
+    "pos": 1,
+    "rank": 902
+   },
+   "jonas urbig": {
+    "name": "Jonas Urbig",
+    "pos": 1,
+    "rank": 1058
+   },
+   "waldemar anton": {
+    "name": "Waldemar Anton",
+    "pos": 2,
+    "rank": 1156
+   }
+  },
+  "SWE": {
+   "alexander isak": {
+    "name": "Alexander Isak",
+    "pos": 4,
+    "rank": 24
+   },
+   "viktor gyokeres": {
+    "name": "Viktor Gyökeres",
+    "pos": 4,
+    "rank": 32
+   },
+   "mattias svanberg": {
+    "name": "Mattias Svanberg",
+    "pos": 3,
+    "rank": 188
+   },
+   "ken sema": {
+    "name": "Ken Sema",
+    "pos": 3,
+    "rank": 216
+   },
+   "anthony elanga": {
+    "name": "Anthony Elanga",
+    "pos": 4,
+    "rank": 270
+   },
+   "jesper karlstrom": {
+    "name": "Jesper Karlström",
+    "pos": 3,
+    "rank": 340
+   },
+   "sebastian nanasi": {
+    "name": "Sebastian Nanasi",
+    "pos": 3,
+    "rank": 441
+   },
+   "yasin ayari": {
+    "name": "Yasin Ayari",
+    "pos": 3,
+    "rank": 442
+   },
+   "lucas bergvall": {
+    "name": "Lucas Bergvall",
+    "pos": 3,
+    "rank": 502
+   },
+   "alexander bernhardsson": {
+    "name": "Alexander Bernhardsson",
+    "pos": 4,
+    "rank": 641
+   },
+   "benjamin nygren": {
+    "name": "Benjamin Nygren",
+    "pos": 4,
+    "rank": 642
+   },
+   "eric smith": {
+    "name": "Eric Smith",
+    "pos": 3,
+    "rank": 643
+   },
+   "gustaf nilsson": {
+    "name": "Gustaf Nilsson",
+    "pos": 4,
+    "rank": 644
+   },
+   "taha ali": {
+    "name": "Taha Ali",
+    "pos": 3,
+    "rank": 645
+   },
+   "besfort zeneli": {
+    "name": "Besfort Zeneli",
+    "pos": 3,
+    "rank": 730
+   },
+   "elliot stroud": {
+    "name": "Elliot Stroud",
+    "pos": 3,
+    "rank": 731
+   },
+   "daniel svensson": {
+    "name": "Daniel Svensson",
+    "pos": 2,
+    "rank": 819
+   },
+   "herman johansson": {
+    "name": "Herman Johansson",
+    "pos": 3,
+    "rank": 860
+   },
+   "gabriel gudmundsson": {
+    "name": "Gabriel Gudmundsson",
+    "pos": 2,
+    "rank": 982
+   },
+   "carl starfelt": {
+    "name": "Carl Starfelt",
+    "pos": 2,
+    "rank": 1013
+   },
+   "emil holm": {
+    "name": "Emil Holm",
+    "pos": 2,
+    "rank": 1014
+   },
+   "isak hien": {
+    "name": "Isak Hien",
+    "pos": 2,
+    "rank": 1015
+   },
+   "victor lindelof": {
+    "name": "Victor Lindelöf",
+    "pos": 2,
+    "rank": 1106
+   },
+   "kristoffer nordfeldt": {
+    "name": "Kristoffer Nordfeldt",
+    "pos": 1,
+    "rank": 1185
+   },
+   "viktor johansson": {
+    "name": "Viktor Johansson",
+    "pos": 1,
+    "rank": 1186
+   },
+   "gustaf lagerbielke": {
+    "name": "Gustaf Lagerbielke",
+    "pos": 2,
+    "rank": 1302
+   },
+   "hjalmar ekdal": {
+    "name": "Hjalmar Ekdal",
+    "pos": 2,
+    "rank": 1303
+   },
+   "jacob widell zetterstrom": {
+    "name": "Jacob Widell Zetterström",
+    "pos": 1,
+    "rank": 1304
+   }
+  },
+  "NED": {
+   "cody gakpo": {
+    "name": "Cody Gakpo",
+    "pos": 4,
+    "rank": 33
+   },
+   "memphis depay": {
+    "name": "Memphis Depay",
+    "pos": 4,
+    "rank": 53
+   },
+   "frenkie de jong": {
+    "name": "Frenkie de Jong",
+    "pos": 3,
+    "rank": 68
+   },
+   "quinten timber": {
+    "name": "Quinten Timber",
+    "pos": 3,
+    "rank": 79
+   },
+   "justin kluivert": {
+    "name": "Justin Kluivert",
+    "pos": 3,
+    "rank": 105
+   },
+   "tijjani reijnders": {
+    "name": "Tijjani Reijnders",
+    "pos": 3,
+    "rank": 106
+   },
+   "xavi simons": {
+    "name": "Xavi Simons",
+    "pos": 3,
+    "rank": 107
+   },
+   "teun koopmeiners": {
+    "name": "Teun Koopmeiners",
+    "pos": 3,
+    "rank": 154
+   },
+   "donyell malen": {
+    "name": "Donyell Malen",
+    "pos": 4,
+    "rank": 181
+   },
+   "jerdy schouten": {
+    "name": "Jerdy Schouten",
+    "pos": 3,
+    "rank": 182
+   },
+   "ryan gravenberch": {
+    "name": "Ryan Gravenberch",
+    "pos": 3,
+    "rank": 183
+   },
+   "noa lang": {
+    "name": "Noa Lang",
+    "pos": 4,
+    "rank": 245
+   },
+   "brian brobbey": {
+    "name": "Brian Brobbey",
+    "pos": 4,
+    "rank": 277
+   },
+   "denzel dumfries": {
+    "name": "Denzel Dumfries",
+    "pos": 2,
+    "rank": 278
+   },
+   "virgil van dijk": {
+    "name": "Virgil van Dijk",
+    "pos": 2,
+    "rank": 368
+   },
+   "wout weghorst": {
+    "name": "Wout Weghorst",
+    "pos": 4,
+    "rank": 369
+   },
+   "crysencio summerville": {
+    "name": "Crysencio Summerville",
+    "pos": 3,
+    "rank": 426
+   },
+   "jurrien timber": {
+    "name": "Jurriën Timber",
+    "pos": 2,
+    "rank": 459
+   },
+   "marten de roon": {
+    "name": "Marten de Roon",
+    "pos": 3,
+    "rank": 490
+   },
+   "micky van de ven": {
+    "name": "Micky van de Ven",
+    "pos": 2,
+    "rank": 491
+   },
+   "jeremie frimpong": {
+    "name": "Jeremie Frimpong",
+    "pos": 2,
+    "rank": 536
+   },
+   "nathan ake": {
+    "name": "Nathan Aké",
+    "pos": 2,
+    "rank": 537
+   },
+   "guus til": {
+    "name": "Guus Til",
+    "pos": 3,
+    "rank": 615
+   },
+   "luciano valente": {
+    "name": "Luciano Valente",
+    "pos": 3,
+    "rank": 616
+   },
+   "lutsharel geertruida": {
+    "name": "Lutsharel Geertruida",
+    "pos": 2,
+    "rank": 659
+   },
+   "mats wieffer": {
+    "name": "Mats Wieffer",
+    "pos": 3,
+    "rank": 660
+   },
+   "bart verbruggen": {
+    "name": "Bart Verbruggen",
+    "pos": 1,
+    "rank": 716
+   },
+   "kees smit": {
+    "name": "Kees Smit",
+    "pos": 3,
+    "rank": 717
+   },
+   "mark flekken": {
+    "name": "Mark Flekken",
+    "pos": 1,
+    "rank": 718
+   },
+   "robin roefs": {
+    "name": "Robin Roefs",
+    "pos": 1,
+    "rank": 764
+   },
+   "stefan de vrij": {
+    "name": "Stefan de Vrij",
+    "pos": 2,
+    "rank": 807
+   },
+   "jan paul van hecke": {
+    "name": "Jan Paul van Hecke",
+    "pos": 2,
+    "rank": 908
+   },
+   "jorrel hato": {
+    "name": "Jorrel Hato",
+    "pos": 2,
+    "rank": 909
+   },
+   "justin bijlow": {
+    "name": "Justin Bijlow",
+    "pos": 1,
+    "rank": 910
+   }
+  },
+  "SEN": {
+   "sadio mane": {
+    "name": "Sadio Mané",
+    "pos": 3,
+    "rank": 36
+   },
+   "nicolas jackson": {
+    "name": "Nicolas Jackson",
+    "pos": 4,
+    "rank": 87
+   },
+   "iliman ndiaye": {
+    "name": "Iliman Ndiaye",
+    "pos": 4,
+    "rank": 115
+   },
+   "habib diarra": {
+    "name": "Habib Diarra",
+    "pos": 3,
+    "rank": 157
+   },
+   "ismaila sarr": {
+    "name": "Ismaïla Sarr",
+    "pos": 4,
+    "rank": 158
+   },
+   "lamine camara": {
+    "name": "Lamine Camara",
+    "pos": 3,
+    "rank": 159
+   },
+   "krepin diatta": {
+    "name": "Krépin Diatta",
+    "pos": 3,
+    "rank": 186
+   },
+   "pape gueye": {
+    "name": "Pape Gueye",
+    "pos": 3,
+    "rank": 252
+   },
+   "pape matar sarr": {
+    "name": "Pape Matar Sarr",
+    "pos": 3,
+    "rank": 338
+   },
+   "pathe ciss": {
+    "name": "Pathé Ciss",
+    "pos": 3,
+    "rank": 339
+   },
+   "assane diao": {
+    "name": "Assane Diao",
+    "pos": 4,
+    "rank": 635
+   },
+   "bamba dieng": {
+    "name": "Bamba Dieng",
+    "pos": 4,
+    "rank": 636
+   },
+   "cherif ndiaye": {
+    "name": "Cherif Ndiaye",
+    "pos": 4,
+    "rank": 637
+   },
+   "idrissa gueye": {
+    "name": "Idrissa Gueye",
+    "pos": 3,
+    "rank": 638
+   },
+   "kalidou koulibaly": {
+    "name": "Kalidou Koulibaly",
+    "pos": 2,
+    "rank": 639
+   },
+   "mamadou sarr": {
+    "name": "Mamadou Sarr",
+    "pos": 2,
+    "rank": 729
+   },
+   "bara sapoko ndiaye": {
+    "name": "Bara Sapoko Ndiaye",
+    "pos": 3,
+    "rank": 816
+   },
+   "edouard mendy": {
+    "name": "Édouard Mendy",
+    "pos": 1,
+    "rank": 817
+   },
+   "ibrahim mbaye": {
+    "name": "Ibrahim Mbaye",
+    "pos": 4,
+    "rank": 859
+   },
+   "moussa niakhate": {
+    "name": "Moussa Niakhaté",
+    "pos": 2,
+    "rank": 921
+   },
+   "el hadji malick diouf": {
+    "name": "El Hadji Malick Diouf",
+    "pos": 2,
+    "rank": 1011
+   },
+   "ismail jakobs": {
+    "name": "Ismail Jakobs",
+    "pos": 2,
+    "rank": 1012
+   },
+   "yehvann diouf": {
+    "name": "Yehvann Diouf",
+    "pos": 1,
+    "rank": 1184
+   },
+   "abdoulaye seck": {
+    "name": "Abdoulaye Seck",
+    "pos": 2,
+    "rank": 1242
+   },
+   "ilay camara": {
+    "name": "Ilay Camara",
+    "pos": 2,
+    "rank": 1243
+   },
+   "mory diaw": {
+    "name": "Mory Diaw",
+    "pos": 1,
+    "rank": 1244
+   },
+   "pape sy": {
+    "name": "Pape Sy",
+    "pos": 1,
+    "rank": 1245
+   },
+   "antoine mendy": {
+    "name": "Antoine Mendy",
+    "pos": 2,
+    "rank": 1300
+   },
+   "moustapha mbow": {
+    "name": "Moustapha Mbow",
+    "pos": 2,
+    "rank": 1301
+   }
+  },
+  "BEL": {
+   "jeremy doku": {
+    "name": "Jérémy Doku",
+    "pos": 3,
+    "rank": 38
+   },
+   "kevin de bruyne": {
+    "name": "Kevin De Bruyne",
+    "pos": 3,
+    "rank": 39
+   },
+   "romelu lukaku": {
+    "name": "Romelu Lukaku",
+    "pos": 4,
+    "rank": 50
+   },
+   "leandro trossard": {
+    "name": "Leandro Trossard",
+    "pos": 3,
+    "rank": 89
+   },
+   "youri tielemans": {
+    "name": "Youri Tielemans",
+    "pos": 3,
+    "rank": 167
+   },
+   "amadou onana": {
+    "name": "Amadou Onana",
+    "pos": 3,
+    "rank": 224
+   },
+   "dodi lukebakio": {
+    "name": "Dodi Lukébakio",
+    "pos": 4,
+    "rank": 225
+   },
+   "alexis saelemaekers": {
+    "name": "Alexis Saelemaekers",
+    "pos": 3,
+    "rank": 273
+   },
+   "charles de ketelaere": {
+    "name": "Charles De Ketelaere",
+    "pos": 3,
+    "rank": 295
+   },
+   "matias fernandez pardo": {
+    "name": "Matias Fernandez-Pardo",
+    "pos": 4,
+    "rank": 296
+   },
+   "hans vanaken": {
+    "name": "Hans Vanaken",
+    "pos": 3,
+    "rank": 352
+   },
+   "nicolas raskin": {
+    "name": "Nicolas Raskin",
+    "pos": 3,
+    "rank": 396
+   },
+   "axel witsel": {
+    "name": "Axel Witsel",
+    "pos": 3,
+    "rank": 515
+   },
+   "thibaut courtois": {
+    "name": "Thibaut Courtois",
+    "pos": 1,
+    "rank": 565
+   },
+   "thomas meunier": {
+    "name": "Thomas Meunier",
+    "pos": 2,
+    "rank": 651
+   },
+   "diego moreira": {
+    "name": "Diego Moreira",
+    "pos": 3,
+    "rank": 673
+   },
+   "maxim de cuyper": {
+    "name": "Maxim De Cuyper",
+    "pos": 2,
+    "rank": 674
+   },
+   "timothy castagne": {
+    "name": "Timothy Castagne",
+    "pos": 2,
+    "rank": 675
+   },
+   "senne lammens": {
+    "name": "Senne Lammens",
+    "pos": 1,
+    "rank": 750
+   },
+   "arthur theate": {
+    "name": "Arthur Theate",
+    "pos": 2,
+    "rank": 778
+   },
+   "zeno debast": {
+    "name": "Zeno Debast",
+    "pos": 2,
+    "rank": 880
+   },
+   "koni de winter": {
+    "name": "Koni De Winter",
+    "pos": 2,
+    "rank": 936
+   },
+   "brandon mechele": {
+    "name": "Brandon Mechele",
+    "pos": 2,
+    "rank": 1129
+   },
+   "joaquin seys": {
+    "name": "Joaquin Seys",
+    "pos": 2,
+    "rank": 1130
+   },
+   "nathan ngoy": {
+    "name": "Nathan Ngoy",
+    "pos": 2,
+    "rank": 1251
+   },
+   "mike penders": {
+    "name": "Mike Penders",
+    "pos": 1,
+    "rank": 1376
+   }
+  },
+  "SWI": {
+   "breel embolo": {
+    "name": "Breel Embolo",
+    "pos": 4,
+    "rank": 47
+   },
+   "dan ndoye": {
+    "name": "Dan Ndoye",
+    "pos": 4,
+    "rank": 84
+   },
+   "ruben vargas": {
+    "name": "Rubén Vargas",
+    "pos": 3,
+    "rank": 85
+   },
+   "fabian rieder": {
+    "name": "Fabian Rieder",
+    "pos": 3,
+    "rank": 161
+   },
+   "granit xhaka": {
+    "name": "Granit Xhaka",
+    "pos": 3,
+    "rank": 162
+   },
+   "christian fassnacht": {
+    "name": "Christian Fassnacht",
+    "pos": 3,
+    "rank": 189
+   },
+   "denis zakaria": {
+    "name": "Denis Zakaria",
+    "pos": 3,
+    "rank": 190
+   },
+   "djibril sow": {
+    "name": "Djibril Sow",
+    "pos": 3,
+    "rank": 191
+   },
+   "michel aebischer": {
+    "name": "Michel Aebischer",
+    "pos": 3,
+    "rank": 254
+   },
+   "noah okafor": {
+    "name": "Noah Okafor",
+    "pos": 4,
+    "rank": 255
+   },
+   "remo freuler": {
+    "name": "Remo Freuler",
+    "pos": 3,
+    "rank": 256
+   },
+   "johan manzambi": {
+    "name": "Johan Manzambi",
+    "pos": 3,
+    "rank": 341
+   },
+   "cedric itten": {
+    "name": "Cedric Itten",
+    "pos": 4,
+    "rank": 389
+   },
+   "ardon jashari": {
+    "name": "Ardon Jashari",
+    "pos": 3,
+    "rank": 461
+   },
+   "manuel akanji": {
+    "name": "Manuel Akanji",
+    "pos": 2,
+    "rank": 554
+   },
+   "zeki amdouni": {
+    "name": "Zeki Amdouni",
+    "pos": 4,
+    "rank": 646
+   },
+   "gregor kobel": {
+    "name": "Gregor Kobel",
+    "pos": 1,
+    "rank": 732
+   },
+   "ricardo rodriguez": {
+    "name": "Ricardo Rodríguez",
+    "pos": 2,
+    "rank": 820
+   },
+   "nico elvedi": {
+    "name": "Nico Elvedi",
+    "pos": 2,
+    "rank": 922
+   },
+   "silvan widmer": {
+    "name": "Silvan Widmer",
+    "pos": 2,
+    "rank": 983
+   },
+   "yvon mvogo": {
+    "name": "Yvon Mvogo",
+    "pos": 1,
+    "rank": 984
+   },
+   "miro muheim": {
+    "name": "Miro Muheim",
+    "pos": 2,
+    "rank": 1107
+   },
+   "eray comert": {
+    "name": "Eray Cömert",
+    "pos": 2,
+    "rank": 1187
+   },
+   "aurele amenda": {
+    "name": "Aurèle Amenda",
+    "pos": 2,
+    "rank": 1305
+   },
+   "marvin keller": {
+    "name": "Marvin Keller",
+    "pos": 1,
+    "rank": 1306
+   },
+   "luca jaquez": {
+    "name": "Luca Jaquez",
+    "pos": 2,
+    "rank": 1472
+   }
+  },
+  "URU": {
+   "darwin nunez": {
+    "name": "Darwin Núñez",
+    "pos": 4,
+    "rank": 48
+   },
+   "federico valverde": {
+    "name": "Federico Valverde",
+    "pos": 3,
+    "rank": 49
+   },
+   "giorgian de arrascaeta": {
+    "name": "Giorgian de Arrascaeta",
+    "pos": 3,
+    "rank": 117
+   },
+   "maxi araujo": {
+    "name": "Maxi Araújo",
+    "pos": 3,
+    "rank": 128
+   },
+   "brian rodriguez": {
+    "name": "Brian Rodríguez",
+    "pos": 4,
+    "rank": 164
+   },
+   "rodrigo bentancur": {
+    "name": "Rodrigo Bentancur",
+    "pos": 3,
+    "rank": 218
+   },
+   "rodrigo zalazar": {
+    "name": "Rodrigo Zalazar",
+    "pos": 3,
+    "rank": 219
+   },
+   "federico vinas": {
+    "name": "Federico Viñas",
+    "pos": 4,
+    "rank": 258
+   },
+   "manuel ugarte": {
+    "name": "Manuel Ugarte",
+    "pos": 3,
+    "rank": 259
+   },
+   "nicolas de la cruz": {
+    "name": "Nicolás de la Cruz",
+    "pos": 3,
+    "rank": 260
+   },
+   "rodrigo aguirre": {
+    "name": "Rodrigo Aguirre",
+    "pos": 4,
+    "rank": 342
+   },
+   "facundo torres": {
+    "name": "Facundo Torres",
+    "pos": 4,
+    "rank": 390
+   },
+   "agustin canobbio": {
+    "name": "Agustín Canobbio",
+    "pos": 4,
+    "rank": 445
+   },
+   "facundo martinez": {
+    "name": "Facundo Martínez",
+    "pos": 4,
+    "rank": 446
+   },
+   "agustin alvarez": {
+    "name": "Agustín Álvarez",
+    "pos": 4,
+    "rank": 462
+   },
+   "facundo pellistri": {
+    "name": "Facundo Pellistri",
+    "pos": 3,
+    "rank": 463
+   },
+   "nicolas fonseca": {
+    "name": "Nicolás Fonseca",
+    "pos": 3,
+    "rank": 558
+   },
+   "ronald araujo": {
+    "name": "Ronald Araujo",
+    "pos": 2,
+    "rank": 559
+   },
+   "emiliano martinez": {
+    "name": "Emiliano Martínez",
+    "pos": 3,
+    "rank": 738
+   },
+   "luciano gonzalez": {
+    "name": "Luciano González",
+    "pos": 3,
+    "rank": 739
+   },
+   "joaquin piquerez": {
+    "name": "Joaquín Piquerez",
+    "pos": 2,
+    "rank": 823
+   },
+   "juan manuel sanabria": {
+    "name": "Juan Manuel Sanabria",
+    "pos": 3,
+    "rank": 824
+   },
+   "jose maria gimenez": {
+    "name": "José María Giménez",
+    "pos": 2,
+    "rank": 866
+   },
+   "mathias olivera": {
+    "name": "Mathías Olivera",
+    "pos": 2,
+    "rank": 925
+   },
+   "matias vina": {
+    "name": "Matías Viña",
+    "pos": 2,
+    "rank": 926
+   },
+   "pablo alcoba": {
+    "name": "Pablo Alcoba",
+    "pos": 3,
+    "rank": 927
+   },
+   "guillermo varela": {
+    "name": "Guillermo Varela",
+    "pos": 2,
+    "rank": 987
+   },
+   "sebastian caceres": {
+    "name": "Sebastián Cáceres",
+    "pos": 2,
+    "rank": 988
+   },
+   "fernando muslera": {
+    "name": "Fernando Muslera",
+    "pos": 1,
+    "rank": 1021
+   },
+   "santiago bueno": {
+    "name": "Santiago Bueno",
+    "pos": 2,
+    "rank": 1022
+   },
+   "sergio rochet": {
+    "name": "Sergio Rochet",
+    "pos": 1,
+    "rank": 1023
+   },
+   "jose rodriguez": {
+    "name": "José Rodríguez",
+    "pos": 2,
+    "rank": 1193
+   },
+   "brian barboza": {
+    "name": "Brian Barboza",
+    "pos": 2,
+    "rank": 1307
+   },
+   "benjamin garcia": {
+    "name": "Benjamín García",
+    "pos": 2,
+    "rank": 1476
+   },
+   "santiago mele": {
+    "name": "Santiago Mele",
+    "pos": 1,
+    "rank": 1477
+   }
+  },
+  "KOR": {
+   "son heung min": {
+    "name": "Son Heung-Min",
+    "pos": 4,
+    "rank": 52
+   },
+   "lee jae sung": {
+    "name": "Lee Jae-Sung",
+    "pos": 3,
+    "rank": 150
+   },
+   "hwang hee chan": {
+    "name": "Hwang Hee-Chan",
+    "pos": 4,
+    "rank": 179
+   },
+   "lee kang in": {
+    "name": "Lee Kang-In",
+    "pos": 3,
+    "rank": 180
+   },
+   "bae jun ho": {
+    "name": "Bae Jun-Ho",
+    "pos": 3,
+    "rank": 239
+   },
+   "hwang in beom": {
+    "name": "Hwang In-Beom",
+    "pos": 3,
+    "rank": 267
+   },
+   "jens castrop": {
+    "name": "Jens Castrop",
+    "pos": 3,
+    "rank": 319
+   },
+   "paik seung ho": {
+    "name": "Paik Seung-Ho",
+    "pos": 3,
+    "rank": 320
+   },
+   "cho gue sung": {
+    "name": "Cho Gue-Sung",
+    "pos": 4,
+    "rank": 420
+   },
+   "kim min jae": {
+    "name": "Kim Min-Jae",
+    "pos": 2,
+    "rank": 533
+   },
+   "kim jin gyu": {
+    "name": "Kim Jin-Gyu",
+    "pos": 3,
+    "rank": 607
+   },
+   "lee dong gyeong": {
+    "name": "Lee Dong-Gyeong",
+    "pos": 3,
+    "rank": 608
+   },
+   "oh hyeon gyu": {
+    "name": "Oh Hyeon-Gyu",
+    "pos": 4,
+    "rank": 609
+   },
+   "park jin seob": {
+    "name": "Park Jin-Seob",
+    "pos": 3,
+    "rank": 610
+   },
+   "yang hyun jun": {
+    "name": "Yang Hyun-Jun",
+    "pos": 4,
+    "rank": 703
+   },
+   "eom ji sung": {
+    "name": "Eom Ji-Sung",
+    "pos": 4,
+    "rank": 762
+   },
+   "jo hyeon woo": {
+    "name": "Jo Hyeon-Woo",
+    "pos": 1,
+    "rank": 763
+   },
+   "lee gi hyuk": {
+    "name": "Lee Gi-Hyuk",
+    "pos": 2,
+    "rank": 801
+   },
+   "seol young woo": {
+    "name": "Seol Young-Woo",
+    "pos": 2,
+    "rank": 969
+   },
+   "kim seung gyu": {
+    "name": "Kim Seung-Gyu",
+    "pos": 1,
+    "rank": 998
+   },
+   "cho yu min": {
+    "name": "Cho Yu-Min",
+    "pos": 2,
+    "rank": 1167
+   },
+   "kim moon hwan": {
+    "name": "Kim Moon-Hwan",
+    "pos": 2,
+    "rank": 1168
+   },
+   "song bum keun": {
+    "name": "Song Bum-Keun",
+    "pos": 1,
+    "rank": 1169
+   },
+   "cho wi je": {
+    "name": "Cho Wi-Je",
+    "pos": 2,
+    "rank": 1277
+   },
+   "lee han beom": {
+    "name": "Lee Han-Beom",
+    "pos": 2,
+    "rank": 1278
+   },
+   "lee tae seok": {
+    "name": "Lee Tae-Seok",
+    "pos": 2,
+    "rank": 1279
+   },
+   "kim tae hyeon": {
+    "name": "Kim Tae-Hyeon",
+    "pos": 2,
+    "rank": 1339
+   }
+  },
+  "CZE": {
+   "patrik schick": {
+    "name": "Patrik Schick",
+    "pos": 4,
+    "rank": 55
+   },
+   "adam hlozek": {
+    "name": "Adam Hlozek",
+    "pos": 4,
+    "rank": 100
+   },
+   "lukas provod": {
+    "name": "Lukás Provod",
+    "pos": 3,
+    "rank": 232
+   },
+   "pavel sulc": {
+    "name": "Pavel Sulc",
+    "pos": 3,
+    "rank": 233
+   },
+   "michal sadilek": {
+    "name": "Michal Sadílek",
+    "pos": 3,
+    "rank": 307
+   },
+   "tomas soucek": {
+    "name": "Tomás Soucek",
+    "pos": 3,
+    "rank": 308
+   },
+   "jan kuchta": {
+    "name": "Jan Kuchta",
+    "pos": 4,
+    "rank": 359
+   },
+   "pavel bucha": {
+    "name": "Pavel Bucha",
+    "pos": 3,
+    "rank": 360
+   },
+   "lukas cerv": {
+    "name": "Lukás Cerv",
+    "pos": 3,
+    "rank": 405
+   },
+   "tomas chory": {
+    "name": "Tomás Chory",
+    "pos": 4,
+    "rank": 406
+   },
+   "vladimir darida": {
+    "name": "Vladimír Darida",
+    "pos": 3,
+    "rank": 407
+   },
+   "david doudera": {
+    "name": "David Doudera",
+    "pos": 3,
+    "rank": 477
+   },
+   "denis visinsky": {
+    "name": "Denis Visinsky",
+    "pos": 3,
+    "rank": 589
+   },
+   "mojmir chytil": {
+    "name": "Mojmír Chytil",
+    "pos": 4,
+    "rank": 590
+   },
+   "alexandr sojka": {
+    "name": "Alexandr Sojka",
+    "pos": 3,
+    "rank": 790
+   },
+   "christophe kabongo": {
+    "name": "Christophe Kabongo",
+    "pos": 4,
+    "rank": 791
+   },
+   "ladislav krejci": {
+    "name": "Ladislav Krejcí",
+    "pos": 2,
+    "rank": 837
+   },
+   "tomas ladra": {
+    "name": "Tomás Ladra",
+    "pos": 4,
+    "rank": 838
+   },
+   "hugo sochurek": {
+    "name": "Hugo Sochurek",
+    "pos": 3,
+    "rank": 895
+   },
+   "matej kovar": {
+    "name": "Matej Kovár",
+    "pos": 1,
+    "rank": 996
+   },
+   "jindrich stanek": {
+    "name": "Jindrich Stanek",
+    "pos": 1,
+    "rank": 1052
+   },
+   "david jurasek": {
+    "name": "David Jurásek",
+    "pos": 2,
+    "rank": 1145
+   },
+   "david zima": {
+    "name": "David Zima",
+    "pos": 2,
+    "rank": 1146
+   },
+   "jaroslav zeleny": {
+    "name": "Jaroslav Zeleny",
+    "pos": 2,
+    "rank": 1147
+   },
+   "robin hranac": {
+    "name": "Robin Hranác",
+    "pos": 2,
+    "rank": 1148
+   },
+   "tomas holes": {
+    "name": "Tomás Holes",
+    "pos": 2,
+    "rank": 1149
+   },
+   "lukas hornicek": {
+    "name": "Lukás Hornícek",
+    "pos": 1,
+    "rank": 1212
+   },
+   "vladimir coufal": {
+    "name": "Vladimír Coufal",
+    "pos": 2,
+    "rank": 1321
+   },
+   "stepan chaloupek": {
+    "name": "Stepán Chaloupek",
+    "pos": 2,
+    "rank": 1392
+   }
+  },
+  "GHA": {
+   "antoine semenyo": {
+    "name": "Antoine Semenyo",
+    "pos": 4,
+    "rank": 59
+   },
+   "abdul fatawu": {
+    "name": "Abdul Fatawu",
+    "pos": 4,
+    "rank": 123
+   },
+   "thomas partey": {
+    "name": "Thomas Partey",
+    "pos": 3,
+    "rank": 149
+   },
+   "inaki williams": {
+    "name": "Iñaki Williams",
+    "pos": 4,
+    "rank": 236
+   },
+   "elisha owusu": {
+    "name": "Elisha Owusu",
+    "pos": 3,
+    "rank": 413
+   },
+   "jordan ayew": {
+    "name": "Jordan Ayew",
+    "pos": 4,
+    "rank": 414
+   },
+   "brandon thomas asante": {
+    "name": "Brandon Thomas-Asante",
+    "pos": 4,
+    "rank": 483
+   },
+   "kamaldeen sulemana": {
+    "name": "Kamaldeen Sulemana",
+    "pos": 4,
+    "rank": 484
+   },
+   "ernest nuamah": {
+    "name": "Ernest Nuamah",
+    "pos": 3,
+    "rank": 527
+   },
+   "augustine boakye": {
+    "name": "Augustine Boakye",
+    "pos": 3,
+    "rank": 599
+   },
+   "caleb yirenkyi": {
+    "name": "Caleb Yirenkyi",
+    "pos": 3,
+    "rank": 690
+   },
+   "kwasi sibo": {
+    "name": "Kwasi Sibo",
+    "pos": 3,
+    "rank": 691
+   },
+   "christopher bonsu baah": {
+    "name": "Christopher Bonsu Baah",
+    "pos": 4,
+    "rank": 797
+   },
+   "alexander djiku": {
+    "name": "Alexander Djiku",
+    "pos": 2,
+    "rank": 1059
+   },
+   "lawrence ati zigi": {
+    "name": "Lawrence Ati Zigi",
+    "pos": 1,
+    "rank": 1060
+   },
+   "prince adu": {
+    "name": "Prince Adu",
+    "pos": 4,
+    "rank": 1061
+   },
+   "abdul baba": {
+    "name": "Abdul Baba",
+    "pos": 2,
+    "rank": 1157
+   },
+   "alidu seidu": {
+    "name": "Alidu Seidu",
+    "pos": 2,
+    "rank": 1158
+   },
+   "gideon mensah": {
+    "name": "Gideon Mensah",
+    "pos": 2,
+    "rank": 1159
+   },
+   "benjamin asare": {
+    "name": "Benjamin Asare",
+    "pos": 1,
+    "rank": 1215
+   },
+   "jerome opoku": {
+    "name": "Jerome Opoku",
+    "pos": 2,
+    "rank": 1216
+   },
+   "abdul mumin": {
+    "name": "Abdul Mumin",
+    "pos": 2,
+    "rank": 1266
+   },
+   "derrick luckassen": {
+    "name": "Derrick Luckassen",
+    "pos": 2,
+    "rank": 1267
+   },
+   "joseph anang": {
+    "name": "Joseph Anang",
+    "pos": 1,
+    "rank": 1328
+   },
+   "jonas adjetey": {
+    "name": "Jonas Adjetey",
+    "pos": 2,
+    "rank": 1399
+   },
+   "kojo peprah oppong": {
+    "name": "Kojo Peprah Oppong",
+    "pos": 2,
+    "rank": 1400
+   },
+   "marvin senaya": {
+    "name": "Marvin Senaya",
+    "pos": 2,
+    "rank": 1401
+   },
+   "paul reverson": {
+    "name": "Paul Reverson",
+    "pos": 1,
+    "rank": 1402
+   },
+   "solomon agbasi": {
+    "name": "Solomon Agbasi",
+    "pos": 1,
+    "rank": 1403
+   }
+  },
+  "SAU": {
+   "salem al dawsari": {
+    "name": "Salem Al Dawsari",
+    "pos": 3,
+    "rank": 60
+   },
+   "aiman yahya": {
+    "name": "Aiman Yahya",
+    "pos": 3,
+    "rank": 336
+   },
+   "mohammed abu al shamat": {
+    "name": "Mohammed Abu Al Shamat",
+    "pos": 3,
+    "rank": 374
+   },
+   "feras al brikan": {
+    "name": "Feras Al Brikan",
+    "pos": 4,
+    "rank": 439
+   },
+   "saleh abu al shamat": {
+    "name": "Saleh Abu Al Shamat",
+    "pos": 4,
+    "rank": 440
+   },
+   "nasser al dawsari": {
+    "name": "Nasser Al Dawsari",
+    "pos": 3,
+    "rank": 460
+   },
+   "abdullah al khaibari": {
+    "name": "Abdullah Al Khaibari",
+    "pos": 3,
+    "rank": 498
+   },
+   "mohamed kanno": {
+    "name": "Mohamed Kanno",
+    "pos": 3,
+    "rank": 499
+   },
+   "abdullah al salem": {
+    "name": "Abdullah Al Salem",
+    "pos": 4,
+    "rank": 548
+   },
+   "alaa al hejji": {
+    "name": "Alaa Al Hejji",
+    "pos": 3,
+    "rank": 549
+   },
+   "abdullah al hamddan": {
+    "name": "Abdullah Al Hamddan",
+    "pos": 4,
+    "rank": 630
+   },
+   "khalid al ghannam": {
+    "name": "Khalid Al Ghannam",
+    "pos": 4,
+    "rank": 631
+   },
+   "saleh al shehri": {
+    "name": "Saleh Al Shehri",
+    "pos": 4,
+    "rank": 632
+   },
+   "ziyad al johani": {
+    "name": "Ziyad Al Johani",
+    "pos": 3,
+    "rank": 633
+   },
+   "hassan al tambakti": {
+    "name": "Hassan Al Tambakti",
+    "pos": 2,
+    "rank": 814
+   },
+   "sultan mandash": {
+    "name": "Sultan Mandash",
+    "pos": 4,
+    "rank": 815
+   },
+   "moteb al harbi": {
+    "name": "Moteb Al Harbi",
+    "pos": 2,
+    "rank": 1008
+   },
+   "musab al juwayr": {
+    "name": "Musab Al Juwayr",
+    "pos": 3,
+    "rank": 1009
+   },
+   "saud abdulhamid": {
+    "name": "Saud Abdulhamid",
+    "pos": 2,
+    "rank": 1010
+   },
+   "abdulquddus atiah": {
+    "name": "Abdulquddus Atiah",
+    "pos": 1,
+    "rank": 1097
+   },
+   "abdulrahman al sanbi": {
+    "name": "Abdulrahman Al Sanbi",
+    "pos": 1,
+    "rank": 1098
+   },
+   "jehad thikri": {
+    "name": "Jehad Thikri",
+    "pos": 2,
+    "rank": 1099
+   },
+   "nawaf al aqidi": {
+    "name": "Nawaf Al Aqidi",
+    "pos": 1,
+    "rank": 1100
+   },
+   "zakaria hawsawi": {
+    "name": "Zakaria Hawsawi",
+    "pos": 2,
+    "rank": 1101
+   },
+   "ahmed al kassar": {
+    "name": "Ahmed Al Kassar",
+    "pos": 1,
+    "rank": 1182
+   },
+   "abdulelah al amri": {
+    "name": "Abdulelah Al Amri",
+    "pos": 2,
+    "rank": 1297
+   },
+   "hassan kadish": {
+    "name": "Hassan Kadish",
+    "pos": 2,
+    "rank": 1298
+   },
+   "ali majrashi": {
+    "name": "Ali Majrashi",
+    "pos": 2,
+    "rank": 1357
+   },
+   "ali lajami": {
+    "name": "Ali Lajami",
+    "pos": 2,
+    "rank": 1467
+   },
+   "mohammed al owais": {
+    "name": "Mohammed Al Owais",
+    "pos": 1,
+    "rank": 1468
+   },
+   "nawaf bu washl": {
+    "name": "Nawaf Bu Washl",
+    "pos": 2,
+    "rank": 1469
+   }
+  },
+  "TUR": {
+   "hakan calhanoglu": {
+    "name": "Hakan Çalhanoglu",
+    "pos": 3,
+    "rank": 61
+   },
+   "arda guler": {
+    "name": "Arda Güler",
+    "pos": 3,
+    "rank": 69
+   },
+   "kenan yildiz": {
+    "name": "Kenan Yildiz",
+    "pos": 3,
+    "rank": 70
+   },
+   "kerem akturkoglu": {
+    "name": "Kerem Aktürkoglu",
+    "pos": 4,
+    "rank": 163
+   },
+   "baris alper yilmaz": {
+    "name": "Baris Alper Yilmaz",
+    "pos": 4,
+    "rank": 192
+   },
+   "orkun kokcu": {
+    "name": "Orkun Kökçü",
+    "pos": 3,
+    "rank": 217
+   },
+   "irfan can kahveci": {
+    "name": "Irfan Can Kahveci",
+    "pos": 3,
+    "rank": 257
+   },
+   "can uzun": {
+    "name": "Can Uzun",
+    "pos": 3,
+    "rank": 444
+   },
+   "oguz aydin": {
+    "name": "Oguz Aydin",
+    "pos": 4,
+    "rank": 556
+   },
+   "yusuf sari": {
+    "name": "Yusuf Sari",
+    "pos": 3,
+    "rank": 557
+   },
+   "yunus akgun": {
+    "name": "Yunus Akgün",
+    "pos": 4,
+    "rank": 648
+   },
+   "aral simsir": {
+    "name": "Aral Simsir",
+    "pos": 3,
+    "rank": 735
+   },
+   "atakan karazor": {
+    "name": "Atakan Karazor",
+    "pos": 3,
+    "rank": 736
+   },
+   "salih ozcan": {
+    "name": "Salih Özcan",
+    "pos": 3,
+    "rank": 737
+   },
+   "ismail yuksek": {
+    "name": "Ismail Yüksek",
+    "pos": 3,
+    "rank": 775
+   },
+   "kaan ayhan": {
+    "name": "Kaan Ayhan",
+    "pos": 2,
+    "rank": 822
+   },
+   "demir ege tiknaz": {
+    "name": "Demir Ege Tiknaz",
+    "pos": 3,
+    "rank": 863
+   },
+   "deniz gul": {
+    "name": "Deniz Gül",
+    "pos": 4,
+    "rank": 864
+   },
+   "caglar soyuncu": {
+    "name": "Çaglar Söyüncü",
+    "pos": 2,
+    "rank": 865
+   },
+   "ferdi kadioglu": {
+    "name": "Ferdi Kadioglu",
+    "pos": 2,
+    "rank": 923
+   },
+   "zeki celik": {
+    "name": "Zeki Çelik",
+    "pos": 2,
+    "rank": 924
+   },
+   "ugurcan cakir": {
+    "name": "Ugurcan Çakir",
+    "pos": 1,
+    "rank": 986
+   },
+   "mert muldur": {
+    "name": "Mert Müldür",
+    "pos": 2,
+    "rank": 1019
+   },
+   "samet akaydin": {
+    "name": "Samet Akaydin",
+    "pos": 2,
+    "rank": 1020
+   },
+   "abdulkerim bardakci": {
+    "name": "Abdülkerim Bardakci",
+    "pos": 2,
+    "rank": 1110
+   },
+   "altay bayindir": {
+    "name": "Altay Bayindir",
+    "pos": 1,
+    "rank": 1111
+   },
+   "eren elmali": {
+    "name": "Eren Elmali",
+    "pos": 2,
+    "rank": 1112
+   },
+   "ersin destanoglu": {
+    "name": "Ersin Destanoglu",
+    "pos": 1,
+    "rank": 1113
+   },
+   "merih demiral": {
+    "name": "Merih Demiral",
+    "pos": 2,
+    "rank": 1114
+   },
+   "mert gunok": {
+    "name": "Mert Günok",
+    "pos": 1,
+    "rank": 1115
+   },
+   "ozan kabak": {
+    "name": "Ozan Kabak",
+    "pos": 2,
+    "rank": 1116
+   },
+   "yusuf akcicek": {
+    "name": "Yusuf Akçiçek",
+    "pos": 2,
+    "rank": 1117
+   },
+   "muhammed sengezer": {
+    "name": "Muhammed Sengezer",
+    "pos": 1,
+    "rank": 1191
+   },
+   "mustafa eskihellac": {
+    "name": "Mustafa Eskihellaç",
+    "pos": 2,
+    "rank": 1192
+   },
+   "ahmetcan kaplan": {
+    "name": "Ahmetcan Kaplan",
+    "pos": 2,
+    "rank": 1475
+   }
+  },
+  "CAN": {
+   "jonathan david": {
+    "name": "Jonathan David",
+    "pos": 4,
+    "rank": 62
+   },
+   "cyle larin": {
+    "name": "Cyle Larin",
+    "pos": 4,
+    "rank": 144
+   },
+   "ismael kone": {
+    "name": "Ismaël Koné",
+    "pos": 3,
+    "rank": 206
+   },
+   "marcelo flores": {
+    "name": "Marcelo Flores",
+    "pos": 3,
+    "rank": 274
+   },
+   "jonathan osorio": {
+    "name": "Jonathan Osorio",
+    "pos": 3,
+    "rank": 300
+   },
+   "tajon buchanan": {
+    "name": "Tajon Buchanan",
+    "pos": 4,
+    "rank": 356
+   },
+   "promise david": {
+    "name": "Promise David",
+    "pos": 4,
+    "rank": 383
+   },
+   "mathieu choiniere": {
+    "name": "Mathieu Choinière",
+    "pos": 3,
+    "rank": 398
+   },
+   "jacob shaffelburg": {
+    "name": "Jacob Shaffelburg",
+    "pos": 3,
+    "rank": 453
+   },
+   "liam millar": {
+    "name": "Liam Millar",
+    "pos": 4,
+    "rank": 471
+   },
+   "nathan saliba": {
+    "name": "Nathan Saliba",
+    "pos": 3,
+    "rank": 472
+   },
+   "jayden nelson": {
+    "name": "Jayden Nelson",
+    "pos": 3,
+    "rank": 518
+   },
+   "stephen eustaquio": {
+    "name": "Stephen Eustaquio",
+    "pos": 3,
+    "rank": 519
+   },
+   "ali ahmed": {
+    "name": "Ali Ahmed",
+    "pos": 3,
+    "rank": 567
+   },
+   "alphonso davies": {
+    "name": "Alphonso Davies",
+    "pos": 2,
+    "rank": 568
+   },
+   "niko sigur": {
+    "name": "Niko Sigur",
+    "pos": 3,
+    "rank": 569
+   },
+   "ralph priso": {
+    "name": "Ralph Priso",
+    "pos": 3,
+    "rank": 570
+   },
+   "tani oluwaseyi": {
+    "name": "Tani Oluwaseyi",
+    "pos": 4,
+    "rank": 571
+   },
+   "jacen russell rowe": {
+    "name": "Jacen Russell-Rowe",
+    "pos": 4,
+    "rank": 783
+   },
+   "daniel jebbison": {
+    "name": "Daniel Jebbison",
+    "pos": 4,
+    "rank": 940
+   },
+   "moise bombito": {
+    "name": "Moïse Bombito",
+    "pos": 2,
+    "rank": 993
+   },
+   "alistair johnston": {
+    "name": "Alistair Johnston",
+    "pos": 2,
+    "rank": 1039
+   },
+   "derek cornelius": {
+    "name": "Derek Cornelius",
+    "pos": 2,
+    "rank": 1040
+   },
+   "maxime crepeau": {
+    "name": "Maxime Crépeau",
+    "pos": 1,
+    "rank": 1041
+   },
+   "richie laryea": {
+    "name": "Richie Laryea",
+    "pos": 2,
+    "rank": 1132
+   },
+   "alfie jones": {
+    "name": "Alfie Jones",
+    "pos": 2,
+    "rank": 1206
+   },
+   "dayne st clair": {
+    "name": "Dayne St. Clair",
+    "pos": 1,
+    "rank": 1207
+   },
+   "jamie knight lebel": {
+    "name": "Jamie Knight-Lebel",
+    "pos": 2,
+    "rank": 1254
+   },
+   "joel waterman": {
+    "name": "Joel Waterman",
+    "pos": 2,
+    "rank": 1255
+   },
+   "zorhan bassong": {
+    "name": "Zorhan Bassong",
+    "pos": 2,
+    "rank": 1256
+   },
+   "luc de fougerolles": {
+    "name": "Luc De Fougerolles",
+    "pos": 2,
+    "rank": 1380
+   },
+   "owen goodman": {
+    "name": "Owen Goodman",
+    "pos": 1,
+    "rank": 1381
+   }
+  },
+  "JAP": {
+   "ayase ueda": {
+    "name": "Ayase Ueda",
+    "pos": 4,
+    "rank": 65
+   },
+   "takefusa kubo": {
+    "name": "Takefusa Kubo",
+    "pos": 3,
+    "rank": 66
+   },
+   "wataru endo": {
+    "name": "Wataru Endo",
+    "pos": 3,
+    "rank": 210
+   },
+   "daichi kamada": {
+    "name": "Daichi Kamada",
+    "pos": 3,
+    "rank": 266
+   },
+   "keito nakamura": {
+    "name": "Keito Nakamura",
+    "pos": 3,
+    "rank": 364
+   },
+   "ritsu doan": {
+    "name": "Ritsu Doan",
+    "pos": 2,
+    "rank": 488
+   },
+   "ao tanaka": {
+    "name": "Ao Tanaka",
+    "pos": 3,
+    "rank": 529
+   },
+   "daizen maeda": {
+    "name": "Daizen Maeda",
+    "pos": 3,
+    "rank": 530
+   },
+   "junya ito": {
+    "name": "Junya Ito",
+    "pos": 3,
+    "rank": 531
+   },
+   "yuito suzuki": {
+    "name": "Yuito Suzuki",
+    "pos": 3,
+    "rank": 532
+   },
+   "kaishu sano": {
+    "name": "Kaishu Sano",
+    "pos": 3,
+    "rank": 603
+   },
+   "koki ogawa": {
+    "name": "Koki Ogawa",
+    "pos": 4,
+    "rank": 604
+   },
+   "takehiro tomiyasu": {
+    "name": "Takehiro Tomiyasu",
+    "pos": 2,
+    "rank": 605
+   },
+   "ko itakura": {
+    "name": "Ko Itakura",
+    "pos": 2,
+    "rank": 799
+   },
+   "yukinari sugawara": {
+    "name": "Yukinari Sugawara",
+    "pos": 2,
+    "rank": 849
+   },
+   "tsuyoshi watanabe": {
+    "name": "Tsuyoshi Watanabe",
+    "pos": 2,
+    "rank": 904
+   },
+   "zion suzuki": {
+    "name": "Zion Suzuki",
+    "pos": 1,
+    "rank": 905
+   },
+   "keisuke goto": {
+    "name": "Keisuke Goto",
+    "pos": 4,
+    "rank": 964
+   },
+   "keisuke osako": {
+    "name": "Keisuke Osako",
+    "pos": 1,
+    "rank": 1066
+   },
+   "kento shiogai": {
+    "name": "Kento Shiogai",
+    "pos": 4,
+    "rank": 1067
+   },
+   "hiroki ito": {
+    "name": "Hiroki Ito",
+    "pos": 2,
+    "rank": 1164
+   },
+   "shogo taniguchi": {
+    "name": "Shogo Taniguchi",
+    "pos": 2,
+    "rank": 1165
+   },
+   "ayumu seko": {
+    "name": "Ayumu Seko",
+    "pos": 2,
+    "rank": 1224
+   },
+   "tomoki hayakawa": {
+    "name": "Tomoki Hayakawa",
+    "pos": 1,
+    "rank": 1225
+   },
+   "maya yoshida": {
+    "name": "Maya Yoshida",
+    "pos": 2,
+    "rank": 1274
+   },
+   "yuto nagatomo": {
+    "name": "Yuto Nagatomo",
+    "pos": 2,
+    "rank": 1275
+   },
+   "junnosuke suzuki": {
+    "name": "Junnosuke Suzuki",
+    "pos": 2,
+    "rank": 1419
+   }
+  },
+  "MEX": {
+   "raul jimenez": {
+    "name": "Raúl Jiménez",
+    "pos": 4,
+    "rank": 67
+   },
+   "santiago gimenez": {
+    "name": "Santiago Giménez",
+    "pos": 4,
+    "rank": 77
+   },
+   "alvaro fidalgo": {
+    "name": "Álvaro Fidalgo",
+    "pos": 3,
+    "rank": 124
+   },
+   "cesar huerta": {
+    "name": "César Huerta",
+    "pos": 3,
+    "rank": 134
+   },
+   "luis chavez": {
+    "name": "Luis Chávez",
+    "pos": 3,
+    "rank": 135
+   },
+   "orbelin pineda": {
+    "name": "Orbelín Pineda",
+    "pos": 3,
+    "rank": 151
+   },
+   "edson alvarez": {
+    "name": "Edson Álvarez",
+    "pos": 3,
+    "rank": 211
+   },
+   "carlos rodriguez": {
+    "name": "Carlos Rodríguez",
+    "pos": 3,
+    "rank": 240
+   },
+   "diego lainez": {
+    "name": "Diego Lainez",
+    "pos": 3,
+    "rank": 241
+   },
+   "marcel ruiz": {
+    "name": "Marcel Ruiz",
+    "pos": 3,
+    "rank": 242
+   },
+   "german berterame": {
+    "name": "Germán Berterame",
+    "pos": 4,
+    "rank": 321
+   },
+   "julian quinones": {
+    "name": "Julián Quiñones",
+    "pos": 4,
+    "rank": 322
+   },
+   "erik lira": {
+    "name": "Érik Lira",
+    "pos": 3,
+    "rank": 323
+   },
+   "efrain alvarez": {
+    "name": "Efraín Álvarez",
+    "pos": 3,
+    "rank": 365
+   },
+   "luis romo": {
+    "name": "Luis Romo",
+    "pos": 3,
+    "rank": 366
+   },
+   "alexis vega": {
+    "name": "Alexis Vega",
+    "pos": 4,
+    "rank": 421
+   },
+   "jesus angulo": {
+    "name": "Jesús Angulo",
+    "pos": 3,
+    "rank": 422
+   },
+   "roberto alvarado": {
+    "name": "Roberto Alvarado",
+    "pos": 4,
+    "rank": 423
+   },
+   "jordan carrillo": {
+    "name": "Jordán Carrillo",
+    "pos": 3,
+    "rank": 489
+   },
+   "brian gutierrez": {
+    "name": "Brian Gutiérrez",
+    "pos": 3,
+    "rank": 534
+   },
+   "alexis gutierrez": {
+    "name": "Alexis Gutiérrez",
+    "pos": 3,
+    "rank": 611
+   },
+   "jorge ruvalcaba": {
+    "name": "Jorge Ruvalcaba",
+    "pos": 4,
+    "rank": 612
+   },
+   "kevin castaneda": {
+    "name": "Kevin Castañeda",
+    "pos": 3,
+    "rank": 613
+   },
+   "cesar montes": {
+    "name": "César Montes",
+    "pos": 2,
+    "rank": 704
+   },
+   "guillermo martinez": {
+    "name": "Guillermo Martínez",
+    "pos": 4,
+    "rank": 705
+   },
+   "jeremy marquez": {
+    "name": "Jeremy Márquez",
+    "pos": 3,
+    "rank": 706
+   },
+   "jesus gallardo": {
+    "name": "Jesús Gallardo",
+    "pos": 2,
+    "rank": 707
+   },
+   "johan vasquez": {
+    "name": "Johan Vásquez",
+    "pos": 2,
+    "rank": 708
+   },
+   "obed vargas": {
+    "name": "Obed Vargas",
+    "pos": 3,
+    "rank": 709
+   },
+   "alexei dominguez": {
+    "name": "Alexéi Domínguez",
+    "pos": 4,
+    "rank": 802
+   },
+   "elias montiel": {
+    "name": "Elías Montiel",
+    "pos": 3,
+    "rank": 803
+   },
+   "gilberto mora": {
+    "name": "Gilberto Mora",
+    "pos": 3,
+    "rank": 804
+   },
+   "erick sanchez": {
+    "name": "Érick Sánchez",
+    "pos": 3,
+    "rank": 805
+   },
+   "armando gonzalez": {
+    "name": "Armando González",
+    "pos": 4,
+    "rank": 851
+   },
+   "guillermo ochoa": {
+    "name": "Guillermo Ochoa",
+    "pos": 1,
+    "rank": 970
+   },
+   "carlos acevedo": {
+    "name": "Carlos Acevedo",
+    "pos": 1,
+    "rank": 1071
+   },
+   "israel reyes": {
+    "name": "Israel Reyes",
+    "pos": 2,
+    "rank": 1072
+   },
+   "jorge sanchez": {
+    "name": "Jorge Sánchez",
+    "pos": 2,
+    "rank": 1073
+   },
+   "julian araujo": {
+    "name": "Julián Araujo",
+    "pos": 2,
+    "rank": 1074
+   },
+   "raul rangel": {
+    "name": "Raúl Rangel",
+    "pos": 1,
+    "rank": 1171
+   },
+   "richard ledezma": {
+    "name": "Richard Ledezma",
+    "pos": 2,
+    "rank": 1172
+   },
+   "antonio rodriguez": {
+    "name": "Antonio Rodríguez",
+    "pos": 1,
+    "rank": 1280
+   },
+   "carlos moreno": {
+    "name": "Carlos Moreno",
+    "pos": 1,
+    "rank": 1340
+   },
+   "ramon juarez": {
+    "name": "Ramón Juárez",
+    "pos": 2,
+    "rank": 1341
+   },
+   "victor guzman": {
+    "name": "Víctor Guzmán",
+    "pos": 2,
+    "rank": 1342
+   },
+   "alejandro gomez": {
+    "name": "Alejandro Gómez",
+    "pos": 2,
+    "rank": 1431
+   },
+   "bryan gonzalez": {
+    "name": "Bryan González",
+    "pos": 2,
+    "rank": 1432
+   },
+   "everardo lopez": {
+    "name": "Everardo López",
+    "pos": 2,
+    "rank": 1433
+   },
+   "mateo chavez": {
+    "name": "Mateo Chávez",
+    "pos": 2,
+    "rank": 1434
+   },
+   "alex padilla": {
+    "name": "Álex Padilla",
+    "pos": 1,
+    "rank": 1435
+   }
+  },
+  "USA": {
+   "christian pulisic": {
+    "name": "Christian Pulisic",
+    "pos": 3,
+    "rank": 71
+   },
+   "johnny cardoso": {
+    "name": "Johnny Cardoso",
+    "pos": 3,
+    "rank": 165
+   },
+   "malik tillman": {
+    "name": "Malik Tillman",
+    "pos": 3,
+    "rank": 193
+   },
+   "weston mckennie": {
+    "name": "Weston McKennie",
+    "pos": 3,
+    "rank": 194
+   },
+   "folarin balogun": {
+    "name": "Folarin Balogun",
+    "pos": 4,
+    "rank": 220
+   },
+   "ricardo pepi": {
+    "name": "Ricardo Pepi",
+    "pos": 4,
+    "rank": 261
+   },
+   "timothy weah": {
+    "name": "Timothy Weah",
+    "pos": 3,
+    "rank": 271
+   },
+   "brenden aaronson": {
+    "name": "Brenden Aaronson",
+    "pos": 3,
+    "rank": 282
+   },
+   "aidan morris": {
+    "name": "Aidan Morris",
+    "pos": 3,
+    "rank": 343
+   },
+   "tanner tessmann": {
+    "name": "Tanner Tessmann",
+    "pos": 3,
+    "rank": 344
+   },
+   "giovanni reyna": {
+    "name": "Giovanni Reyna",
+    "pos": 3,
+    "rank": 379
+   },
+   "alex zendejas": {
+    "name": "Álex Zendejas",
+    "pos": 3,
+    "rank": 380
+   },
+   "haji wright": {
+    "name": "Haji Wright",
+    "pos": 4,
+    "rank": 447
+   },
+   "tyler adams": {
+    "name": "Tyler Adams",
+    "pos": 3,
+    "rank": 448
+   },
+   "antonee robinson": {
+    "name": "Antonee Robinson",
+    "pos": 2,
+    "rank": 560
+   },
+   "patrick agyemang": {
+    "name": "Patrick Agyemang",
+    "pos": 4,
+    "rank": 649
+   },
+   "cristian roldan": {
+    "name": "Cristian Roldan",
+    "pos": 3,
+    "rank": 740
+   },
+   "sebastian berhalter": {
+    "name": "Sebastian Berhalter",
+    "pos": 3,
+    "rank": 741
+   },
+   "max arfsten": {
+    "name": "Max Arfsten",
+    "pos": 4,
+    "rank": 867
+   },
+   "sergino dest": {
+    "name": "Sergiño Dest",
+    "pos": 2,
+    "rank": 928
+   },
+   "matt freese": {
+    "name": "Matt Freese",
+    "pos": 1,
+    "rank": 989
+   },
+   "chris richards": {
+    "name": "Chris Richards",
+    "pos": 2,
+    "rank": 1024
+   },
+   "joe scally": {
+    "name": "Joe Scally",
+    "pos": 2,
+    "rank": 1025
+   },
+   "alexander freeman": {
+    "name": "Alexander Freeman",
+    "pos": 2,
+    "rank": 1118
+   },
+   "matt turner": {
+    "name": "Matt Turner",
+    "pos": 1,
+    "rank": 1119
+   },
+   "miles robinson": {
+    "name": "Miles Robinson",
+    "pos": 2,
+    "rank": 1120
+   },
+   "auston trusty": {
+    "name": "Auston Trusty",
+    "pos": 2,
+    "rank": 1194
+   },
+   "mark mckenzie": {
+    "name": "Mark McKenzie",
+    "pos": 2,
+    "rank": 1195
+   },
+   "tim ream": {
+    "name": "Tim Ream",
+    "pos": 2,
+    "rank": 1196
+   },
+   "chris brady": {
+    "name": "Chris Brady",
+    "pos": 1,
+    "rank": 1478
+   },
+   "patrick schulte": {
+    "name": "Patrick Schulte",
+    "pos": 1,
+    "rank": 1479
+   }
+  },
+  "AUT": {
+   "marcel sabitzer": {
+    "name": "Marcel Sabitzer",
+    "pos": 3,
+    "rank": 72
+   },
+   "christoph baumgartner": {
+    "name": "Christoph Baumgartner",
+    "pos": 3,
+    "rank": 86
+   },
+   "marko arnautovic": {
+    "name": "Marko Arnautovic",
+    "pos": 4,
+    "rank": 201
+   },
+   "michael gregoritsch": {
+    "name": "Michael Gregoritsch",
+    "pos": 4,
+    "rank": 202
+   },
+   "patrick wimmer": {
+    "name": "Patrick Wimmer",
+    "pos": 3,
+    "rank": 203
+   },
+   "romano schmid": {
+    "name": "Romano Schmid",
+    "pos": 3,
+    "rank": 204
+   },
+   "sasa kalajdzic": {
+    "name": "Sasa Kalajdzic",
+    "pos": 4,
+    "rank": 205
+   },
+   "konrad laimer": {
+    "name": "Konrad Laimer",
+    "pos": 3,
+    "rank": 263
+   },
+   "nicolas seiwald": {
+    "name": "Nicolas Seiwald",
+    "pos": 3,
+    "rank": 293
+   },
+   "paul wanner": {
+    "name": "Paul Wanner",
+    "pos": 3,
+    "rank": 294
+   },
+   "florian grillitsch": {
+    "name": "Florian Grillitsch",
+    "pos": 3,
+    "rank": 350
+   },
+   "xaver schlager": {
+    "name": "Xaver Schlager",
+    "pos": 3,
+    "rank": 351
+   },
+   "alessandro schopf": {
+    "name": "Alessandro Schöpf",
+    "pos": 3,
+    "rank": 395
+   },
+   "carney chukwuemeka": {
+    "name": "Carney Chukwuemeka",
+    "pos": 3,
+    "rank": 514
+   },
+   "alexander schlager": {
+    "name": "Alexander Schlager",
+    "pos": 1,
+    "rank": 747
+   },
+   "david alaba": {
+    "name": "David Alaba",
+    "pos": 2,
+    "rank": 748
+   },
+   "patrick pentz": {
+    "name": "Patrick Pentz",
+    "pos": 1,
+    "rank": 749
+   },
+   "alexander prass": {
+    "name": "Alexander Prass",
+    "pos": 2,
+    "rank": 875
+   },
+   "kevin danso": {
+    "name": "Kevin Danso",
+    "pos": 2,
+    "rank": 876
+   },
+   "marco friedl": {
+    "name": "Marco Friedl",
+    "pos": 2,
+    "rank": 877
+   },
+   "philipp lienhart": {
+    "name": "Philipp Lienhart",
+    "pos": 2,
+    "rank": 878
+   },
+   "stefan posch": {
+    "name": "Stefan Posch",
+    "pos": 2,
+    "rank": 879
+   },
+   "david affengruber": {
+    "name": "David Affengruber",
+    "pos": 2,
+    "rank": 1127
+   },
+   "phillipp mwene": {
+    "name": "Phillipp Mwene",
+    "pos": 2,
+    "rank": 1128
+   },
+   "michael svoboda": {
+    "name": "Michael Svoboda",
+    "pos": 2,
+    "rank": 1204
+   },
+   "florian wiegele": {
+    "name": "Florian Wiegele",
+    "pos": 1,
+    "rank": 1375
+   }
+  },
+  "CIV": {
+   "seko fofana": {
+    "name": "Seko Fofana",
+    "pos": 3,
+    "rank": 74
+   },
+   "amad diallo": {
+    "name": "Amad Diallo",
+    "pos": 4,
+    "rank": 227
+   },
+   "elye wahi": {
+    "name": "Elye Wahi",
+    "pos": 4,
+    "rank": 228
+   },
+   "franck kessie": {
+    "name": "Franck Kessie",
+    "pos": 3,
+    "rank": 229
+   },
+   "nicolas pepe": {
+    "name": "Nicolas Pépé",
+    "pos": 4,
+    "rank": 230
+   },
+   "yan diomande": {
+    "name": "Yan Diomande",
+    "pos": 4,
+    "rank": 231
+   },
+   "ibrahim sangare": {
+    "name": "Ibrahim Sangaré",
+    "pos": 3,
+    "rank": 264
+   },
+   "simon adingra": {
+    "name": "Simon Adingra",
+    "pos": 4,
+    "rank": 301
+   },
+   "jean michael seri": {
+    "name": "Jean Michaël Seri",
+    "pos": 3,
+    "rank": 357
+   },
+   "evann guessand": {
+    "name": "Evann Guessand",
+    "pos": 4,
+    "rank": 399
+   },
+   "oumar diakite": {
+    "name": "Oumar Diakité",
+    "pos": 4,
+    "rank": 400
+   },
+   "ange yoan bonny": {
+    "name": "Ange-Yoan Bonny",
+    "pos": 4,
+    "rank": 572
+   },
+   "parfait guiagon": {
+    "name": "Parfait Guiagon",
+    "pos": 3,
+    "rank": 573
+   },
+   "christ inao oulai": {
+    "name": "Christ Inao Oulaï",
+    "pos": 3,
+    "rank": 751
+   },
+   "bazoumana toure": {
+    "name": "Bazoumana Touré",
+    "pos": 4,
+    "rank": 784
+   },
+   "evan ndicka": {
+    "name": "Evan Ndicka",
+    "pos": 2,
+    "rank": 832
+   },
+   "wilfried singo": {
+    "name": "Wilfried Singo",
+    "pos": 2,
+    "rank": 833
+   },
+   "odilon kossounou": {
+    "name": "Odilon Kossounou",
+    "pos": 2,
+    "rank": 886
+   },
+   "ousmane diomande": {
+    "name": "Ousmane Diomande",
+    "pos": 2,
+    "rank": 887
+   },
+   "yahia fofana": {
+    "name": "Yahia Fofana",
+    "pos": 1,
+    "rank": 941
+   },
+   "alban lafont": {
+    "name": "Alban Lafont",
+    "pos": 1,
+    "rank": 994
+   },
+   "christopher operi": {
+    "name": "Christopher Opéri",
+    "pos": 2,
+    "rank": 1042
+   },
+   "ghislain konan": {
+    "name": "Ghislain Konan",
+    "pos": 2,
+    "rank": 1043
+   },
+   "emmanuel agbadou": {
+    "name": "Emmanuel Agbadou",
+    "pos": 2,
+    "rank": 1133
+   },
+   "guela doue": {
+    "name": "Guéla Doué",
+    "pos": 2,
+    "rank": 1134
+   },
+   "mohamed kone": {
+    "name": "Mohamed Koné",
+    "pos": 1,
+    "rank": 1257
+   },
+   "clement akpa": {
+    "name": "Clément Akpa",
+    "pos": 2,
+    "rank": 1314
+   }
+  },
+  "CRO": {
+   "ante budimir": {
+    "name": "Ante Budimir",
+    "pos": 4,
+    "rank": 75
+   },
+   "martin baturina": {
+    "name": "Martin Baturina",
+    "pos": 3,
+    "rank": 99
+   },
+   "mario pasalic": {
+    "name": "Mario Pasalic",
+    "pos": 3,
+    "rank": 119
+   },
+   "andrej kramaric": {
+    "name": "Andrej Kramaric",
+    "pos": 4,
+    "rank": 147
+   },
+   "luka modric": {
+    "name": "Luka Modric",
+    "pos": 3,
+    "rank": 148
+   },
+   "nikola vlasic": {
+    "name": "Nikola Vlasic",
+    "pos": 3,
+    "rank": 172
+   },
+   "mateo kovacic": {
+    "name": "Mateo Kovacic",
+    "pos": 3,
+    "rank": 207
+   },
+   "kristijan jakic": {
+    "name": "Kristijan Jakic",
+    "pos": 3,
+    "rank": 305
+   },
+   "nikola moro": {
+    "name": "Nikola Moro",
+    "pos": 3,
+    "rank": 306
+   },
+   "ivan perisic": {
+    "name": "Ivan Perisic",
+    "pos": 4,
+    "rank": 384
+   },
+   "marco pasalic": {
+    "name": "Marco Pasalic",
+    "pos": 4,
+    "rank": 404
+   },
+   "petar musa": {
+    "name": "Petar Musa",
+    "pos": 4,
+    "rank": 475
+   },
+   "josko gvardiol": {
+    "name": "Josko Gvardiol",
+    "pos": 2,
+    "rank": 521
+   },
+   "igor matanovic": {
+    "name": "Igor Matanovic",
+    "pos": 4,
+    "rank": 586
+   },
+   "luka sucic": {
+    "name": "Luka Sucic",
+    "pos": 3,
+    "rank": 587
+   },
+   "toni fruk": {
+    "name": "Toni Fruk",
+    "pos": 3,
+    "rank": 588
+   },
+   "dominik livakovic": {
+    "name": "Dominik Livakovic",
+    "pos": 1,
+    "rank": 787
+   },
+   "dominik kotarski": {
+    "name": "Dominik Kotarski",
+    "pos": 1,
+    "rank": 834
+   },
+   "josip stanisic": {
+    "name": "Josip Stanisic",
+    "pos": 2,
+    "rank": 893
+   },
+   "josip sutalo": {
+    "name": "Josip Sutalo",
+    "pos": 2,
+    "rank": 894
+   },
+   "petar sucic": {
+    "name": "Petar Sucic",
+    "pos": 3,
+    "rank": 946
+   },
+   "duje caleta car": {
+    "name": "Duje Caleta-Car",
+    "pos": 2,
+    "rank": 1047
+   },
+   "marin pongracic": {
+    "name": "Marin Pongracic",
+    "pos": 2,
+    "rank": 1048
+   },
+   "ivor pandur": {
+    "name": "Ivor Pandur",
+    "pos": 1,
+    "rank": 1142
+   },
+   "martin erlic": {
+    "name": "Martin Erlic",
+    "pos": 2,
+    "rank": 1143
+   },
+   "luka vuskovic": {
+    "name": "Luka Vuskovic",
+    "pos": 2,
+    "rank": 1262
+   }
+  },
+  "ECU": {
+   "moises caicedo": {
+    "name": "Moisés Caicedo",
+    "pos": 3,
+    "rank": 76
+   },
+   "nilson angulo": {
+    "name": "Nilson Angulo",
+    "pos": 3,
+    "rank": 208
+   },
+   "enner valencia": {
+    "name": "Enner Valencia",
+    "pos": 4,
+    "rank": 234
+   },
+   "alan franco": {
+    "name": "Alan Franco",
+    "pos": 3,
+    "rank": 309
+   },
+   "gonzalo plata": {
+    "name": "Gonzalo Plata",
+    "pos": 4,
+    "rank": 310
+   },
+   "bruno caicedo": {
+    "name": "Bruno Caicedo",
+    "pos": 3,
+    "rank": 454
+   },
+   "kendry paez": {
+    "name": "Kendry Páez",
+    "pos": 3,
+    "rank": 455
+   },
+   "pedro vite": {
+    "name": "Pedro Vite",
+    "pos": 3,
+    "rank": 456
+   },
+   "john yeboah": {
+    "name": "John Yeboah",
+    "pos": 3,
+    "rank": 478
+   },
+   "luis fragozo": {
+    "name": "Luis Fragozo",
+    "pos": 3,
+    "rank": 522
+   },
+   "alan minda": {
+    "name": "Alan Minda",
+    "pos": 4,
+    "rank": 591
+   },
+   "denil castillo": {
+    "name": "Denil Castillo",
+    "pos": 3,
+    "rank": 592
+   },
+   "jordy alcivar": {
+    "name": "Jordy Alcívar",
+    "pos": 3,
+    "rank": 593
+   },
+   "jordy caicedo": {
+    "name": "Jordy Caicedo",
+    "pos": 4,
+    "rank": 594
+   },
+   "kevin rodriguez": {
+    "name": "Kevin Rodríguez",
+    "pos": 4,
+    "rank": 595
+   },
+   "darwin guagua": {
+    "name": "Darwin Guagua",
+    "pos": 3,
+    "rank": 652
+   },
+   "pervis estupinan": {
+    "name": "Pervis Estupiñán",
+    "pos": 2,
+    "rank": 653
+   },
+   "piero hincapie": {
+    "name": "Piero Hincapié",
+    "pos": 2,
+    "rank": 685
+   },
+   "john mercado": {
+    "name": "John Mercado",
+    "pos": 4,
+    "rank": 839
+   },
+   "willian pacho": {
+    "name": "Willian Pacho",
+    "pos": 2,
+    "rank": 840
+   },
+   "angelo preciado": {
+    "name": "Ángelo Preciado",
+    "pos": 2,
+    "rank": 896
+   },
+   "anthony valencia": {
+    "name": "Anthony Valencia",
+    "pos": 3,
+    "rank": 950
+   },
+   "ederson castillo": {
+    "name": "Ederson Castillo",
+    "pos": 3,
+    "rank": 951
+   },
+   "hernan galindez": {
+    "name": "Hernán Galíndez",
+    "pos": 1,
+    "rank": 952
+   },
+   "deinner ordonez": {
+    "name": "Deinner Ordóñez",
+    "pos": 2,
+    "rank": 997
+   },
+   "cristhian loor": {
+    "name": "Cristhian Loor",
+    "pos": 1,
+    "rank": 1053
+   },
+   "fricio caicedo": {
+    "name": "Fricio Caicedo",
+    "pos": 2,
+    "rank": 1054
+   },
+   "jeremy arevalo": {
+    "name": "Jeremy Arévalo",
+    "pos": 4,
+    "rank": 1055
+   },
+   "felix torres": {
+    "name": "Félix Torres",
+    "pos": 2,
+    "rank": 1150
+   },
+   "joel ordonez": {
+    "name": "Joel Ordóñez",
+    "pos": 2,
+    "rank": 1151
+   },
+   "jose hurtado": {
+    "name": "José Hurtado",
+    "pos": 2,
+    "rank": 1152
+   },
+   "moises ramirez": {
+    "name": "Moisés Ramírez",
+    "pos": 1,
+    "rank": 1153
+   },
+   "jackson porozo": {
+    "name": "Jackson Porozo",
+    "pos": 2,
+    "rank": 1213
+   },
+   "malcom dacosta": {
+    "name": "Malcom DaCosta",
+    "pos": 3,
+    "rank": 1214
+   },
+   "gonzalo valle": {
+    "name": "Gonzalo Valle",
+    "pos": 1,
+    "rank": 1322
+   },
+   "yaimar medina": {
+    "name": "Yaimar Medina",
+    "pos": 2,
+    "rank": 1393
+   }
+  },
+  "MOR": {
+   "ismael saibari": {
+    "name": "Ismael Saibari",
+    "pos": 3,
+    "rank": 78
+   },
+   "brahim diaz": {
+    "name": "Brahim Díaz",
+    "pos": 3,
+    "rank": 125
+   },
+   "sofiane boufal": {
+    "name": "Sofiane Boufal",
+    "pos": 3,
+    "rank": 136
+   },
+   "azzedine ounahi": {
+    "name": "Azzedine Ounahi",
+    "pos": 3,
+    "rank": 152
+   },
+   "bilal el khannouss": {
+    "name": "Bilal El Khannouss",
+    "pos": 3,
+    "rank": 153
+   },
+   "achraf hakimi": {
+    "name": "Achraf Hakimi",
+    "pos": 2,
+    "rank": 212
+   },
+   "ayoub el kaabi": {
+    "name": "Ayoub El Kaabi",
+    "pos": 4,
+    "rank": 243
+   },
+   "sofyan amrabat": {
+    "name": "Sofyan Amrabat",
+    "pos": 3,
+    "rank": 244
+   },
+   "imran louza": {
+    "name": "Imrân Louza",
+    "pos": 3,
+    "rank": 276
+   },
+   "neil el aynaoui": {
+    "name": "Neil El Aynaoui",
+    "pos": 3,
+    "rank": 324
+   },
+   "soufiane rahimi": {
+    "name": "Soufiane Rahimi",
+    "pos": 4,
+    "rank": 325
+   },
+   "ayyoub bouaddi": {
+    "name": "Ayyoub Bouaddi",
+    "pos": 3,
+    "rank": 367
+   },
+   "abde ezzalzouli": {
+    "name": "Abde Ezzalzouli",
+    "pos": 4,
+    "rank": 424
+   },
+   "oussama targhalline": {
+    "name": "Oussama Targhalline",
+    "pos": 3,
+    "rank": 425
+   },
+   "yanis begraoui": {
+    "name": "Yanis Begraoui",
+    "pos": 3,
+    "rank": 535
+   },
+   "soufiane el faouzi": {
+    "name": "Soufiane El-Faouzi",
+    "pos": 3,
+    "rank": 614
+   },
+   "amine sbai": {
+    "name": "Amine Sbaï",
+    "pos": 4,
+    "rank": 658
+   },
+   "marwane saadane": {
+    "name": "Marwane Saadane",
+    "pos": 3,
+    "rank": 710
+   },
+   "othmane maamma": {
+    "name": "Othmane Maamma",
+    "pos": 3,
+    "rank": 711
+   },
+   "samir el mourabet": {
+    "name": "Samir El Mourabet",
+    "pos": 3,
+    "rank": 712
+   },
+   "soufiane benjdida": {
+    "name": "Soufiane Benjdida",
+    "pos": 4,
+    "rank": 713
+   },
+   "tawfik bentayeb": {
+    "name": "Tawfik Bentayeb",
+    "pos": 4,
+    "rank": 714
+   },
+   "yassine bounou": {
+    "name": "Yassine Bounou",
+    "pos": 1,
+    "rank": 715
+   },
+   "issa diop": {
+    "name": "Issa Diop",
+    "pos": 2,
+    "rank": 806
+   },
+   "chemsdine talbi": {
+    "name": "Chemsdine Talbi",
+    "pos": 4,
+    "rank": 852
+   },
+   "noussair mazraoui": {
+    "name": "Noussair Mazraoui",
+    "pos": 2,
+    "rank": 853
+   },
+   "ayoube amaimouni echghouyab": {
+    "name": "Ayoube Amaimouni-Echghouyab",
+    "pos": 4,
+    "rank": 906
+   },
+   "nayef aguerd": {
+    "name": "Nayef Aguerd",
+    "pos": 2,
+    "rank": 907
+   },
+   "zakaria el ouahdi": {
+    "name": "Zakaria El Ouahdi",
+    "pos": 2,
+    "rank": 999
+   },
+   "gessime yassine": {
+    "name": "Gessime Yassine",
+    "pos": 4,
+    "rank": 1075
+   },
+   "munir el kajoui": {
+    "name": "Munir El Kajoui",
+    "pos": 1,
+    "rank": 1076
+   },
+   "rayane bounida": {
+    "name": "Rayane Bounida",
+    "pos": 4,
+    "rank": 1077
+   },
+   "souffian el karouani": {
+    "name": "Souffian El Karouani",
+    "pos": 2,
+    "rank": 1078
+   },
+   "soufiane bouftini": {
+    "name": "Soufiane Bouftini",
+    "pos": 2,
+    "rank": 1079
+   },
+   "yassir zabiri": {
+    "name": "Yassir Zabiri",
+    "pos": 4,
+    "rank": 1080
+   },
+   "anass salah eddine": {
+    "name": "Anass Salah-Eddine",
+    "pos": 2,
+    "rank": 1173
+   },
+   "chadi riad": {
+    "name": "Chadi Riad",
+    "pos": 2,
+    "rank": 1174
+   },
+   "mohamed chibi": {
+    "name": "Mohamed Chibi",
+    "pos": 2,
+    "rank": 1226
+   },
+   "youssef belammari": {
+    "name": "Youssef Belammari",
+    "pos": 2,
+    "rank": 1343
+   },
+   "abdelhamid ait boudlal": {
+    "name": "Abdelhamid Aït Boudlal",
+    "pos": 2,
+    "rank": 1436
+   },
+   "ahmed tagnaouti": {
+    "name": "Ahmed Tagnaouti",
+    "pos": 1,
+    "rank": 1437
+   },
+   "el mehdi al harrar": {
+    "name": "El Mehdi Al Harrar",
+    "pos": 1,
+    "rank": 1438
+   },
+   "ibrahim gomis": {
+    "name": "Ibrahim Gomis",
+    "pos": 1,
+    "rank": 1439
+   },
+   "ismael baouf": {
+    "name": "Ismaël Baouf",
+    "pos": 2,
+    "rank": 1440
+   },
+   "redouane halhal": {
+    "name": "Redouane Halhal",
+    "pos": 2,
+    "rank": 1441
+   },
+   "yanis benchaouch": {
+    "name": "Yanis Benchaouch",
+    "pos": 1,
+    "rank": 1442
+   }
+  },
+  "PAR": {
+   "diego gomez": {
+    "name": "Diego Gómez",
+    "pos": 3,
+    "rank": 81
+   },
+   "julio enciso": {
+    "name": "Julio Enciso",
+    "pos": 3,
+    "rank": 91
+   },
+   "antonio sanabria": {
+    "name": "Antonio Sanabria",
+    "pos": 4,
+    "rank": 111
+   },
+   "miguel almiron": {
+    "name": "Miguel Almirón",
+    "pos": 3,
+    "rank": 213
+   },
+   "isidro pitta": {
+    "name": "Isidro Pitta",
+    "pos": 4,
+    "rank": 247
+   },
+   "adam bareiro": {
+    "name": "Adam Bareiro",
+    "pos": 4,
+    "rank": 279
+   },
+   "carlos gonzalez": {
+    "name": "Carlos González",
+    "pos": 4,
+    "rank": 280
+   },
+   "braian ojeda": {
+    "name": "Braian Ojeda",
+    "pos": 3,
+    "rank": 333
+   },
+   "lucas romero": {
+    "name": "Lucas Romero",
+    "pos": 3,
+    "rank": 334
+   },
+   "damian bobadilla": {
+    "name": "Damián Bobadilla",
+    "pos": 3,
+    "rank": 371
+   },
+   "lorenzo melgarejo": {
+    "name": "Lorenzo Melgarejo",
+    "pos": 3,
+    "rank": 372
+   },
+   "ramon sosa": {
+    "name": "Ramón Sosa",
+    "pos": 4,
+    "rank": 431
+   },
+   "robert morales": {
+    "name": "Robert Morales",
+    "pos": 4,
+    "rank": 432
+   },
+   "diego gonzalez": {
+    "name": "Diego González",
+    "pos": 3,
+    "rank": 541
+   },
+   "enso gonzalez": {
+    "name": "Enso González",
+    "pos": 3,
+    "rank": 542
+   },
+   "ronaldo martinez": {
+    "name": "Ronaldo Martínez",
+    "pos": 3,
+    "rank": 543
+   },
+   "ruben lezcano": {
+    "name": "Rubén Lezcano",
+    "pos": 3,
+    "rank": 544
+   },
+   "gabriel avalos": {
+    "name": "Gabriel Ávalos",
+    "pos": 4,
+    "rank": 620
+   },
+   "alex arce": {
+    "name": "Álex Arce",
+    "pos": 4,
+    "rank": 621
+   },
+   "angel romero": {
+    "name": "Ángel Romero",
+    "pos": 3,
+    "rank": 622
+   },
+   "hugo cuenca": {
+    "name": "Hugo Cuenca",
+    "pos": 3,
+    "rank": 661
+   },
+   "matias galarza": {
+    "name": "Matías Galarza",
+    "pos": 3,
+    "rank": 662
+   },
+   "rodney redes": {
+    "name": "Rodney Redes",
+    "pos": 3,
+    "rank": 663
+   },
+   "alejandro romero": {
+    "name": "Alejandro Romero",
+    "pos": 3,
+    "rank": 722
+   },
+   "andres cubas": {
+    "name": "Andrés Cubas",
+    "pos": 3,
+    "rank": 723
+   },
+   "robert piris da motta": {
+    "name": "Robert Piris Da Motta",
+    "pos": 3,
+    "rank": 724
+   },
+   "gustavo gomez": {
+    "name": "Gustavo Gómez",
+    "pos": 2,
+    "rank": 765
+   },
+   "mathias villasanti": {
+    "name": "Mathías Villasanti",
+    "pos": 3,
+    "rank": 766
+   },
+   "mauricio magalhaes prado": {
+    "name": "Maurício Magalhães Prado",
+    "pos": 3,
+    "rank": 767
+   },
+   "alvaro campuzano": {
+    "name": "Álvaro Campuzano",
+    "pos": 3,
+    "rank": 768
+   },
+   "oscar romero": {
+    "name": "Óscar Romero",
+    "pos": 3,
+    "rank": 769
+   },
+   "adrian alcaraz": {
+    "name": "Adrián Alcaraz",
+    "pos": 4,
+    "rank": 809
+   },
+   "gustavo caballero": {
+    "name": "Gustavo Caballero",
+    "pos": 4,
+    "rank": 977
+   },
+   "carlos coronel": {
+    "name": "Carlos Coronel",
+    "pos": 1,
+    "rank": 1003
+   },
+   "junior alonso": {
+    "name": "Júnior Alonso",
+    "pos": 2,
+    "rank": 1004
+   },
+   "omar alderete": {
+    "name": "Omar Alderete",
+    "pos": 2,
+    "rank": 1005
+   },
+   "alexandro maidana": {
+    "name": "Alexandro Maidana",
+    "pos": 4,
+    "rank": 1091
+   },
+   "fabian balbuena": {
+    "name": "Fabián Balbuena",
+    "pos": 2,
+    "rank": 1092
+   },
+   "roberto fernandez": {
+    "name": "Roberto Fernández",
+    "pos": 1,
+    "rank": 1093
+   },
+   "blas riveros": {
+    "name": "Blás Riveros",
+    "pos": 2,
+    "rank": 1179
+   },
+   "mateo gamarra": {
+    "name": "Mateo Gamarra",
+    "pos": 2,
+    "rank": 1180
+   },
+   "alan benitez": {
+    "name": "Alan Benítez",
+    "pos": 2,
+    "rank": 1230
+   },
+   "gaston olveira": {
+    "name": "Gastón Olveira",
+    "pos": 1,
+    "rank": 1231
+   },
+   "gustavo velazquez": {
+    "name": "Gustavo Velázquez",
+    "pos": 2,
+    "rank": 1232
+   },
+   "juan jose caceres": {
+    "name": "Juan José Cáceres",
+    "pos": 2,
+    "rank": 1233
+   },
+   "ronaldo dejesus": {
+    "name": "Ronaldo Dejesús",
+    "pos": 2,
+    "rank": 1234
+   },
+   "agustin sandez": {
+    "name": "Agustín Sández",
+    "pos": 2,
+    "rank": 1287
+   },
+   "saul salcedo": {
+    "name": "Saúl Salcedo",
+    "pos": 2,
+    "rank": 1288
+   },
+   "jose canale": {
+    "name": "José Canale",
+    "pos": 2,
+    "rank": 1349
+   },
+   "alan nunez": {
+    "name": "Alan Núñez",
+    "pos": 2,
+    "rank": 1451
+   },
+   "alcides benitez": {
+    "name": "Alcides Benítez",
+    "pos": 2,
+    "rank": 1452
+   },
+   "diego leon": {
+    "name": "Diego León",
+    "pos": 2,
+    "rank": 1453
+   },
+   "juan espinola": {
+    "name": "Juan Espínola",
+    "pos": 1,
+    "rank": 1454
+   },
+   "orlando gill": {
+    "name": "Orlando Gill",
+    "pos": 1,
+    "rank": 1455
+   },
+   "santiago rojas": {
+    "name": "Santiago Rojas",
+    "pos": 1,
+    "rank": 1456
+   }
+  },
+  "ALG": {
+   "riyad mahrez": {
+    "name": "Riyad Mahrez",
+    "pos": 3,
+    "rank": 92
+   },
+   "amine gouiri": {
+    "name": "Amine Gouiri",
+    "pos": 4,
+    "rank": 137
+   },
+   "fares chaibi": {
+    "name": "Farès Chaïbi",
+    "pos": 3,
+    "rank": 138
+   },
+   "mohammed amoura": {
+    "name": "Mohammed Amoura",
+    "pos": 4,
+    "rank": 139
+   },
+   "houssem aouar": {
+    "name": "Houssem Aouar",
+    "pos": 3,
+    "rank": 197
+   },
+   "adil aouchiche": {
+    "name": "Adil Aouchiche",
+    "pos": 3,
+    "rank": 284
+   },
+   "hicham boudaoui": {
+    "name": "Hicham Boudaoui",
+    "pos": 3,
+    "rank": 346
+   },
+   "nabil bentaleb": {
+    "name": "Nabil Bentaleb",
+    "pos": 3,
+    "rank": 347
+   },
+   "ibrahim maza": {
+    "name": "Ibrahim Maza",
+    "pos": 4,
+    "rank": 381
+   },
+   "anis hadj moussa": {
+    "name": "Anis Hadj Moussa",
+    "pos": 4,
+    "rank": 391
+   },
+   "ramiz zerrouki": {
+    "name": "Ramiz Zerrouki",
+    "pos": 3,
+    "rank": 392
+   },
+   "rayan ait nouri": {
+    "name": "Rayan Aït-Nouri",
+    "pos": 2,
+    "rank": 562
+   },
+   "yacine titraoui": {
+    "name": "Yacine Titraoui",
+    "pos": 3,
+    "rank": 668
+   },
+   "fares ghedjemis": {
+    "name": "Farès Ghedjemis",
+    "pos": 4,
+    "rank": 825
+   },
+   "ramy bensebaini": {
+    "name": "Ramy Bensebaini",
+    "pos": 2,
+    "rank": 826
+   },
+   "ahmed benbouali": {
+    "name": "Ahmed Benbouali",
+    "pos": 4,
+    "rank": 930
+   },
+   "oussama benbot": {
+    "name": "Oussama Benbot",
+    "pos": 1,
+    "rank": 931
+   },
+   "abdelatif ramdane": {
+    "name": "Abdelatif Ramdane",
+    "pos": 1,
+    "rank": 1026
+   },
+   "adil boulbina": {
+    "name": "Adil Boulbina",
+    "pos": 3,
+    "rank": 1027
+   },
+   "amin chiakha": {
+    "name": "Amin Chiakha",
+    "pos": 4,
+    "rank": 1028
+   },
+   "mohamed tougai": {
+    "name": "Mohamed Tougaï",
+    "pos": 2,
+    "rank": 1029
+   },
+   "samir chergui": {
+    "name": "Samir Chergui",
+    "pos": 2,
+    "rank": 1030
+   },
+   "anthony mandrea": {
+    "name": "Anthony Mandréa",
+    "pos": 1,
+    "rank": 1122
+   },
+   "aissa mandi": {
+    "name": "Aïssa Mandi",
+    "pos": 2,
+    "rank": 1123
+   },
+   "jaouen hadjam": {
+    "name": "Jaouen Hadjam",
+    "pos": 2,
+    "rank": 1198
+   },
+   "luca zidane": {
+    "name": "Luca Zidane",
+    "pos": 1,
+    "rank": 1199
+   },
+   "mehdi dorval": {
+    "name": "Mehdi Dorval",
+    "pos": 2,
+    "rank": 1247
+   },
+   "zineddine belaid": {
+    "name": "Zinéddine Belaïd",
+    "pos": 2,
+    "rank": 1248
+   },
+   "achref abada": {
+    "name": "Achref Abada",
+    "pos": 2,
+    "rank": 1365
+   },
+   "kilian belazzoug": {
+    "name": "Kilian Belazzoug",
+    "pos": 1,
+    "rank": 1366
+   },
+   "melvin mastil": {
+    "name": "Melvin Mastil",
+    "pos": 1,
+    "rank": 1367
+   },
+   "rafik belghali": {
+    "name": "Rafik Belghali",
+    "pos": 2,
+    "rank": 1368
+   },
+   "sohaib nair": {
+    "name": "Sohaib Nair",
+    "pos": 2,
+    "rank": 1369
+   }
+  },
+  "COD": {
+   "cedric bakambu": {
+    "name": "Cédric Bakambu",
+    "pos": 4,
+    "rank": 97
+   },
+   "theo bongonda": {
+    "name": "Théo Bongonda",
+    "pos": 3,
+    "rank": 145
+   },
+   "yoane wissa": {
+    "name": "Yoane Wissa",
+    "pos": 4,
+    "rank": 146
+   },
+   "edo kayembe": {
+    "name": "Edo Kayembe",
+    "pos": 3,
+    "rank": 302
+   },
+   "simon banza": {
+    "name": "Simon Banza",
+    "pos": 4,
+    "rank": 303
+   },
+   "charles pickel": {
+    "name": "Charles Pickel",
+    "pos": 3,
+    "rank": 401
+   },
+   "noah sadiki": {
+    "name": "Noah Sadiki",
+    "pos": 3,
+    "rank": 402
+   },
+   "samuel moutoussamy": {
+    "name": "Samuel Moutoussamy",
+    "pos": 3,
+    "rank": 473
+   },
+   "aaron tshibola": {
+    "name": "Aaron Tshibola",
+    "pos": 3,
+    "rank": 574
+   },
+   "fiston mayele": {
+    "name": "Fiston Mayele",
+    "pos": 4,
+    "rank": 575
+   },
+   "meschack elia": {
+    "name": "Meschack Elia",
+    "pos": 4,
+    "rank": 576
+   },
+   "ngal ayel mukau": {
+    "name": "Ngal'ayel Mukau",
+    "pos": 3,
+    "rank": 577
+   },
+   "gael kakuta": {
+    "name": "Gaël Kakuta",
+    "pos": 3,
+    "rank": 752
+   },
+   "nathanael mbuku": {
+    "name": "Nathanaël Mbuku",
+    "pos": 4,
+    "rank": 785
+   },
+   "aaron wan bissaka": {
+    "name": "Aaron Wan-Bissaka",
+    "pos": 2,
+    "rank": 888
+   },
+   "arthur masuaku": {
+    "name": "Arthur Masuaku",
+    "pos": 2,
+    "rank": 942
+   },
+   "brian cipenga": {
+    "name": "Brian Cipenga",
+    "pos": 4,
+    "rank": 943
+   },
+   "chancel mbemba": {
+    "name": "Chancel Mbemba",
+    "pos": 2,
+    "rank": 944
+   },
+   "axel tuanzebe": {
+    "name": "Axel Tuanzebe",
+    "pos": 2,
+    "rank": 1044
+   },
+   "lionel mpasi": {
+    "name": "Lionel Mpasi",
+    "pos": 1,
+    "rank": 1045
+   },
+   "gedeon kalulu": {
+    "name": "Gédéon Kalulu",
+    "pos": 2,
+    "rank": 1135
+   },
+   "joris kayembe": {
+    "name": "Joris Kayembe",
+    "pos": 2,
+    "rank": 1136
+   },
+   "dylan batubinsika": {
+    "name": "Dylan Batubinsika",
+    "pos": 2,
+    "rank": 1208
+   },
+   "matthieu epolo": {
+    "name": "Matthieu Epolo",
+    "pos": 1,
+    "rank": 1258
+   },
+   "steve kapuadi": {
+    "name": "Steve Kapuadi",
+    "pos": 2,
+    "rank": 1259
+   },
+   "timothy fayulu": {
+    "name": "Timothy Fayulu",
+    "pos": 1,
+    "rank": 1315
+   }
+  },
+  "NZL": {
+   "chris wood": {
+    "name": "Chris Wood",
+    "pos": 4,
+    "rank": 109
+   },
+   "marko stamenic": {
+    "name": "Marko Stamenic",
+    "pos": 3,
+    "rank": 329
+   },
+   "ryan thomas": {
+    "name": "Ryan Thomas",
+    "pos": 3,
+    "rank": 427
+   },
+   "sarpreet singh": {
+    "name": "Sarpreet Singh",
+    "pos": 3,
+    "rank": 428
+   },
+   "joe bell": {
+    "name": "Joe Bell",
+    "pos": 3,
+    "rank": 493
+   },
+   "matthew garbett": {
+    "name": "Matthew Garbett",
+    "pos": 4,
+    "rank": 538
+   },
+   "alex rufer": {
+    "name": "Alex Rufer",
+    "pos": 3,
+    "rank": 617
+   },
+   "callum mccowatt": {
+    "name": "Callum McCowatt",
+    "pos": 3,
+    "rank": 720
+   },
+   "kosta barbarouses": {
+    "name": "Kosta Barbarouses",
+    "pos": 4,
+    "rank": 854
+   },
+   "ben old": {
+    "name": "Ben Old",
+    "pos": 4,
+    "rank": 973
+   },
+   "ben waine": {
+    "name": "Ben Waine",
+    "pos": 4,
+    "rank": 974
+   },
+   "elijah just": {
+    "name": "Elijah Just",
+    "pos": 3,
+    "rank": 975
+   },
+   "liberato cacace": {
+    "name": "Liberato Cacace",
+    "pos": 2,
+    "rank": 1002
+   },
+   "jesse randall": {
+    "name": "Jesse Randall",
+    "pos": 4,
+    "rank": 1084
+   },
+   "lachlan bayliss": {
+    "name": "Lachlan Bayliss",
+    "pos": 3,
+    "rank": 1085
+   },
+   "max crocombe": {
+    "name": "Max Crocombe",
+    "pos": 1,
+    "rank": 1175
+   },
+   "alex paulsen": {
+    "name": "Alex Paulsen",
+    "pos": 1,
+    "rank": 1228
+   },
+   "michael boxall": {
+    "name": "Michael Boxall",
+    "pos": 2,
+    "rank": 1282
+   },
+   "michael woud": {
+    "name": "Michael Woud",
+    "pos": 1,
+    "rank": 1283
+   },
+   "nando pijnaker": {
+    "name": "Nando Pijnaker",
+    "pos": 2,
+    "rank": 1284
+   },
+   "francis de vries": {
+    "name": "Francis de Vries",
+    "pos": 2,
+    "rank": 1344
+   },
+   "tim payne": {
+    "name": "Tim Payne",
+    "pos": 2,
+    "rank": 1345
+   },
+   "tommy smith": {
+    "name": "Tommy Smith",
+    "pos": 2,
+    "rank": 1346
+   },
+   "tyler bindon": {
+    "name": "Tyler Bindon",
+    "pos": 2,
+    "rank": 1347
+   },
+   "callan elliot": {
+    "name": "Callan Elliot",
+    "pos": 2,
+    "rank": 1445
+   },
+   "finn surman": {
+    "name": "Finn Surman",
+    "pos": 2,
+    "rank": 1446
+   }
+  },
+  "PAN": {
+   "adalberto carrasquilla": {
+    "name": "Adalberto Carrasquilla",
+    "pos": 3,
+    "rank": 110
+   },
+   "anibal godoy": {
+    "name": "Aníbal Godoy",
+    "pos": 3,
+    "rank": 330
+   },
+   "jose luis rodriguez": {
+    "name": "José Luis Rodríguez",
+    "pos": 3,
+    "rank": 331
+   },
+   "yoel barcenas": {
+    "name": "Yoel Bárcenas",
+    "pos": 3,
+    "rank": 332
+   },
+   "cristian martinez": {
+    "name": "Cristian Martínez",
+    "pos": 3,
+    "rank": 429
+   },
+   "victor griffith": {
+    "name": "Víctor Griffith",
+    "pos": 3,
+    "rank": 430
+   },
+   "amir murillo": {
+    "name": "Amir Murillo",
+    "pos": 2,
+    "rank": 539
+   },
+   "cecilio waterman": {
+    "name": "Cecilio Waterman",
+    "pos": 4,
+    "rank": 540
+   },
+   "carlos harvey": {
+    "name": "Carlos Harvey",
+    "pos": 3,
+    "rank": 618
+   },
+   "ismael diaz": {
+    "name": "Ismael Díaz",
+    "pos": 4,
+    "rank": 619
+   },
+   "jose fajardo": {
+    "name": "José Fajardo",
+    "pos": 4,
+    "rank": 721
+   },
+   "tomas rodriguez": {
+    "name": "Tomás Rodríguez",
+    "pos": 4,
+    "rank": 808
+   },
+   "azarias londono": {
+    "name": "Azarías Londoño",
+    "pos": 4,
+    "rank": 855
+   },
+   "cesar yanis": {
+    "name": "César Yanis",
+    "pos": 4,
+    "rank": 856
+   },
+   "jose murillo": {
+    "name": "José Murillo",
+    "pos": 2,
+    "rank": 913
+   },
+   "alberto quintero": {
+    "name": "Alberto Quintero",
+    "pos": 4,
+    "rank": 976
+   },
+   "ivan anderson": {
+    "name": "Iván Anderson",
+    "pos": 2,
+    "rank": 1086
+   },
+   "jd gunn": {
+    "name": "JD Gunn",
+    "pos": 1,
+    "rank": 1087
+   },
+   "jose cordoba": {
+    "name": "José Córdoba",
+    "pos": 2,
+    "rank": 1088
+   },
+   "kadir barria": {
+    "name": "Kadir Barría",
+    "pos": 4,
+    "rank": 1089
+   },
+   "luis mejia": {
+    "name": "Luis Mejía",
+    "pos": 1,
+    "rank": 1090
+   },
+   "edgardo farina": {
+    "name": "Edgardo Fariña",
+    "pos": 2,
+    "rank": 1176
+   },
+   "orlando mosquera": {
+    "name": "Orlando Mosquera",
+    "pos": 1,
+    "rank": 1177
+   },
+   "eric davis": {
+    "name": "Éric Davis",
+    "pos": 2,
+    "rank": 1178
+   },
+   "fidel escobar": {
+    "name": "Fidel Escobar",
+    "pos": 2,
+    "rank": 1229
+   },
+   "andres andrade": {
+    "name": "Andrés Andrade",
+    "pos": 2,
+    "rank": 1285
+   },
+   "cesar blackman": {
+    "name": "César Blackman",
+    "pos": 2,
+    "rank": 1286
+   },
+   "cesar samudio": {
+    "name": "César Samudio",
+    "pos": 1,
+    "rank": 1348
+   },
+   "jiovany ramos": {
+    "name": "Jiovany Ramos",
+    "pos": 2,
+    "rank": 1447
+   },
+   "jorge gutierrez": {
+    "name": "Jorge Gutiérrez",
+    "pos": 2,
+    "rank": 1448
+   },
+   "martin krug": {
+    "name": "Martín Krug",
+    "pos": 2,
+    "rank": 1449
+   },
+   "roderick miller": {
+    "name": "Roderick Miller",
+    "pos": 2,
+    "rank": 1450
+   }
+  },
+  "SCO": {
+   "scott mctominay": {
+    "name": "Scott McTominay",
+    "pos": 3,
+    "rank": 114
+   },
+   "john mcginn": {
+    "name": "John McGinn",
+    "pos": 3,
+    "rank": 214
+   },
+   "ryan christie": {
+    "name": "Ryan Christie",
+    "pos": 3,
+    "rank": 337
+   },
+   "lawrence shankland": {
+    "name": "Lawrence Shankland",
+    "pos": 4,
+    "rank": 375
+   },
+   "che adams": {
+    "name": "Ché Adams",
+    "pos": 4,
+    "rank": 387
+   },
+   "ross stewart": {
+    "name": "Ross Stewart",
+    "pos": 4,
+    "rank": 388
+   },
+   "billy gilmour": {
+    "name": "Billy Gilmour",
+    "pos": 3,
+    "rank": 500
+   },
+   "andy robertson": {
+    "name": "Andy Robertson",
+    "pos": 2,
+    "rank": 550
+   },
+   "ben gannon doak": {
+    "name": "Ben Gannon-Doak",
+    "pos": 3,
+    "rank": 634
+   },
+   "kenny mclean": {
+    "name": "Kenny McLean",
+    "pos": 3,
+    "rank": 664
+   },
+   "lewis ferguson": {
+    "name": "Lewis Ferguson",
+    "pos": 3,
+    "rank": 665
+   },
+   "tyler fletcher": {
+    "name": "Tyler Fletcher",
+    "pos": 3,
+    "rank": 728
+   },
+   "george hirst": {
+    "name": "George Hirst",
+    "pos": 4,
+    "rank": 772
+   },
+   "lyndon dykes": {
+    "name": "Lyndon Dykes",
+    "pos": 4,
+    "rank": 773
+   },
+   "aaron hickey": {
+    "name": "Aaron Hickey",
+    "pos": 2,
+    "rank": 919
+   },
+   "kieran tierney": {
+    "name": "Kieran Tierney",
+    "pos": 2,
+    "rank": 920
+   },
+   "findlay curtis": {
+    "name": "Findlay Curtis",
+    "pos": 4,
+    "rank": 1102
+   },
+   "nathan patterson": {
+    "name": "Nathan Patterson",
+    "pos": 2,
+    "rank": 1103
+   },
+   "jack hendry": {
+    "name": "Jack Hendry",
+    "pos": 2,
+    "rank": 1183
+   },
+   "anthony ralston": {
+    "name": "Anthony Ralston",
+    "pos": 2,
+    "rank": 1239
+   },
+   "john souttar": {
+    "name": "John Souttar",
+    "pos": 2,
+    "rank": 1240
+   },
+   "scott mckenna": {
+    "name": "Scott McKenna",
+    "pos": 2,
+    "rank": 1241
+   },
+   "liam kelly": {
+    "name": "Liam Kelly",
+    "pos": 1,
+    "rank": 1299
+   },
+   "angus gunn": {
+    "name": "Angus Gunn",
+    "pos": 1,
+    "rank": 1358
+   },
+   "dominic hyam": {
+    "name": "Dominic Hyam",
+    "pos": 2,
+    "rank": 1359
+   },
+   "craig gordon": {
+    "name": "Craig Gordon",
+    "pos": 1,
+    "rank": 1470
+   },
+   "grant hanley": {
+    "name": "Grant Hanley",
+    "pos": 2,
+    "rank": 1471
+   }
+  },
+  "UZB": {
+   "eldor shomurodov": {
+    "name": "Eldor Shomurodov",
+    "pos": 4,
+    "rank": 118
+   },
+   "abbosbek fayzullaev": {
+    "name": "Abbosbek Fayzullaev",
+    "pos": 3,
+    "rank": 166
+   },
+   "igor sergeev": {
+    "name": "Igor Sergeev",
+    "pos": 4,
+    "rank": 195
+   },
+   "jaloliddin masharipov": {
+    "name": "Jaloliddin Masharipov",
+    "pos": 3,
+    "rank": 196
+   },
+   "jamshid iskanderov": {
+    "name": "Jamshid Iskanderov",
+    "pos": 3,
+    "rank": 283
+   },
+   "oston urunov": {
+    "name": "Oston Urunov",
+    "pos": 3,
+    "rank": 345
+   },
+   "aziz g aniev": {
+    "name": "Aziz G'aniev",
+    "pos": 3,
+    "rank": 449
+   },
+   "odiljon hamrobekov": {
+    "name": "Odiljon Hamrobekov",
+    "pos": 3,
+    "rank": 450
+   },
+   "dostonbek khamdamov": {
+    "name": "Dostonbek Khamdamov",
+    "pos": 3,
+    "rank": 503
+   },
+   "sherzod temirov": {
+    "name": "Sherzod Temirov",
+    "pos": 4,
+    "rank": 504
+   },
+   "umarali rakhmonaliev": {
+    "name": "Umarali Rakhmonaliev",
+    "pos": 3,
+    "rank": 505
+   },
+   "otabek shukurov": {
+    "name": "Otabek Shukurov",
+    "pos": 3,
+    "rank": 561
+   },
+   "azizbek amanov": {
+    "name": "Azizbek Amanov",
+    "pos": 4,
+    "rank": 650
+   },
+   "akmal mozgovoy": {
+    "name": "Akmal Mozgovoy",
+    "pos": 3,
+    "rank": 742
+   },
+   "jasurbek jaloliddinov": {
+    "name": "Jasurbek Jaloliddinov",
+    "pos": 3,
+    "rank": 743
+   },
+   "ruslanbek jiyanov": {
+    "name": "Ruslanbek Jiyanov",
+    "pos": 3,
+    "rank": 744
+   },
+   "sherzod esanov": {
+    "name": "Sherzod Esanov",
+    "pos": 3,
+    "rank": 745
+   },
+   "abdukodir khusanov": {
+    "name": "Abdukodir Khusanov",
+    "pos": 2,
+    "rank": 929
+   },
+   "abdulla abdullaev": {
+    "name": "Abdulla Abdullaev",
+    "pos": 3,
+    "rank": 990
+   },
+   "abduvokhid ne matov": {
+    "name": "Abduvokhid Ne'matov",
+    "pos": 1,
+    "rank": 1121
+   },
+   "utkir yusupov": {
+    "name": "Utkir Yusupov",
+    "pos": 1,
+    "rank": 1197
+   },
+   "rustam ashurmatov": {
+    "name": "Rustam Ashurmatov",
+    "pos": 2,
+    "rank": 1308
+   },
+   "sherzod nasrullaev": {
+    "name": "Sherzod Nasrullaev",
+    "pos": 2,
+    "rank": 1309
+   },
+   "farrukh sayfiev": {
+    "name": "Farrukh Sayfiev",
+    "pos": 2,
+    "rank": 1363
+   },
+   "khojiakbar alijonov": {
+    "name": "Khojiakbar Alijonov",
+    "pos": 2,
+    "rank": 1364
+   },
+   "avazbek o lmasaliev": {
+    "name": "Avazbek O'lmasaliev",
+    "pos": 2,
+    "rank": 1480
+   },
+   "bekhruz karimov": {
+    "name": "Bekhruz Karimov",
+    "pos": 2,
+    "rank": 1481
+   },
+   "botirali ergashev": {
+    "name": "Botirali Ergashev",
+    "pos": 1,
+    "rank": 1482
+   },
+   "jakhongir urozov": {
+    "name": "Jakhongir Urozov",
+    "pos": 2,
+    "rank": 1483
+   },
+   "umar eshmurodov": {
+    "name": "Umar Eshmurodov",
+    "pos": 2,
+    "rank": 1484
+   }
+  },
+  "BOS": {
+   "ermedin demirovic": {
+    "name": "Ermedin Demirovic",
+    "pos": 4,
+    "rank": 143
+   },
+   "edin dzeko": {
+    "name": "Edin Dzeko",
+    "pos": 4,
+    "rank": 168
+   },
+   "jovo lukic": {
+    "name": "Jovo Lukic",
+    "pos": 4,
+    "rank": 297
+   },
+   "amir hadziahmetovic": {
+    "name": "Amir Hadziahmetovic",
+    "pos": 3,
+    "rank": 353
+   },
+   "benjamin tahirovic": {
+    "name": "Benjamin Tahirovic",
+    "pos": 3,
+    "rank": 397
+   },
+   "armin gigovic": {
+    "name": "Armin Gigovic",
+    "pos": 3,
+    "rank": 467
+   },
+   "haris tabakovic": {
+    "name": "Haris Tabakovic",
+    "pos": 4,
+    "rank": 468
+   },
+   "ivan basic": {
+    "name": "Ivan Basic",
+    "pos": 3,
+    "rank": 469
+   },
+   "ivan sunjic": {
+    "name": "Ivan Sunjic",
+    "pos": 3,
+    "rank": 470
+   },
+   "dzenis burnic": {
+    "name": "Dzenis Burnic",
+    "pos": 3,
+    "rank": 566
+   },
+   "amar memic": {
+    "name": "Amar Memic",
+    "pos": 3,
+    "rank": 676
+   },
+   "esmir bajraktarevic": {
+    "name": "Esmir Bajraktarevic",
+    "pos": 4,
+    "rank": 677
+   },
+   "samed bazdar": {
+    "name": "Samed Bazdar",
+    "pos": 4,
+    "rank": 779
+   },
+   "amar dedic": {
+    "name": "Amar Dedic",
+    "pos": 2,
+    "rank": 881
+   },
+   "sead kolasinac": {
+    "name": "Sead Kolasinac",
+    "pos": 2,
+    "rank": 882
+   },
+   "ermin mahmic": {
+    "name": "Ermin Mahmic",
+    "pos": 3,
+    "rank": 937
+   },
+   "kerim alajbegovic": {
+    "name": "Kerim Alajbegovic",
+    "pos": 4,
+    "rank": 938
+   },
+   "nikola vasilj": {
+    "name": "Nikola Vasilj",
+    "pos": 1,
+    "rank": 1038
+   },
+   "tarik muharemovic": {
+    "name": "Tarik Muharemovic",
+    "pos": 2,
+    "rank": 1131
+   },
+   "nikola katic": {
+    "name": "Nikola Katic",
+    "pos": 2,
+    "rank": 1205
+   },
+   "dennis hadzikadunic": {
+    "name": "Dennis Hadzikadunic",
+    "pos": 2,
+    "rank": 1252
+   },
+   "stjepan radeljic": {
+    "name": "Stjepan Radeljic",
+    "pos": 2,
+    "rank": 1253
+   },
+   "nihad mujakic": {
+    "name": "Nihad Mujakic",
+    "pos": 2,
+    "rank": 1312
+   },
+   "osman hadzikic": {
+    "name": "Osman Hadzikic",
+    "pos": 1,
+    "rank": 1313
+   },
+   "martin zlomislic": {
+    "name": "Martin Zlomislic",
+    "pos": 1,
+    "rank": 1377
+   },
+   "mladen jurkas": {
+    "name": "Mladen Jurkas",
+    "pos": 1,
+    "rank": 1378
+   },
+   "nidal celik": {
+    "name": "Nidal Celik",
+    "pos": 2,
+    "rank": 1379
+   }
+  },
+  "IRA": {
+   "mehdi taremi": {
+    "name": "Mehdi Taremi",
+    "pos": 4,
+    "rank": 178
+   },
+   "mehdi ghayedi": {
+    "name": "Mehdi Ghayedi",
+    "pos": 3,
+    "rank": 237
+   },
+   "mohammad mohebi": {
+    "name": "Mohammad Mohebi",
+    "pos": 3,
+    "rank": 238
+   },
+   "mehdi torabi": {
+    "name": "Mehdi Torabi",
+    "pos": 3,
+    "rank": 314
+   },
+   "saeid ezatolahi": {
+    "name": "Saeid Ezatolahi",
+    "pos": 3,
+    "rank": 315
+   },
+   "alireza jahanbakhsh": {
+    "name": "Alireza Jahanbakhsh",
+    "pos": 4,
+    "rank": 415
+   },
+   "omid noorafkan": {
+    "name": "Omid Noorafkan",
+    "pos": 3,
+    "rank": 416
+   },
+   "mohammad ghorbani": {
+    "name": "Mohammad Ghorbani",
+    "pos": 3,
+    "rank": 485
+   },
+   "saman ghoddos": {
+    "name": "Saman Ghoddos",
+    "pos": 4,
+    "rank": 600
+   },
+   "roozbeh cheshmi": {
+    "name": "Roozbeh Cheshmi",
+    "pos": 3,
+    "rank": 657
+   },
+   "hadi habibinejad": {
+    "name": "Hadi Habibinejad",
+    "pos": 3,
+    "rank": 696
+   },
+   "kasra taheri": {
+    "name": "Kasra Taheri",
+    "pos": 4,
+    "rank": 697
+   },
+   "shahriyar moghanlou": {
+    "name": "Shahriyar Moghanlou",
+    "pos": 4,
+    "rank": 698
+   },
+   "ali alipour": {
+    "name": "Ali Alipour",
+    "pos": 4,
+    "rank": 760
+   },
+   "dennis dargahi": {
+    "name": "Dennis Dargahi",
+    "pos": 4,
+    "rank": 761
+   },
+   "amirhossein hosseinzadeh": {
+    "name": "Amirhossein Hosseinzadeh",
+    "pos": 4,
+    "rank": 798
+   },
+   "alireza beiranvand": {
+    "name": "Alireza Beiranvand",
+    "pos": 1,
+    "rank": 961
+   },
+   "amir mohammad razzaghinia": {
+    "name": "Amir Mohammad Razzaghinia",
+    "pos": 3,
+    "rank": 962
+   },
+   "amirhossein mahmoudi": {
+    "name": "Amirhossein Mahmoudi",
+    "pos": 4,
+    "rank": 1063
+   },
+   "ramin rezaeian": {
+    "name": "Ramin Rezaeian",
+    "pos": 2,
+    "rank": 1064
+   },
+   "hossein kanani": {
+    "name": "Hossein Kanani",
+    "pos": 2,
+    "rank": 1161
+   },
+   "payam niazmand": {
+    "name": "Payam Niazmand",
+    "pos": 1,
+    "rank": 1162
+   },
+   "hossein hosseini": {
+    "name": "Hossein Hosseini",
+    "pos": 1,
+    "rank": 1219
+   },
+   "milad mohammadi": {
+    "name": "Milad Mohammadi",
+    "pos": 2,
+    "rank": 1220
+   },
+   "shoja khalilzadeh": {
+    "name": "Shoja Khalilzadeh",
+    "pos": 2,
+    "rank": 1221
+   },
+   "ehsan hajisafi": {
+    "name": "Ehsan Hajisafi",
+    "pos": 2,
+    "rank": 1269
+   },
+   "saleh hardani": {
+    "name": "Saleh Hardani",
+    "pos": 2,
+    "rank": 1270
+   },
+   "ali nemati": {
+    "name": "Ali Nemati",
+    "pos": 2,
+    "rank": 1410
+   },
+   "aria yousefi": {
+    "name": "Aria Yousefi",
+    "pos": 2,
+    "rank": 1411
+   },
+   "danial eiri": {
+    "name": "Danial Eiri",
+    "pos": 2,
+    "rank": 1412
+   },
+   "mohammad khalifeh": {
+    "name": "Mohammad Khalifeh",
+    "pos": 1,
+    "rank": 1413
+   }
+  },
+  "AUS": {
+   "cristian volpato": {
+    "name": "Cristian Volpato",
+    "pos": 3,
+    "rank": 200
+   },
+   "riley mcgree": {
+    "name": "Riley McGree",
+    "pos": 3,
+    "rank": 223
+   },
+   "ajdin hrustic": {
+    "name": "Ajdin Hrustic",
+    "pos": 3,
+    "rank": 272
+   },
+   "awer mabil": {
+    "name": "Awer Mabil",
+    "pos": 3,
+    "rank": 291
+   },
+   "jackson irvine": {
+    "name": "Jackson Irvine",
+    "pos": 3,
+    "rank": 292
+   },
+   "aiden o neill": {
+    "name": "Aiden O'Neill",
+    "pos": 3,
+    "rank": 382
+   },
+   "connor metcalfe": {
+    "name": "Connor Metcalfe",
+    "pos": 3,
+    "rank": 394
+   },
+   "alex robertson": {
+    "name": "Alex Robertson",
+    "pos": 3,
+    "rank": 464
+   },
+   "martin boyle": {
+    "name": "Martin Boyle",
+    "pos": 4,
+    "rank": 465
+   },
+   "nestory irankunda": {
+    "name": "Nestory Irankunda",
+    "pos": 4,
+    "rank": 466
+   },
+   "mohamed toure": {
+    "name": "Mohamed Touré",
+    "pos": 4,
+    "rank": 513
+   },
+   "patrick yazbek": {
+    "name": "Patrick Yazbek",
+    "pos": 3,
+    "rank": 564
+   },
+   "cameron devlin": {
+    "name": "Cameron Devlin",
+    "pos": 3,
+    "rank": 670
+   },
+   "mathew leckie": {
+    "name": "Mathew Leckie",
+    "pos": 3,
+    "rank": 671
+   },
+   "paul okon": {
+    "name": "Paul Okon",
+    "pos": 3,
+    "rank": 672
+   },
+   "brandon borrello": {
+    "name": "Brandon Borrello",
+    "pos": 4,
+    "rank": 829
+   },
+   "nishan velupillay": {
+    "name": "Nishan Velupillay",
+    "pos": 4,
+    "rank": 830
+   },
+   "tete yengi": {
+    "name": "Tete Yengi",
+    "pos": 4,
+    "rank": 874
+   },
+   "deni juric": {
+    "name": "Deni Juric",
+    "pos": 4,
+    "rank": 934
+   },
+   "jacob italiano": {
+    "name": "Jacob Italiano",
+    "pos": 2,
+    "rank": 935
+   },
+   "harry souttar": {
+    "name": "Harry Souttar",
+    "pos": 2,
+    "rank": 991
+   },
+   "mathew ryan": {
+    "name": "Mathew Ryan",
+    "pos": 1,
+    "rank": 992
+   },
+   "ante suto": {
+    "name": "Ante Suto",
+    "pos": 4,
+    "rank": 1036
+   },
+   "jordan bos": {
+    "name": "Jordan Bos",
+    "pos": 2,
+    "rank": 1037
+   },
+   "alessandro circati": {
+    "name": "Alessandro Circati",
+    "pos": 2,
+    "rank": 1124
+   },
+   "joe gauci": {
+    "name": "Joe Gauci",
+    "pos": 1,
+    "rank": 1125
+   },
+   "kye rowles": {
+    "name": "Kye Rowles",
+    "pos": 2,
+    "rank": 1126
+   },
+   "aziz behich": {
+    "name": "Aziz Behich",
+    "pos": 2,
+    "rank": 1201
+   },
+   "cameron burgess": {
+    "name": "Cameron Burgess",
+    "pos": 2,
+    "rank": 1202
+   },
+   "milos degenek": {
+    "name": "Milos Degenek",
+    "pos": 2,
+    "rank": 1203
+   },
+   "jason geria": {
+    "name": "Jason Geria",
+    "pos": 2,
+    "rank": 1250
+   },
+   "fran karacic": {
+    "name": "Fran Karacic",
+    "pos": 2,
+    "rank": 1310
+   },
+   "paul izzo": {
+    "name": "Paul Izzo",
+    "pos": 1,
+    "rank": 1311
+   },
+   "kai trewin": {
+    "name": "Kai Trewin",
+    "pos": 2,
+    "rank": 1372
+   },
+   "lucas herrington": {
+    "name": "Lucas Herrington",
+    "pos": 2,
+    "rank": 1373
+   },
+   "patrick beach": {
+    "name": "Patrick Beach",
+    "pos": 1,
+    "rank": 1374
+   }
+  },
+  "HAI": {
+   "duckens nazon": {
+    "name": "Duckens Nazon",
+    "pos": 4,
+    "rank": 209
+   },
+   "wilson isidor": {
+    "name": "Wilson Isidor",
+    "pos": 4,
+    "rank": 528
+   },
+   "carl sainte": {
+    "name": "Carl Sainté",
+    "pos": 3,
+    "rank": 692
+   },
+   "danley jean jacques": {
+    "name": "Danley Jean Jacques",
+    "pos": 3,
+    "rank": 693
+   },
+   "frantzdy pierrot": {
+    "name": "Frantzdy Pierrot",
+    "pos": 4,
+    "rank": 694
+   },
+   "jean ricner bellegarde": {
+    "name": "Jean-Ricner Bellegarde",
+    "pos": 3,
+    "rank": 695
+   },
+   "derrick etienne": {
+    "name": "Derrick Etienne",
+    "pos": 4,
+    "rank": 843
+   },
+   "dominique simon": {
+    "name": "Dominique Simon",
+    "pos": 3,
+    "rank": 903
+   },
+   "josue casimir": {
+    "name": "Josué Casimir",
+    "pos": 4,
+    "rank": 955
+   },
+   "lenny joseph": {
+    "name": "Lenny Joseph",
+    "pos": 4,
+    "rank": 956
+   },
+   "leverton pierre": {
+    "name": "Leverton Pierre",
+    "pos": 3,
+    "rank": 957
+   },
+   "louicius deedson": {
+    "name": "Louicius Deedson",
+    "pos": 4,
+    "rank": 958
+   },
+   "woodensky pierre": {
+    "name": "Woodensky Pierre",
+    "pos": 3,
+    "rank": 959
+   },
+   "yassin fortune": {
+    "name": "Yassin Fortuné",
+    "pos": 4,
+    "rank": 960
+   },
+   "ruben providence": {
+    "name": "Ruben Providence",
+    "pos": 4,
+    "rank": 1062
+   },
+   "johny placide": {
+    "name": "Johny Placide",
+    "pos": 1,
+    "rank": 1160
+   },
+   "carlens arcus": {
+    "name": "Carlens Arcus",
+    "pos": 2,
+    "rank": 1217
+   },
+   "jean kevin duverne": {
+    "name": "Jean-Kévin Duverne",
+    "pos": 2,
+    "rank": 1218
+   },
+   "hannes delcroix": {
+    "name": "Hannes Delcroix",
+    "pos": 2,
+    "rank": 1268
+   },
+   "alexandre pierre": {
+    "name": "Alexandre Pierre",
+    "pos": 1,
+    "rank": 1329
+   },
+   "duke lacroix": {
+    "name": "Duke Lacroix",
+    "pos": 2,
+    "rank": 1404
+   },
+   "josue duverger": {
+    "name": "Josué Duverger",
+    "pos": 1,
+    "rank": 1405
+   },
+   "keeto thermoncy": {
+    "name": "Keeto Thermoncy",
+    "pos": 2,
+    "rank": 1406
+   },
+   "martin experience": {
+    "name": "Martin Expérience",
+    "pos": 2,
+    "rank": 1407
+   },
+   "ricardo ade": {
+    "name": "Ricardo Adé",
+    "pos": 2,
+    "rank": 1408
+   },
+   "wilguens paugain": {
+    "name": "Wilguens Paugain",
+    "pos": 2,
+    "rank": 1409
+   }
+  },
+  "QAT": {
+   "akram afif": {
+    "name": "Akram Afif",
+    "pos": 4,
+    "rank": 250
+   },
+   "ahmed alaa": {
+    "name": "Ahmed Alaa",
+    "pos": 4,
+    "rank": 373
+   },
+   "abdulaziz hatem": {
+    "name": "Abdulaziz Hatem",
+    "pos": 3,
+    "rank": 434
+   },
+   "almoez ali": {
+    "name": "Almoez Ali",
+    "pos": 4,
+    "rank": 435
+   },
+   "mohammed muntari": {
+    "name": "Mohammed Muntari",
+    "pos": 4,
+    "rank": 436
+   },
+   "mohammed waad": {
+    "name": "Mohammed Waad",
+    "pos": 3,
+    "rank": 437
+   },
+   "assim madibo": {
+    "name": "Assim Madibo",
+    "pos": 3,
+    "rank": 494
+   },
+   "sebastian soria": {
+    "name": "Sebastián Soria",
+    "pos": 4,
+    "rank": 495
+   },
+   "jassem gaber": {
+    "name": "Jassem Gaber",
+    "pos": 3,
+    "rank": 547
+   },
+   "edmilson junior": {
+    "name": "Edmílson Junior",
+    "pos": 4,
+    "rank": 624
+   },
+   "karim boudiaf": {
+    "name": "Karim Boudiaf",
+    "pos": 3,
+    "rank": 625
+   },
+   "ahmed fathy": {
+    "name": "Ahmed Fathy",
+    "pos": 3,
+    "rank": 727
+   },
+   "hassan al haydos": {
+    "name": "Hassan Al Haydos",
+    "pos": 4,
+    "rank": 771
+   },
+   "tahsin jamshid": {
+    "name": "Tahsin Jamshid",
+    "pos": 4,
+    "rank": 810
+   },
+   "ayoub al oui": {
+    "name": "Ayoub Al Oui",
+    "pos": 3,
+    "rank": 857
+   },
+   "yusuf abdurisag": {
+    "name": "Yusuf Abdurisag",
+    "pos": 4,
+    "rank": 858
+   },
+   "ahmed al ganehi": {
+    "name": "Ahmed Al Ganehi",
+    "pos": 4,
+    "rank": 978
+   },
+   "mohammad al mannai": {
+    "name": "Mohammad Al Mannai",
+    "pos": 3,
+    "rank": 979
+   },
+   "meshaal barsham": {
+    "name": "Meshaal Barsham",
+    "pos": 1,
+    "rank": 1007
+   },
+   "mubarak shanan": {
+    "name": "Mubarak Shanan",
+    "pos": 4,
+    "rank": 1095
+   },
+   "pedro miguel": {
+    "name": "Pedro Miguel",
+    "pos": 2,
+    "rank": 1181
+   },
+   "bassam al rawi": {
+    "name": "Bassam Al Rawi",
+    "pos": 2,
+    "rank": 1235
+   },
+   "boualem khoukhi": {
+    "name": "Boualem Khoukhi",
+    "pos": 2,
+    "rank": 1236
+   },
+   "lucas mendes": {
+    "name": "Lucas Mendes",
+    "pos": 2,
+    "rank": 1237
+   },
+   "fahad younis": {
+    "name": "Fahad Younis",
+    "pos": 1,
+    "rank": 1289
+   },
+   "salah zakaria": {
+    "name": "Salah Zakaria",
+    "pos": 1,
+    "rank": 1290
+   },
+   "sultan al brake": {
+    "name": "Sultan Al Brake",
+    "pos": 2,
+    "rank": 1291
+   },
+   "tarek salman": {
+    "name": "Tarek Salman",
+    "pos": 2,
+    "rank": 1292
+   },
+   "homam el amin": {
+    "name": "Homam El Amin",
+    "pos": 2,
+    "rank": 1350
+   },
+   "shehab ellethy": {
+    "name": "Shehab Ellethy",
+    "pos": 1,
+    "rank": 1351
+   },
+   "hashmi al hussain": {
+    "name": "Hashmi Al Hussain",
+    "pos": 2,
+    "rank": 1457
+   },
+   "issa laye": {
+    "name": "Issa Laye",
+    "pos": 2,
+    "rank": 1458
+   },
+   "mahmud abunada": {
+    "name": "Mahmud Abunada",
+    "pos": 1,
+    "rank": 1459
+   },
+   "niall mason": {
+    "name": "Niall Mason",
+    "pos": 2,
+    "rank": 1460
+   },
+   "rayyan al ali": {
+    "name": "Rayyan Al Ali",
+    "pos": 2,
+    "rank": 1461
+   }
+  },
+  "RSA": {
+   "patrick maswanganyi": {
+    "name": "Patrick Maswanganyi",
+    "pos": 3,
+    "rank": 251
+   },
+   "lyle foster": {
+    "name": "Lyle Foster",
+    "pos": 4,
+    "rank": 386
+   },
+   "iqraam rayners": {
+    "name": "Iqraam Rayners",
+    "pos": 3,
+    "rank": 438
+   },
+   "lebohang maboe": {
+    "name": "Lebohang Maboe",
+    "pos": 3,
+    "rank": 496
+   },
+   "yaya sithole": {
+    "name": "Yaya Sithole",
+    "pos": 3,
+    "rank": 497
+   },
+   "oswin appollis": {
+    "name": "Oswin Appollis",
+    "pos": 4,
+    "rank": 626
+   },
+   "relebohile mofokeng": {
+    "name": "Relebohile Mofokeng",
+    "pos": 4,
+    "rank": 627
+   },
+   "thalente mbatha": {
+    "name": "Thalente Mbatha",
+    "pos": 3,
+    "rank": 628
+   },
+   "tshepang moremi": {
+    "name": "Tshepang Moremi",
+    "pos": 3,
+    "rank": 629
+   },
+   "evidence makgopa": {
+    "name": "Evidence Makgopa",
+    "pos": 4,
+    "rank": 811
+   },
+   "kamogelo sebelebele": {
+    "name": "Kamogelo Sebelebele",
+    "pos": 3,
+    "rank": 812
+   },
+   "ronwen williams": {
+    "name": "Ronwen Williams",
+    "pos": 1,
+    "rank": 813
+   },
+   "brooklyn poggenpoel": {
+    "name": "Brooklyn Poggenpoel",
+    "pos": 3,
+    "rank": 916
+   },
+   "teboho mokoena": {
+    "name": "Teboho Mokoena",
+    "pos": 3,
+    "rank": 917
+   },
+   "themba zwane": {
+    "name": "Themba Zwane",
+    "pos": 3,
+    "rank": 918
+   },
+   "thapelo maseko": {
+    "name": "Thapelo Maseko",
+    "pos": 4,
+    "rank": 980
+   },
+   "jayden adams": {
+    "name": "Jayden Adams",
+    "pos": 3,
+    "rank": 1096
+   },
+   "thapelo morena": {
+    "name": "Thapelo Morena",
+    "pos": 2,
+    "rank": 1238
+   },
+   "aubrey modiba": {
+    "name": "Aubrey Modiba",
+    "pos": 2,
+    "rank": 1293
+   },
+   "ricardo goss": {
+    "name": "Ricardo Goss",
+    "pos": 1,
+    "rank": 1294
+   },
+   "sipho chaine": {
+    "name": "Sipho Chaine",
+    "pos": 1,
+    "rank": 1295
+   },
+   "thabang matuludi": {
+    "name": "Thabang Matuludi",
+    "pos": 2,
+    "rank": 1296
+   },
+   "bradley cross": {
+    "name": "Bradley Cross",
+    "pos": 2,
+    "rank": 1352
+   },
+   "brandon petersen": {
+    "name": "Brandon Petersen",
+    "pos": 1,
+    "rank": 1353
+   },
+   "khuliso mudau": {
+    "name": "Khuliso Mudau",
+    "pos": 2,
+    "rank": 1354
+   },
+   "nkosinathi sibisi": {
+    "name": "Nkosinathi Sibisi",
+    "pos": 2,
+    "rank": 1355
+   },
+   "thabiso monyane": {
+    "name": "Thabiso Monyane",
+    "pos": 2,
+    "rank": 1356
+   },
+   "ime okon": {
+    "name": "Ime Okon",
+    "pos": 2,
+    "rank": 1462
+   },
+   "khulumani ndamane": {
+    "name": "Khulumani Ndamane",
+    "pos": 2,
+    "rank": 1463
+   },
+   "mbekezeli mbokazi": {
+    "name": "Mbekezeli Mbokazi",
+    "pos": 2,
+    "rank": 1464
+   },
+   "olwethu makhanya": {
+    "name": "Olwethu Makhanya",
+    "pos": 2,
+    "rank": 1465
+   },
+   "samukele kabini": {
+    "name": "Samukele Kabini",
+    "pos": 2,
+    "rank": 1466
+   }
+  },
+  "IRQ": {
+   "ibrahim bayesh": {
+    "name": "Ibrahim Bayesh",
+    "pos": 3,
+    "rank": 316
+   },
+   "zidane iqbal": {
+    "name": "Zidane Iqbal",
+    "pos": 3,
+    "rank": 317
+   },
+   "aimar sher": {
+    "name": "Aimar Sher",
+    "pos": 3,
+    "rank": 417
+   },
+   "amir al ammari": {
+    "name": "Amir Al Ammari",
+    "pos": 3,
+    "rank": 418
+   },
+   "aymen hussein": {
+    "name": "Aymen Hussein",
+    "pos": 4,
+    "rank": 419
+   },
+   "kevin yakob": {
+    "name": "Kevin Yakob",
+    "pos": 3,
+    "rank": 486
+   },
+   "peter gwargis": {
+    "name": "Peter Gwargis",
+    "pos": 3,
+    "rank": 487
+   },
+   "ali jasim": {
+    "name": "Ali Jasim",
+    "pos": 4,
+    "rank": 601
+   },
+   "mohanad ali": {
+    "name": "Mohanad Ali",
+    "pos": 4,
+    "rank": 602
+   },
+   "ali al hamadi": {
+    "name": "Ali Al Hamadi",
+    "pos": 4,
+    "rank": 699
+   },
+   "hasan abdulkareem": {
+    "name": "Hasan Abdulkareem",
+    "pos": 3,
+    "rank": 700
+   },
+   "ahmed qasem": {
+    "name": "Ahmed Qasem",
+    "pos": 3,
+    "rank": 844
+   },
+   "jussef nasrawe": {
+    "name": "Jussef Nasrawe",
+    "pos": 3,
+    "rank": 845
+   },
+   "marko farji": {
+    "name": "Marko Farji",
+    "pos": 3,
+    "rank": 846
+   },
+   "youssef amyn": {
+    "name": "Youssef Amyn",
+    "pos": 4,
+    "rank": 847
+   },
+   "zaid ismael": {
+    "name": "Zaid Ismael",
+    "pos": 3,
+    "rank": 848
+   },
+   "ali yousif": {
+    "name": "Ali Yousif",
+    "pos": 4,
+    "rank": 963
+   },
+   "karar nabeel": {
+    "name": "Karar Nabeel",
+    "pos": 3,
+    "rank": 1065
+   },
+   "jalal hassan": {
+    "name": "Jalal Hassan",
+    "pos": 1,
+    "rank": 1163
+   },
+   "ahmed basil": {
+    "name": "Ahmed Basil",
+    "pos": 1,
+    "rank": 1222
+   },
+   "merchas doski": {
+    "name": "Merchas Doski",
+    "pos": 2,
+    "rank": 1223
+   },
+   "fahad talib": {
+    "name": "Fahad Talib",
+    "pos": 1,
+    "rank": 1271
+   },
+   "frans putros": {
+    "name": "Frans Putros",
+    "pos": 2,
+    "rank": 1272
+   },
+   "rebin sulaka": {
+    "name": "Rebin Sulaka",
+    "pos": 2,
+    "rank": 1273
+   },
+   "ahmed yahya": {
+    "name": "Ahmed Yahya",
+    "pos": 2,
+    "rank": 1330
+   },
+   "hussein ali": {
+    "name": "Hussein Ali",
+    "pos": 2,
+    "rank": 1331
+   },
+   "maytham jabbar": {
+    "name": "Maytham Jabbar",
+    "pos": 2,
+    "rank": 1332
+   },
+   "mustafa saadoon": {
+    "name": "Mustafa Saadoon",
+    "pos": 2,
+    "rank": 1333
+   },
+   "zaid tahseen": {
+    "name": "Zaid Tahseen",
+    "pos": 2,
+    "rank": 1334
+   },
+   "ahmed maknzi": {
+    "name": "Ahmed Maknzi",
+    "pos": 2,
+    "rank": 1414
+   },
+   "akam hashim": {
+    "name": "Akam Hashim",
+    "pos": 2,
+    "rank": 1415
+   },
+   "dario naamo": {
+    "name": "Dario Naamo",
+    "pos": 2,
+    "rank": 1416
+   },
+   "kumel saadi": {
+    "name": "Kumel Saadi",
+    "pos": 1,
+    "rank": 1417
+   },
+   "munaf younus": {
+    "name": "Munaf Younus",
+    "pos": 2,
+    "rank": 1418
+   }
+  },
+  "JOR": {
+   "mousa al tamari": {
+    "name": "Mousa Al Tamari",
+    "pos": 4,
+    "rank": 318
+   },
+   "nizar al rashdan": {
+    "name": "Nizar Al Rashdan",
+    "pos": 3,
+    "rank": 606
+   },
+   "mohammad al daoud": {
+    "name": "Mohammad Al Daoud",
+    "pos": 3,
+    "rank": 701
+   },
+   "noor al rawabdeh": {
+    "name": "Noor Al Rawabdeh",
+    "pos": 3,
+    "rank": 702
+   },
+   "raja ei ayed": {
+    "name": "Raja'ei Ayed",
+    "pos": 3,
+    "rank": 800
+   },
+   "ibrahim sadeh": {
+    "name": "Ibrahim Sadeh",
+    "pos": 3,
+    "rank": 850
+   },
+   "ali olwan": {
+    "name": "Ali Olwan",
+    "pos": 4,
+    "rank": 965
+   },
+   "mahmoud al mardi": {
+    "name": "Mahmoud Al Mardi",
+    "pos": 4,
+    "rank": 966
+   },
+   "mohammad abu zraiq": {
+    "name": "Mohammad Abu Zraiq",
+    "pos": 4,
+    "rank": 967
+   },
+   "yousef qashi": {
+    "name": "Yousef Qashi",
+    "pos": 3,
+    "rank": 968
+   },
+   "ali azaizeh": {
+    "name": "Ali Azaizeh",
+    "pos": 4,
+    "rank": 1068
+   },
+   "ibrahim sabra": {
+    "name": "Ibrahim Sabra",
+    "pos": 4,
+    "rank": 1069
+   },
+   "odeh fakhoury": {
+    "name": "Odeh Fakhoury",
+    "pos": 4,
+    "rank": 1070
+   },
+   "yazeed abulaila": {
+    "name": "Yazeed  Abulaila",
+    "pos": 1,
+    "rank": 1166
+   },
+   "yazan al arab": {
+    "name": "Yazan Al Arab",
+    "pos": 2,
+    "rank": 1276
+   },
+   "abdallah al fakhouri": {
+    "name": "Abdallah Al Fakhouri",
+    "pos": 1,
+    "rank": 1335
+   },
+   "abdallah nasib": {
+    "name": "Abdallah Nasib",
+    "pos": 2,
+    "rank": 1336
+   },
+   "ahmad al juaidi": {
+    "name": "Ahmad Al Juaidi",
+    "pos": 1,
+    "rank": 1337
+   },
+   "nour bani ateyah": {
+    "name": "Nour Bani Ateyah",
+    "pos": 1,
+    "rank": 1338
+   },
+   "ahmad assaf": {
+    "name": "Ahmad Assaf",
+    "pos": 2,
+    "rank": 1420
+   },
+   "amer jamous": {
+    "name": "Amer Jamous",
+    "pos": 2,
+    "rank": 1421
+   },
+   "anas badawi": {
+    "name": "Anas Badawi",
+    "pos": 2,
+    "rank": 1422
+   },
+   "ehsan haddad": {
+    "name": "Ehsan Haddad",
+    "pos": 2,
+    "rank": 1423
+   },
+   "husam abu al dahab": {
+    "name": "Husam Abu Al Dahab",
+    "pos": 2,
+    "rank": 1424
+   },
+   "mohammad abu al nadi": {
+    "name": "Mohammad Abu Al Nadi",
+    "pos": 2,
+    "rank": 1425
+   },
+   "mohammad abu ghoush": {
+    "name": "Mohammad Abu Ghoush",
+    "pos": 2,
+    "rank": 1426
+   },
+   "mohammad abu hasheesh": {
+    "name": "Mohammad Abu Hasheesh",
+    "pos": 2,
+    "rank": 1427
+   },
+   "mohannad abu taha": {
+    "name": "Mohannad Abu Taha",
+    "pos": 2,
+    "rank": 1428
+   },
+   "saed al rosan": {
+    "name": "Saed Al Rosan",
+    "pos": 2,
+    "rank": 1429
+   },
+   "saleem obaid": {
+    "name": "Saleem Obaid",
+    "pos": 2,
+    "rank": 1430
+   }
+  },
+  "TUN": {
+   "anis ben slimane": {
+    "name": "Anis Ben Slimane",
+    "pos": 3,
+    "rank": 443
+   },
+   "mortadha ben ouanes": {
+    "name": "Mortadha Ben Ouanes",
+    "pos": 3,
+    "rank": 555
+   },
+   "hadj mahmoud": {
+    "name": "Hadj Mahmoud",
+    "pos": 3,
+    "rank": 647
+   },
+   "elias achouri": {
+    "name": "Elias Achouri",
+    "pos": 3,
+    "rank": 666
+   },
+   "hannibal mejbri": {
+    "name": "Hannibal Mejbri",
+    "pos": 3,
+    "rank": 667
+   },
+   "ellyes skhiri": {
+    "name": "Ellyes Skhiri",
+    "pos": 3,
+    "rank": 733
+   },
+   "rani khedira": {
+    "name": "Rani Khedira",
+    "pos": 3,
+    "rank": 734
+   },
+   "ismael gharbi": {
+    "name": "Ismaël Gharbi",
+    "pos": 4,
+    "rank": 774
+   },
+   "elias saad": {
+    "name": "Elias Saad",
+    "pos": 4,
+    "rank": 821
+   },
+   "firas chaouat": {
+    "name": "Firas Chaouat",
+    "pos": 4,
+    "rank": 861
+   },
+   "sebastian tounekti": {
+    "name": "Sebastian Tounekti",
+    "pos": 4,
+    "rank": 862
+   },
+   "hazem mastouri": {
+    "name": "Hazem Mastouri",
+    "pos": 4,
+    "rank": 985
+   },
+   "abdelmouhib chamakh": {
+    "name": "Abdelmouhib Chamakh",
+    "pos": 1,
+    "rank": 1016
+   },
+   "ali abdi": {
+    "name": "Ali Abdi",
+    "pos": 2,
+    "rank": 1017
+   },
+   "moutaz neffati": {
+    "name": "Moutaz Neffati",
+    "pos": 2,
+    "rank": 1018
+   },
+   "khalil ayari": {
+    "name": "Khalil Ayari",
+    "pos": 4,
+    "rank": 1108
+   },
+   "rayan elloumi": {
+    "name": "Rayan Elloumi",
+    "pos": 4,
+    "rank": 1109
+   },
+   "aymen dahmen": {
+    "name": "Aymen Dahmen",
+    "pos": 1,
+    "rank": 1188
+   },
+   "montassar talbi": {
+    "name": "Montassar Talbi",
+    "pos": 2,
+    "rank": 1189
+   },
+   "yan valery": {
+    "name": "Yan Valery",
+    "pos": 2,
+    "rank": 1190
+   },
+   "omar rekik": {
+    "name": "Omar Rekik",
+    "pos": 2,
+    "rank": 1246
+   },
+   "adem arous": {
+    "name": "Adem Arous",
+    "pos": 2,
+    "rank": 1360
+   },
+   "dylan bronn": {
+    "name": "Dylan Bronn",
+    "pos": 2,
+    "rank": 1361
+   },
+   "mohamed amine ben hmida": {
+    "name": "Mohamed Amine Ben Hmida",
+    "pos": 2,
+    "rank": 1362
+   },
+   "raed chikhaoui": {
+    "name": "Raed Chikhaoui",
+    "pos": 2,
+    "rank": 1473
+   },
+   "sabri ben hessen": {
+    "name": "Sabri Ben Hessen",
+    "pos": 1,
+    "rank": 1474
+   }
+  },
+  "CPV": {
+   "laros duarte": {
+    "name": "Laros Duarte",
+    "pos": 3,
+    "rank": 474
+   },
+   "gilson benchimol": {
+    "name": "Gilson Benchimol",
+    "pos": 3,
+    "rank": 520
+   },
+   "dailon livramento": {
+    "name": "Dailon Livramento",
+    "pos": 4,
+    "rank": 580
+   },
+   "deroy duarte": {
+    "name": "Deroy Duarte",
+    "pos": 3,
+    "rank": 581
+   },
+   "helio varela": {
+    "name": "Hélio Varela",
+    "pos": 3,
+    "rank": 582
+   },
+   "jovane cabral": {
+    "name": "Jovane Cabral",
+    "pos": 4,
+    "rank": 583
+   },
+   "ryan mendes": {
+    "name": "Ryan Mendes",
+    "pos": 4,
+    "rank": 584
+   },
+   "telmo arcanjo": {
+    "name": "Telmo Arcanjo",
+    "pos": 3,
+    "rank": 585
+   },
+   "garry rodrigues": {
+    "name": "Garry Rodrigues",
+    "pos": 4,
+    "rank": 680
+   },
+   "kevin pina": {
+    "name": "Kevin Pina",
+    "pos": 3,
+    "rank": 681
+   },
+   "nuno da costa": {
+    "name": "Nuno da Costa",
+    "pos": 4,
+    "rank": 682
+   },
+   "yannick semedo": {
+    "name": "Yannick Semedo",
+    "pos": 3,
+    "rank": 683
+   },
+   "jamiro monteiro": {
+    "name": "Jamiro Monteiro",
+    "pos": 3,
+    "rank": 754
+   },
+   "joao paulo": {
+    "name": "João Paulo",
+    "pos": 3,
+    "rank": 755
+   },
+   "willy semedo": {
+    "name": "Willy Semedo",
+    "pos": 4,
+    "rank": 786
+   },
+   "steven moreira": {
+    "name": "Steven Moreira",
+    "pos": 2,
+    "rank": 1140
+   },
+   "vozinha": {
+    "name": "Vozinha",
+    "pos": 1,
+    "rank": 1141
+   },
+   "wagner pina": {
+    "name": "Wagner Pina",
+    "pos": 2,
+    "rank": 1210
+   },
+   "pico": {
+    "name": "Pico",
+    "pos": 2,
+    "rank": 1261
+   },
+   "cj dos santos": {
+    "name": "CJ dos Santos",
+    "pos": 1,
+    "rank": 1316
+   },
+   "kelvin pires": {
+    "name": "Kelvin Pires",
+    "pos": 2,
+    "rank": 1317
+   },
+   "diney": {
+    "name": "Diney",
+    "pos": 2,
+    "rank": 1382
+   },
+   "logan costa": {
+    "name": "Logan Costa",
+    "pos": 2,
+    "rank": 1383
+   },
+   "marcio da rosa": {
+    "name": "Márcio da Rosa",
+    "pos": 1,
+    "rank": 1384
+   },
+   "sidny cabral": {
+    "name": "Sidny Cabral",
+    "pos": 2,
+    "rank": 1385
+   },
+   "stopira": {
+    "name": "Stopira",
+    "pos": 2,
+    "rank": 1386
+   }
+  },
+  "CUW": {
+   "juninho bacuna": {
+    "name": "Juninho Bacuna",
+    "pos": 3,
+    "rank": 476
+   },
+   "godfried roemeratoe": {
+    "name": "Godfried Roemeratoe",
+    "pos": 3,
+    "rank": 684
+   },
+   "kevin felida": {
+    "name": "Kevin Felida",
+    "pos": 3,
+    "rank": 788
+   },
+   "livano comenencia": {
+    "name": "Livano Comenencia",
+    "pos": 2,
+    "rank": 789
+   },
+   "brandley kuwas": {
+    "name": "Brandley Kuwas",
+    "pos": 4,
+    "rank": 835
+   },
+   "sontje hansen": {
+    "name": "Sontje Hansen",
+    "pos": 4,
+    "rank": 836
+   },
+   "jearl margaritha": {
+    "name": "Jearl Margaritha",
+    "pos": 4,
+    "rank": 947
+   },
+   "kenji gorre": {
+    "name": "Kenji Gorré",
+    "pos": 4,
+    "rank": 948
+   },
+   "tahith chong": {
+    "name": "Tahith Chong",
+    "pos": 3,
+    "rank": 949
+   },
+   "jurgen locadia": {
+    "name": "Jürgen Locadia",
+    "pos": 4,
+    "rank": 995
+   },
+   "gervane kastaneer": {
+    "name": "Gervane Kastaneer",
+    "pos": 4,
+    "rank": 1049
+   },
+   "jeremy antonisse": {
+    "name": "Jeremy Antonisse",
+    "pos": 4,
+    "rank": 1050
+   },
+   "leandro bacuna": {
+    "name": "Leandro Bacuna",
+    "pos": 2,
+    "rank": 1051
+   },
+   "eloy room": {
+    "name": "Eloy Room",
+    "pos": 1,
+    "rank": 1144
+   },
+   "riechedly bazoer": {
+    "name": "Riechedly Bazoer",
+    "pos": 2,
+    "rank": 1211
+   },
+   "armando obispo": {
+    "name": "Armando Obispo",
+    "pos": 2,
+    "rank": 1263
+   },
+   "deveron fonville": {
+    "name": "Deveron Fonville",
+    "pos": 2,
+    "rank": 1264
+   },
+   "joshua brenet": {
+    "name": "Joshua Brenet",
+    "pos": 2,
+    "rank": 1265
+   },
+   "sherel floranus": {
+    "name": "Sherel Floranus",
+    "pos": 2,
+    "rank": 1318
+   },
+   "shurandy sambo": {
+    "name": "Shurandy Sambo",
+    "pos": 2,
+    "rank": 1319
+   },
+   "trevor doornbusch": {
+    "name": "Trevor Doornbusch",
+    "pos": 1,
+    "rank": 1320
+   },
+   "ar jany martha": {
+    "name": "Ar'Jany Martha",
+    "pos": 2,
+    "rank": 1387
+   },
+   "jurien gaari": {
+    "name": "Juriën Gaari",
+    "pos": 2,
+    "rank": 1388
+   },
+   "roshon van eijma": {
+    "name": "Roshon van Eijma",
+    "pos": 2,
+    "rank": 1389
+   },
+   "tyrese noslin": {
+    "name": "Tyrese Noslin",
+    "pos": 2,
+    "rank": 1390
+   },
+   "tyrick bodak": {
+    "name": "Tyrick Bodak",
+    "pos": 1,
+    "rank": 1391
+   }
+  }
+ },
+ "renames": {
+  "ALG": {
+   "mohamed amine tougai": "mohamed tougai",
+   "mohamed amoura": "mohammed amoura",
+   "nadhir benbouali": "ahmed benbouali"
+  },
+  "ARG": {
+   "nicolas gonzalez": "nico gonzalez"
+  },
+  "AUS": {
+   "maty ryan": "mathew ryan",
+   "paul okon engstler": "paul okon"
+  },
+  "BRA": {
+   "alisson": "alisson becker"
+  },
+  "COL": {
+   "carlos andres gomez": "andres gomez",
+   "juan camilo hernandez": "cucho hernandez",
+   "juan camilo portilla": "juan portilla"
+  },
+  "CPV": {
+   "carlos dos santos": "cj dos santos",
+   "diney borges": "diney",
+   "joao paulo fernandes": "joao paulo",
+   "marcio rosa": "marcio da rosa",
+   "sidny lopes cabral": "sidny cabral",
+   "stopira (ianique tavares)": "stopira"
+  },
+  "EGY": {
+   "ahmed sayed zizo": "zizo",
+   "haitham hassan": "haissem hassan",
+   "hamdy fathy": "hamdi fathy",
+   "hamza abdel karim": "hamza abdelkarim",
+   "mahmoud trezeguet": "trezeguet",
+   "mohannad lasheen": "mohanad lasheen",
+   "nabil emad donga": "nabil emad dunga",
+   "rami rabia": "ramy rabia"
+  },
+  "GER": {
+   "pascal gro": "pascal gro"
+  },
+  "GHA": {
+   "abdul rahman baba": "abdul baba",
+   "prince kwabena adu": "prince adu"
+  },
+  "HAI": {
+   "derrick etienne jr": "derrick etienne",
+   "josuee casimir": "josue casimir",
+   "josuee duverger": "josue duverger"
+  },
+  "IRA": {
+   "amirmohammad razaghnian": "amir mohammad razzaghinia",
+   "arya yousefi": "aria yousefi",
+   "danial iri": "danial eiri",
+   "denis dargahi": "dennis dargahi",
+   "ehsan hajsafi": "ehsan hajisafi",
+   "rouzbeh cheshmi": "roozbeh cheshmi",
+   "shahriar moghanlou": "shahriyar moghanlou",
+   "shojae khalilzadeh": "shoja khalilzadeh"
+  },
+  "IRQ": {
+   "ali jassim": "ali jasim",
+   "ali yousef": "ali yousif",
+   "zaid ismail": "zaid ismael"
+  },
+  "JOR": {
+   "abdullah al fakhouri": "abdallah al fakhouri",
+   "abdullah nasib": "abdallah nasib",
+   "ali al azaizeh": "ali azaizeh",
+   "anas banawi": "anas badawi",
+   "husam abu dahab": "husam abu al dahab",
+   "ibrahim saadeh": "ibrahim sadeh",
+   "mohammad abu zrayq": "mohammad abu zraiq",
+   "mohammad abualnadi": "mohammad abu al nadi",
+   "mohammad al dawoud": "mohammad al daoud"
+  },
+  "MOR": {
+   "ahmed reda tagnaouti": "ahmed tagnaouti",
+   "ayoube amaimouni": "ayoube amaimouni echghouyab",
+   "yassine gessime": "gessime yassine"
+  },
+  "NOR": {
+   "alexander sorloth": "alexander srloth",
+   "david moller wolfe": "david mller wolfe",
+   "fredrik bjorkan": "fredrik bjrkan",
+   "jorgen strand larsen": "jrgen strand larsen",
+   "leo skiri ostigard": "leo stigard",
+   "marcus holmgren pedersen": "marcus pedersen",
+   "martin odegaard": "martin degaard",
+   "orjan haskjold nyland": "rjan nyland",
+   "torbjorn heggem": "torbjrn heggem"
+  },
+  "NZL": {
+   "eli just": "elijah just",
+   "matt garbett": "matthew garbett"
+  },
+  "PAN": {
+   "michael amir murillo": "amir murillo"
+  },
+  "PAR": {
+   "alejandro romero gamarra (kaku)": "alejandro romero",
+   "juan caceres": "juan jose caceres",
+   "mauricio": "mauricio magalhaes prado"
+  },
+  "POR": {
+   "francisco trincao": "trincao"
+  },
+  "QAT": {
+   "ahmed fathi": "ahmed fathy",
+   "al hashmi al hussain": "hashmi al hussain",
+   "mahmoud abunada": "mahmud abunada",
+   "mohamed al mannai": "mohammad al mannai",
+   "sultan al braik": "sultan al brake"
+  },
+  "SAU": {
+   "abdullah al hamdan": "abdullah al hamddan",
+   "alaa al hajji": "alaa al hejji",
+   "ayman yahya": "aiman yahya",
+   "feras al buraikan": "feras al brikan",
+   "hassan kadesh": "hassan kadish",
+   "hassan tambakti": "hassan al tambakti",
+   "mohammed kanno": "mohamed kanno"
+  },
+  "SEN": {
+   "idrissa gana gueye": "idrissa gueye"
+  },
+  "TUN": {
+   "mohamed amine ben hamida": "mohamed amine ben hmida",
+   "mouhib chamakh": "abdelmouhib chamakh"
+  },
+  "URU": {
+   "maximiliano araujo": "maxi araujo"
+  },
+  "USA": {
+   "alejandro zendejas": "alex zendejas",
+   "alex freeman": "alexander freeman",
+   "gio reyna": "giovanni reyna",
+   "tim weah": "timothy weah"
+  },
+  "UZB": {
+   "abbosbek fayzullayev": "abbosbek fayzullaev",
+   "abduvohid nematov": "abduvokhid ne matov",
+   "avazbek ulmasaliev": "avazbek o lmasaliev",
+   "azizbek amonov": "azizbek amanov",
+   "azizjon ganiev": "aziz g aniev",
+   "behruz karimov": "bekhruz karimov"
+  }
+ },
+ "adds": [
+  {
+   "iso": "ALG",
+   "name": "Abdelatif Ramdane",
+   "pos": 1,
+   "rank": 1026
+  },
+  {
+   "iso": "ALG",
+   "name": "Adil Aouchiche",
+   "pos": 3,
+   "rank": 284
+  },
+  {
+   "iso": "ALG",
+   "name": "Amin Chiakha",
+   "pos": 4,
+   "rank": 1028
+  },
+  {
+   "iso": "ALG",
+   "name": "Anthony Mandréa",
+   "pos": 1,
+   "rank": 1122
+  },
+  {
+   "iso": "ALG",
+   "name": "Kilian Belazzoug",
+   "pos": 1,
+   "rank": 1366
+  },
+  {
+   "iso": "ALG",
+   "name": "Mehdi Dorval",
+   "pos": 2,
+   "rank": 1247
+  },
+  {
+   "iso": "ALG",
+   "name": "Sohaib Nair",
+   "pos": 2,
+   "rank": 1369
+  },
+  {
+   "iso": "ARG",
+   "name": "Agustín Giay",
+   "pos": 2,
+   "rank": 1249
+  },
+  {
+   "iso": "ARG",
+   "name": "Alan Varela",
+   "pos": 3,
+   "rank": 506
+  },
+  {
+   "iso": "ARG",
+   "name": "Alejandro Garnacho",
+   "pos": 3,
+   "rank": 348
+  },
+  {
+   "iso": "ARG",
+   "name": "Aníbal Moreno",
+   "pos": 3,
+   "rank": 507
+  },
+  {
+   "iso": "ARG",
+   "name": "Claudio Echeverri",
+   "pos": 3,
+   "rank": 349
+  },
+  {
+   "iso": "ARG",
+   "name": "Emiliano Buendía",
+   "pos": 3,
+   "rank": 93
+  },
+  {
+   "iso": "ARG",
+   "name": "Equi Fernández",
+   "pos": 3,
+   "rank": 509
+  },
+  {
+   "iso": "ARG",
+   "name": "Facundo Cambeses",
+   "pos": 1,
+   "rank": 1031
+  },
+  {
+   "iso": "ARG",
+   "name": "Franco Mastantuono",
+   "pos": 3,
+   "rank": 262
+  },
+  {
+   "iso": "ARG",
+   "name": "Gabriel Rojas",
+   "pos": 2,
+   "rank": 1033
+  },
+  {
+   "iso": "ARG",
+   "name": "Germán Pezzella",
+   "pos": 2,
+   "rank": 932
+  },
+  {
+   "iso": "ARG",
+   "name": "Gianluca Prestianni",
+   "pos": 3,
+   "rank": 285
+  },
+  {
+   "iso": "ARG",
+   "name": "Guido Rodríguez",
+   "pos": 3,
+   "rank": 287
+  },
+  {
+   "iso": "ARG",
+   "name": "Kevin Mac Allister",
+   "pos": 2,
+   "rank": 1200
+  },
+  {
+   "iso": "ARG",
+   "name": "Lautaro Di Lollo",
+   "pos": 2,
+   "rank": 1370
+  },
+  {
+   "iso": "ARG",
+   "name": "Leonardo Balerdi",
+   "pos": 2,
+   "rank": 1034
+  },
+  {
+   "iso": "ARG",
+   "name": "Lucas Martínez Quarta",
+   "pos": 2,
+   "rank": 870
+  },
+  {
+   "iso": "ARG",
+   "name": "Marcos Acuña",
+   "pos": 2,
+   "rank": 871
+  },
+  {
+   "iso": "ARG",
+   "name": "Marcos Senesi",
+   "pos": 2,
+   "rank": 669
+  },
+  {
+   "iso": "ARG",
+   "name": "Mateo Pellegrino",
+   "pos": 4,
+   "rank": 510
+  },
+  {
+   "iso": "ARG",
+   "name": "Matías Soulé",
+   "pos": 3,
+   "rank": 141
+  },
+  {
+   "iso": "ARG",
+   "name": "Milton Delgado",
+   "pos": 3,
+   "rank": 933
+  },
+  {
+   "iso": "ARG",
+   "name": "Máximo Perrone",
+   "pos": 3,
+   "rank": 289
+  },
+  {
+   "iso": "ARG",
+   "name": "Nicolás Capaldo",
+   "pos": 3,
+   "rank": 511
+  },
+  {
+   "iso": "ARG",
+   "name": "Nicolás Domínguez",
+   "pos": 3,
+   "rank": 512
+  },
+  {
+   "iso": "ARG",
+   "name": "Santiago Beltrán",
+   "pos": 1,
+   "rank": 1035
+  },
+  {
+   "iso": "ARG",
+   "name": "Santiago Castro",
+   "pos": 4,
+   "rank": 199
+  },
+  {
+   "iso": "ARG",
+   "name": "Tomás Aranda",
+   "pos": 3,
+   "rank": 873
+  },
+  {
+   "iso": "ARG",
+   "name": "Walter Benítez",
+   "pos": 1,
+   "rank": 777
+  },
+  {
+   "iso": "ARG",
+   "name": "Zaid Romero",
+   "pos": 2,
+   "rank": 1371
+  },
+  {
+   "iso": "AUS",
+   "name": "Alex Robertson",
+   "pos": 3,
+   "rank": 464
+  },
+  {
+   "iso": "AUS",
+   "name": "Ante Suto",
+   "pos": 4,
+   "rank": 1036
+  },
+  {
+   "iso": "AUS",
+   "name": "Brandon Borrello",
+   "pos": 4,
+   "rank": 829
+  },
+  {
+   "iso": "AUS",
+   "name": "Deni Juric",
+   "pos": 4,
+   "rank": 934
+  },
+  {
+   "iso": "AUS",
+   "name": "Fran Karacic",
+   "pos": 2,
+   "rank": 1310
+  },
+  {
+   "iso": "AUS",
+   "name": "Joe Gauci",
+   "pos": 1,
+   "rank": 1125
+  },
+  {
+   "iso": "AUS",
+   "name": "Kye Rowles",
+   "pos": 2,
+   "rank": 1126
+  },
+  {
+   "iso": "AUS",
+   "name": "Martin Boyle",
+   "pos": 4,
+   "rank": 465
+  },
+  {
+   "iso": "AUS",
+   "name": "Patrick Yazbek",
+   "pos": 3,
+   "rank": 564
+  },
+  {
+   "iso": "AUS",
+   "name": "Riley McGree",
+   "pos": 3,
+   "rank": 223
+  },
+  {
+   "iso": "BOS",
+   "name": "Osman Hadzikic",
+   "pos": 1,
+   "rank": 1313
+  },
+  {
+   "iso": "CAN",
+   "name": "Daniel Jebbison",
+   "pos": 4,
+   "rank": 940
+  },
+  {
+   "iso": "CAN",
+   "name": "Jacen Russell-Rowe",
+   "pos": 4,
+   "rank": 783
+  },
+  {
+   "iso": "CAN",
+   "name": "Jamie Knight-Lebel",
+   "pos": 2,
+   "rank": 1254
+  },
+  {
+   "iso": "CAN",
+   "name": "Jayden Nelson",
+   "pos": 3,
+   "rank": 518
+  },
+  {
+   "iso": "CAN",
+   "name": "Ralph Priso",
+   "pos": 3,
+   "rank": 570
+  },
+  {
+   "iso": "CAN",
+   "name": "Zorhan Bassong",
+   "pos": 2,
+   "rank": 1256
+  },
+  {
+   "iso": "CIV",
+   "name": "Clément Akpa",
+   "pos": 2,
+   "rank": 1314
+  },
+  {
+   "iso": "COD",
+   "name": "Simon Banza",
+   "pos": 4,
+   "rank": 303
+  },
+  {
+   "iso": "CPV",
+   "name": "Pico",
+   "pos": 2,
+   "rank": 1261
+  },
+  {
+   "iso": "CZE",
+   "name": "Christophe Kabongo",
+   "pos": 4,
+   "rank": 791
+  },
+  {
+   "iso": "CZE",
+   "name": "Pavel Bucha",
+   "pos": 3,
+   "rank": 360
+  },
+  {
+   "iso": "CZE",
+   "name": "Tomás Ladra",
+   "pos": 4,
+   "rank": 838
+  },
+  {
+   "iso": "ECU",
+   "name": "Bruno Caicedo",
+   "pos": 3,
+   "rank": 454
+  },
+  {
+   "iso": "ECU",
+   "name": "Cristhian Loor",
+   "pos": 1,
+   "rank": 1053
+  },
+  {
+   "iso": "ECU",
+   "name": "Darwin Guagua",
+   "pos": 3,
+   "rank": 652
+  },
+  {
+   "iso": "ECU",
+   "name": "Deinner Ordóñez",
+   "pos": 2,
+   "rank": 997
+  },
+  {
+   "iso": "ECU",
+   "name": "Ederson Castillo",
+   "pos": 3,
+   "rank": 951
+  },
+  {
+   "iso": "ECU",
+   "name": "Fricio Caicedo",
+   "pos": 2,
+   "rank": 1054
+  },
+  {
+   "iso": "ECU",
+   "name": "John Mercado",
+   "pos": 4,
+   "rank": 839
+  },
+  {
+   "iso": "ECU",
+   "name": "José Hurtado",
+   "pos": 2,
+   "rank": 1152
+  },
+  {
+   "iso": "ECU",
+   "name": "Luis Fragozo",
+   "pos": 3,
+   "rank": 522
+  },
+  {
+   "iso": "ECU",
+   "name": "Malcom DaCosta",
+   "pos": 3,
+   "rank": 1214
+  },
+  {
+   "iso": "EGY",
+   "name": "Aqtay Abdallah",
+   "pos": 4,
+   "rank": 897
+  },
+  {
+   "iso": "EGY",
+   "name": "Mohamed Alaa",
+   "pos": 1,
+   "rank": 1394
+  },
+  {
+   "iso": "EGY",
+   "name": "Mostafa Zico",
+   "pos": 3,
+   "rank": 953
+  },
+  {
+   "iso": "GER",
+   "name": "Jonas Urbig",
+   "pos": 1,
+   "rank": 1058
+  },
+  {
+   "iso": "GER",
+   "name": "Lennart Karl",
+   "pos": 3,
+   "rank": 656
+  },
+  {
+   "iso": "GHA",
+   "name": "Alexander Djiku",
+   "pos": 2,
+   "rank": 1059
+  },
+  {
+   "iso": "GHA",
+   "name": "Paul Reverson",
+   "pos": 1,
+   "rank": 1402
+  },
+  {
+   "iso": "GHA",
+   "name": "Solomon Agbasi",
+   "pos": 1,
+   "rank": 1403
+  },
+  {
+   "iso": "IRA",
+   "name": "Amirhossein Mahmoudi",
+   "pos": 4,
+   "rank": 1063
+  },
+  {
+   "iso": "IRA",
+   "name": "Hadi Habibinejad",
+   "pos": 3,
+   "rank": 696
+  },
+  {
+   "iso": "IRA",
+   "name": "Hossein Kanani",
+   "pos": 2,
+   "rank": 1161
+  },
+  {
+   "iso": "IRA",
+   "name": "Kasra Taheri",
+   "pos": 4,
+   "rank": 697
+  },
+  {
+   "iso": "IRA",
+   "name": "Mohammad Khalifeh",
+   "pos": 1,
+   "rank": 1413
+  },
+  {
+   "iso": "IRA",
+   "name": "Omid Noorafkan",
+   "pos": 3,
+   "rank": 416
+  },
+  {
+   "iso": "IRQ",
+   "name": "Ahmed Maknzi",
+   "pos": 2,
+   "rank": 1414
+  },
+  {
+   "iso": "IRQ",
+   "name": "Dario Naamo",
+   "pos": 2,
+   "rank": 1416
+  },
+  {
+   "iso": "IRQ",
+   "name": "Hasan Abdulkareem",
+   "pos": 3,
+   "rank": 700
+  },
+  {
+   "iso": "IRQ",
+   "name": "Jussef Nasrawe",
+   "pos": 3,
+   "rank": 845
+  },
+  {
+   "iso": "IRQ",
+   "name": "Karar Nabeel",
+   "pos": 3,
+   "rank": 1065
+  },
+  {
+   "iso": "IRQ",
+   "name": "Kumel Saadi",
+   "pos": 1,
+   "rank": 1417
+  },
+  {
+   "iso": "IRQ",
+   "name": "Maytham Jabbar",
+   "pos": 2,
+   "rank": 1332
+  },
+  {
+   "iso": "IRQ",
+   "name": "Munaf Younus",
+   "pos": 2,
+   "rank": 1418
+  },
+  {
+   "iso": "IRQ",
+   "name": "Peter Gwargis",
+   "pos": 3,
+   "rank": 487
+  },
+  {
+   "iso": "JAP",
+   "name": "Maya Yoshida",
+   "pos": 2,
+   "rank": 1274
+  },
+  {
+   "iso": "JOR",
+   "name": "Ahmad Al Juaidi",
+   "pos": 1,
+   "rank": 1337
+  },
+  {
+   "iso": "JOR",
+   "name": "Ahmad Assaf",
+   "pos": 2,
+   "rank": 1420
+  },
+  {
+   "iso": "JOR",
+   "name": "Mohammad Abu Ghoush",
+   "pos": 2,
+   "rank": 1426
+  },
+  {
+   "iso": "JOR",
+   "name": "Nour Bani Ateyah",
+   "pos": 1,
+   "rank": 1338
+  },
+  {
+   "iso": "JOR",
+   "name": "Odeh Fakhoury",
+   "pos": 4,
+   "rank": 1070
+  },
+  {
+   "iso": "JOR",
+   "name": "Yousef Qashi",
+   "pos": 3,
+   "rank": 968
+  },
+  {
+   "iso": "KOR",
+   "name": "Cho Yu-Min",
+   "pos": 2,
+   "rank": 1167
+  },
+  {
+   "iso": "MEX",
+   "name": "Alejandro Gómez",
+   "pos": 2,
+   "rank": 1431
+  },
+  {
+   "iso": "MEX",
+   "name": "Alexis Gutiérrez",
+   "pos": 3,
+   "rank": 611
+  },
+  {
+   "iso": "MEX",
+   "name": "Alexéi Domínguez",
+   "pos": 4,
+   "rank": 802
+  },
+  {
+   "iso": "MEX",
+   "name": "Antonio Rodríguez",
+   "pos": 1,
+   "rank": 1280
+  },
+  {
+   "iso": "MEX",
+   "name": "Bryan González",
+   "pos": 2,
+   "rank": 1432
+  },
+  {
+   "iso": "MEX",
+   "name": "Carlos Moreno",
+   "pos": 1,
+   "rank": 1340
+  },
+  {
+   "iso": "MEX",
+   "name": "Carlos Rodríguez",
+   "pos": 3,
+   "rank": 240
+  },
+  {
+   "iso": "MEX",
+   "name": "Diego Lainez",
+   "pos": 3,
+   "rank": 241
+  },
+  {
+   "iso": "MEX",
+   "name": "Efraín Álvarez",
+   "pos": 3,
+   "rank": 365
+  },
+  {
+   "iso": "MEX",
+   "name": "Elías Montiel",
+   "pos": 3,
+   "rank": 803
+  },
+  {
+   "iso": "MEX",
+   "name": "Everardo López",
+   "pos": 2,
+   "rank": 1433
+  },
+  {
+   "iso": "MEX",
+   "name": "Germán Berterame",
+   "pos": 4,
+   "rank": 321
+  },
+  {
+   "iso": "MEX",
+   "name": "Jeremy Márquez",
+   "pos": 3,
+   "rank": 706
+  },
+  {
+   "iso": "MEX",
+   "name": "Jordán Carrillo",
+   "pos": 3,
+   "rank": 489
+  },
+  {
+   "iso": "MEX",
+   "name": "Jorge Ruvalcaba",
+   "pos": 4,
+   "rank": 612
+  },
+  {
+   "iso": "MEX",
+   "name": "Julián Araujo",
+   "pos": 2,
+   "rank": 1074
+  },
+  {
+   "iso": "MEX",
+   "name": "Kevin Castañeda",
+   "pos": 3,
+   "rank": 613
+  },
+  {
+   "iso": "MEX",
+   "name": "Marcel Ruiz",
+   "pos": 3,
+   "rank": 242
+  },
+  {
+   "iso": "MEX",
+   "name": "Ramón Juárez",
+   "pos": 2,
+   "rank": 1341
+  },
+  {
+   "iso": "MEX",
+   "name": "Richard Ledezma",
+   "pos": 2,
+   "rank": 1172
+  },
+  {
+   "iso": "MEX",
+   "name": "Víctor Guzmán",
+   "pos": 2,
+   "rank": 1342
+  },
+  {
+   "iso": "MEX",
+   "name": "Álex Padilla",
+   "pos": 1,
+   "rank": 1435
+  },
+  {
+   "iso": "MEX",
+   "name": "Érick Sánchez",
+   "pos": 3,
+   "rank": 805
+  },
+  {
+   "iso": "MOR",
+   "name": "Abdelhamid Aït Boudlal",
+   "pos": 2,
+   "rank": 1436
+  },
+  {
+   "iso": "MOR",
+   "name": "Amine Sbaï",
+   "pos": 4,
+   "rank": 658
+  },
+  {
+   "iso": "MOR",
+   "name": "El Mehdi Al Harrar",
+   "pos": 1,
+   "rank": 1438
+  },
+  {
+   "iso": "MOR",
+   "name": "Ibrahim Gomis",
+   "pos": 1,
+   "rank": 1439
+  },
+  {
+   "iso": "MOR",
+   "name": "Imrân Louza",
+   "pos": 3,
+   "rank": 276
+  },
+  {
+   "iso": "MOR",
+   "name": "Ismaël Baouf",
+   "pos": 2,
+   "rank": 1440
+  },
+  {
+   "iso": "MOR",
+   "name": "Marwane Saadane",
+   "pos": 3,
+   "rank": 710
+  },
+  {
+   "iso": "MOR",
+   "name": "Mohamed Chibi",
+   "pos": 2,
+   "rank": 1226
+  },
+  {
+   "iso": "MOR",
+   "name": "Othmane Maamma",
+   "pos": 3,
+   "rank": 711
+  },
+  {
+   "iso": "MOR",
+   "name": "Oussama Targhalline",
+   "pos": 3,
+   "rank": 425
+  },
+  {
+   "iso": "MOR",
+   "name": "Rayane Bounida",
+   "pos": 4,
+   "rank": 1077
+  },
+  {
+   "iso": "MOR",
+   "name": "Sofiane Boufal",
+   "pos": 3,
+   "rank": 136
+  },
+  {
+   "iso": "MOR",
+   "name": "Souffian El Karouani",
+   "pos": 2,
+   "rank": 1078
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane Benjdida",
+   "pos": 4,
+   "rank": 713
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane Bouftini",
+   "pos": 2,
+   "rank": 1079
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane El-Faouzi",
+   "pos": 3,
+   "rank": 614
+  },
+  {
+   "iso": "MOR",
+   "name": "Tawfik Bentayeb",
+   "pos": 4,
+   "rank": 714
+  },
+  {
+   "iso": "MOR",
+   "name": "Yanis Begraoui",
+   "pos": 3,
+   "rank": 535
+  },
+  {
+   "iso": "MOR",
+   "name": "Yanis Benchaouch",
+   "pos": 1,
+   "rank": 1442
+  },
+  {
+   "iso": "MOR",
+   "name": "Yassir Zabiri",
+   "pos": 4,
+   "rank": 1080
+  },
+  {
+   "iso": "NED",
+   "name": "Jerdy Schouten",
+   "pos": 3,
+   "rank": 182
+  },
+  {
+   "iso": "NED",
+   "name": "Jeremie Frimpong",
+   "pos": 2,
+   "rank": 536
+  },
+  {
+   "iso": "NED",
+   "name": "Justin Bijlow",
+   "pos": 1,
+   "rank": 910
+  },
+  {
+   "iso": "NED",
+   "name": "Kees Smit",
+   "pos": 3,
+   "rank": 717
+  },
+  {
+   "iso": "NED",
+   "name": "Luciano Valente",
+   "pos": 3,
+   "rank": 616
+  },
+  {
+   "iso": "NED",
+   "name": "Stefan de Vrij",
+   "pos": 2,
+   "rank": 807
+  },
+  {
+   "iso": "NED",
+   "name": "Xavi Simons",
+   "pos": 3,
+   "rank": 107
+  },
+  {
+   "iso": "PAN",
+   "name": "Iván Anderson",
+   "pos": 2,
+   "rank": 1086
+  },
+  {
+   "iso": "PAN",
+   "name": "JD Gunn",
+   "pos": 1,
+   "rank": 1087
+  },
+  {
+   "iso": "PAN",
+   "name": "José Murillo",
+   "pos": 2,
+   "rank": 913
+  },
+  {
+   "iso": "PAN",
+   "name": "Kadir Barría",
+   "pos": 4,
+   "rank": 1089
+  },
+  {
+   "iso": "PAN",
+   "name": "Martín Krug",
+   "pos": 2,
+   "rank": 1449
+  },
+  {
+   "iso": "PAN",
+   "name": "Víctor Griffith",
+   "pos": 3,
+   "rank": 430
+  },
+  {
+   "iso": "PAR",
+   "name": "Adam Bareiro",
+   "pos": 4,
+   "rank": 279
+  },
+  {
+   "iso": "PAR",
+   "name": "Adrián Alcaraz",
+   "pos": 4,
+   "rank": 809
+  },
+  {
+   "iso": "PAR",
+   "name": "Agustín Sández",
+   "pos": 2,
+   "rank": 1287
+  },
+  {
+   "iso": "PAR",
+   "name": "Alan Benítez",
+   "pos": 2,
+   "rank": 1230
+  },
+  {
+   "iso": "PAR",
+   "name": "Alan Núñez",
+   "pos": 2,
+   "rank": 1451
+  },
+  {
+   "iso": "PAR",
+   "name": "Alcides Benítez",
+   "pos": 2,
+   "rank": 1452
+  },
+  {
+   "iso": "PAR",
+   "name": "Blás Riveros",
+   "pos": 2,
+   "rank": 1179
+  },
+  {
+   "iso": "PAR",
+   "name": "Carlos Coronel",
+   "pos": 1,
+   "rank": 1003
+  },
+  {
+   "iso": "PAR",
+   "name": "Carlos González",
+   "pos": 4,
+   "rank": 280
+  },
+  {
+   "iso": "PAR",
+   "name": "Diego González",
+   "pos": 3,
+   "rank": 541
+  },
+  {
+   "iso": "PAR",
+   "name": "Diego León",
+   "pos": 2,
+   "rank": 1453
+  },
+  {
+   "iso": "PAR",
+   "name": "Enso González",
+   "pos": 3,
+   "rank": 542
+  },
+  {
+   "iso": "PAR",
+   "name": "Hugo Cuenca",
+   "pos": 3,
+   "rank": 661
+  },
+  {
+   "iso": "PAR",
+   "name": "Juan Espínola",
+   "pos": 1,
+   "rank": 1454
+  },
+  {
+   "iso": "PAR",
+   "name": "Lorenzo Melgarejo",
+   "pos": 3,
+   "rank": 372
+  },
+  {
+   "iso": "PAR",
+   "name": "Lucas Romero",
+   "pos": 3,
+   "rank": 334
+  },
+  {
+   "iso": "PAR",
+   "name": "Mateo Gamarra",
+   "pos": 2,
+   "rank": 1180
+  },
+  {
+   "iso": "PAR",
+   "name": "Mathías Villasanti",
+   "pos": 3,
+   "rank": 766
+  },
+  {
+   "iso": "PAR",
+   "name": "Robert Morales",
+   "pos": 4,
+   "rank": 432
+  },
+  {
+   "iso": "PAR",
+   "name": "Robert Piris Da Motta",
+   "pos": 3,
+   "rank": 724
+  },
+  {
+   "iso": "PAR",
+   "name": "Rodney Redes",
+   "pos": 3,
+   "rank": 663
+  },
+  {
+   "iso": "PAR",
+   "name": "Ronaldo Dejesús",
+   "pos": 2,
+   "rank": 1234
+  },
+  {
+   "iso": "PAR",
+   "name": "Ronaldo Martínez",
+   "pos": 3,
+   "rank": 543
+  },
+  {
+   "iso": "PAR",
+   "name": "Rubén Lezcano",
+   "pos": 3,
+   "rank": 544
+  },
+  {
+   "iso": "PAR",
+   "name": "Santiago Rojas",
+   "pos": 1,
+   "rank": 1456
+  },
+  {
+   "iso": "PAR",
+   "name": "Saúl Salcedo",
+   "pos": 2,
+   "rank": 1288
+  },
+  {
+   "iso": "PAR",
+   "name": "Álvaro Campuzano",
+   "pos": 3,
+   "rank": 768
+  },
+  {
+   "iso": "PAR",
+   "name": "Ángel Romero",
+   "pos": 3,
+   "rank": 622
+  },
+  {
+   "iso": "PAR",
+   "name": "Óscar Romero",
+   "pos": 3,
+   "rank": 769
+  },
+  {
+   "iso": "POR",
+   "name": "Ricardo Velho",
+   "pos": 1,
+   "rank": 1094
+  },
+  {
+   "iso": "QAT",
+   "name": "Ahmed Alaa",
+   "pos": 4,
+   "rank": 373
+  },
+  {
+   "iso": "QAT",
+   "name": "Bassam Al Rawi",
+   "pos": 2,
+   "rank": 1235
+  },
+  {
+   "iso": "QAT",
+   "name": "Fahad Younis",
+   "pos": 1,
+   "rank": 1289
+  },
+  {
+   "iso": "QAT",
+   "name": "Homam El Amin",
+   "pos": 2,
+   "rank": 1350
+  },
+  {
+   "iso": "QAT",
+   "name": "Mohammed Waad",
+   "pos": 3,
+   "rank": 437
+  },
+  {
+   "iso": "QAT",
+   "name": "Mubarak Shanan",
+   "pos": 4,
+   "rank": 1095
+  },
+  {
+   "iso": "QAT",
+   "name": "Niall Mason",
+   "pos": 2,
+   "rank": 1460
+  },
+  {
+   "iso": "QAT",
+   "name": "Rayyan Al Ali",
+   "pos": 2,
+   "rank": 1461
+  },
+  {
+   "iso": "QAT",
+   "name": "Sebastián Soria",
+   "pos": 4,
+   "rank": 495
+  },
+  {
+   "iso": "QAT",
+   "name": "Shehab Ellethy",
+   "pos": 1,
+   "rank": 1351
+  },
+  {
+   "iso": "QAT",
+   "name": "Tarek Salman",
+   "pos": 2,
+   "rank": 1292
+  },
+  {
+   "iso": "RSA",
+   "name": "Brandon Petersen",
+   "pos": 1,
+   "rank": 1353
+  },
+  {
+   "iso": "RSA",
+   "name": "Brooklyn Poggenpoel",
+   "pos": 3,
+   "rank": 916
+  },
+  {
+   "iso": "RSA",
+   "name": "Lebohang Maboe",
+   "pos": 3,
+   "rank": 496
+  },
+  {
+   "iso": "RSA",
+   "name": "Patrick Maswanganyi",
+   "pos": 3,
+   "rank": 251
+  },
+  {
+   "iso": "RSA",
+   "name": "Thabiso Monyane",
+   "pos": 2,
+   "rank": 1356
+  },
+  {
+   "iso": "RSA",
+   "name": "Thapelo Morena",
+   "pos": 2,
+   "rank": 1238
+  },
+  {
+   "iso": "RSA",
+   "name": "Yaya Sithole",
+   "pos": 3,
+   "rank": 497
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdullah Al Salem",
+   "pos": 4,
+   "rank": 548
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdulquddus Atiah",
+   "pos": 1,
+   "rank": 1097
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdulrahman Al Sanbi",
+   "pos": 1,
+   "rank": 1098
+  },
+  {
+   "iso": "SAU",
+   "name": "Nawaf Bu Washl",
+   "pos": 2,
+   "rank": 1469
+  },
+  {
+   "iso": "SAU",
+   "name": "Saleh Abu Al Shamat",
+   "pos": 4,
+   "rank": 440
+  },
+  {
+   "iso": "SAU",
+   "name": "Zakaria Hawsawi",
+   "pos": 2,
+   "rank": 1101
+  },
+  {
+   "iso": "SCO",
+   "name": "Billy Gilmour",
+   "pos": 3,
+   "rank": 500
+  },
+  {
+   "iso": "SEN",
+   "name": "Ilay Camara",
+   "pos": 2,
+   "rank": 1243
+  },
+  {
+   "iso": "SEN",
+   "name": "Moustapha Mbow",
+   "pos": 2,
+   "rank": 1301
+  },
+  {
+   "iso": "SEN",
+   "name": "Pape Sy",
+   "pos": 1,
+   "rank": 1245
+  },
+  {
+   "iso": "SWE",
+   "name": "Emil Holm",
+   "pos": 2,
+   "rank": 1014
+  },
+  {
+   "iso": "SWE",
+   "name": "Sebastian Nanasi",
+   "pos": 3,
+   "rank": 441
+  },
+  {
+   "iso": "TUR",
+   "name": "Ahmetcan Kaplan",
+   "pos": 2,
+   "rank": 1475
+  },
+  {
+   "iso": "TUR",
+   "name": "Aral Simsir",
+   "pos": 3,
+   "rank": 735
+  },
+  {
+   "iso": "TUR",
+   "name": "Atakan Karazor",
+   "pos": 3,
+   "rank": 736
+  },
+  {
+   "iso": "TUR",
+   "name": "Demir Ege Tiknaz",
+   "pos": 3,
+   "rank": 863
+  },
+  {
+   "iso": "TUR",
+   "name": "Ersin Destanoglu",
+   "pos": 1,
+   "rank": 1113
+  },
+  {
+   "iso": "TUR",
+   "name": "Muhammed Sengezer",
+   "pos": 1,
+   "rank": 1191
+  },
+  {
+   "iso": "TUR",
+   "name": "Mustafa Eskihellaç",
+   "pos": 2,
+   "rank": 1192
+  },
+  {
+   "iso": "TUR",
+   "name": "Yusuf Akçiçek",
+   "pos": 2,
+   "rank": 1117
+  },
+  {
+   "iso": "TUR",
+   "name": "Yusuf Sari",
+   "pos": 3,
+   "rank": 557
+  },
+  {
+   "iso": "URU",
+   "name": "Agustín Álvarez",
+   "pos": 4,
+   "rank": 462
+  },
+  {
+   "iso": "URU",
+   "name": "Benjamín García",
+   "pos": 2,
+   "rank": 1476
+  },
+  {
+   "iso": "URU",
+   "name": "Brian Barboza",
+   "pos": 2,
+   "rank": 1307
+  },
+  {
+   "iso": "URU",
+   "name": "Facundo Martínez",
+   "pos": 4,
+   "rank": 446
+  },
+  {
+   "iso": "URU",
+   "name": "Facundo Torres",
+   "pos": 4,
+   "rank": 390
+  },
+  {
+   "iso": "URU",
+   "name": "José Rodríguez",
+   "pos": 2,
+   "rank": 1193
+  },
+  {
+   "iso": "URU",
+   "name": "Luciano González",
+   "pos": 3,
+   "rank": 739
+  },
+  {
+   "iso": "URU",
+   "name": "Nicolás Fonseca",
+   "pos": 3,
+   "rank": 558
+  },
+  {
+   "iso": "URU",
+   "name": "Pablo Alcoba",
+   "pos": 3,
+   "rank": 927
+  },
+  {
+   "iso": "USA",
+   "name": "Aidan Morris",
+   "pos": 3,
+   "rank": 343
+  },
+  {
+   "iso": "USA",
+   "name": "Johnny Cardoso",
+   "pos": 3,
+   "rank": 165
+  },
+  {
+   "iso": "USA",
+   "name": "Patrick Agyemang",
+   "pos": 4,
+   "rank": 649
+  },
+  {
+   "iso": "USA",
+   "name": "Patrick Schulte",
+   "pos": 1,
+   "rank": 1479
+  },
+  {
+   "iso": "USA",
+   "name": "Tanner Tessmann",
+   "pos": 3,
+   "rank": 344
+  },
+  {
+   "iso": "UZB",
+   "name": "Jasurbek Jaloliddinov",
+   "pos": 3,
+   "rank": 743
+  },
+  {
+   "iso": "UZB",
+   "name": "Ruslanbek Jiyanov",
+   "pos": 3,
+   "rank": 744
+  },
+  {
+   "iso": "UZB",
+   "name": "Sherzod Temirov",
+   "pos": 4,
+   "rank": 504
+  },
+  {
+   "iso": "UZB",
+   "name": "Umarali Rakhmonaliev",
+   "pos": 3,
+   "rank": 505
+  }
+ ],
+ "drops": [
+  {
+   "iso": "CPV",
+   "name": "Roberto Lopes",
+   "norm": "roberto lopes"
+  },
+  {
+   "iso": "EGY",
+   "name": "Mostafa Abdelraouf Ziko",
+   "norm": "mostafa abdelraouf ziko"
+  },
+  {
+   "iso": "IRA",
+   "name": "Mohammad Hossein Kanaanizadegan",
+   "norm": "mohammad hossein kanaanizadegan"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Manaf Younis",
+   "norm": "manaf younis"
+  },
+  {
+   "iso": "JOR",
+   "name": "Noor Bani Attiah",
+   "norm": "noor bani attiah"
+  },
+  {
+   "iso": "JOR",
+   "name": "Odeh Al-Fakhouri",
+   "norm": "odeh al fakhouri"
+  },
+  {
+   "iso": "QAT",
+   "name": "Ahmed Alaaeldin",
+   "norm": "ahmed alaaeldin"
+  },
+  {
+   "iso": "QAT",
+   "name": "Homam Ahmed",
+   "norm": "homam ahmed"
+  },
+  {
+   "iso": "RSA",
+   "name": "Sphephelo Sithole",
+   "norm": "sphephelo sithole"
+  },
+  {
+   "iso": "SAU",
+   "name": "Nawaf Boushal",
+   "norm": "nawaf boushal"
+  }
+ ],
+ "collisions": [
+  "BRA|danilo",
+  "BRA|ederson",
+  "MEX|jesus angulo",
+  "NED|lutsharel geertruida"
+ ]
+}
