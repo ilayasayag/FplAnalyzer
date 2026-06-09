@@ -17,6 +17,14 @@ const ACCENT_THEMES = {
   forest:{ grad: "linear-gradient(94deg, #0d2818 0%, #1f6b3e 35%, #2eb05c 65%, #ffc844 100%)", pill: "linear-gradient(94deg, #00e87b 0%, #ffd56b 100%)" },
 };
 
+// Set the data-source banner state AND notify the TopBar chip so it always
+// reflects the latest value (it reads a window global, so without an event it
+// can latch a stale cold-start "down" after the real data resolves).
+function setDataSource(v) {
+  window.__DATA_SOURCE__ = v;
+  try { window.dispatchEvent(new CustomEvent("wc-datasource", { detail: v })); } catch (e) {}
+}
+
 // =====================================================================
 // Platform-selector LOBBY — the home page after sign-in.
 // The user explicitly chooses which league/platform to enter; no league is
@@ -123,6 +131,109 @@ function LobbyScreen({ leagues, loading, onEnter, onSignOut }) {
     </div>
   );
 }
+
+function TweakDraftSimulator({ lid }) {
+  const [active, setActive] = React.useState(false);
+  const [status, setStatus] = React.useState("idle");
+  const [loading, setLoading] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!lid) return;
+    let interval = null;
+    const fetchState = async () => {
+      try {
+        const res = await apiCall("GET", `/leagues/${lid}/draft/sim/state`);
+        if (res) {
+          setActive(res.active);
+          setStatus(res.status);
+        }
+      } catch (e) {
+        console.warn("Failed to fetch simulator state:", e);
+      }
+    };
+
+    fetchState();
+    interval = setInterval(fetchState, 3000);
+    return () => clearInterval(interval);
+  }, [lid]);
+
+  const handleToggle = async () => {
+    if (!lid) return;
+    setLoading(true);
+    try {
+      const nextActive = !active;
+      const res = await apiCall("POST", `/leagues/${lid}/draft/sim/toggle`, { active: nextActive });
+      if (res) {
+        setActive(res.active);
+        setStatus(res.status);
+      }
+    } catch (e) {
+      alert("Error toggling simulator: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleReset = async () => {
+    if (!lid) return;
+    if (!window.confirm("Are you sure you want to reset the draft state? This will wipe all picks and squads.")) return;
+    setLoading(true);
+    try {
+      const res = await apiCall("POST", `/leagues/${lid}/draft/sim/reset`);
+      if (res) {
+        setActive(false);
+        setStatus("idle");
+        alert("Draft state has been reset successfully!");
+      }
+    } catch (e) {
+      alert("Error resetting draft: " + e.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (!lid) {
+    return <div style={{ fontSize: 10, color: "rgba(41,38,27,0.5)" }}>Please enter a league first to access the simulator.</div>;
+  }
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 8, marginTop: 4 }}>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <span style={{ fontWeight: 600 }}>Status:</span>
+        <span style={{
+          padding: "2px 6px",
+          borderRadius: 4,
+          fontSize: 9,
+          fontWeight: 700,
+          textTransform: "uppercase",
+          background: active ? "rgba(43,240,148,0.15)" : "rgba(0,0,0,0.15)",
+          color: active ? "#2bf094" : "inherit"
+        }}>{active ? "Running" : status}</span>
+      </div>
+      <div style={{ display: "flex", gap: 6 }}>
+        <button
+          type="button"
+          onClick={handleToggle}
+          disabled={loading}
+          className="twk-btn"
+          style={{ flex: 1, height: 26, fontSize: 10, padding: 0 }}
+        >
+          {active ? "Pause Sim" : "Start Sim"}
+        </button>
+        <button
+          type="button"
+          onClick={handleReset}
+          disabled={loading}
+          className="twk-btn secondary"
+          style={{ flex: 1, height: 26, fontSize: 10, padding: 0 }}
+        >
+          Reset Draft
+        </button>
+      </div>
+    </div>
+  );
+}
+
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -322,16 +433,25 @@ function App() {
         if (doc.exists) {
           const data = doc.data();
           const numMembers = data.order ? data.order.length : 10;
+          let currentDrafter = data.currentDrafter;
+          if (!currentDrafter && data.order && typeof data.currentPick === 'number') {
+            const pick = data.currentPick;
+            const rnd = Math.floor(pick / numMembers);
+            const pos = pick % numMembers;
+            currentDrafter = (rnd % 2 === 0) ? data.order[pos] : data.order[numMembers - 1 - pos];
+          }
           window.DRAFT_STATE = {
             round: data.currentPick ? Math.floor(data.currentPick / numMembers) + 1 : 1,
             pickOverall: (data.currentPick || 0) + 1,
             pickInRound: ((data.currentPick || 0) % numMembers) + 1,
-            onTheClock: data.currentDrafter || "",
+            onTheClock: currentDrafter || "",
             totalRounds: 15,
             totalPicks: data.totalPicks || 150,
-            pickTimer: data.pickTimer || 60,
+            pickTimer: data.pickTimer || 30,
             secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
-            isMyTurn: data.currentDrafter === user.uid,
+            isMyTurn: currentDrafter === user.uid,
+            order: data.order || [],
+            paused: !!data.paused,
           };
           forceUpdate();
         } else {
@@ -341,6 +461,8 @@ function App() {
             round: 0, pickOverall: 0, pickInRound: 0, onTheClock: "",
             totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
             isMyTurn: false, notStarted: true,
+            order: [],
+            paused: false,
           };
           forceUpdate();
         }
@@ -520,7 +642,14 @@ function App() {
           const players = await apiCall("GET", "/players");
           if (players && players.length > 0) {
             window.__PLAYERS_LOADED__ = true;
-            window.PLAYERS = players.map(p => ({
+            window.PLAYERS = players
+              // Defensive: drop any malformed pool entry (no real id or no
+              // position). The backend already filters these, but this guards
+              // against junk wc_players docs ever reaching the draft pool, where
+              // they'd render as "UNDEFINED / Group ?" rows with a duplicate
+              // String(undefined) React key.
+              .filter(p => p && p.id != null && String(p.id) !== "undefined" && p.position != null)
+              .map(p => ({
               id: String(p.id),
               name: p.name,
               pos: p.position,
@@ -870,18 +999,18 @@ function App() {
         }
 
         if (criticalFailed) {
-          window.__DATA_SOURCE__ = "down";
+          setDataSource("down");
         } else if (leagueDetails && leagueDetails.simulated === true) {
           // The backend marks each league explicitly: Platform A (mock) carries
           // simulated:true, the real 7-player draft carries simulated:false.
-          window.__DATA_SOURCE__ = "simulated";
+          setDataSource("simulated");
         } else {
-          window.__DATA_SOURCE__ = "live";
+          setDataSource("live");
         }
         forceUpdate();
       } catch (err) {
         console.error("Failed to load initial live data:", err);
-        window.__DATA_SOURCE__ = "down";
+        setDataSource("down");
         // Don't strand the Pick Team screen on the skeleton forever if the
         // bootstrap threw before the squad fetch ran.
         setSquadLoaded(true);
@@ -1074,13 +1203,16 @@ function App() {
       )}
 
       <div className={"page " + (isWide ? "page--wide" : "")}>
-        <main key={updateKey}>{renderScreen()}</main>
+        <main>{renderScreen()}</main>
         {!isWide && <Sidebar onTab={setTab} />}
       </div>
 
       <PlayerStatsModal />
 
       <TweaksPanel>
+        <TweakSection label="Draft Simulator" />
+        <TweakDraftSimulator lid={activeLid} />
+
         <TweakSection label="League" />
         <TweakRadio label="League size" value={String(t.leagueSize)}
           options={["6", "7", "8", "9", "10"]}

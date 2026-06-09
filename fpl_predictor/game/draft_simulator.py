@@ -1,0 +1,127 @@
+import threading
+import time
+
+class DraftSimulator:
+    def __init__(self, db, fpl_client):
+        self.db = db
+        self.fpl = fpl_client
+        self.active = False
+        self.thread = None
+        self._lock = threading.Lock()
+        self.last_status = "idle"
+
+    def start(self, lid: str):
+        with self._lock:
+            # Mark draft as unpaused and refresh the deadline
+            state_ref = self.db.collection("leagues").document(lid).collection("draft").document("state")
+            state_doc = state_ref.get()
+            if state_doc.exists:
+                state_data = state_doc.to_dict()
+                pick_timer = state_data.get("pickTimer", 30)
+                state_ref.update({
+                    "paused": False,
+                    "pickDeadline": time.time() + pick_timer
+                })
+
+            if self.active:
+                return
+            self.active = True
+            self.thread = threading.Thread(
+                target=self._run_loop, 
+                args=(lid,), 
+                name=f"WCDraftSim-{lid}", 
+                daemon=True
+            )
+            self.thread.start()
+            self.last_status = "active"
+
+    def stop(self, lid: str = None):
+        with self._lock:
+            self.active = False
+            self.last_status = "stopped"
+            if lid:
+                self.db.collection("leagues").document(lid).collection("draft").document("state").update({
+                    "paused": True
+                })
+
+    def _run_loop(self, lid: str):
+        print(f"[Draft Simulator] Started loop for league {lid}")
+        from .draft import DraftEngine
+        draft = DraftEngine(self.db, self.fpl)
+        
+        # Human UID is u_netanel (local user)
+        human_uid = "u_netanel"
+        
+        while self.active:
+            try:
+                state_doc = self.db.collection("leagues").document(lid).collection("draft").document("state").get()
+                
+                # If draft state doesn't exist, we start the draft
+                if not state_doc.exists:
+                    print("[Draft Simulator] Draft state doesn't exist. Auto starting draft...")
+                    cfg_doc = self.db.collection("wc_config").document("tournament").get()
+                    current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
+                    draft.start_draft(lid, human_uid, current_gw)
+                    time.sleep(2)
+                    continue
+                
+                state = state_doc.to_dict()
+                status = state.get("status")
+                
+                if status == "pending":
+                    print("[Draft Simulator] Draft is pending. Auto starting draft...")
+                    cfg_doc = self.db.collection("wc_config").document("tournament").get()
+                    current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
+                    draft.start_draft(lid, human_uid, current_gw)
+                    time.sleep(2)
+                    continue
+                
+                if status == "complete":
+                    print("[Draft Simulator] Draft is complete. Stopping simulation.")
+                    self.active = False
+                    self.last_status = "complete"
+                    break
+                    
+                if status != "active":
+                    time.sleep(2)
+                    continue
+                
+                current_pick = state.get("currentPick", 0)
+                order = state.get("order", [])
+                num_members = len(order)
+                if num_members == 0:
+                    time.sleep(2)
+                    continue
+                
+                rnd = current_pick // num_members
+                pos_in_round = current_pick % num_members
+                current_drafter = order[pos_in_round] if rnd % 2 == 0 else order[num_members - 1 - pos_in_round]
+                
+                if current_drafter != human_uid:
+                    print(f"[Draft Simulator] Bot turn: {current_drafter} on clock (Pick #{current_pick + 1})")
+                    # Sleep 2.0 seconds so it's clear the timer is ticking down for this manager
+                    time.sleep(2.0)
+                    
+                    # Fetch fresh draft state to check if simulator was paused/stopped during sleep
+                    state_doc_fresh = self.db.collection("leagues").document(lid).collection("draft").document("state").get()
+                    if not state_doc_fresh.exists:
+                        continue
+                    state_fresh = state_doc_fresh.to_dict()
+                    if state_fresh.get("paused", False) or not self.active:
+                        continue
+                    
+                    player_id = draft._find_best_available(lid, current_drafter, state_fresh)
+                    if player_id > 0:
+                        draft.make_pick(lid, current_drafter, player_id, is_auto=True)
+                        print(f"[Draft Simulator] Bot {current_drafter} picked player {player_id}")
+                    else:
+                        print("[Draft Simulator] No legal player found for bot!")
+                        time.sleep(1)
+                else:
+                    # Human user turn, do not pick
+                    time.sleep(1.5)
+            except Exception as e:
+                print(f"[Draft Simulator] Error in simulation loop: {e}")
+                time.sleep(2)
+            time.sleep(1.5)
+        print("[Draft Simulator] Stopped loop")

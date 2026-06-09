@@ -46,10 +46,17 @@ _squad_mgr: WCSquadManager = None
 _trade_mgr: WCTradeManager = None
 _waiver_mgr: WCWaiverManager = None
 _wishlist_mgr: WCWishlistManager = None
+_sim = None
+
+# The WC 2026 mock-draft showcase (lg_mock_draft) is locked to these 6 canonical
+# managers. Used to (a) gate login auto-hydration so the roster can't regrow past
+# 6, and (b) drive the one-shot roster-reset admin endpoint.
+MOCK_LID = "lg_mock_draft"
+MOCK_CANONICAL_ROSTER = ("u_ilay", "u_yuval", "u_netanel", "u_shay", "u_nadav", "u_roy")
 
 
 def init_wc(db, firebase_auth=None):
-    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr
+    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr, _sim
     _db = db
     _wc = WC2026Client(db=db)
     _league_mgr = WCLeagueManager(db)
@@ -57,6 +64,8 @@ def init_wc(db, firebase_auth=None):
     _trade_mgr = WCTradeManager(db, _wc)
     _waiver_mgr = WCWaiverManager(db, _wc)
     _wishlist_mgr = WCWishlistManager(db, _wc)
+    from .game.draft_simulator import DraftSimulator
+    _sim = DraftSimulator(db, _wc)
 
 
 # ---------------------------------------------------------------------------
@@ -452,7 +461,7 @@ def create_league():
             name=body.get("name", ""),
             display_name=body.get("displayName", "Manager"),
             trade_approval=body.get("tradeApproval", "vote"),
-            pick_timer=body.get("pickTimer", 60),
+            pick_timer=body.get("pickTimer", 30),
             max_members=body.get("maxMembers", 8),
         )
         return _ok(result, 201)
@@ -529,20 +538,24 @@ def auth_me():
         })
 
     # Hydrate their membership in both test leagues if the leagues exist
-    # 1. Hydrate lg_mock_draft
+    # 1. lg_mock_draft — the showcase is LOCKED to its 6 canonical managers.
+    #    Only those uids are (re)added on login; every other account is NOT
+    #    auto-joined, so the roster can never regrow past 6. We also no longer
+    #    re-run seed_mock_league here (it would re-create the legacy u_mk_* AI
+    #    opponents). A missing canonical member just gets a lightweight member
+    #    doc — never a full re-seed.
     mock_league_ref = _db.collection("leagues").document(mock_lid)
     mock_league_doc = mock_league_ref.get()
-    if mock_league_doc.exists:
+    if mock_league_doc.exists and uid in MOCK_CANONICAL_ROSTER:
         member_ref = mock_league_ref.collection("members").document(uid)
         if not member_ref.get().exists:
-            # Signature is seed_mock_league(db, USER_UID, USER_NAME). The args
-            # were previously transposed (uid, display_name, _db), which made
-            # this raise on `db.collection(...)` and 500 the whole /auth/me
-            # call — aborting BEFORE the lg_pre_draft hydration below, so the
-            # user ended up a member of NEITHER league and both squads vanished.
-            # Wrapped defensively so any future seed hiccup can't break login.
             try:
-                seed_mock_league(_db, uid, display_name)
+                member_ref.set({
+                    "displayName": display_name,
+                    "teamName": f"{display_name}'s Squad",
+                    "role": "manager",
+                    "joinedAt": SERVER_TIMESTAMP,
+                })
             except Exception as exc:
                 log.warning("Mock league hydration failed for %s: %s", uid, exc)
 
@@ -753,6 +766,63 @@ def update_watchlist(lid: str):
      .collection(uid).document("list")
      .set({"playerIds": player_ids, "updatedAt": SERVER_TIMESTAMP}))
     return _ok({"playerIds": player_ids})
+
+
+def _require_sim_league(lid: str):
+    """Auth + simulated-only guard for the draft-simulator endpoints. These are
+    mock-testing tools that mutate (and reset() wipes) squads/draft state, so
+    they must never be callable anonymously or against a real league. Returns
+    ``(league_dict, None)`` on success or ``(None, error_response)``."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    snap = _db.collection("leagues").document(lid).get()
+    if not snap.exists:
+        return None, _err("League not found", 404)
+    ld = snap.to_dict() or {}
+    if not ld.get("simulated"):
+        return None, _err("MOCK_ONLY: the draft simulator only runs on simulated leagues", 403)
+    return ld, None
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/toggle", methods=["POST"])
+def toggle_draft_sim(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    active = body.get("active", False)
+    if active:
+        _sim.start(lid)
+    else:
+        _sim.stop(lid)
+    return _ok({"active": _sim.active, "status": _sim.last_status})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/state", methods=["GET"])
+def get_draft_sim_state(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    return _ok({"active": _sim.active, "status": _sim.last_status})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/reset", methods=["POST"])
+def reset_draft_sim(lid: str):
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    _sim.stop()
+    league_ref = _db.collection("leagues").document(lid)
+    state_ref = league_ref.collection("draft").document("state")
+    if state_ref.get().exists:
+        for pick in state_ref.collection("picks").get():
+            pick.reference.delete()
+        state_ref.delete()
+    for sq in league_ref.collection("squads").get():
+        sq.reference.delete()
+    league_ref.update({"status": "pre_draft", "draftComplete": False})
+    return _ok({"status": "reset"})
 
 
 # ---------------------------------------------------------------------------
@@ -1463,6 +1533,136 @@ def admin_sim_reset(lid: str):
         return _err(str(exc), 500)
 
 
+def _round_robin(uids, num_rounds):
+    """Circle-method H2H pairings: each manager faces a different opponent each
+    round. ``uids`` must be even-length. Returns {round: [(home, away), ...]}."""
+    arr = list(uids)
+    n = len(arr)
+    rounds = {}
+    for r in range(num_rounds):
+        rounds[r + 1] = [(arr[i], arr[n - 1 - i]) for i in range(n // 2)]
+        arr = [arr[0]] + [arr[-1]] + arr[1:-1]   # rotate all but the first
+    return rounds
+
+
+@wc_bp.route("/admin/leagues/<lid>/reset-to-roster", methods=["POST"])
+def admin_reset_to_roster(lid: str):
+    """MOCK-ONLY one-shot: collapse the showcase league back to its 6 canonical
+    managers and roll the season to BEFORE GW3 (GW1 + GW2 finalized).
+
+    - Deletes every non-canonical member + their squad / lineups / wishlist bids
+      (the legacy u_mk_* AI bots and any stray real joiners). The 6 canonical
+      managers' squads are KEPT untouched.
+    - Drops malformed wc_players docs (no position) — the "UNDEFINED" pool junk.
+    - Clears the knockout bracket + GW>=3 scores/history, writes a fresh
+      6-manager H2H schedule, and re-finalizes GW1 then GW2 so scores + standings
+      are clean for exactly the 6. Lands at currentGw=3, group_phase.
+    Idempotent. Gated to simulated leagues + authenticated callers."""
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    from .game.wc_scoring import finalize_gw
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+
+    league_ref = _db.collection("leagues").document(lid)
+    keep = set(MOCK_CANONICAL_ROSTER)
+    summary = {"removedMembers": [], "junkPlayersDeleted": 0,
+               "finalized": [], "finalizeErrors": {}, "fixtures": None}
+
+    # 1. Remove non-canonical members + their squads.
+    for m in league_ref.collection("members").get():
+        if m.id in keep:
+            continue
+        summary["removedMembers"].append(m.id)
+        m.reference.delete()
+        sq = league_ref.collection("squads").document(m.id)
+        if sq.get().exists:
+            sq.delete()
+    # ...and their lineups / wishlist bids (doc id is "{uid}_{gw}").
+    for coll in ("lineups", "wishlist_bids"):
+        for d in league_ref.collection(coll).get():
+            if d.id.rsplit("_", 1)[0] not in keep:
+                d.reference.delete()
+
+    # 2. Drop malformed player-pool docs (no position == not a real player).
+    for d in _db.collection("wc_players").get():
+        if (d.to_dict() or {}).get("position") is None:
+            d.reference.delete()
+            summary["junkPlayersDeleted"] += 1
+
+    # 3. Wipe knockout + GW>=3 scores/history + standings (recomputed below).
+    for k in league_ref.collection("knockout").get():
+        k.reference.delete()
+    for coll in ("scores", "gw_history", "wishlist_results"):
+        for d in league_ref.collection(coll).get():
+            try:
+                g = int(d.id)
+            except (TypeError, ValueError):
+                g = None
+            if g is None or g >= 3:
+                d.reference.delete()
+    for st in league_ref.collection("standings").get():
+        st.reference.delete()
+
+    # 4. Fresh 6-manager H2H schedule for GW1-3 (deterministic order).
+    order = [u for u in MOCK_CANONICAL_ROSTER]
+    for gw, pairs in _round_robin(order, 3).items():
+        league_ref.collection("schedule").document(str(gw)).set(
+            {"gw": gw, "matches": [{"home": h, "away": a} for h, a in pairs]})
+
+    # 5. Ensure each canonical manager has a GW1 & GW2 lineup (derive from their
+    #    current squad if missing) so the re-finalize can score them.
+    present = {m.id for m in league_ref.collection("members").get()}
+    summary["members"] = sorted(present)
+    for uid in present:
+        sqd = league_ref.collection("squads").document(uid).get()
+        if not sqd.exists:
+            continue
+        rich = [{"playerId": p["playerId"], "position": p["position"]}
+                for p in (sqd.to_dict() or {}).get("players", [])]
+        for gw in (1, 2):
+            ln_ref = league_ref.collection("lineups").document(f"{uid}_{gw}")
+            if not ln_ref.get().exists and rich:
+                ln_ref.set(select_lineup(rich))
+
+    # 6. League back to a 6-manager group phase before GW3.
+    league_ref.update({
+        "status": "group_phase", "currentGw": 1,
+        "leaguePhaseGws": [1, 2, 3], "knockoutStartGw": 4,
+        "knockoutQualifiers": 4, "maxMembers": 6,
+        "windowOverride": firestore.DELETE_FIELD,
+    })
+
+    # 6b. Rebuild the team fixtures to the REAL group-stage schedule (3 rounds ×
+    #     24 games, correct isos). Wipes the old fabricated/duplicate wc_fixtures
+    #     + playerScores, scores GW1-2 from the 6 managers' drafted players, and
+    #     leaves GW3 upcoming.
+    drafted = {}
+    for uid in present:
+        sqd = league_ref.collection("squads").document(uid).get()
+        for p in (sqd.to_dict() or {}).get("players", []) if sqd.exists else []:
+            drafted[int(p["playerId"])] = {
+                "id": int(p["playerId"]), "name": p.get("name", ""),
+                "position": int(p["position"]), "teamIso": p.get("teamIso", ""),
+            }
+    summary["fixtures"] = seed_real_fixtures(_db, drafted, GROUP_STAGE_EVENTS, played_gws=(1, 2))
+
+    # 7. Re-finalize GW1 then GW2 → clean scores/standings for the 6; advances
+    #    currentGw to 3. Each finalize is best-effort so one bad GW can't half-
+    #    abort the reset.
+    for gw in (1, 2):
+        try:
+            finalize_gw(lid, gw, _db, _wc)
+            summary["finalized"].append(gw)
+        except Exception as exc:
+            summary["finalizeErrors"][gw] = str(exc)
+
+    # 8. Force the final "before GW3" state regardless of finalize side-effects.
+    league_ref.update({"currentGw": 3, "status": "group_phase"})
+    summary["currentGw"] = 3
+    return _ok(summary)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()
@@ -1562,8 +1762,6 @@ def admin_run_mock_wishlist(lid: str):
         })
     except Exception as exc:
         return _err(str(exc), 500)
-
-
 @wc_bp.route("/admin/detect-eliminations", methods=["POST"])
 def admin_detect_eliminations():
     uid, err = _require_auth()

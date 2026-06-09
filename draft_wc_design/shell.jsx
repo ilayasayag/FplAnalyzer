@@ -21,8 +21,16 @@ function TopBar({ tweak }) {
   const displayName = window._auth?.currentUser?.displayName || "Me";
   const initials = displayName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
   
-  // 3-state banner
-  const dataSource = window.__DATA_SOURCE__ || "down";
+  // 3-state banner — reactive: re-reads window.__DATA_SOURCE__ whenever the app
+  // updates it (fires a "wc-datasource" event), so the chip never latches a
+  // stale cold-start "down" once the real data resolves.
+  const [dataSource, setDataSourceState] = React.useState(window.__DATA_SOURCE__ || "down");
+  React.useEffect(() => {
+    const sync = () => setDataSourceState(window.__DATA_SOURCE__ || "down");
+    window.addEventListener("wc-datasource", sync);
+    sync(); // catch a value set before this listener attached
+    return () => window.removeEventListener("wc-datasource", sync);
+  }, []);
   let bannerBg = "#c52836"; // dark red
   let bannerText = "⚠️ DEMO DATA — backend not reached";
   if (dataSource === "simulated") {
