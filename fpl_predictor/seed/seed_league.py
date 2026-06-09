@@ -253,13 +253,13 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         "leagueId": mock_lid,
         "name": "WC 2026 Expert Mock Draft",
         "inviteCode": "MOCKWC26",
-        "adminUid": "u_mk_golden",
+        "adminUid": "u_ilay",
         "format": "h2h",
         "status": "group_phase",  # Starts in group_phase, finalized sequentially
         # Platform A is the SIMULATION / time-machine. Drives the data-source
         # banner so the UI honestly shows "Simulated Data Mode".
         "simulated": True,
-        "maxMembers": 8,
+        "maxMembers": 6,
         "pickTimer": 60,
         "tradeApproval": "vote",
         "knockoutStartGw": 4,
@@ -278,17 +278,18 @@ def seed_mock_league(db, USER_UID, USER_NAME):
     # logged-in user (USER_UID) is a real participant here. Keeping these
     # namespaces separate guarantees the showcase always has 8 DISTINCT members
     # and an uncorrupted H2H schedule regardless of who seeds it.
+    # The showcase is LOCKED to 6 canonical managers (the real friend group).
+    # u_ilay is the admin. (Previously this seeded 7 u_mk_* AI bots + the logged-
+    # in user, which is how the live roster grew past 6.)
     mock_managers = [
-        {"uid": "u_mk_golden", "name": "GoldenGoalFF", "team": "GoldenGoalFF's Squad", "flag": "EGY", "draftPos": 1, "waiverPri": 7},
-        {"uid": "u_mk_fpltfs", "name": "FPLtfs", "team": "FPLtfs's Squad", "flag": "BRA", "draftPos": 2, "waiverPri": 6},
-        {"uid": USER_UID, "name": USER_NAME, "team": "FPLFRAN's Squad", "flag": "SPA", "draftPos": 3, "waiverPri": 5},
-        {"uid": "u_mk_lloyd", "name": "LloydHassell", "team": "LloydHassell's Squad", "flag": "ENG", "draftPos": 4, "waiverPri": 4},
-        {"uid": "u_mk_nord", "name": "nordburfor", "team": "nordburfor's Squad", "flag": "TUN", "draftPos": 5, "waiverPri": 3},
-        {"uid": "u_mk_mate", "name": "FPLMate", "team": "FPLMate's Squad", "flag": "SCO", "draftPos": 6, "waiverPri": 2},
-        {"uid": "u_mk_cant", "name": "CantWinFPL", "team": "CantWinFPL's Squad", "flag": "TUR", "draftPos": 7, "waiverPri": 1},
-        {"uid": "u_mk_opp", "name": "Opponent", "team": "Opponent XI", "flag": "GER", "draftPos": 8, "waiverPri": 8},
+        {"uid": "u_ilay",    "name": "Ilay",    "team": "Ilay's Squad",    "flag": "GER", "draftPos": 1, "waiverPri": 6},
+        {"uid": "u_yuval",   "name": "Yuval",   "team": "Yuval's Squad",   "flag": "GER", "draftPos": 2, "waiverPri": 5},
+        {"uid": "u_netanel", "name": "Netanel", "team": "Netanel's Squad", "flag": "GER", "draftPos": 3, "waiverPri": 4},
+        {"uid": "u_shay",    "name": "Shay",    "team": "Shay's Squad",    "flag": "GER", "draftPos": 4, "waiverPri": 3},
+        {"uid": "u_nadav",   "name": "Nadav",   "team": "Nadav's Squad",   "flag": "GER", "draftPos": 5, "waiverPri": 2},
+        {"uid": "u_roy",     "name": "Roy",     "team": "Roy's Squad",     "flag": "GER", "draftPos": 6, "waiverPri": 1},
     ]
-    
+
     for m in mock_managers:
         db.collection("leagues").document(mock_lid).collection("members").document(m["uid"]).set({
             "displayName": m["name"],
@@ -296,49 +297,25 @@ def seed_mock_league(db, USER_UID, USER_NAME):
             "flag": m["flag"],
             "draftPosition": m["draftPos"],
             "waiverPriority": m["waiverPri"],
+            "role": "admin" if m["uid"] == "u_ilay" else "manager",
             "joinedAt": SERVER_TIMESTAMP,
         })
-        
-    # 3. Load mapped squads
+
+    # 3. Load mapped squads — map the 6 stored squads (squad_ids.json keys) onto
+    #    the 6 canonical managers deterministically.
     squad_ids_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "squad_ids.json")
     with open(squad_ids_path, "r", encoding="utf-8") as f:
         squad_data_raw = json.load(f)
-        
+
+    _SQUAD_KEY_FOR = {
+        "u_ilay": "USER_UID", "u_yuval": "u_mk_golden", "u_netanel": "u_mk_fpltfs",
+        "u_shay": "u_mk_lloyd", "u_nadav": "u_mk_nord", "u_roy": "u_mk_mate",
+    }
     squads = {}
-    for k, v in squad_data_raw.items():
-        uid = USER_UID if k == "USER_UID" else k
-        squads[uid] = v
-        
-    # Generate squad for Opponent XI
-    seeded_json_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), "data", "wc_seeded_data.json")
-    with open(seeded_json_path, "r", encoding="utf-8") as f:
-        seeded_data = json.load(f)
-    all_players = seeded_data.get("players", [])
-    
-    drafted_player_ids = set()
-    for squad in squads.values():
-        for p in squad:
-            drafted_player_ids.add(int(p["id"]))
-            
-    available_players = [p for p in all_players if int(p["id"]) not in drafted_player_ids]
-    available_players.sort(key=lambda p: p.get("draftRank", 999))
-    
-    opp_gks = [p for p in available_players if p["position"] == 1][:2]
-    opp_defs = [p for p in available_players if p["position"] == 2][:5]
-    opp_mids = [p for p in available_players if p["position"] == 3][:5]
-    opp_fwds = [p for p in available_players if p["position"] == 4][:3]
-    
-    opp_squad = opp_gks + opp_defs + opp_mids + opp_fwds
-    squads["u_mk_opp"] = []
-    for idx, p in enumerate(opp_squad):
-        squads["u_mk_opp"].append({
-            "id": int(p["id"]),
-            "name": p["name"],
-            "position": p["position"],
-            "positionName": p["positionName"],
-            "teamIso": p["teamIso"]
-        })
-        
+    for canon_uid, src_key in _SQUAD_KEY_FOR.items():
+        if src_key in squad_data_raw:
+            squads[canon_uid] = squad_data_raw[src_key]
+
     # Write squads to Firestore
     for uid, squad in squads.items():
         squad_list = []
@@ -358,12 +335,14 @@ def seed_mock_league(db, USER_UID, USER_NAME):
             "players": squad_list
         })
         
-    # 4. H2H schedule & events mapping
-    schedule_by_gw = {
-        1: [("u_mk_golden", "u_mk_cant"), ("u_mk_fpltfs", "u_mk_opp"), ("u_mk_lloyd", "u_mk_mate"), (USER_UID, "u_mk_nord")],
-        2: [("u_mk_golden", "u_mk_opp"), ("u_mk_fpltfs", "u_mk_mate"), ("u_mk_lloyd", "u_mk_nord"), (USER_UID, "u_mk_cant")],
-        3: [("u_mk_golden", "u_mk_mate"), ("u_mk_fpltfs", "u_mk_nord"), ("u_mk_opp", "u_mk_cant"), (USER_UID, "u_mk_lloyd")]
-    }
+    # 4. H2H schedule & events mapping — circle-method round-robin over the 6
+    #    canonical managers (each faces a different opponent each GW).
+    _order = [m["uid"] for m in mock_managers]
+    schedule_by_gw = {}
+    _arr = list(_order)
+    for _r in range(3):
+        schedule_by_gw[_r + 1] = [(_arr[i], _arr[len(_arr) - 1 - i]) for i in range(len(_arr) // 2)]
+        _arr = [_arr[0]] + [_arr[-1]] + _arr[1:-1]
     
     for gw, matches in schedule_by_gw.items():
         match_list = [{"home": m[0], "away": m[1]} for m in matches]
@@ -481,10 +460,10 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         for p in squad:
             all_drafted_players[int(p["id"])] = p
 
-    # Set up lineups for GW1, GW2, GW3
+    # Set up lineups for GW1, GW2 (the played GWs; GW3 is upcoming).
     for uid, squad in squads.items():
         squad_rich = [{"playerId": int(p["id"]), "position": p["position"]} for p in squad]
-        for gw in (1, 2, 3):
+        for gw in (1, 2):
             lineup = select_lineup(squad_rich)
             db.collection("leagues").document(mock_lid).collection("lineups").document(f"{uid}_{gw}").set(lineup)
 
@@ -494,8 +473,10 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         3: (events_gw3, conceded_gw3)
     }
 
-    # Run game engine sequential finalization
-    for gw in (1, 2, 3):
+    # Run game engine sequential finalization for the PLAYED GWs only (1 & 2).
+    # GW3 is left UPCOMING (fixtures written unprocessed below) so the seeded
+    # league sits "before GW3" at currentGw=3.
+    for gw in (1, 2):
         print(f"🎬 Processing GW {gw}...")
         events, conceded_map = gw_params[gw]
         
@@ -541,9 +522,27 @@ def seed_mock_league(db, USER_UID, USER_NAME):
         db.collection("leagues").document(mock_lid).update({"currentGw": gw})
 
         # Call finalize_gw with a real client so group-stage elimination
-        # detection (runs at GW3) can populate wc_teams.status = "eliminated".
+        # detection can populate wc_teams.status = "eliminated".
         finalize_gw(mock_lid, gw, db, _seed_wc_client(db))
-        
+
+    # GW3 fixtures exist as UPCOMING (unprocessed, no score) so the league sits
+    # "before GW3": Pick Team shows each player's GW3 opponent, but no points yet.
+    for f in fixtures_data[3]:
+        db.collection("wc_fixtures").document(str(f["id"])).set({
+            "id": f["id"],
+            "gw": 3,
+            "wcRound": "Group Stage · MD3",
+            "homeTeam": {"id": 1, "isoCode": f["home"], "name": f["home"]},
+            "awayTeam": {"id": 2, "isoCode": f["away"], "name": f["away"]},
+            "kickoff": SERVER_TIMESTAMP,
+            "status": "NS",
+            "processedForFantasy": False,
+        })
+
+    # finalize_gw(2) advanced currentGw to 3 — explicitly pin the canonical
+    # "before GW3" group-phase state.
+    db.collection("leagues").document(mock_lid).update({"currentGw": 3, "status": "group_phase"})
+
     print(f"✅ Mock League {mock_lid} successfully seeded via the real engine!")
 
 def seed_pre_draft_league(db, USER_UID, USER_NAME):

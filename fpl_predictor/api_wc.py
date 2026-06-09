@@ -48,6 +48,12 @@ _waiver_mgr: WCWaiverManager = None
 _wishlist_mgr: WCWishlistManager = None
 _sim = None
 
+# The WC 2026 mock-draft showcase (lg_mock_draft) is locked to these 6 canonical
+# managers. Used to (a) gate login auto-hydration so the roster can't regrow past
+# 6, and (b) drive the one-shot roster-reset admin endpoint.
+MOCK_LID = "lg_mock_draft"
+MOCK_CANONICAL_ROSTER = ("u_ilay", "u_yuval", "u_netanel", "u_shay", "u_nadav", "u_roy")
+
 
 def init_wc(db, firebase_auth=None):
     global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr, _sim
@@ -532,20 +538,24 @@ def auth_me():
         })
 
     # Hydrate their membership in both test leagues if the leagues exist
-    # 1. Hydrate lg_mock_draft
+    # 1. lg_mock_draft — the showcase is LOCKED to its 6 canonical managers.
+    #    Only those uids are (re)added on login; every other account is NOT
+    #    auto-joined, so the roster can never regrow past 6. We also no longer
+    #    re-run seed_mock_league here (it would re-create the legacy u_mk_* AI
+    #    opponents). A missing canonical member just gets a lightweight member
+    #    doc — never a full re-seed.
     mock_league_ref = _db.collection("leagues").document(mock_lid)
     mock_league_doc = mock_league_ref.get()
-    if mock_league_doc.exists:
+    if mock_league_doc.exists and uid in MOCK_CANONICAL_ROSTER:
         member_ref = mock_league_ref.collection("members").document(uid)
         if not member_ref.get().exists:
-            # Signature is seed_mock_league(db, USER_UID, USER_NAME). The args
-            # were previously transposed (uid, display_name, _db), which made
-            # this raise on `db.collection(...)` and 500 the whole /auth/me
-            # call — aborting BEFORE the lg_pre_draft hydration below, so the
-            # user ended up a member of NEITHER league and both squads vanished.
-            # Wrapped defensively so any future seed hiccup can't break login.
             try:
-                seed_mock_league(_db, uid, display_name)
+                member_ref.set({
+                    "displayName": display_name,
+                    "teamName": f"{display_name}'s Squad",
+                    "role": "manager",
+                    "joinedAt": SERVER_TIMESTAMP,
+                })
             except Exception as exc:
                 log.warning("Mock league hydration failed for %s: %s", uid, exc)
 
@@ -1521,6 +1531,121 @@ def admin_sim_reset(lid: str):
         return _ok({"league": lid, "currentGw": 1, "status": "group_phase"})
     except Exception as exc:
         return _err(str(exc), 500)
+
+
+def _round_robin(uids, num_rounds):
+    """Circle-method H2H pairings: each manager faces a different opponent each
+    round. ``uids`` must be even-length. Returns {round: [(home, away), ...]}."""
+    arr = list(uids)
+    n = len(arr)
+    rounds = {}
+    for r in range(num_rounds):
+        rounds[r + 1] = [(arr[i], arr[n - 1 - i]) for i in range(n // 2)]
+        arr = [arr[0]] + [arr[-1]] + arr[1:-1]   # rotate all but the first
+    return rounds
+
+
+@wc_bp.route("/admin/leagues/<lid>/reset-to-roster", methods=["POST"])
+def admin_reset_to_roster(lid: str):
+    """MOCK-ONLY one-shot: collapse the showcase league back to its 6 canonical
+    managers and roll the season to BEFORE GW3 (GW1 + GW2 finalized).
+
+    - Deletes every non-canonical member + their squad / lineups / wishlist bids
+      (the legacy u_mk_* AI bots and any stray real joiners). The 6 canonical
+      managers' squads are KEPT untouched.
+    - Drops malformed wc_players docs (no position) — the "UNDEFINED" pool junk.
+    - Clears the knockout bracket + GW>=3 scores/history, writes a fresh
+      6-manager H2H schedule, and re-finalizes GW1 then GW2 so scores + standings
+      are clean for exactly the 6. Lands at currentGw=3, group_phase.
+    Idempotent. Gated to simulated leagues + authenticated callers."""
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    from .game.wc_scoring import finalize_gw
+
+    league_ref = _db.collection("leagues").document(lid)
+    keep = set(MOCK_CANONICAL_ROSTER)
+    summary = {"removedMembers": [], "junkPlayersDeleted": 0,
+               "finalized": [], "finalizeErrors": {}}
+
+    # 1. Remove non-canonical members + their squads.
+    for m in league_ref.collection("members").get():
+        if m.id in keep:
+            continue
+        summary["removedMembers"].append(m.id)
+        m.reference.delete()
+        sq = league_ref.collection("squads").document(m.id)
+        if sq.get().exists:
+            sq.delete()
+    # ...and their lineups / wishlist bids (doc id is "{uid}_{gw}").
+    for coll in ("lineups", "wishlist_bids"):
+        for d in league_ref.collection(coll).get():
+            if d.id.rsplit("_", 1)[0] not in keep:
+                d.reference.delete()
+
+    # 2. Drop malformed player-pool docs (no position == not a real player).
+    for d in _db.collection("wc_players").get():
+        if (d.to_dict() or {}).get("position") is None:
+            d.reference.delete()
+            summary["junkPlayersDeleted"] += 1
+
+    # 3. Wipe knockout + GW>=3 scores/history + standings (recomputed below).
+    for k in league_ref.collection("knockout").get():
+        k.reference.delete()
+    for coll in ("scores", "gw_history", "wishlist_results"):
+        for d in league_ref.collection(coll).get():
+            try:
+                g = int(d.id)
+            except (TypeError, ValueError):
+                g = None
+            if g is None or g >= 3:
+                d.reference.delete()
+    for st in league_ref.collection("standings").get():
+        st.reference.delete()
+
+    # 4. Fresh 6-manager H2H schedule for GW1-3 (deterministic order).
+    order = [u for u in MOCK_CANONICAL_ROSTER]
+    for gw, pairs in _round_robin(order, 3).items():
+        league_ref.collection("schedule").document(str(gw)).set(
+            {"gw": gw, "matches": [{"home": h, "away": a} for h, a in pairs]})
+
+    # 5. Ensure each canonical manager has a GW1 & GW2 lineup (derive from their
+    #    current squad if missing) so the re-finalize can score them.
+    present = {m.id for m in league_ref.collection("members").get()}
+    summary["members"] = sorted(present)
+    for uid in present:
+        sqd = league_ref.collection("squads").document(uid).get()
+        if not sqd.exists:
+            continue
+        rich = [{"playerId": p["playerId"], "position": p["position"]}
+                for p in (sqd.to_dict() or {}).get("players", [])]
+        for gw in (1, 2):
+            ln_ref = league_ref.collection("lineups").document(f"{uid}_{gw}")
+            if not ln_ref.get().exists and rich:
+                ln_ref.set(select_lineup(rich))
+
+    # 6. League back to a 6-manager group phase before GW3.
+    league_ref.update({
+        "status": "group_phase", "currentGw": 1,
+        "leaguePhaseGws": [1, 2, 3], "knockoutStartGw": 4,
+        "knockoutQualifiers": 4, "maxMembers": 6,
+        "windowOverride": firestore.DELETE_FIELD,
+    })
+
+    # 7. Re-finalize GW1 then GW2 → clean scores/standings for the 6; advances
+    #    currentGw to 3. Each finalize is best-effort so one bad GW can't half-
+    #    abort the reset.
+    for gw in (1, 2):
+        try:
+            finalize_gw(lid, gw, _db, _wc)
+            summary["finalized"].append(gw)
+        except Exception as exc:
+            summary["finalizeErrors"][gw] = str(exc)
+
+    # 8. Force the final "before GW3" state regardless of finalize side-effects.
+    league_ref.update({"currentGw": 3, "status": "group_phase"})
+    summary["currentGw"] = 3
+    return _ok(summary)
 
 
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
