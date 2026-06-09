@@ -2102,6 +2102,34 @@ def admin_align_to_fifa(lid: str):
     return _ok(summary)
 
 
+@wc_bp.route("/admin/leagues/<lid>/clear-history", methods=["POST"])
+def admin_clear_history(lid: str):
+    """MOCK-ONLY: wipe the transfer/trade/wishlist HISTORY (all reset/seed/demo
+    artifacts that no longer reflect real activity). Deletes every doc in the
+    league's ``transactions``, ``wishlist_results`` and ``trades`` collections —
+    the exact sources the History tab reads. Squads, lineups, scores, standings,
+    gw_history and current pending ``wishlist_bids`` are NOT touched, and the
+    write paths are unchanged, so any NEW trade / wishlist claim records cleanly
+    from here on. Snapshots the cleared docs to ``wc_config/history_backup``
+    first. Idempotent. Gated to simulated leagues + authenticated callers.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    league_ref = _db.collection("leagues").document(lid)
+    colls = ["transactions", "wishlist_results", "trades"]
+    backup = {"ts": SERVER_TIMESTAMP, "lid": lid}
+    summary = {"deleted": {}}
+    for c in colls:
+        docs = list(league_ref.collection(c).get())
+        backup[c] = [{"id": d.id, **(d.to_dict() or {})} for d in docs]
+        for d in docs:
+            d.reference.delete()
+        summary["deleted"][c] = len(docs)
+    _db.collection("wc_config").document("history_backup").set(backup)
+    return _ok(summary)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()
