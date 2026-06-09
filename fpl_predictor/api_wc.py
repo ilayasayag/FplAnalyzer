@@ -145,7 +145,11 @@ DEFAULT_RULES = {
         "ownGoalPoints": -2,
         "penaltyMissPoints": -2,
         "penaltySavePoints": 5,
-        "savesPerPointGk": 3
+        "savesPerPointGk": 3,
+        "defConPoints": 2,
+        "defConThresholdDef": 10,
+        "defConThresholdMid": 12,
+        "bonusByRatingRank": [3, 2, 1]
     },
     "squadLimit": {
         "totalPlayers": 15,
@@ -276,15 +280,105 @@ def get_player(player_id: int):
 
 @wc_bp.route("/players/<int:player_id>/scores", methods=["GET"])
 def get_player_scores(player_id: int):
-    docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
-    scores = [d.to_dict() for d in docs]
-    scores.sort(key=lambda x: x.get("gw", 0))
+    # Collection-group query needs a composite index; before any match is scored
+    # the collection group may not exist yet. Either case should surface as an
+    # empty list (benign "no match data yet" empty-state in the modal), NOT a 500
+    # that the client renders as an error (GAP-502).
+    try:
+        docs = _db.collection_group("playerScores").where("playerId", "==", player_id).get()
+    except Exception as exc:
+        print(f"[warn] player scores query failed for {player_id}: {exc}")
+        return _ok([])
+
+    # Resolve the player's own team so we can name the OPPONENT for each GW
+    # (VT-106 #47): the opponent is whichever side of the parent fixture is NOT
+    # the player's team. Reading the parent fixture also lets us (a) drop orphaned
+    # playerScores whose fixture was deleted and (b) collapse to one row per GW
+    # (a player features in at most one fixture per GW) — both kill the duplicate
+    # GW1 rows the modal History tab showed.
+    player_doc = _db.collection("wc_players").document(str(player_id)).get()
+    pdata = player_doc.to_dict() or {}
+    own_team_id = pdata.get("teamId")
+    own_iso = (pdata.get("teamIso") or "").strip().upper()
+    team_map = _wc.get_team_map(_db)
+
+    def _iso_of(side):
+        iso = (side.get("isoCode") or "").strip().upper()
+        if not iso and side.get("id") is not None:
+            resolved = team_map.get(int(side["id"]))
+            iso = _team_display_iso(resolved) if resolved else ""
+        return iso
+
+    by_gw = {}
+    for d in docs:
+        rec = d.to_dict()
+        fix_ref = d.reference.parent.parent  # playerScores/{pid} -> wc_fixtures/{fid}
+        fix_doc = fix_ref.get() if fix_ref is not None else None
+        if not (fix_doc and fix_doc.exists):
+            continue  # orphan score (fixture deleted) — skip
+        fix = fix_doc.to_dict() or {}
+        gw = rec.get("gw", fix.get("gw"))
+        home = fix.get("homeTeam") or {}
+        away = fix.get("awayTeam") or {}
+        home_iso, away_iso = _iso_of(home), _iso_of(away)
+        # Identify the player's own side by team id first, then iso. Legacy
+        # fixtures drifted the numeric teamId but kept the isoCode, so the id
+        # match alone misses them; the iso fallback recovers the opponent.
+        opp = None
+        if own_team_id is not None and home.get("id") == own_team_id:
+            opp = away_iso
+        elif own_team_id is not None and away.get("id") == own_team_id:
+            opp = home_iso
+        elif own_iso and home_iso == own_iso:
+            opp = away_iso
+        elif own_iso and away_iso == own_iso:
+            opp = home_iso
+        if opp:
+            rec["opponent"] = opp
+        # One row per GW. Prefer a row whose opponent resolved over one that
+        # didn't — legacy duplicate fixtures can put the same player in two GW
+        # docs, only one of which has a reconcilable team id/iso.
+        prev = by_gw.get(gw)
+        if prev is None or (not prev.get("opponent") and rec.get("opponent")):
+            by_gw[gw] = rec
+
+    scores = sorted(by_gw.values(), key=lambda x: (x.get("gw") or 0))
     return _ok(scores)
 
 
 # ---------------------------------------------------------------------------
 # §2 — Fixtures
 # ---------------------------------------------------------------------------
+
+def _team_display_iso(team: dict) -> str:
+    """The key the frontend uses to match a team: uppercased isoCode, falling
+    back to short_name, then the numeric team id as a string. Mirrors the
+    frontend's normalizeIso(p.teamIso || p.teamShort || String(p.teamId))."""
+    if not team:
+        return ""
+    iso = (team.get("isoCode") or team.get("short_name") or "").strip()
+    if not iso:
+        tid = team.get("id")
+        iso = str(tid) if tid is not None else ""
+    return iso.upper()
+
+
+def _enrich_fixtures_with_iso(fixtures: list, team_map: dict) -> list:
+    """Stored fixtures carry team ids but an empty isoCode (see sync_fixtures).
+    Resolve homeTeam/awayTeam isoCode from the team map so the client can key
+    fixtures by the same iso it uses for players. Pure + idempotent."""
+    for fx in fixtures or []:
+        for side in ("homeTeam", "awayTeam"):
+            t = fx.get(side)
+            if not isinstance(t, dict):
+                continue
+            if not (t.get("isoCode") or "").strip():
+                tid = t.get("id")
+                resolved = team_map.get(int(tid)) if tid is not None else None
+                if resolved:
+                    t["isoCode"] = _team_display_iso(resolved)
+    return fixtures
+
 
 @wc_bp.route("/fixtures", methods=["GET"])
 def list_fixtures():
@@ -294,6 +388,7 @@ def list_fixtures():
     else:
         docs = _db.collection("wc_fixtures").get()
         fixtures = [d.to_dict() for d in docs]
+    fixtures = _enrich_fixtures_with_iso(fixtures, _wc.get_team_map(_db))
     return _ok(fixtures)
 
 
@@ -640,7 +735,9 @@ def get_watchlist(lid: str):
     uid, err = _require_auth()
     if err:
         return err
-    doc = _db.collection("users").document(uid).collection("watchlists").document(lid).get()
+    doc = (_db.collection("leagues").document(lid)
+           .collection("draft").document("watchlists")
+           .collection(uid).document("list").get())
     players = doc.to_dict().get("playerIds", []) if doc.exists else []
     return _ok({"playerIds": players})
 
@@ -651,11 +748,13 @@ def update_watchlist(lid: str):
     if err:
         return err
     body = request.get_json(silent=True) or {}
-    player_ids = body.get("playerIds", [])
-    _db.collection("users").document(uid).collection("watchlists").document(lid).set({
-        "playerIds": player_ids,
-        "updatedAt": SERVER_TIMESTAMP
-    })
+    # Dedupe preserving order: a player may occupy only ONE watchlist position per
+    # manager (one player per pick slot; the same player can't sit in two slots).
+    player_ids = list(dict.fromkeys(body.get("playerIds", [])))
+    (_db.collection("leagues").document(lid)
+     .collection("draft").document("watchlists")
+     .collection(uid).document("list")
+     .set({"playerIds": player_ids, "updatedAt": SERVER_TIMESTAMP}))
     return _ok({"playerIds": player_ids})
 
 
@@ -793,6 +892,29 @@ def get_scores(lid: str, gw: int):
     return _ok({"leagueId": lid, "gw": gw, **doc.to_dict()})
 
 
+@wc_bp.route("/leagues/<lid>/gw-history/<uid>", methods=["GET"])
+def get_gw_history(lid: str, uid: str):
+    """Per-manager GW snapshot (lineup IDs joined to GW points). ``uid`` may
+    be the literal ``me`` to mean the caller. Requires ?gw=<int>."""
+    caller, err = _require_auth()
+    if err:
+        return err
+    if uid == "me":
+        uid = caller
+    gw_raw = request.args.get("gw")
+    if gw_raw is None:
+        return _err("gw query param required")
+    try:
+        gw = int(gw_raw)
+    except (TypeError, ValueError):
+        return _err("gw must be an integer")
+    doc = (_db.collection("leagues").document(lid)
+           .collection("gw_history").document(f"{uid}_{gw}").get())
+    if not doc.exists:
+        return _err("gw_history not found", 404)
+    return _ok({"leagueId": lid, **doc.to_dict()})
+
+
 @wc_bp.route("/leagues/<lid>/standings", methods=["GET"])
 def get_standings(lid: str):
     uid, err = _require_auth()
@@ -869,14 +991,24 @@ def set_window_override(lid: str):
     Body ``{phase, gw}``. ``phase`` of None/""/"auto" clears the override and
     returns to the time-based fixture-clock logic. A valid phase forces that
     window. Echoes the resolved effective window so the client can update.
+
+    Admin-only on real leagues; on ``simulated`` (mock) leagues any authenticated
+    member can flip the window so the showcase window-switcher works.
     """
-    uid, err = _require_admin()
+    uid, err = _require_auth()
     if err:
         return err
+    league_ref = _db.collection("leagues").document(lid)
+    league_snap = league_ref.get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    if not (league_snap.to_dict() or {}).get("simulated"):
+        _, admin_err = _require_admin()
+        if admin_err:
+            return admin_err
     body = request.get_json(silent=True) or {}
     phase = body.get("phase")
     gw = body.get("gw")
-    league_ref = _db.collection("leagues").document(lid)
     if phase in (None, "", "auto"):
         league_ref.update({"windowOverride": firestore.DELETE_FIELD})
     elif phase in {"none", "trade", "free_agents", "next_gw_bid"}:
@@ -1165,6 +1297,21 @@ def get_transactions(lid: str):
     return _ok(txns)
 
 
+@wc_bp.route("/leagues/<lid>/wishlist-results", methods=["GET"])
+def get_wishlist_results(lid: str):
+    """Durable per-GW wishlist-auction records (ordered bids + claimed/cancelled
+    outcome per manager). Survives the bids being deleted at auction time, so
+    the wishlist history is viewable after the fact. Newest GW first."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    docs = (_db.collection("leagues").document(lid)
+            .collection("wishlist_results").get())
+    out = [d.to_dict() for d in docs]
+    out.sort(key=lambda r: r.get("gw", 0), reverse=True)
+    return _ok({"results": out})
+
+
 # ---------------------------------------------------------------------------
 # §14 — Admin / background operations
 # ---------------------------------------------------------------------------
@@ -1276,6 +1423,80 @@ def admin_finalize_gw(lid: str, gw: int):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/simulate", methods=["POST"])
+def admin_simulate_tournament(lid: str):
+    """Generate a random World Cup for ``lid`` and drive it through the real
+    scoring engine. Body (all optional JSON):
+      ``seed``     int  — RNG seed for reproducible runs.
+      ``startGw``  int  — first GW to generate (default 1).
+      ``endGw``    int  — last GW to generate  (default 8).
+      ``reset``    bool — wipe prior fixtures/scores first (default true).
+
+    Returns the per-GW summary + the persisted tournament export. This is the
+    "forward" generator; backward navigation just reads the per-GW snapshots
+    that every finalized GW already writes.
+    """
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import simulate_tournament
+    body = request.get_json(silent=True) or {}
+    try:
+        result = simulate_tournament(
+            _db, lid,
+            seed=body.get("seed"),
+            start_gw=int(body.get("startGw", 1)),
+            end_gw=int(body.get("endGw", 8)),
+            reset=bool(body.get("reset", True)),
+            wc_client=_wc,
+        )
+        # Keep the response light — the full export is persisted in Firestore.
+        return _ok({"league": lid, "gws": result["gws"],
+                    "managers": result["export"].get("managers", {})})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/simulate-gw", methods=["POST"])
+def admin_simulate_one_gw(lid: str):
+    """Generate + score + finalize a SINGLE gameweek (the "play next week"
+    button). Body (optional JSON): ``gw`` (defaults to the league's currentGw),
+    ``seed`` (reproducible RNG). Returns the GW summary + new currentGw so the
+    client can advance week-by-week."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import simulate_one_gw
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = body.get("gw")
+        result = simulate_one_gw(
+            _db, lid,
+            gw=int(gw) if gw is not None else None,
+            seed=body.get("seed"),
+            wc_client=_wc,
+        )
+        return _ok(result)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/sim-reset", methods=["POST"])
+def admin_sim_reset(lid: str):
+    """Wipe the league's simulation state back to a fresh GW1 (deletes fixtures
+    + playerScores, resets player/team flags, clears scores/standings/history/
+    lineups/knockout/windows). Members, squads and the H2H schedule survive."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    from .seed.wc_simulator import reset_simulation
+    try:
+        reset_simulation(_db, lid)
+        return _ok({"league": lid, "currentGw": 1, "status": "group_phase"})
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
 @wc_bp.route("/admin/leagues/<lid>/process-waivers/<int:window_number>", methods=["POST"])
 def admin_process_waivers(lid: str, window_number: int):
     uid, err = _require_auth()
@@ -1327,6 +1548,54 @@ def admin_open_trade_window(lid: str, gw: int):
         return _err(str(exc), 500)
 
 
+@wc_bp.route("/admin/leagues/<lid>/run-mock-wishlist", methods=["POST"])
+def admin_run_mock_wishlist(lid: str):
+    """MOCK ONLY: demo the wishlist auction end-to-end in one click.
+
+    Opens the FREE_AGENTS window (closing the trade window), auto-fills 1-3
+    wishlist bids for every manager EXCEPT the caller/viewed manager (top free
+    agents in, their worst players out — same position), then resolves the
+    auction so squads actually change. Gated to ``simulated`` leagues so it can
+    never touch the real league.
+
+    Body: ``{gw?, excludeUid?}``. ``excludeUid`` (the manager running it) keeps
+    their own real bids; defaults to the authenticated uid.
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    league_snap = _db.collection("leagues").document(lid).get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    ld = league_snap.to_dict() or {}
+    if not ld.get("simulated"):
+        return _err("MOCK_ONLY: this endpoint only runs on simulated leagues", 403)
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = int(body.get("gw") or ld.get("currentGw") or 1)
+    except (TypeError, ValueError):
+        gw = int(ld.get("currentGw") or 1)
+    exclude_uid = body.get("excludeUid") or uid
+    try:
+        mock = _wishlist_mgr.generate_mock_bids(lid, gw, exclude_uid=exclude_uid)
+        # Open the FREE_AGENTS window (closes the trade window) so the page
+        # re-renders into the free-agent phase. current_window honours this.
+        _db.collection("leagues").document(lid).update(
+            {"windowOverride": {"phase": "free_agents", "gw": gw}})
+        try:
+            deferred = _trade_mgr.process_deferred_trades(lid, gw)
+        except Exception:
+            deferred = {"skipped": True}
+        auction = _wishlist_mgr.run_auction(lid, gw)
+        return _ok({
+            "gw": gw,
+            "mockBidsGenerated": mock,
+            "deferredTrades": deferred,
+            "wishlistAuction": auction,
+            "window": {"phase": "free_agents", "gw": gw},
+        })
+    except Exception as exc:
+        return _err(str(exc), 500)
 @wc_bp.route("/admin/detect-eliminations", methods=["POST"])
 def admin_detect_eliminations():
     uid, err = _require_auth()

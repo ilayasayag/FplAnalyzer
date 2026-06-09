@@ -11,7 +11,11 @@ const _firebaseConfig = {
 };
 
 firebase.initializeApp(_firebaseConfig);
-const _db   = firebase.firestore();
+// Use the named "gamedb" database — the real data lives there, NOT in
+// "(default)" (which is empty in prod). The backend admin SDK already targets
+// gamedb; the client must match or standings/scores/draft snapshots come back
+// empty. The emulator also serves gamedb as its canonical store.
+const _db   = firebase.app().firestore("gamedb");
 const _auth = firebase.auth();
 
 // Point to local emulators when running on localhost unless production override is set
@@ -31,7 +35,12 @@ if ((window.location.hostname === "localhost" || window.location.hostname === "1
 // idempotent GET/HEAD requests so a flaky POST/PUT/PATCH/DELETE can never be
 // silently double-applied. HTTP error responses (4xx/5xx) are NOT retried —
 // they carry a real status and are thrown straight to the caller.
-async function apiCall(method, path, body, _attempt = 0) {
+async function apiCall(method, path, body, opts = {}) {
+  // opts: { timeoutMs?, _attempt? }. Back-compat: callers passing only 3 args
+  // get the 12s default. Slow admin operations (e.g. the mock GW simulator,
+  // which runs synchronously server-side for ~30-50s) pass a longer timeoutMs
+  // so the fetch isn't aborted before the server finishes.
+  const _attempt = opts._attempt || 0;
   const user = _auth.currentUser;
   const headers = {
     "Content-Type": "application/json",
@@ -55,7 +64,7 @@ async function apiCall(method, path, body, _attempt = 0) {
     : "";
 
   const MAX_RETRIES = 2;
-  const TIMEOUT_MS = 12000;
+  const TIMEOUT_MS = opts.timeoutMs || 12000;
   const isIdempotent = method === "GET" || method === "HEAD";
 
   const controller = new AbortController();
@@ -74,7 +83,7 @@ async function apiCall(method, path, body, _attempt = 0) {
     clearTimeout(timer);
     if (isIdempotent && _attempt < MAX_RETRIES) {
       await new Promise(r => setTimeout(r, 400 * (_attempt + 1)));
-      return apiCall(method, path, body, _attempt + 1);
+      return apiCall(method, path, body, { ...opts, _attempt: _attempt + 1 });
     }
     throw err;
   } finally {

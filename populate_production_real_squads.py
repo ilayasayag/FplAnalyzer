@@ -61,14 +61,71 @@ for lid in ["lg_mock_draft", "lg_pre_draft"]:
 seed_everything(db, USER_UID, USER_NAME)
 
 # Restore preserved real-user memberships into the freshly-seeded mock league.
-# Source a fallback squad (u_roy is the "real user" slot in the mock draft).
+#
+# IMPORTANT: do NOT clone another manager's squad as a fallback. The old code
+# copied u_roy's squad onto every preserved user who lacked a saved squad,
+# which produced several managers sharing an identical 15-man squad (broke the
+# propose-trade UI and trade execution — see dedup_squads_migration.py). Each
+# restored user now gets a DISJOINT squad drawn from the unowned player pool,
+# and any previously-saved squad that overlaps existing ownership is rebuilt.
+import json as _json
+
+_seeded_path = os.path.join(
+    os.path.dirname(os.path.abspath(__file__)),
+    "fpl_predictor", "data", "wc_seeded_data.json",
+)
+with open(_seeded_path, "r", encoding="utf-8") as _f:
+    _ALL_PLAYERS = _json.load(_f).get("players", [])
+
+_NEED = {1: 2, 2: 5, 3: 5, 4: 3}  # GK / DEF / MID / FWD
+
+
+def _current_owned_ids():
+    owned = set()
+    for sdoc in mock_ref.collection("squads").get():
+        for p in (sdoc.to_dict() or {}).get("players", []):
+            owned.add(int(p["playerId"]))
+    return owned
+
+
+def _build_disjoint_squad(owned):
+    avail = [p for p in _ALL_PLAYERS
+             if int(p["id"]) not in owned and not p.get("eliminated")]
+    avail.sort(key=lambda p: (p.get("draftRank", 999), int(p["id"])))
+    squad_list = []
+    for pos, n in _NEED.items():
+        chosen = [p for p in avail if int(p["position"]) == pos][:n]
+        if len(chosen) < n:
+            raise RuntimeError(f"not enough free players for position {pos}")
+        for p in chosen:
+            squad_list.append({
+                "playerId": int(p["id"]),
+                "draftedRound": (len(squad_list) // 8) + 1,
+                "position": int(p["position"]),
+                "name": p["name"],
+                "positionName": p["positionName"],
+                "teamIso": p.get("teamIso", ""),
+                "eliminated": False,
+                "teamId": p.get("teamId", 0),
+                "teamName": p.get("teamName", ""),
+            })
+    return squad_list
+
+
 print("♻️  Restoring real-user memberships to lg_mock_draft...")
-fallback_squad = mock_ref.collection("squads").document("u_roy").get()
-fallback_squad_data = fallback_squad.to_dict() if fallback_squad.exists else {"players": []}
 for uid, member_data in saved_members.items():
     mock_ref.collection("members").document(uid).set(member_data)
-    squad_data = saved_squads.get(uid, fallback_squad_data)
+    owned = _current_owned_ids()  # re-read each loop so users stay disjoint
+    saved = saved_squads.get(uid) or {}
+    saved_players = saved.get("players") or []
+    saved_ids = {int(p["playerId"]) for p in saved_players}
+    if saved_players and not (saved_ids & owned):
+        squad_data = {"players": saved_players}        # disjoint — keep as-is
+        note = "kept saved squad"
+    else:
+        squad_data = {"players": _build_disjoint_squad(owned)}  # rebuild fresh
+        note = "missing/overlapping squad — rebuilt disjoint"
     mock_ref.collection("squads").document(uid).set(squad_data)
-    print(f"  Restored {member_data.get('displayName', uid)} ({uid})")
+    print(f"  Restored {member_data.get('displayName', uid)} ({uid}) — {note}")
 
 print("\n✨ ALL PRODUCTION SEEDING PROCEDURES COMPLETED SUCCESSFULLY!")

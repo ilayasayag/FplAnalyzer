@@ -1,19 +1,21 @@
 #!/usr/bin/env python3
 """Unit tests for the WC 2026 transfer-window state machine (wc_windows.py).
 
-These are PURE unit tests — no Firestore emulator needed. They exercise
-``current_window`` / ``compute_window_boundaries`` directly with synthetic
-fixture dicts, plus the rewired ``is_transfer_window_open`` wrapper.
+T0-anchored timeline (T0 = the upcoming GW's first kickoff), per the league spec:
 
-Run:
-    .venv/bin/python -m pytest test_wc_windows.py -q
+  * OFFER-TRADES (NEXT_GW_BID): T0 .. (this GW's last match end + reopen_h).
+    The GW is live — managers may offer trades + edit their bid-wishlist, but
+    squads are frozen.
+  * TRADE: (prev GW last match end + reopen_h) .. (T0 - fa_open_before_h).
+    Execute manager↔manager trades; squads change.
+  * FREE_AGENTS: (T0 - fa_open_before_h) .. (T0 - squad_lock_before_h).
+    Free-agent pickups (+ the wishlist/waiver draft runs when this opens).
+  * NONE (locked): (T0 - squad_lock_before_h) .. T0. Squads + XI locked.
 
-Acceptance criteria covered (WC2026_WINDOWS_DESIGN.md §8 PR 2):
-  * the three windows occur in order and exactly one (or NONE) is open;
-  * GW1's window opens (off-by-one regression);
-  * short-turnaround guard: when Tprev_end + trade_h + fa_h > T0, windows
-    compress and none closes after T0;
-  * boundary instants (exactly at open/close).
+Defaults: fa_open_before = 5h, squad_lock_before = 1h, reopen_after = 1h,
+match_duration = 150 min.
+
+Run:  .venv/bin/python -m pytest test_wc_windows.py -q
 """
 
 import os
@@ -25,9 +27,10 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from fpl_predictor.game.wc_windows import (  # noqa: E402
-    DEFAULT_FREE_AGENT_WINDOW_HOURS,
+    DEFAULT_FA_OPEN_BEFORE_HOURS,
     DEFAULT_MATCH_DURATION_MINUTES,
-    DEFAULT_TRADE_WINDOW_HOURS,
+    DEFAULT_SQUAD_LOCK_BEFORE_HOURS,
+    DEFAULT_TRADE_REOPEN_AFTER_HOURS,
     TransferWindow,
     compute_window_boundaries,
     current_window,
@@ -35,11 +38,7 @@ from fpl_predictor.game.wc_windows import (  # noqa: E402
 )
 
 
-# ---------------------------------------------------------------------------
-# Helpers
-# ---------------------------------------------------------------------------
-
-def _fx(kickoff: datetime, gw: int = 2):
+def _fx(kickoff, gw=2):
     return {"kickoff": kickoff, "gw": gw}
 
 
@@ -47,238 +46,132 @@ def _utc(y, mo, d, h=0, mi=0):
     return datetime(y, mo, d, h, mi, tzinfo=timezone.utc)
 
 
-# A comfortable scenario: previous GW last kickoff far enough before T0 that
-# the full 5h + 5h windows fit with NEXT_GW_BID time to spare.
-#   prev last kickoff = day1 12:00 -> Tprev_end = 14:30 (+150min)
-#   upcoming first kickoff (T0)    = day2 12:00
+# Scenario:
+#   prev GW last kickoff = 16 Jun 12:00 -> end 14:30 -> trade reopens 15:30 (16 Jun)
+#   upcoming GW: first kickoff (T0) = 17 Jun 12:00, last kickoff = 17 Jun 18:00
+#                -> offer_close = 18:00 + 2:30 + 1:00 = 21:30 (17 Jun)
+#   fa_open    = T0 - 5h = 07:00 (17 Jun);  squad_lock = T0 - 1h = 11:00 (17 Jun)
 PREV_KO = _utc(2026, 6, 16, 12, 0)
 T0 = _utc(2026, 6, 17, 12, 0)
+UP_LAST = _utc(2026, 6, 17, 18, 0)
 PREV_FX = [_fx(PREV_KO, gw=1), _fx(_utc(2026, 6, 16, 9, 0), gw=1)]
-UP_FX = [_fx(T0, gw=2), _fx(_utc(2026, 6, 17, 18, 0), gw=2)]
-CONFIG = {"trade_window_hours": 5, "free_agent_window_hours": 5,
-          "match_duration_minutes": 150}
+UP_FX = [_fx(T0, gw=2), _fx(UP_LAST, gw=2)]
+CONFIG = {"fa_open_before_hours": 5, "squad_lock_before_hours": 1,
+          "trade_reopen_after_hours": 1, "match_duration_minutes": 150}
 
 
-def _tprev_end():
-    return PREV_KO + timedelta(minutes=150)
+def _win(now):
+    return current_window(None, UP_FX, CONFIG, now=now,
+                          prev_fixtures=PREV_FX, upcoming_gw=2)[0]
 
 
 # ---------------------------------------------------------------------------
-# Config defaults
+# Config
 # ---------------------------------------------------------------------------
 
 def test_resolve_durations_defaults_when_empty():
-    trade_h, fa_h, match_min = resolve_durations(None)
-    assert trade_h == DEFAULT_TRADE_WINDOW_HOURS == 5
-    assert fa_h == DEFAULT_FREE_AGENT_WINDOW_HOURS == 5
-    assert match_min == DEFAULT_MATCH_DURATION_MINUTES == 150
+    fa, sq, re_, mm = resolve_durations(None)
+    assert (fa, sq, re_, mm) == (5.0, 1.0, 1.0, 150.0)
+    assert DEFAULT_FA_OPEN_BEFORE_HOURS == 5
+    assert DEFAULT_SQUAD_LOCK_BEFORE_HOURS == 1
+    assert DEFAULT_TRADE_REOPEN_AFTER_HOURS == 1
+    assert DEFAULT_MATCH_DURATION_MINUTES == 150
 
 
 def test_resolve_durations_reads_config():
-    trade_h, fa_h, match_min = resolve_durations(
-        {"trade_window_hours": 3, "free_agent_window_hours": 2,
-         "match_duration_minutes": 120})
-    assert (trade_h, fa_h, match_min) == (3.0, 2.0, 120.0)
+    assert resolve_durations({
+        "fa_open_before_hours": 6, "squad_lock_before_hours": 2,
+        "trade_reopen_after_hours": 3, "match_duration_minutes": 120,
+    }) == (6.0, 2.0, 3.0, 120.0)
 
 
 # ---------------------------------------------------------------------------
-# Ordering / exactly-one-open
-# ---------------------------------------------------------------------------
-
-def _win(now):
-    w, gw = current_window(None, UP_FX, CONFIG, now=now,
-                           prev_fixtures=PREV_FX, upcoming_gw=2)
-    return w, gw
-
-
-def test_windows_occur_in_order_and_exactly_one_open():
-    tprev = _tprev_end()                       # 14:30 day1
-    trade_close = tprev + timedelta(hours=5)   # 19:30 day1
-    fa_close = trade_close + timedelta(hours=5)  # 00:30 day2
-
-    # Before Tprev_end -> NONE
-    assert _win(tprev - timedelta(minutes=1))[0] == TransferWindow.NONE
-    # In TRADE
-    assert _win(tprev + timedelta(hours=1))[0] == TransferWindow.TRADE
-    # In FREE_AGENTS
-    assert _win(trade_close + timedelta(hours=1))[0] == TransferWindow.FREE_AGENTS
-    # In NEXT_GW_BID
-    assert _win(fa_close + timedelta(hours=1))[0] == TransferWindow.NEXT_GW_BID
-    # At/after T0 (lock) -> NONE
-    assert _win(T0)[0] == TransferWindow.NONE
-    assert _win(T0 + timedelta(hours=1))[0] == TransferWindow.NONE
-
-
-def test_returns_upcoming_gw():
-    w, gw = _win(_tprev_end() + timedelta(hours=1))
-    assert gw == 2
-
-
-def test_only_one_window_active_across_a_sweep():
-    """Sweep every 10 minutes across the runway; never two phases at once
-    (trivially true since current_window returns a single value, but this also
-    asserts the *sequence* is monotonic: NONE -> TRADE -> FREE_AGENTS ->
-    NEXT_GW_BID -> NONE with no regressions)."""
-    order = [TransferWindow.NONE, TransferWindow.TRADE, TransferWindow.FREE_AGENTS,
-             TransferWindow.NEXT_GW_BID, TransferWindow.NONE]
-    seen_idx = 0
-    t = _tprev_end() - timedelta(hours=2)
-    end = T0 + timedelta(hours=1)
-    while t <= end:
-        w = _win(t)[0]
-        # find w in order at or after current position
-        idx = order.index(w, seen_idx) if w in order[seen_idx:] else order.index(w)
-        assert idx >= seen_idx, f"phase regressed to {w} at {t}"
-        seen_idx = idx
-        t += timedelta(minutes=10)
-    assert seen_idx == len(order) - 1  # ended back at NONE
-
-
-# ---------------------------------------------------------------------------
-# Boundary instants (half-open intervals: open inclusive, close exclusive)
+# Boundary instants
 # ---------------------------------------------------------------------------
 
 def test_boundaries_exact_instants():
-    bounds = compute_window_boundaries(PREV_FX, UP_FX, CONFIG)
-    assert bounds["trade_open"] == _tprev_end()
-    assert bounds["trade_close"] == _tprev_end() + timedelta(hours=5)
-    assert bounds["fa_close"] == _tprev_end() + timedelta(hours=10)
-    assert bounds["t0"] == T0
-
-    # Exactly at trade_open -> TRADE (inclusive)
-    assert _win(bounds["trade_open"])[0] == TransferWindow.TRADE
-    # Exactly at trade_close -> FREE_AGENTS (close exclusive)
-    assert _win(bounds["trade_close"])[0] == TransferWindow.FREE_AGENTS
-    # Exactly at fa_close -> NEXT_GW_BID
-    assert _win(bounds["fa_close"])[0] == TransferWindow.NEXT_GW_BID
-    # Exactly at T0 -> NONE (lock, exclusive)
-    assert _win(bounds["t0"])[0] == TransferWindow.NONE
+    b = compute_window_boundaries(PREV_FX, UP_FX, CONFIG)
+    assert b["t0"] == T0
+    assert b["fa_open"] == T0 - timedelta(hours=5)        # 17 Jun 07:00
+    assert b["squad_lock"] == T0 - timedelta(hours=1)     # 17 Jun 11:00
+    assert b["trade_open"] == PREV_KO + timedelta(minutes=150) + timedelta(hours=1)  # 16 Jun 15:30
+    assert b["offer_close"] == UP_LAST + timedelta(minutes=150) + timedelta(hours=1)  # 17 Jun 21:30
 
 
 # ---------------------------------------------------------------------------
-# GW1 off-by-one regression
+# Pre-GW phase sequence (NEXT_GW_BID tail -> TRADE -> FREE_AGENTS -> NONE)
 # ---------------------------------------------------------------------------
 
-def test_gw1_window_opens_no_prev_fixtures():
-    """GW1 has no previous GW. The window must still open before GW1's lock."""
-    t0 = _utc(2026, 6, 11, 17, 0)  # GW1 lockAt from the calendar
-    up = [_fx(t0, gw=1)]
-    # With no prev fixtures, trade_open = T0 - (5+5)h = 07:00.
-    just_after_open = t0 - timedelta(hours=10) + timedelta(minutes=1)
-    w, gw = current_window(None, up, CONFIG, now=just_after_open,
-                           prev_fixtures=None, upcoming_gw=1)
-    assert w == TransferWindow.TRADE
-    assert gw == 1
-
-
-def test_is_transfer_window_open_gw1_regression():
-    """The rewired wrapper: GW1's window (passed as gw=0 by callers) must open.
-
-    Old behavior returned False for gw=0 forever. Now it delegates to
-    current_window for upcoming GW1.
-    """
-    from fpl_predictor.game.wc_gameweeks import is_transfer_window_open, get_lock_time
-
-    t0 = get_lock_time(1)  # GW1 lockAt
-    # 1 hour before lock -> some window must be open (NEXT_GW_BID by then).
-    assert is_transfer_window_open(0, now=t0 - timedelta(hours=1)) is True
-    # After lock -> closed.
-    assert is_transfer_window_open(0, now=t0 + timedelta(hours=1)) is False
-    # Long before any window -> closed.
-    assert is_transfer_window_open(0, now=t0 - timedelta(days=2)) is False
-
-
-def test_is_transfer_window_open_matches_current_window_for_gw2():
-    from fpl_predictor.game.wc_gameweeks import is_transfer_window_open, get_lock_time
-
-    t0_gw2 = get_lock_time(2)
-    # 30 min before GW2 lock -> a window is open.
-    assert is_transfer_window_open(1, now=t0_gw2 - timedelta(minutes=30)) is True
-    # After GW2 lock -> closed.
-    assert is_transfer_window_open(1, now=t0_gw2 + timedelta(minutes=1)) is False
+def test_pre_gw_phase_sequence():
+    b = compute_window_boundaries(PREV_FX, UP_FX, CONFIG)
+    # before trade reopens = still the previous GW's offer-trades tail
+    assert _win(b["trade_open"] - timedelta(minutes=1)) == TransferWindow.NEXT_GW_BID
+    # trade window
+    assert _win(b["trade_open"]) == TransferWindow.TRADE
+    assert _win(b["fa_open"] - timedelta(minutes=1)) == TransferWindow.TRADE
+    # free-agent window
+    assert _win(b["fa_open"]) == TransferWindow.FREE_AGENTS
+    assert _win(b["squad_lock"] - timedelta(minutes=1)) == TransferWindow.FREE_AGENTS
+    # locked
+    assert _win(b["squad_lock"]) == TransferWindow.NONE
+    assert _win(T0 - timedelta(minutes=1)) == TransferWindow.NONE
 
 
 # ---------------------------------------------------------------------------
-# Short-turnaround guard
+# Live GW: OFFER-TRADES, then trades reopen after the GW ends
 # ---------------------------------------------------------------------------
 
-def test_short_turnaround_compresses_and_never_overruns_t0():
-    """gap < trade_h + fa_h: both windows scale proportionally, fa_close <= T0,
-    and NEXT_GW_BID gets the remainder (here zero)."""
-    prev_ko = _utc(2026, 6, 16, 12, 0)        # Tprev_end = 14:30
-    t0 = prev_ko + timedelta(minutes=150) + timedelta(hours=4)  # gap = 4h < 10h
-    prev = [_fx(prev_ko, gw=1)]
-    up = [_fx(t0, gw=2)]
+def test_live_gw_offer_then_trade_reopen():
+    b = compute_window_boundaries(PREV_FX, UP_FX, CONFIG)
+    assert _win(T0) == TransferWindow.NEXT_GW_BID                       # at first kickoff
+    assert _win(b["offer_close"] - timedelta(minutes=1)) == TransferWindow.NEXT_GW_BID
+    assert _win(b["offer_close"]) == TransferWindow.TRADE              # trades reopen
+    assert _win(b["offer_close"] + timedelta(hours=2)) == TransferWindow.TRADE
 
-    bounds = compute_window_boundaries(prev, up, CONFIG)
-    tprev_end = prev_ko + timedelta(minutes=150)
-    gap = (t0 - tprev_end).total_seconds()
-    assert abs(gap - 4 * 3600) < 1
 
-    # trade:fa ratio stays 5:5 = 1:1, each gets 2h, summing to the 4h gap.
-    assert abs((bounds["trade_close"] - bounds["trade_open"]).total_seconds()
-               - 2 * 3600) < 1
-    assert abs((bounds["fa_close"] - bounds["trade_close"]).total_seconds()
-               - 2 * 3600) < 1
-    # No window closes after T0; NEXT_GW_BID window is zero-length here.
-    assert bounds["fa_close"] <= bounds["t0"]
-    assert bounds["fa_close"] == bounds["t0"]
+def test_returns_upcoming_gw():
+    _, gw = current_window(None, UP_FX, CONFIG, now=T0 - timedelta(hours=3),
+                           prev_fixtures=PREV_FX, upcoming_gw=2)
+    assert gw == 2
 
-    # Phases still ordered & none open after T0.
+
+# ---------------------------------------------------------------------------
+# GW1 (no previous GW): trades open from the start until the FA window
+# ---------------------------------------------------------------------------
+
+def test_gw1_no_prev_trade_open_from_start():
+    up = [_fx(T0, gw=1)]
+    b = compute_window_boundaries(None, up, CONFIG)
+    assert b["trade_open"] is None
+
     def win(now):
-        return current_window(None, up, CONFIG, now=now, prev_fixtures=prev,
-                              upcoming_gw=2)[0]
+        return current_window(None, up, CONFIG, now=now,
+                              prev_fixtures=None, upcoming_gw=1)[0]
 
-    assert win(tprev_end + timedelta(minutes=30)) == TransferWindow.TRADE
-    assert win(bounds["trade_close"] + timedelta(minutes=30)) == TransferWindow.FREE_AGENTS
-    assert win(t0) == TransferWindow.NONE
-    assert win(t0 + timedelta(minutes=1)) == TransferWindow.NONE
-
-
-def test_zero_gap_turnaround_no_window_opens():
-    """If Tprev_end >= T0 (lock already passed / overlap), nothing opens."""
-    prev_ko = _utc(2026, 6, 16, 12, 0)         # Tprev_end = 14:30
-    t0 = prev_ko + timedelta(minutes=150)       # gap = 0
-    prev = [_fx(prev_ko, gw=1)]
-    up = [_fx(t0, gw=2)]
-    bounds = compute_window_boundaries(prev, up, CONFIG)
-    assert bounds["trade_open"] == bounds["t0"]
-    # At exactly T0, lock is hit -> NONE.
-    w = current_window(None, up, CONFIG, now=t0, prev_fixtures=prev,
-                       upcoming_gw=2)[0]
-    assert w == TransferWindow.NONE
-
-
-def test_proportional_scaling_uneven_durations():
-    """Uneven trade/fa hours scale by the same factor, preserving the ratio."""
-    cfg = {"trade_window_hours": 6, "free_agent_window_hours": 2,
-           "match_duration_minutes": 150}
-    prev_ko = _utc(2026, 6, 16, 12, 0)
-    tprev_end = prev_ko + timedelta(minutes=150)
-    t0 = tprev_end + timedelta(hours=4)   # gap 4h vs requested 8h -> scale 0.5
-    prev = [_fx(prev_ko, gw=1)]
-    up = [_fx(t0, gw=2)]
-    bounds = compute_window_boundaries(prev, up, cfg)
-    assert abs((bounds["trade_close"] - bounds["trade_open"]).total_seconds()
-               - 3 * 3600) < 1   # 6h * 0.5
-    assert abs((bounds["fa_close"] - bounds["trade_close"]).total_seconds()
-               - 1 * 3600) < 1   # 2h * 0.5
-    assert bounds["fa_close"] <= bounds["t0"]
+    assert win(T0 - timedelta(hours=8)) == TransferWindow.TRADE          # well before
+    assert win(T0 - timedelta(hours=3)) == TransferWindow.FREE_AGENTS    # in FA window
+    assert win(T0 - timedelta(minutes=30)) == TransferWindow.NONE        # locked
+    assert win(T0) == TransferWindow.NEXT_GW_BID                         # live (offer)
 
 
 # ---------------------------------------------------------------------------
-# Edge cases
+# Guards / edges
 # ---------------------------------------------------------------------------
+
+def test_fa_open_never_after_squad_lock():
+    b = compute_window_boundaries(None, [_fx(T0)], CONFIG)
+    assert b["fa_open"] <= b["squad_lock"] <= b["t0"]
+
 
 def test_no_upcoming_fixtures_returns_none():
-    w, gw = current_window(None, [], CONFIG, now=_utc(2026, 6, 16, 12, 0),
-                           prev_fixtures=PREV_FX, upcoming_gw=2)
+    w, _ = current_window(None, [], CONFIG, now=T0,
+                          prev_fixtures=PREV_FX, upcoming_gw=2)
     assert w == TransferWindow.NONE
 
 
 def test_naive_now_is_treated_as_utc():
-    naive_now = datetime(2026, 6, 16, 15, 30)  # within TRADE (14:30-19:30)
-    w = current_window(None, UP_FX, CONFIG, now=naive_now,
+    naive = datetime(2026, 6, 16, 20, 0)  # within TRADE (15:30 16Jun .. 07:00 17Jun)
+    w = current_window(None, UP_FX, CONFIG, now=naive,
                        prev_fixtures=PREV_FX, upcoming_gw=2)[0]
     assert w == TransferWindow.TRADE
 
@@ -286,11 +179,70 @@ def test_naive_now_is_treated_as_utc():
 def test_iso_string_kickoffs_supported():
     up = [{"kickoff": "2026-06-17T12:00:00Z", "gw": 2}]
     prev = [{"kickoff": "2026-06-16T12:00:00+00:00", "gw": 1}]
-    bounds = compute_window_boundaries(prev, up, CONFIG)
-    assert bounds["t0"] == T0
-    assert bounds["trade_open"] == _tprev_end()
+    b = compute_window_boundaries(prev, up, CONFIG)
+    assert b["t0"] == T0
+    assert b["trade_open"] == _utc(2026, 6, 16, 12, 0) + timedelta(minutes=150) + timedelta(hours=1)
+
+
+# ---------------------------------------------------------------------------
+# is_transfer_window_open wrapper (delegates to current_window via the calendar)
+# ---------------------------------------------------------------------------
+
+def test_is_transfer_window_open_wrapper():
+    from fpl_predictor.game.wc_gameweeks import is_transfer_window_open, get_lock_time
+
+    t0 = get_lock_time(2)  # GW2 lockAt = T0
+    # In the FA window (T0-5h .. T0-1h) -> open.
+    assert is_transfer_window_open(1, now=t0 - timedelta(hours=3)) is True
+    # In the locked hour (T0-1h .. T0) -> closed.
+    assert is_transfer_window_open(1, now=t0 - timedelta(minutes=30)) is False
+    # Live GW just after kickoff -> OFFER window open.
+    assert is_transfer_window_open(1, now=t0 + timedelta(minutes=30)) is True
+
+
+def test_is_transfer_window_open_gw1():
+    from fpl_predictor.game.wc_gameweeks import is_transfer_window_open, get_lock_time
+
+    t0 = get_lock_time(1)  # GW1 lockAt
+    # GW1 has no prev -> trade open from the start; 3h before lock = FA window.
+    assert is_transfer_window_open(0, now=t0 - timedelta(hours=3)) is True
+    # Locked hour -> closed.
+    assert is_transfer_window_open(0, now=t0 - timedelta(minutes=30)) is False
 
 
 if __name__ == "__main__":
     import pytest
     raise SystemExit(pytest.main([__file__, "-q"]))
+
+
+# ---------------------------------------------------------------------------
+# Durable lineup lock (is_lineup_locked / lineup_lock_time, db-backed)
+# ---------------------------------------------------------------------------
+
+def _db_with_gw2():
+    import test_helpers as H
+    from fpl_predictor.game.wc_windows import lineup_lock_time, is_lineup_locked
+    db = H.FakeDB()
+    for fid, ko in [(2000, T0), (2001, UP_LAST)]:
+        db.collection("wc_fixtures").document(str(fid)).set(
+            {"id": fid, "gw": 2, "kickoff": ko})
+    return db, lineup_lock_time, is_lineup_locked
+
+
+def test_lineup_lock_time_is_t0_minus_1h():
+    db, lineup_lock_time, _ = _db_with_gw2()
+    assert lineup_lock_time(db, 2) == T0 - timedelta(hours=1)
+
+
+def test_is_lineup_locked_crosses_at_squad_lock():
+    db, _, is_lineup_locked = _db_with_gw2()
+    assert is_lineup_locked(db, 2, now=T0 - timedelta(hours=2)) is False  # FREE_AGENTS
+    assert is_lineup_locked(db, 2, now=T0 - timedelta(minutes=30)) is True  # locked
+    assert is_lineup_locked(db, 2, now=T0 + timedelta(hours=1)) is True   # live
+
+
+def test_is_lineup_locked_unlocked_when_no_kickoff():
+    import test_helpers as H
+    from fpl_predictor.game.wc_windows import is_lineup_locked
+    db = H.FakeDB()  # no fixtures for the GW at all
+    assert is_lineup_locked(db, 5, now=T0) is False

@@ -32,6 +32,15 @@ PENALTY_MISS_POINTS = -2
 PENALTY_SAVE_POINTS = 5    # GK only, in-play only
 SAVES_PER_POINT_GK  = 3   # 1 point per 3 in-play saves (GK only)
 
+# Defensive Contribution (DefCon): all-or-nothing award.
+# defCon = tackles.total + tackles.interceptions + tackles.blocks
+DEFCON_POINTS         = 2
+DEFCON_THRESHOLD_DEF  = 10  # DEF (position==2)
+DEFCON_THRESHOLD_MID  = 12  # MID (position==3)
+
+# Bonus by rating rank: top-3 by api-sports games.rating get 3/2/1.
+BONUS_BY_RATING_RANK = [3, 2, 1]
+
 VALID_FORMATIONS = [
     (1, 3, 5, 2), (1, 3, 4, 3), (1, 4, 5, 1),
     (1, 4, 4, 2), (1, 4, 3, 3), (1, 5, 4, 1),
@@ -49,10 +58,11 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
 
     stats keys (all default to 0/False if absent):
       minutes, goals, assists, saves, cleanSheet, goalsConceded,
-      yellowCards, redCards, penaltyMissed, penaltySaved, ownGoal, bps
+      yellowCards, redCards, penaltyMissed, penaltySaved, ownGoal,
+      tackles ({total, interceptions, blocks} for DefCon)
 
     Returns (base_points, bonus_points).
-    BPS bonus is computed separately via compute_bps_bonus().
+    Bonus is computed separately via compute_rating_bonus().
     """
     minutes = stats.get("minutes") or 0
     if minutes == 0:
@@ -87,6 +97,10 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
     penalty_miss_points = scoring_rules.get("penaltyMissPoints", PENALTY_MISS_POINTS)
     penalty_save_points = scoring_rules.get("penaltySavePoints", PENALTY_SAVE_POINTS)
     saves_per_point_gk = scoring_rules.get("savesPerPointGk", SAVES_PER_POINT_GK)
+
+    defcon_points = scoring_rules.get("defConPoints", DEFCON_POINTS)
+    defcon_threshold_def = scoring_rules.get("defConThresholdDef", DEFCON_THRESHOLD_DEF)
+    defcon_threshold_mid = scoring_rules.get("defConThresholdMid", DEFCON_THRESHOLD_MID)
 
     # Goals
     goals = stats.get("goals", 0) or 0
@@ -129,36 +143,53 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
         pen_saved = stats.get("penaltySaved", 0) or 0
         pts += pen_saved * penalty_save_points
 
+    # Defensive Contribution (DefCon): all-or-nothing.
+    # defCon = tackles.total + tackles.interceptions + tackles.blocks.
+    # DEF awarded at >= defcon_threshold_def, MID at >= defcon_threshold_mid.
+    # No award for GK (1) or FWD (4).
+    if position in (2, 3):
+        tackles = stats.get("tackles") or {}
+        def_con = ((tackles.get("total") or 0)
+                   + (tackles.get("interceptions") or 0)
+                   + (tackles.get("blocks") or 0))
+        threshold = defcon_threshold_def if position == 2 else defcon_threshold_mid
+        if def_con >= threshold:
+            pts += defcon_points
+
     return pts, 0  # bonus is added separately
 
 
 
-def compute_bps_bonus(player_bps_list: List[Tuple[int, int]]) -> Dict[int, int]:
+def compute_rating_bonus(rating_list: List[Tuple[int, float]]) -> Dict[int, int]:
     """
-    Award 3/2/1 bonus points to the top 3 BPS scorers in a fixture.
+    Award 3/2/1 bonus points to the top 3 players by api-sports games.rating
+    in a fixture. This is the ONE bonus award per fixture set.
 
-    player_bps_list: [(player_id, bps_score), ...]
+    rating_list: [(player_id, rating_float), ...]
     Returns: {player_id: bonus_points (3, 2, or 1)}
 
+    Players with no/zero rating get no bonus.
     Ties: both players at a tied rank receive the higher award.
     e.g. two players tied for 2nd both get 2pts; the 4th-place player gets 0.
     """
-    sorted_bps = sorted(player_bps_list, key=lambda x: -x[1])
+    # Drop players with no/zero rating (no bonus eligibility).
+    rated = [(pid, r) for pid, r in rating_list if r]
+    sorted_ratings = sorted(rated, key=lambda x: -x[1])
     bonuses: Dict[int, int] = {}
 
     award_map = {0: 3, 1: 2, 2: 1}  # rank (0-based) → bonus
 
     i = 0
     rank = 0
-    while i < len(sorted_bps) and rank < 3:
-        pid, bps_val = sorted_bps[i]
+    while i < len(sorted_ratings) and rank < 3:
+        pid, rating_val = sorted_ratings[i]
         bonus = award_map.get(rank, 0)
         bonuses[pid] = bonus
 
         # Advance through ties
         j = i + 1
-        while j < len(sorted_bps) and sorted_bps[j][1] == bps_val:
-            tied_pid = sorted_bps[j][0]
+        while j < len(sorted_ratings) and sorted_ratings[j][1] == rating_val:
+            tied_pid = sorted_ratings[j][0]
             bonuses[tied_pid] = bonus
             j += 1
 
@@ -239,8 +270,12 @@ def apply_auto_subs(
             test = starting.copy()
             test[i] = bench_pid
             if formation(test) in VALID_FORMATIONS:
+                # Swap: the bench player moves into the XI and the non-playing
+                # starter takes the bench slot (standard FPL auto-sub). Must NOT
+                # pop — that would drop the starter entirely and shrink the squad
+                # from 15 to 14 in the lineup/snapshot.
                 starting[i] = bench_pid
-                bench.pop(j)
+                bench[j] = pid
                 subs_made.append({"out": pid, "in": bench_pid})
                 break
 
@@ -256,21 +291,38 @@ def process_fixture(
     raw_stats: List[Dict],
     wc_client,
     db,
+    pos_map: Optional[Dict[int, int]] = None,
+    rules: Optional[Dict] = None,
 ) -> Dict[int, Dict]:
     """
     Compute and persist fantasy points for one completed fixture.
 
     raw_stats: response from wc_client.get_fixture_player_stats(fixture_id)
     Returns {player_id: {fantasyPoints, stats, bonusPoints}}.
+
+    ``pos_map`` (player_id -> position) and ``rules`` may be supplied by callers
+    that process many fixtures in a row (e.g. the tournament simulator) to avoid
+    re-reading the entire ``wc_players`` collection and the config doc on every
+    fixture. When omitted they are loaded from Firestore exactly as before, so
+    existing callers are unaffected.
     """
     # Build per-player stat dicts
     player_stats: Dict[int, Dict] = {}
-    bps_list: List[Tuple[int, int]] = []
+    rating_list: List[Tuple[int, float]] = []
 
     home_goals = 0
     away_goals = 0
 
     fixture_doc = db.collection("wc_fixtures").document(str(fixture_id)).get()
+
+    # Idempotency guard (EP2-W1/W3): a fixture already marked processedForFantasy
+    # must not be re-scored. Re-running would double-count both the per-player
+    # playerScores write AND the wc_players.totalPoints season Increment below,
+    # and would re-fire the league propagation increments. Early-return so every
+    # downstream Increment is fired at most once per fixture.
+    if fixture_doc.exists and fixture_doc.to_dict().get("processedForFantasy"):
+        return {}
+
     if fixture_doc.exists:
         score = fixture_doc.to_dict().get("score", {})
         home_goals = score.get("home") or 0
@@ -293,8 +345,10 @@ def process_fixture(
             goals = raw.get("goals", {})
             cards = raw.get("cards", {})
             penalty = raw.get("penalty", {})
+            tackles_raw = raw.get("tackles", {}) or {}
 
             minutes = games.get("minutes") or 0
+            rating = games.get("rating")
             goals_scored = goals.get("total") or 0
             assists = goals.get("assists") or 0
             saves = goals.get("saves") or 0
@@ -303,7 +357,12 @@ def process_fixture(
             red = cards.get("red") or 0
             pen_miss = penalty.get("missed") or 0
             pen_saved = penalty.get("saved") or 0
-            bps = raw.get("bps") or 0
+
+            tackles = {
+                "total": tackles_raw.get("total") or 0,
+                "interceptions": tackles_raw.get("interceptions") or 0,
+                "blocks": tackles_raw.get("blocks") or 0,
+            }
 
             clean_sheet = (goals_conceded == 0) and (minutes >= 60)
 
@@ -319,7 +378,7 @@ def process_fixture(
                 "penaltyMissed": pen_miss,
                 "penaltySaved": pen_saved,
                 "ownGoal": own_goals,
-                "bps": bps,
+                "tackles": tackles,
                 "bonusPoints": 0,
             }
             player_stats[pid] = {
@@ -327,26 +386,36 @@ def process_fixture(
                 "teamId": team_id,
                 "name": p_info.get("name", ""),
             }
-            if bps > 0:
-                bps_list.append((pid, bps))
 
-    # Get player positions from Firestore
-    pos_map: Dict[int, int] = {}
-    player_docs = db.collection("wc_players").get()
-    for doc in player_docs:
-        d = doc.to_dict()
-        pos_map[d.get("id", 0)] = d.get("position", 3)
+            # api-sports rating arrives as a string (e.g. "7.2"); coerce safely.
+            try:
+                rating_val = float(rating) if rating is not None else 0.0
+            except (TypeError, ValueError):
+                rating_val = 0.0
+            if rating_val and minutes > 0:
+                rating_list.append((pid, rating_val))
 
-    # Compute BPS bonuses
-    bonuses = compute_bps_bonus(bps_list)
+    # Get player positions from Firestore (unless the caller supplied a cache).
+    if pos_map is None:
+        pos_map = {}
+        player_docs = db.collection("wc_players").get()
+        for doc in player_docs:
+            d = doc.to_dict()
+            pos_map[d.get("id", 0)] = d.get("position", 3)
 
-    # Load custom rules from Firestore config
-    config_doc = db.collection("wc_config").document("tournament").get()
-    rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
+    # Compute rating-rank bonuses (one award set per fixture)
+    bonuses = compute_rating_bonus(rating_list)
+
+    # Load custom rules from Firestore config (unless the caller supplied them).
+    if rules is None:
+        config_doc = db.collection("wc_config").document("tournament").get()
+        rules = config_doc.to_dict().get("rules", {}) if config_doc.exists else {}
 
     gw = fixture_doc.to_dict().get("gw", 1) if fixture_doc.exists else 1
 
     # Compute points and persist
+    from google.cloud.firestore_v1 import Increment
+
     results: Dict[int, Dict] = {}
     batch = db.batch()
 
@@ -361,6 +430,7 @@ def process_fixture(
         result = {
             "playerId": pid,
             "gw": gw,
+            # fantasyPoints already INCLUDES the rating bonus (base_pts + bonus).
             "fantasyPoints": total_pts,
             "bonusPoints": bonus,
             "stats": pdata["stats"],
@@ -370,6 +440,15 @@ def process_fixture(
         score_ref = (db.collection("wc_fixtures").document(str(fixture_id))
                      .collection("playerScores").document(str(pid)))
         batch.set(score_ref, result)
+
+        # EP2-W1: aggregate the player's season total onto wc_players.totalPoints.
+        # The delta is this fixture's total = fantasyPoints (which ALREADY folds
+        # in the bonus). Adding bonusPoints again would double-count the bonus.
+        # Atomic Increment so concurrent fixture processing is safe; the
+        # processedForFantasy early-return above makes this fire at most once.
+        if total_pts:
+            player_ref = db.collection("wc_players").document(str(pid))
+            batch.set(player_ref, {"totalPoints": Increment(total_pts)}, merge=True)
 
     # Mark fixture as processed
     fixture_ref = db.collection("wc_fixtures").document(str(fixture_id))
@@ -390,7 +469,25 @@ def _propagate_to_leagues(
 ):
     """
     Update running GW scores in all active leagues for players in this fixture.
-    Uses atomic increments so concurrent fixture processing is safe.
+
+    EP2-W3 — set-vs-increment decision: this is an INCREMENT (accrual) path,
+    intentionally. Fixtures within a GW land independently/concurrently, so each
+    contributes its delta to a running ``scores/{gw}.results.{uid}.points`` live
+    total via an atomic ``Increment``. A SET here would be wrong: it would clobber
+    the contributions of fixtures already processed for the same GW.
+
+    Idempotency is enforced UPSTREAM, not here: ``process_fixture`` early-returns
+    when the fixture is already ``processedForFantasy``, so this function fires at
+    most once per fixture and can never double-accrue.
+
+    The ``if delta:`` guard is therefore safe: a net-zero contribution adds
+    nothing, and skipping the write leaves no stale value because this running
+    total is NOT the authoritative figure. ``finalize_gw`` re-derives each
+    manager's points from scratch (post-autosub) and writes them with an absolute
+    ``scores_ref.set({"results": {uid: {"points": ...}}}, merge=True)``, which
+    fully OVERWRITES the running total. That finalize SET is what makes the GW
+    self-correcting and re-finalize-idempotent — any drift in the live accrual is
+    discarded at finalize.
     """
     from google.cloud.firestore_v1 import Increment
 
@@ -467,6 +564,9 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     # Build full GW player points: player_id -> {fantasyPoints, stats}
     all_player_points: Dict[int, int] = {}
     all_player_minutes: Dict[int, int] = {}
+    # EP2-W2: carry per-player per-GW stats through to the gw_history snapshot
+    # so the frontend modal can reconcile each player's points breakdown.
+    all_player_stats: Dict[int, Dict] = {}
     for fixture_doc in gw_fixtures:
         fid = fixture_doc.id
         score_docs = (db.collection("wc_fixtures").document(fid)
@@ -476,6 +576,8 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
             pdata = pdoc.to_dict()
             all_player_points[pid] = all_player_points.get(pid, 0) + pdata.get("fantasyPoints", 0)
             all_player_minutes[pid] = all_player_minutes.get(pid, 0) + (pdata.get("stats", {}).get("minutes") or 0)
+            # A player appears in at most one fixture per GW; last-write is fine.
+            all_player_stats[pid] = pdata.get("stats", {}) or {}
 
     # Get position map
     pos_map: Dict[int, int] = {}
@@ -636,11 +738,122 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     if bracket_snap.exists:
         league_ref.collection("knockout").document(f"bracket_gw{gw}").set(bracket_snap.to_dict())
 
+    # Step 9d: snapshot gw_history (lineup IDs -> playerScores join, per manager)
+    _snapshot_gw_history(
+        league_ref, gw, uid_list, all_player_points, results,
+        league_phase_gws, knockout_start_gw, db,
+        all_player_stats=all_player_stats,
+    )
+
     # Step 10: advance currentGw
     next_gw = gw + 1
     league_ref.update({"currentGw": next_gw})
 
     return {"gw": gw, "finalized": True, "nextGw": next_gw, "memberCount": n_members}
+
+
+def _snapshot_gw_history(league_ref, gw, uid_list, all_player_points, results,
+                         league_phase_gws, knockout_start_gw, db,
+                         all_player_stats=None):
+    """Write per-manager gw_history snapshot docs at GW finalize.
+
+    Performs the lineup-IDs -> playerScores points join (the per-manager,
+    per-player breakdown) and resolves opponent/result. Path:
+    ``leagues/{lid}/gw_history/{uid}_{gw}``. Full overwrite via ``.set`` so
+    re-finalizing a GW is idempotent. See WC2026_WINDOWS_DESIGN.md §3.3.
+
+    ``all_player_stats`` (EP2-W2): optional ``pid -> stats`` map. When provided,
+    each ``players[]`` entry also carries that player's per-GW ``stats`` so the
+    frontend can reconcile the points breakdown. Defaults to an empty dict
+    (entries then get ``stats: {}``) to stay backwards-compatible.
+    """
+    all_player_stats = all_player_stats or {}
+    # H2H results for league-phase GWs (opponent/result/opponentPoints).
+    h2h_results = {}
+    if gw in league_phase_gws:
+        scores_ref = league_ref.collection("scores").document(str(gw))
+        scores_doc = scores_ref.get()
+        if scores_doc.exists:
+            h2h_results = scores_doc.to_dict().get("h2hResults", {}) or {}
+
+    # Knockout bracket matches for this GW (opponent/result resolution).
+    bracket_matches = []
+    if gw >= knockout_start_gw:
+        bracket_doc = league_ref.collection("knockout").document("bracket").get()
+        if bracket_doc.exists:
+            for round_matches in (bracket_doc.to_dict().get("rounds", {}) or {}).values():
+                for match in (round_matches or []):
+                    if match.get("gw") == gw:
+                        bracket_matches.append(match)
+
+    for uid in uid_list:
+        doc_id = f"{uid}_{gw}"
+        lineup_doc = league_ref.collection("lineups").document(doc_id).get()
+        if not lineup_doc.exists:
+            continue
+        lineup = lineup_doc.to_dict()
+        fielded = list(lineup.get("starting", [])) + list(lineup.get("bench", []))
+        players = [{"id": pid,
+                    "points": all_player_points.get(pid, 0),
+                    "stats": all_player_stats.get(pid, {})}
+                   for pid in fielded]
+        total_points = results.get(uid, {}).get("points", 0)
+
+        opponent = None
+        opponent_points = None
+        result = None
+
+        if gw in league_phase_gws:
+            h2h = h2h_results.get(uid)
+            if h2h:
+                result = h2h.get("result")
+                if result == "AAA":
+                    opponent = None
+                    opponent_points = None
+                else:
+                    opponent = h2h.get("opponent")
+                    opponent_points = h2h.get("pointsAgainst")
+        elif gw >= knockout_start_gw:
+            for match in bracket_matches:
+                home = match.get("home")
+                away = match.get("away")
+                if uid == home:
+                    opponent = away
+                elif uid == away:
+                    opponent = home
+                else:
+                    continue
+                if uid == home:
+                    opponent_points = match.get("awayPoints")
+                else:
+                    opponent_points = match.get("homePoints")
+                winner = match.get("winner")
+                if winner is None:
+                    result = None
+                elif winner == uid:
+                    result = "W"
+                elif opponent is not None and winner == opponent:
+                    result = "L"
+                else:
+                    result = "D"
+                break
+
+        payload = {
+            "uid": uid,
+            "gw": gw,
+            "players": players,
+            # Freeze the exact locked lineup that was fielded this GW so the
+            # frontend can render the historical pitch from the snapshot — never
+            # from the live (mutable) lineup doc, which later transfers change.
+            "starting": list(lineup.get("starting", [])),
+            "bench": list(lineup.get("bench", [])),
+            "autoSubs": list(lineup.get("autoSubsMade", [])),
+            "totalPoints": total_points,
+            "opponent": opponent,
+            "opponentPoints": opponent_points,
+            "result": result,
+        }
+        league_ref.collection("gw_history").document(doc_id).set(payload)
 
 
 def _update_standings(lid: str, db, gw: Optional[int] = None):
@@ -707,8 +920,30 @@ def _update_standings(lid: str, db, gw: Optional[int] = None):
                 # All-against-all GW6: h2hPoints directly stored
                 stats[uid]["hpts"] += h.get("h2hPoints", 0)
 
+    # Sort by H2H points (primary) then fantasy points (tiebreak), assign rank,
+    # and flag qualification. Without this the table rendered every row as "#1"
+    # and "Qualified" because the client relies on a pre-sorted array + rank +
+    # knockedOut (GAP-503/504).
+    league_doc = league_ref.get().to_dict() or {}
+    qualifiers = int(league_doc.get("knockoutQualifiers", 8) or 8)
+
+    ranked = sorted(
+        stats.values(),
+        key=lambda s: (s.get("hpts", 0), s.get("fpts", 0)),
+        reverse=True,
+    )
+    for idx, s in enumerate(ranked, start=1):
+        s["rank"] = idx
+        # A manager is knocked out if their team was eliminated OR they finished
+        # outside the qualifying places. (During the group phase this previews
+        # the cut line; it's authoritative once the knockout bracket is built.)
+        below_line = idx > qualifiers
+        s["qualified"] = not below_line
+        s["knockedOut"] = below_line
+
     standings_data = {
-        "managers": list(stats.values()),
+        "managers": ranked,
+        "qualifiers": qualifiers,
         "updatedAt": SERVER_TIMESTAMP,
     }
     league_ref.collection("standings").document("current").set(standings_data)

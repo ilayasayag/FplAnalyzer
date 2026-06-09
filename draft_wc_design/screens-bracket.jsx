@@ -108,15 +108,15 @@ function BracketScreen({ onTab }) {
             );
           }
 
-          const myQfMatch = rounds.qf ? rounds.qf.find(m => m.home === ME || m.away === ME) : null;
-          const mySfMatch = rounds.sf ? rounds.sf.find(m => m.home === ME || m.away === ME) : null;
-          const myFinalMatch = rounds.final ? rounds.final.find(m => m.home === ME || m.away === ME) : null;
+          const myQfMatch = rounds.qf ? rounds.qf.find(m => m.home === window.ME || m.away === window.ME) : null;
+          const mySfMatch = rounds.sf ? rounds.sf.find(m => m.home === window.ME || m.away === window.ME) : null;
+          const myFinalMatch = rounds.final ? rounds.final.find(m => m.home === window.ME || m.away === window.ME) : null;
 
           const pathItems = [];
           if (hasQf) {
             // QF
             if (myQfMatch) {
-              const oppUid = myQfMatch.home === ME ? myQfMatch.away : myQfMatch.home;
+              const oppUid = myQfMatch.home === window.ME ? myQfMatch.away : myQfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "QF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 4, dates: "Jul 1–4"
@@ -126,7 +126,7 @@ function BracketScreen({ onTab }) {
             }
             // SF
             if (mySfMatch) {
-              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const oppUid = mySfMatch.home === window.ME ? mySfMatch.away : mySfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 1, dates: "Jul 5–8"
@@ -136,7 +136,7 @@ function BracketScreen({ onTab }) {
             }
             // Final
             if (myFinalMatch) {
-              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const oppUid = myFinalMatch.home === window.ME ? myFinalMatch.away : myFinalMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 4) + 2, dates: "Jul 10–12"
@@ -147,7 +147,7 @@ function BracketScreen({ onTab }) {
           } else {
             // SF only
             if (mySfMatch) {
-              const oppUid = mySfMatch.home === ME ? mySfMatch.away : mySfMatch.home;
+              const oppUid = mySfMatch.home === window.ME ? mySfMatch.away : mySfMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "SF", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: LEAGUE.knockoutStartGw || 7, dates: "Jul 14–15"
@@ -157,7 +157,7 @@ function BracketScreen({ onTab }) {
             }
             // Final
             if (myFinalMatch) {
-              const oppUid = myFinalMatch.home === ME ? myFinalMatch.away : myFinalMatch.home;
+              const oppUid = myFinalMatch.home === window.ME ? myFinalMatch.away : myFinalMatch.home;
               const opp = oppUid ? managerById(oppUid) : null;
               pathItems.push({
                 round: "Final", opp: opp ? opp.team : "TBD", flag: opp ? opp.flag : null, gw: (LEAGUE.knockoutStartGw || 7) + 1, dates: "Jul 18–19"
@@ -193,7 +193,7 @@ function BracketMatch({ match, result, round }) {
   const hT = h ? teamById(h.flag) : null;
   const aT = a ? teamById(a.flag) : null;
   const isLive = result?.status === "live";
-  const meSide = match.home === ME ? "home" : (match.away === ME ? "away" : null);
+  const meSide = match.home === window.ME ? "home" : (match.away === window.ME ? "away" : null);
 
   const homeSeed = match.seedHome ?? match.homeSeed ?? "—";
   const awaySeed = match.seedAway ?? match.awaySeed ?? "—";
@@ -231,14 +231,143 @@ function BracketMatch({ match, result, round }) {
 }
 
 
+// Animated replay of a wishlist auction — reveals each executed claim one-by-one
+// in resolution order (waiver priority), showing the manager + player IN/OUT.
+function AuctionViz({ result, onClose }) {
+  // Reveal claimed swaps first (↔), then the cancelled bids (↓) — players that
+  // were contested/unavailable so the swap didn't go through.
+  const items = React.useMemo(() => [
+    ...((result && result.executed) || []).map(e => ({ ...e, ok: true })),
+    ...((result && result.failed) || []).map(f => ({ ...f, ok: false })),
+  ], [result]);
+  const nClaimed = ((result && result.executed) || []).length;
+  const nFailed = ((result && result.failed) || []).length;
+  const [revealed, setRevealed] = React.useState(0);
+  React.useEffect(() => {
+    if (revealed >= items.length) return;
+    const t = setTimeout(() => setRevealed(r => r + 1), 600);
+    return () => clearTimeout(t);
+  }, [revealed, items.length]);
+  const done = revealed >= items.length;
+
+  const mgrName = (uid) => { const m = managerById(uid); return m ? (m.team || m.name || uid) : uid; };
+  const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
+  const chip = (p, kind) => {
+    const isIn = kind === "in";
+    return (
+      <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "5px 9px", borderRadius: 7,
+        background: isIn ? "rgba(0,217,107,0.18)" : "rgba(230,57,70,0.16)", color: isIn ? "#5ef0a8" : "#ff9aa3", fontSize: 13, fontWeight: 700 }}>
+        <Flag team={teamById(p.team)} /> {p.name}
+        <span style={{ fontSize: 10, opacity: 0.85, fontWeight: 800 }}>{isIn ? `IN · ${POS_NAMES[p.pos]}` : "OUT"}</span>
+      </span>
+    );
+  };
+
+  return (
+    <div onClick={done ? onClose : undefined}
+      style={{ position: "fixed", inset: 0, background: "rgba(8,6,40,0.80)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div onClick={e => e.stopPropagation()} className="card-dark"
+        style={{ width: "min(580px, 95vw)", maxHeight: "88vh", overflow: "auto", padding: 26, borderRadius: 16, boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+        <div className="h-display" style={{ fontSize: 22, color: "white", marginBottom: 4 }}>⚡ Wishlist auction · GW{result.gw}</div>
+        <div style={{ color: "rgba(255,255,255,0.72)", fontSize: 13, marginBottom: 18 }}>
+          {done
+            ? `${nClaimed} claimed · ${nFailed} cancelled — resolved by waiver priority.`
+            : `Resolving by waiver priority… (${revealed}/${items.length})`}
+        </div>
+        <div className="col" style={{ gap: 10 }}>
+          {items.length === 0 && (
+            <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>No bids were submitted this round.</div>
+          )}
+          {items.slice(0, revealed).map((it, i) => (
+            <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center",
+              padding: "11px 13px", borderRadius: 10,
+              background: it.ok ? "rgba(255,255,255,0.06)" : "rgba(230,57,70,0.08)",
+              border: "1px solid " + (it.ok ? "rgba(255,255,255,0.08)" : "rgba(230,57,70,0.25)"),
+              opacity: it.ok ? 1 : 0.85 }}>
+              <div style={{ fontWeight: 800, color: "white", fontSize: 13, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis" }}>{mgrName(it.uid)}</div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                {it.ok ? (
+                  <React.Fragment>
+                    {chip(pl(it.playerIn), "in")}
+                    <span style={{ color: "rgba(255,255,255,0.4)" }}>↔</span>
+                    {chip(pl(it.playerOut), "out")}
+                  </React.Fragment>
+                ) : (
+                  <React.Fragment>
+                    {chip(pl(it.playerIn), "in")}
+                    <span title="bid cancelled — player unavailable" style={{ color: "#ff9aa3", fontWeight: 900, fontSize: 16 }}>↓</span>
+                    <span style={{ fontSize: 11, fontWeight: 700, color: "#ff9aa3" }}>cancelled · taken by a higher pick</span>
+                  </React.Fragment>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+        <div style={{ marginTop: 22, textAlign: "right" }}>
+          <button className="btn btn--primary" disabled={!done} onClick={onClose}
+            style={{ padding: "10px 18px", fontSize: 13, opacity: done ? 1 : 0.5, cursor: done ? "pointer" : "default" }}>
+            {done ? "Done — refresh" : "Resolving…"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
+  const [runningMock, setRunningMock] = React.useState(false);
+  const [auctionViz, setAuctionViz] = React.useState(null);  // {gw, executed, skipped}
+  const [switching, setSwitching] = React.useState(false);
   const activeWindow = window.WINDOW || WINDOW;
-  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
+  const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
+
+  // MOCK: flip the league's transfer-window phase so the page renders that
+  // window. Trade = manager trades + wishlist; Free agents = instant pickups +
+  // wishlist; Gameweek = wishlist only (no manager trades, picks go to wishlist).
+  const switchWindow = async (phase) => {
+    if (switching || phase === curPhase) return;
+    setSwitching(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+      await apiCall("POST", `/leagues/${lid}/admin/window-override`, { phase, gw });
+      window.location.reload();
+    } catch (err) {
+      alert("Failed to switch window: " + (err.error || err.detail || JSON.stringify(err)));
+      setSwitching(false);
+    }
+  };
+
+  // MOCK: open the free-agents window + run the wishlist auction in one click.
+  // Auto-fills 1-3 bids for every OTHER manager (top free agents in, their worst
+  // players out); the viewed manager's own wishlist is kept. Resolves the
+  // auction so squads actually change, then reloads into the FA-window view.
+  const runMockWishlist = async () => {
+    if (runningMock) return;
+    if (!window.confirm("Mock: close the trade window, open the FREE-AGENTS window and run the wishlist auction now?\n\nEvery other manager gets 1–3 auto bids (top free agents in, worst players out). Your own wishlist is kept.")) return;
+    setRunningMock(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+      const res = await apiCall("POST", `/admin/leagues/${lid}/run-mock-wishlist`, { gw, excludeUid: window.ME });
+      const a = (res && res.wishlistAuction) || {};
+      // Replay the auction in the UI (claims revealed one-by-one in resolution
+      // order) instead of a bare alert. Closing the modal reloads into the new
+      // FA-window state with the updated squads.
+      setAuctionViz({ gw: res.gw, executed: a.executed || [], failed: a.failed || [] });
+    } catch (err) {
+      alert("Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+      setRunningMock(false);
+    }
+  };
 
   return (
     <div className="col" style={{ gap: 16 }}>
+      {auctionViz && <AuctionViz result={auctionViz} onClose={() => window.location.reload()} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}>
         <div>
           <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Transfers</h2>
@@ -262,24 +391,56 @@ function TransfersScreen() {
                 Window closes <strong>{activeWindow.closesAt || "—"}</strong> · {activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12 }}>
+            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
+              {isMock && (
+                <button className="btn" disabled={runningMock} onClick={runMockWishlist}
+                  title="Mock: open the free-agents window and resolve the wishlist auction"
+                  style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap", background: runningMock ? "rgba(255,255,255,0.4)" : "var(--gold-500)", color: "var(--navy-900)", border: "none", cursor: runningMock ? "default" : "pointer" }}>
+                  {runningMock ? "Running…" : "▶ Run wishlist (mock)"}
+                </button>
+              )}
             </div>
           </div>
         </div>
-        <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
-          <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
-          <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
-          <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
-        </div>
+        {isMock ? (
+          <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>Mock · switch window</div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              {[
+                ["trade", "Trade", "manager trades + wishlist"],
+                ["free_agents", "Free agents", "instant pickups + wishlist"],
+                ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
+              ].map(([key, label, hint]) => {
+                const active = curPhase === key;
+                return (
+                  <button key={key} disabled={switching} onClick={() => switchWindow(key)} title={hint}
+                    style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: switching ? "default" : "pointer",
+                      background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
+                      color: active ? "var(--navy-900)" : "white",
+                      border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
+                    {label}
+                    <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        ) : (
+          <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
+            <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
+            <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
+            <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
+          </div>
+        )}
       </div>
 
       {/* Tabs */}
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
           ["free",    "Free Agents"],
-          ["waivers", `My Waivers (${MY_WAIVERS.length})`],
+          ["wishlist", `Wishlist (${(window.MY_WISHLIST_BIDS || []).length})`],
           ["squad",   "My Squad"],
           ["history", "History"],
           ["draft",   "Draft Room"],
@@ -294,7 +455,7 @@ function TransfersScreen() {
       </div>
 
       {tab === "free" && <FreeAgentsTab />}
-      {tab === "waivers" && <WaiversTab />}
+      {tab === "wishlist" && <WishlistTab />}
       {tab === "squad" && <MySquadTab />}
       {tab === "history" && <TransferHistoryTab />}
       {tab === "draft" && <DraftTab />}
@@ -313,11 +474,56 @@ function StatBlock({ label, value, accent }) {
 
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
+  const [nationFilter, setNationFilter] = React.useState("all");
+  const [ownerFilter, setOwnerFilter] = React.useState("all"); // "all" | "__free" | manager name
+  const [search, setSearch] = React.useState("");
+  const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
 
-  const list = (window.FREE_AGENTS || []).filter(p => posFilter === "all" || p.pos === Number(posFilter));
+  // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
+  // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
+  // a memo captured on mount could be empty if Transfers opens before that async
+  // load resolves, which made every owned player look like a free agent.
+  const ownerByPid = {};
+  {
+    const sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
+    const nameOf = uid => { const m = mgrs.find(x => x.uid === uid); return m ? (m.team || m.name || uid) : uid; };
+    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { ownerByPid[String(pid)] = nameOf(uid); }));
+  }
+  const ownerNames = [...new Set(Object.values(ownerByPid))].sort();
+
+  // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
+  // real points. "All players" = the whole pool (owned shown with their manager,
+  // not pickable); "Free agents" = players not owned by any manager. We don't use
+  // the /free-agents endpoint here — it returns a projected, 50-capped subset with
+  // no club/points.
+  const source = (window.PLAYERS || []).filter(p => mode === "all" || !ownerByPid[String(p.id)]);
+  const nations = [...new Set(source.map(p => p.teamName).filter(Boolean))].sort();
+  const q = search.trim().toLowerCase();
+  const filtered = source
+    .filter(p => posFilter === "all" || p.pos === Number(posFilter))
+    .filter(p => nationFilter === "all" || p.teamName === nationFilter)
+    .filter(p => {
+      if (ownerFilter === "all") return true;
+      const o = ownerByPid[String(p.id)];
+      return ownerFilter === "__free" ? !o : o === ownerFilter;
+    })
+    .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
+    .sort((a, b) => (b.pts || 0) - (a.pts || 0));
+  const CAP = 120;
+  const shown = filtered.slice(0, CAP);
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
+  const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
+
+  // Free-agent pickups are only INSTANT during the FREE_AGENTS window. At any
+  // other time the squad is locked, so the same drop-selection instead queues
+  // the player onto your bid-wishlist (resolved by the auction when the window
+  // opens). Target GW = the open window's GW, else the next GW to be played.
+  const faOpen = (window.WINDOW && window.WINDOW.phase) === "free_agents";
+  const bidGw = (window.WINDOW && window.WINDOW.gw) ||
+                (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+  const _pid = (v) => (isNaN(Number(v)) ? Number(String(v).replace("p_", "")) : Number(v));
 
   const handlePickup = async (p) => {
     if (!playerToDrop) {
@@ -327,9 +533,9 @@ function FreeAgentsTab() {
     try {
       const lid = window.LEAGUE.id;
       const winNum = window.WINDOW.windowNumber || 1;
-      const pIn = isNaN(Number(p.id)) ? Number(p.id.replace("p_", "")) : Number(p.id);
-      const pOut = isNaN(Number(playerToDrop)) ? Number(playerToDrop.replace("p_", "")) : Number(playerToDrop);
-      
+      const pIn = _pid(p.id);
+      const pOut = _pid(playerToDrop);
+
       await apiCall("POST", `/leagues/${lid}/free-agent`, {
         playerIn: pIn,
         playerOut: pOut,
@@ -343,22 +549,76 @@ function FreeAgentsTab() {
     }
   };
 
+  // Window closed → add this free agent to the bid-wishlist (same in/out swap
+  // the pickup would do), appending to the manager's ordered bids for bidGw.
+  const handleAddWishlist = async (p) => {
+    if (!playerToDrop) { alert("Please select a player to drop."); return; }
+    if (!bidGw) { alert("No upcoming gameweek to bid for yet."); return; }
+    const pIn = _pid(p.id), pOut = _pid(playerToDrop);
+    const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    if (existing.some(b => b.playerIn === pIn)) {
+      alert(`${p.name} is already on your wishlist.`); setActivePickup(null); return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const cp = window.PLAYER_MAP[String(p.id)];
+      const next = [...existing, { playerIn: pIn, playerOut: pOut, position: cp ? POS_NAMES[cp.pos] : "?" }];
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids`, { gw: bidGw, bids: next });
+      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : next;
+      alert(`Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.`);
+      setActivePickup(null);
+    } catch (err) {
+      alert("Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+    }
+  };
+
   return (
     <div className="card" style={{ overflow: "hidden" }}>
-      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <div>
-          <strong>Top Free Agents</strong>
-          <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>· players not owned by any league manager</span>
+      <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 10 }}>
+          <div>
+            <strong>{mode === "all" ? "All Players" : "Top Free Agents"}</strong>
+            <span className="muted" style={{ fontSize: 12, marginLeft: 8 }}>
+              · {mode === "all" ? "every player in the pool" : "players not owned by any league manager"}
+              {" · "}{filtered.length} match{filtered.length === 1 ? "" : "es"}{filtered.length > CAP ? ` (top ${CAP} shown)` : ""}
+            </span>
+          </div>
+          <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
+            {[["free", "Free agents"], ["all", "All players"]].map(([m, label]) => (
+              <button key={m} className="btn" style={{ padding: "6px 14px", fontSize: 12, borderRadius: 999, background: mode === m ? "var(--navy-900)" : "transparent", color: mode === m ? "white" : "var(--ink-700)" }} onClick={() => { setMode(m); setOwnerFilter("all"); }}>{label}</button>
+            ))}
+          </div>
         </div>
-        <div className="row" style={{ gap: 4 }}>
-          {["all", "1", "2", "3", "4"].map(p => (
-            <button key={p}
-              className={"btn " + (posFilter === p ? "btn--solid-dark" : "")}
-              style={{ padding: "6px 12px", fontSize: 12, background: posFilter === p ? undefined : "transparent", color: posFilter === p ? undefined : "var(--ink-700)" }}
-              onClick={() => setPosFilter(p)}>
-              {p === "all" ? "All" : POS_NAMES[Number(p)]}
-            </button>
-          ))}
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+          <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or club…"
+            style={{ flex: "1 1 200px", minWidth: 160, padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" }} />
+          <select value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={selStyle}>
+            <option value="all">All nations</option>
+            {nations.map(n => <option key={n} value={n}>{n}</option>)}
+          </select>
+          {mode === "all" && (
+            <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
+              <option value="all">Any owner</option>
+              <option value="__free">Free agents</option>
+              {ownerNames.map(o => <option key={o} value={o}>{o}</option>)}
+            </select>
+          )}
+          <div className="row" style={{ gap: 4 }}>
+            {["all", "1", "2", "3", "4"].map(p => (
+              <button key={p}
+                className={"btn " + (posFilter === p ? "btn--solid-dark" : "")}
+                style={{ padding: "6px 12px", fontSize: 12, background: posFilter === p ? undefined : "transparent", color: posFilter === p ? undefined : "var(--ink-700)" }}
+                onClick={() => setPosFilter(p)}>
+                {p === "all" ? "All" : POS_NAMES[Number(p)]}
+              </button>
+            ))}
+          </div>
+          {(search || nationFilter !== "all" || ownerFilter !== "all" || posFilter !== "all") && (
+            <button className="btn btn--ghost-dark" style={{ padding: "6px 10px", fontSize: 11 }}
+              onClick={() => { setSearch(""); setNationFilter("all"); setOwnerFilter("all"); setPosFilter("all"); }}>Clear</button>
+          )}
         </div>
       </div>
       <table className="table-clean">
@@ -367,17 +627,19 @@ function FreeAgentsTab() {
             <th>Player</th>
             <th>Team</th>
             <th>Pos</th>
-            <th>GW4 fixture</th>
+            <th>Owner</th>
             <th style={{ textAlign: "right" }}>Pts</th>
             <th style={{ textAlign: "right" }}>Form</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          {list.map(p => {
+          {shown.length === 0 && (
+            <tr><td colSpan="7" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+          )}
+          {shown.map(p => {
             const t = teamById(p.team);
-            const oppMap = { ARG: "ECU", ENG: "URU", NED: "EGY", USA: "BRA", BEL: "AUS", FRA: "POR2", CRO: "POL", BRA: "USA", JPN: "ESP", KOR: "COL", URU: "ENG", COL: "KOR" };
-            const opp = oppMap[p.team] ? teamById(oppMap[p.team]) : null;
+            const owner = ownerByPid[String(p.id)];
             const eligibleDrops = mySquad.filter(s => s.pos === p.pos);
             const isPicking = activePickup?.id === p.id;
 
@@ -389,18 +651,16 @@ function FreeAgentsTab() {
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
                         onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
-                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{POS_NAMES[p.pos]}</div>
+                      <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{p.club || POS_NAMES[p.pos]}</div>
                     </div>
                   </div>
                 </td>
-                <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {t.name}</span></td>
+                <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {p.teamName || (t && t.name) || p.team}</span></td>
                 <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
                 <td>
-                  {opp ? (
-                    <span style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: 13 }}>
-                      vs <Flag team={opp} /> {opp.id}
-                    </span>
-                  ) : <span className="muted">—</span>}
+                  {owner
+                    ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
+                    : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
                 <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
                 <td style={{ textAlign: "right" }}>
@@ -409,19 +669,23 @@ function FreeAgentsTab() {
                   </span>
                 </td>
                 <td style={{ textAlign: "right" }}>
-                  {isPicking ? (
+                  {owner ? (
+                    <span className="muted" style={{ fontSize: 11 }}>Owned</span>
+                  ) : isPicking ? (
                     <div className="row" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                       <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
-                        <option value="">-- Drop player --</option>
+                        <option value="">{faOpen ? "-- Drop player --" : "-- Swap out --"}</option>
                         {eligibleDrops.map(s => (
                           <option key={s.id} value={s.id}>{s.name} ({s.teamName || s.team})</option>
                         ))}
                       </select>
-                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => handlePickup(p)}>✔</button>
+                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => faOpen ? handlePickup(p) : handleAddWishlist(p)}>✔</button>
                       <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => setActivePickup(null)}>✖</button>
                     </div>
-                  ) : (
+                  ) : faOpen ? (
                     <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>Pick up</button>
+                  ) : (
+                    <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11, background: "var(--gold-500)", color: "var(--navy-900)" }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>+ Wishlist</button>
                   )}
                 </td>
               </tr>
@@ -433,62 +697,78 @@ function FreeAgentsTab() {
   );
 }
 
-function WaiversTab() {
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const [waiverIn, setWaiverIn] = React.useState("");
-  const [waiverOut, setWaiverOut] = React.useState("");
+function WishlistTab() {
+  const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
+    playerIn: Number(b.playerIn),
+    playerOut: Number(b.playerOut),
+    position: b.position,
+  })));
+  const [adding, setAdding] = React.useState(false);
+  const [dropId, setDropId] = React.useState("");
+  const [claimId, setClaimId] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
-  const list = window.MY_WAIVERS || [];
+  const win = window.WINDOW || {};
+  const upcomingGw = win.gw || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+  const phase = win.phase || "none";
+  const isFaWindow = phase === "free_agents";
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
 
-  const eligibleWaiverIn = (window.FREE_AGENTS || []).filter(p => {
-    if (!waiverOut) return true;
-    const sOut = window.PLAYER_MAP[waiverOut];
-    return sOut ? p.pos === sOut.pos : true;
+  // Free agents eligible to claim, filtered to the chosen drop's position and
+  // excluding players already on this manager's wishlist.
+  const dropPlayer = dropId ? window.PLAYER_MAP[String(dropId)] : null;
+  const eligibleClaims = (window.FREE_AGENTS || []).filter(p => {
+    if (bids.some(b => b.playerIn === Number(p.id))) return false;
+    if (!dropPlayer) return true;
+    return p.pos === dropPlayer.pos;
   });
 
-  const handleCancelWaiver = async (waiverId) => {
-    try {
-      const lid = window.LEAGUE.id;
-      await apiCall("DELETE", `/leagues/${lid}/waivers/${waiverId}`);
-      alert("Waiver claim cancelled successfully!");
-      window.location.reload();
-    } catch (err) {
-      alert("Failed to cancel waiver: " + (err.error || err.detail || JSON.stringify(err)));
-    }
+  const move = (i, dir) => {
+    const j = i + dir;
+    if (j < 0 || j >= bids.length) return;
+    const next = bids.slice();
+    [next[i], next[j]] = [next[j], next[i]];
+    setBids(next);
+  };
+  const removeBid = (i) => setBids(bids.filter((_, k) => k !== i));
+
+  const addBid = () => {
+    if (!dropId || !claimId) { alert("Pick a player to drop and a free agent to claim."); return; }
+    const dp = window.PLAYER_MAP[String(dropId)];
+    const cp = window.PLAYER_MAP[String(claimId)];
+    if (dp && cp && dp.pos !== cp.pos) { alert("Drop and claim must be the same position."); return; }
+    setBids([...bids, { playerIn: Number(claimId), playerOut: Number(dropId), position: cp ? POS_NAMES[cp.pos] : "?" }]);
+    setAdding(false); setDropId(""); setClaimId("");
   };
 
-  const handleSubmitWaiver = async () => {
-    if (!waiverIn || !waiverOut) {
-      alert("Please select both players.");
-      return;
-    }
+  const save = async () => {
+    if (!upcomingGw) { alert("No upcoming gameweek — the transfer window is closed."); return; }
+    if (!bids.length) { alert("Add at least one bid first."); return; }
+    setSaving(true);
     try {
       const lid = window.LEAGUE.id;
-      const winNum = window.WINDOW.windowNumber || 1;
-      const pIn = isNaN(Number(waiverIn)) ? Number(waiverIn.replace("p_", "")) : Number(waiverIn);
-      const pOut = isNaN(Number(waiverOut)) ? Number(waiverOut.replace("p_", "")) : Number(waiverOut);
-      
-      await apiCall("POST", `/leagues/${lid}/waivers`, {
-        playerIn: pIn,
-        playerOut: pOut,
-        windowNumber: winNum
+      await apiCall("POST", `/leagues/${lid}/wishlist-bids`, {
+        gw: upcomingGw,
+        bids: bids.map(b => ({ playerIn: b.playerIn, playerOut: b.playerOut, position: b.position })),
       });
-      alert("Waiver claim submitted successfully!");
-      setIsSubmitting(false);
-      window.location.reload();
+      window.MY_WISHLIST_BIDS = bids.slice();
+      alert(`Wishlist saved — ${bids.length} bid(s) for GW${upcomingGw}. They'll be resolved by the auction when the window closes.`);
     } catch (err) {
-      alert("Failed to submit waiver: " + (err.error || err.detail || JSON.stringify(err)));
+      alert("Failed to save wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setSaving(false);
     }
   };
 
   return (
     <div className="col" style={{ gap: 12 }}>
-      <div className="alert alert--gold">
-        <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
+      <div className={"alert " + (isFaWindow ? "alert--green" : "alert--gold")}>
+        <div className="alert__icon" style={{ background: isFaWindow ? "var(--green-500)" : "var(--gold-500)" }}>{isFaWindow ? "✓" : "⏳"}</div>
         <div>
-          <strong>Waivers processing window is open</strong> · Priority-based snake queue.
-          Higher-priority managers claim first; after one successful claim, you drop to the back.
+          <strong>Wishlist auction{upcomingGw ? ` · GW${upcomingGw}` : ""}</strong> · Build an ORDERED list of same-position
+          swaps. When the free-agents window closes, a single batch auction resolves all managers' lists by waiver priority —
+          higher priority claims first, one pick per round, cycling until no claims remain. Your <strong>order = your preference</strong> (top tried first).
+          {!isFaWindow && <span className="muted"> Bids can be edited any time; they only resolve during the free-agents window.</span>}
         </div>
       </div>
 
@@ -496,22 +776,23 @@ function WaiversTab() {
         <table className="table-clean">
           <thead>
             <tr>
-              <th style={{ width: 50 }}>#</th>
+              <th style={{ width: 60 }}>Pref</th>
               <th>Claim (in / out)</th>
-              <th>Priority</th>
-              <th>Status</th>
-              <th></th>
+              <th style={{ width: 120, textAlign: "right" }}>Reorder</th>
             </tr>
           </thead>
           <tbody>
-            {list.map((w, i) => {
-              const pIn = window.PLAYER_MAP[w.playerIn] || { name: w.playerIn, team: "", pos: 1 };
-              const pOut = window.PLAYER_MAP[w.playerOut] || { name: w.playerOut, team: "", pos: 1 };
+            {bids.length === 0 && (
+              <tr><td colSpan={3} className="muted" style={{ textAlign: "center", padding: 18 }}>No wishlist bids yet — add one below.</td></tr>
+            )}
+            {bids.map((b, i) => {
+              const pIn = window.PLAYER_MAP[String(b.playerIn)] || { name: b.playerIn, team: "", pos: 1 };
+              const pOut = window.PLAYER_MAP[String(b.playerOut)] || { name: b.playerOut, team: "", pos: 1 };
               const tIn = teamById(pIn.team);
               const tOut = teamById(pOut.team);
               return (
-                <tr key={w.id}>
-                  <td className="num" style={{ fontWeight: 700 }}>{i + 1}</td>
+                <tr key={`${b.playerIn}_${b.playerOut}`}>
+                  <td className="num" style={{ fontWeight: 800, fontSize: 16 }}>#{i + 1}</td>
                   <td>
                     <div style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center", maxWidth: 500 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
@@ -531,10 +812,12 @@ function WaiversTab() {
                       </div>
                     </div>
                   </td>
-                  <td className="num">#{w.priority}</td>
-                  <td><span className="pill pill--gold" style={{ fontSize: 10 }}>{w.status}</span></td>
                   <td style={{ textAlign: "right" }}>
-                    <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => handleCancelWaiver(w.id)}>Cancel</button>
+                    <div className="row" style={{ gap: 4, justifyContent: "flex-end" }}>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 12 }} disabled={i === 0} onClick={() => move(i, -1)}>↑</button>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 12 }} disabled={i === bids.length - 1} onClick={() => move(i, 1)}>↓</button>
+                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => removeBid(i)}>✕</button>
+                    </div>
                   </td>
                 </tr>
               );
@@ -542,12 +825,12 @@ function WaiversTab() {
           </tbody>
         </table>
 
-        {isSubmitting ? (
+        {adding ? (
           <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
             <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
               <div className="col">
                 <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DROP PLAYER</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverOut} onChange={e => { setWaiverOut(e.target.value); setWaiverIn(""); }}>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={dropId} onChange={e => { setDropId(e.target.value); setClaimId(""); }}>
                   <option value="">-- Drop player --</option>
                   {mySquad.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
@@ -556,29 +839,30 @@ function WaiversTab() {
               </div>
               <span className="h-display" style={{ fontSize: 20, color: "var(--ink-400)", marginTop: 16 }}>↔</span>
               <div className="col">
-                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM PLAYER</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={waiverIn} onChange={e => setWaiverIn(e.target.value)} disabled={!waiverOut}>
+                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM FREE AGENT</span>
+                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={claimId} onChange={e => setClaimId(e.target.value)} disabled={!dropId}>
                   <option value="">-- Claim player --</option>
-                  {eligibleWaiverIn.map(s => (
+                  {eligibleClaims.map(s => (
                     <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
                   ))}
                 </select>
               </div>
             </div>
             <div className="row" style={{ gap: 8, justifyContent: "center" }}>
-              <button className="btn btn--ghost-dark" onClick={() => setIsSubmitting(false)}>Cancel</button>
-              <button className="btn btn--primary" onClick={handleSubmitWaiver} disabled={!waiverIn || !waiverOut}>Submit Waiver Claim</button>
+              <button className="btn btn--ghost-dark" onClick={() => { setAdding(false); setDropId(""); setClaimId(""); }}>Cancel</button>
+              <button className="btn btn--primary" onClick={addBid} disabled={!dropId || !claimId}>Add to wishlist</button>
             </div>
           </div>
         ) : (
-          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", textAlign: "center" }}>
-            <button className="btn btn--primary" onClick={() => setIsSubmitting(true)}>+ Submit New Waiver Claim</button>
+          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 10, justifyContent: "center" }}>
+            <button className="btn btn--ghost-dark" onClick={() => setAdding(true)}>+ Add bid</button>
+            <button className="btn btn--primary" onClick={save} disabled={saving || !bids.length}>{saving ? "Saving…" : `Save wishlist (${bids.length})`}</button>
           </div>
         )}
       </div>
 
       <div className="card" style={{ padding: 18 }}>
-        <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Waiver Queue · League-wide priority</div>
+        <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Auction order · League-wide waiver priority</div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
           {(window.MANAGERS || []).sort((a, b) => a.waiverPri - b.waiverPri).map((m, i) => (
             <div key={m.uid} style={{
@@ -637,9 +921,71 @@ function MySquadTab() {
 }
 
 function TransferHistoryTab() {
+  // Durable wishlist-auction history (survives the bids being deleted at auction
+  // time): the manager's ORDERED bids per GW with each one's outcome — claimed
+  // (✓) or cancelled (↓, the player went to a higher pick / was unavailable).
+  const [rows, setRows] = React.useState(null);
+  React.useEffect(() => {
+    const lid = window.LEAGUE && window.LEAGUE.id;
+    if (!lid) { setRows([]); return; }
+    let cancelled = false;
+    apiCall("GET", `/leagues/${lid}/wishlist-results`)
+      .then(res => { if (!cancelled) setRows((res && res.results) || []); })
+      .catch(() => { if (!cancelled) setRows([]); });
+    return () => { cancelled = true; };
+  }, []);
+
+  const me = window.ME;
+  const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
+  const mine = (rows || [])
+    .map(r => ({ gw: r.gw, bids: ((r.results || []).find(x => x.uid === me) || {}).bids || [] }))
+    .filter(x => x.bids.length);
+
+  if (rows === null) {
+    return <div className="card" style={{ padding: "24px 18px", textAlign: "center", color: "var(--ink-500)" }}>Loading wishlist history…</div>;
+  }
+  if (!mine.length) {
+    return (
+      <div className="card" style={{ padding: "24px 18px", textAlign: "center", color: "var(--ink-500)" }}>
+        No wishlist history yet — run a wishlist auction and your ordered bids (claimed + cancelled) will be recorded here per gameweek.
+      </div>
+    );
+  }
+
   return (
-    <div className="card text-center" style={{ padding: "24px 18px", color: "var(--ink-500)", textAlign: "center" }}>
-      No transfer history found.
+    <div className="col" style={{ gap: 14 }}>
+      {mine.map(({ gw, bids }) => (
+        <div key={gw} className="card" style={{ overflow: "hidden" }}>
+          <div style={{ padding: "12px 16px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <strong>Wishlist auction · GW{gw}</strong>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {bids.filter(b => b.status === "claimed").length} claimed · {bids.filter(b => b.status !== "claimed").length} cancelled
+            </span>
+          </div>
+          <div className="col" style={{ gap: 0 }}>
+            {bids.map((b, i) => {
+              const pIn = pl(b.playerIn), pOut = pl(b.playerOut);
+              const ok = b.status === "claimed";
+              return (
+                <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "10px 16px", borderTop: i ? "1px solid var(--border)" : "none" }}>
+                  <span style={{ fontWeight: 800, color: "var(--ink-400)", width: 26 }}>#{i + 1}</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px", borderRadius: 7, background: "rgba(0,168,67,0.12)", color: "#0a7d3c", fontWeight: 700, fontSize: 13 }}>
+                    <Flag team={teamById(pIn.team)} /> {pIn.name} <span style={{ fontSize: 10, opacity: 0.8 }}>IN</span>
+                  </span>
+                  <span style={{ color: "var(--ink-400)" }}>↔</span>
+                  <span style={{ display: "inline-flex", alignItems: "center", gap: 6, padding: "4px 9px", borderRadius: 7, background: "rgba(230,57,70,0.10)", color: "#b3303a", fontWeight: 700, fontSize: 13 }}>
+                    <Flag team={teamById(pOut.team)} /> {pOut.name} <span style={{ fontSize: 10, opacity: 0.8 }}>OUT</span>
+                  </span>
+                  <span style={{ marginLeft: "auto", display: "inline-flex", alignItems: "center", gap: 5, fontSize: 12, fontWeight: 800,
+                    color: ok ? "#0a8043" : "#c0392b" }}>
+                    {ok ? "✓ Claimed" : (<span title="cancelled — player went to a higher pick / unavailable">↓ Cancelled</span>)}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
@@ -792,7 +1138,7 @@ function DraftTab() {
       if (ownerFilter === "unowned" && ownerName) return false;
       if (ownerFilter === "my") {
         const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
-        if (!pPick || pPick.uid !== ME) return false;
+        if (!pPick || pPick.uid !== window.ME) return false;
       }
       if (ownerFilter !== "all" && ownerFilter !== "unowned" && ownerFilter !== "my") {
         const pPick = draftHistory.find(dh => String(dh.playerId) === pIdStr);
@@ -884,7 +1230,7 @@ function DraftTab() {
             <option value="all">All Owners</option>
             <option value="unowned">Unowned</option>
             <option value="my">My Team</option>
-            {managers.filter(m => m.uid !== ME).map(m => (
+            {managers.filter(m => m.uid !== window.ME).map(m => (
               <option key={m.uid} value={m.uid}>{m.team}</option>
             ))}
           </select>

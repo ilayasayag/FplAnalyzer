@@ -28,6 +28,16 @@ const FLAG_ISO = {
   NOR: "no", PAN: "pa", RSA: "za", SAU: "sa", SWE: "se",
 };
 
+// ISO codes for which a real kit image exists under kits/<iso>.png.
+// Generated from the FIFA WC fantasy squad kits; keyed by the same ISO codes
+// that FLAG_ISO maps team.id to, so coverage matches the flags exactly.
+const KIT_ISO = new Set([
+  "ar", "at", "au", "ba", "be", "br", "ca", "cd", "ch", "ci", "co", "cv",
+  "cw", "cz", "de", "dz", "ec", "eg", "es", "fr", "gb-eng", "gb-sct", "gh",
+  "hr", "ht", "iq", "ir", "jo", "jp", "kr", "ma", "mx", "nl", "no", "nz",
+  "pa", "pt", "py", "qa", "sa", "se", "sn", "tn", "tr", "us", "uy", "uz", "za",
+]);
+
 function Flag({ team, size = "sm" }) {
   if (!team) return null;
   const iso = FLAG_ISO[team.id];
@@ -91,6 +101,28 @@ function GroupChip({ group }) {
 // Uses primary flag colour with secondary stripe.
 function Jersey({ team, pos = 3, eliminated = false }) {
   if (!team) team = { flag: ["#888", "#888", "#888"] };
+
+  // Real kit image (FIFA WC fantasy renders), keyed by the same ISO code the
+  // flag uses. Falls back to the coloured SVG below for any team without a kit.
+  const iso = FLAG_ISO[team.id];
+  if (iso && KIT_ISO.has(iso)) {
+    return (
+      <img
+        className="jersey-kit"
+        src={`kits/${iso}.png`}
+        alt={team.name ? `${team.name} kit` : "kit"}
+        loading="lazy"
+        draggable="false"
+        style={{
+          width: "100%",
+          height: "100%",
+          objectFit: "contain",
+          filter: "drop-shadow(0 2px 4px rgba(0,0,0,0.35))",
+        }}
+      />
+    );
+  }
+
   const colors = team.vert || team.flag || ["#888", "#888", "#888"];
   const primary = colors[0];
   const secondary = colors[1] !== primary ? colors[1] : colors[2];
@@ -183,10 +215,26 @@ function isSwapLegal(lineup, idA, idB) {
 }
 
 function getNextFixtureOpponent(teamIso) {
-  const fixtures = window.WC_FIXTURES_GW4 || [];
-  const fix = fixtures.find(f => f.home === teamIso || f.away === teamIso);
+  // Team-vs-team fixtures for the viewing GW. Primary source is the live
+  // window.WC_FIXTURES_BY_TEAM map (built in app.jsx from GET /fixtures?gw=N,
+  // keyed by the same iso the players use; backend resolves isoCode from the
+  // team map). Falls back to the static WC_FIXTURES_GW4 round only when the
+  // live map isn't loaded yet. Teams not playing this GW (eliminated / bye)
+  // resolve to "—". window.SCHEDULE is the H2H *manager* schedule, not team
+  // fixtures, so it is never used here.
+  if (!teamIso) return "—";
+  const iso = String(teamIso).toUpperCase();
+  const byTeam = window.WC_FIXTURES_BY_TEAM;
+  if (byTeam && typeof byTeam === "object" && Object.keys(byTeam).length > 0) {
+    const entry = byTeam[iso];
+    return entry && entry.opp ? `v ${entry.opp}` : "—";
+  }
+  // Fallback: static single-round set (pre-load / fixtures fetch failed).
+  const fixtures = (window.WC_FIXTURES_GW4 || []);
+  if (!Array.isArray(fixtures)) return "—";
+  const fix = fixtures.find(f => f && (f.home === iso || f.away === iso));
   if (!fix) return "—";
-  return fix.home === teamIso ? `v ${fix.away}` : `v ${fix.home}`;
+  return fix.home === iso ? `v ${fix.away}` : `v ${fix.home}`;
 }
 
 // ---------- Player Slot (used on pitch) ----------
@@ -210,8 +258,12 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
   };
 
   const opp = getNextFixtureOpponent(p.team);
-  const displayInfo = mode === "points" 
-    ? `${points != null ? points : (GW3_POINTS[playerId] ?? 0)} PTS` 
+  // For a points view the per-GW points come from the gw_history snapshot map
+  // (passed down via Pitch.pointsById). A player who didn't feature that GW has
+  // NO snapshot entry — show 0, never the season-total fallback (VT-PointsNoStats
+  // #52), which would leak a non-zero score onto a player with no GW stats.
+  const displayInfo = mode === "points"
+    ? `${points != null ? points : 0} PTS`
     : opp;
 
   return (
@@ -222,11 +274,9 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
       <button type="button" className="player-slot__info" onClick={openStats} title="Player stats">i</button>
       <div className="player-slot__jersey">
         <Jersey team={t} pos={p.pos} eliminated={isElim} />
-        {onBench && (
-          <span className="player-slot__bench-role">
-            {POS_NAMES[p.pos]}
-          </span>
-        )}
+        <span className={`player-slot__bench-role${onBench ? "" : " player-slot__bench-role--starter"}`}>
+          {POS_NAMES[p.pos]}
+        </span>
         {onBench && benchOrder > 0 && p.pos !== 1 && (
           <span className="player-slot__bench-order">
             {benchOrder}
@@ -241,7 +291,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
+function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -251,6 +301,10 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
   const mid = starting.slice(1 + nDef, 1 + nDef + nMid);
   const fwd = starting.slice(1 + nDef + nMid, 1 + nDef + nMid + nFwd);
 
+  // Per-player points for the viewed gw (engine output from the manager's
+  // gw_history snapshot). A player with no snapshot entry didn't feature that
+  // GW → PlayerSlot renders 0 (no season-total fallback; see VT-PointsNoStats).
+  const ptsOf = (id) => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : undefined;
   const isPlayerDisabled = (id) => {
     if (mode !== "pick" || selected === null) return false;
     return !isSwapLegal(lineup, selected, id);
@@ -270,16 +324,16 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
           </div>
         </div>
       </div>
@@ -290,7 +344,7 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick }) {
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <PlayerSlot playerId={id} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
+              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
             </div>
           ))}
         </div>

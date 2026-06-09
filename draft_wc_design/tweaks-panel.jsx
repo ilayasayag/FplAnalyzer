@@ -190,6 +190,9 @@ function TweaksPanel({ title = 'Tweaks', children }) {
   // localhost. The design-tool host path (__activate_edit_mode postMessage)
   // is unaffected and still works in any environment.
   const _isDevHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+  // Admins may open the panel in production too (it hosts the admin-only Mock
+  // Simulator + DB tools). End users never see the trigger.
+  const _canUse = _isDevHost || !!window.IS_ADMIN;
   const [open, setOpen] = React.useState(_isDevHost && window === window.top);
   const dragRef = React.useRef(null);
   const offsetRef = React.useRef({ x: 16, y: 16 });
@@ -228,8 +231,8 @@ function TweaksPanel({ title = 'Tweaks', children }) {
       else if (t === '__deactivate_edit_mode') setOpen(false);
     };
     const onKeyDown = (e) => {
-      // Toggle Tweaks panel with Ctrl+M (dev only — never in production)
-      if (!_isDevHost) return;
+      // Toggle Tweaks panel with Ctrl+M (dev or admin)
+      if (!_canUse) return;
       if (e.ctrlKey && e.key.toLowerCase() === 'm') {
         e.preventDefault();
         setOpen(o => !o);
@@ -272,8 +275,8 @@ function TweaksPanel({ title = 'Tweaks', children }) {
   };
 
   if (!open) {
-    // No trigger in production — keeps the debug panel fully hidden for users.
-    if (!_isDevHost) return null;
+    // No trigger for end users — only dev hosts and signed-in admins.
+    if (!_canUse) return null;
     return (
       <>
         <style>{`

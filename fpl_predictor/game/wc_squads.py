@@ -49,16 +49,53 @@ class WCSquadManager:
     # ------------------------------------------------------------------
 
     def get_lineup(self, lid: str, uid: str, gw: int) -> dict:
+        from fpl_predictor.game.wc_gameweeks import is_locked
+
         doc_id = f"{uid}_{gw}"
-        doc = (self.db.collection("leagues").document(lid)
-               .collection("lineups").document(doc_id).get())
+        ref = (self.db.collection("leagues").document(lid)
+               .collection("lineups").document(doc_id))
+        doc = ref.get()
         if doc.exists:
-            return doc.to_dict()
-        # Carry forward from previous GW
-        prev = self._get_previous_lineup(lid, uid, gw)
-        if prev:
-            return prev
-        return self._default_lineup(lid, uid)
+            lineup = doc.to_dict()
+        else:
+            # Carry forward from previous GW, else build a default from squad.
+            lineup = self._get_previous_lineup(lid, uid, gw) \
+                or self._default_lineup(lid, uid)
+
+        # A historical GW is immutable — return exactly what was played; never
+        # rewrite it to reflect transfers made AFTER that GW kicked off. A GW is
+        # historical if its lock time has passed OR it has already been finalized
+        # (gw < the league's currentGw). The currentGw check is the authoritative
+        # signal for the mock simulator, whose fixtures don't carry real-world
+        # kickoff clocks for is_locked() to read.
+        try:
+            locked = is_locked(gw)
+        except Exception:
+            locked = False
+        try:
+            league_doc = self.db.collection("leagues").document(lid).get()
+            current_gw = int((league_doc.to_dict() or {}).get("currentGw", 1)) if league_doc.exists else 1
+        except Exception:
+            current_gw = 1
+        if locked or gw < current_gw:
+            return lineup
+
+        # Transfers (free-agent / trade) only mutate the SQUAD doc, leaving the
+        # lineup pointing at the dropped player and missing the new one — which
+        # is why a transferred-in player never appears in the pick-team view.
+        # Reconcile the lineup with the current squad and persist the fix so
+        # scoring uses the right players too.
+        reconciled, changed = self._reconcile_lineup_with_squad(lid, uid, lineup)
+        if changed:
+            try:
+                ref.set({
+                    "starting": reconciled.get("starting", []),
+                    "bench": reconciled.get("bench", []),
+                    "formation": reconciled.get("formation", []),
+                }, merge=True)
+            except Exception:
+                pass  # display correction still returned even if write fails
+        return reconciled
 
     def set_lineup(
         self,
@@ -70,9 +107,11 @@ class WCSquadManager:
         captain: Optional[int] = None,
         vice_captain: Optional[int] = None,
     ) -> dict:
-        from fpl_predictor.game.wc_gameweeks import is_locked
+        # Squads + XI freeze at T0 - 1h (the FREE_AGENTS -> NONE boundary), read
+        # from the durable fixture kickoffs so a re-sim never moves the lock.
+        from fpl_predictor.game.wc_windows import is_lineup_locked
 
-        if is_locked(gw):
+        if is_lineup_locked(self.db, gw):
             raise ValueError("LINEUP_LOCKED")
 
         league_doc = self.db.collection("leagues").document(lid).get()
@@ -303,12 +342,23 @@ class WCSquadManager:
         return doc.to_dict() if doc.exists else None
 
     def _validate_window_open(self, lid: str):
-        from fpl_predictor.game.wc_gameweeks import is_transfer_window_open
+        """Free-agent pickups/drops are only allowed in the FREE_AGENTS window.
+
+        Routes through the override-aware ``current_window_from_db`` state
+        machine so an admin ``windowOverride`` is honoured (the legacy
+        ``is_transfer_window_open`` helper passed ``league_doc=None`` and so
+        silently ignored overrides — the root cause of "window closed" errors
+        when an admin had explicitly opened the free-agents window).
+        """
+        from fpl_predictor.game.wc_windows import (
+            TransferWindow,
+            current_window_from_db,
+        )
         league_doc = self.db.collection("leagues").document(lid).get()
         if not league_doc.exists:
             raise ValueError("League not found")
-        gw = league_doc.to_dict().get("currentGw", 1)
-        if not is_transfer_window_open(gw - 1 if gw > 1 else 0):
+        window, _ = current_window_from_db(lid, self.db)
+        if window != TransferWindow.FREE_AGENTS:
             raise ValueError("WINDOW_CLOSED")
 
     def _log_transaction(self, lid: str, uid: str, txn_type: str,
@@ -342,6 +392,86 @@ class WCSquadManager:
             pos = p.get("position", 3)
             counts[pos] = counts.get(pos, 0) + 1
         return (counts[1], counts[2], counts[3], counts[4])
+
+    def _reconcile_lineup_with_squad(self, lid: str, uid: str, lineup: dict):
+        """Return ``(lineup, changed)`` with the lineup aligned to the squad.
+
+        Replaces entries that are no longer in the squad (transferred OUT) with
+        squad players missing from the lineup (transferred IN), matching by
+        position where possible so the formation stays legal. If the result is
+        not a valid XI (e.g. a position-changing trade), falls back to a fresh
+        default lineup so the pitch always renders something saveable.
+        """
+        squad = self._get_squad_players(lid, uid)
+        if not squad:
+            return lineup, False
+
+        player_map = {p["playerId"]: p for p in squad}
+        pos_by_id = {p["playerId"]: p.get("position") for p in squad}
+        squad_ids = set(pos_by_id)
+
+        starting = list(lineup.get("starting", []) or [])
+        bench = list(lineup.get("bench", []) or [])
+        in_lineup = starting + bench
+
+        stale = [pid for pid in in_lineup if pid not in squad_ids]
+        orphans = [pid for pid in squad_ids if pid not in in_lineup]
+        if not stale and not orphans:
+            return lineup, False
+
+        # Incoming players bucketed by position.
+        orphan_by_pos: Dict[int, List[int]] = {}
+        for pid in orphans:
+            orphan_by_pos.setdefault(pos_by_id.get(pid), []).append(pid)
+
+        # Map each departed player to a same-position replacement first. The
+        # departed player is no longer in the squad, so read its position from
+        # the player catalogue.
+        mapping: Dict[int, int] = {}
+        leftover = list(orphans)
+        for pid in stale:
+            dep = self._get_wc_player(pid)
+            dep_pos = dep.get("position") if dep else None
+            bucket = orphan_by_pos.get(dep_pos)
+            if bucket:
+                repl = bucket.pop(0)
+                mapping[pid] = repl
+                leftover.remove(repl)
+        for pid in stale:  # any departed without a position match
+            if pid not in mapping and leftover:
+                mapping[pid] = leftover.pop(0)
+
+        def _apply(ids):
+            out = []
+            for pid in ids:
+                if pid in squad_ids:
+                    out.append(pid)
+                elif pid in mapping:
+                    out.append(mapping[pid])
+                # departed with no replacement → slot dropped
+            return out
+
+        new_starting = _apply(starting)
+        new_bench = _apply(bench)
+
+        # Any incoming player we couldn't place (e.g. squad grew) → to bench.
+        placed = set(new_starting) | set(new_bench)
+        for pid in orphans:
+            if pid not in placed:
+                new_bench.append(pid)
+                placed.add(pid)
+
+        formation = self._get_formation(new_starting, player_map)
+        if len(new_starting) != 11 or formation not in VALID_FORMATIONS:
+            # Couldn't preserve a legal XI (e.g. position-changing trade) —
+            # rebuild a guaranteed-valid default from the current squad.
+            return self._default_lineup(lid, uid), True
+
+        reconciled = dict(lineup)
+        reconciled["starting"] = new_starting
+        reconciled["bench"] = new_bench
+        reconciled["formation"] = list(formation)
+        return reconciled, True
 
     def _default_lineup(self, lid: str, uid: str) -> dict:
         squad_doc = (self.db.collection("leagues").document(lid)

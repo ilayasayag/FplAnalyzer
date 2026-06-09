@@ -164,8 +164,9 @@ function AdminWindowSwitcher() {
 
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
-  const top5 = STANDINGS.slice(0, 8);
+  const _standings = window.STANDINGS || STANDINGS;
+  const myStanding = _standings.find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const top5 = _standings.slice(0, 8);
 
   const rounds = BRACKET.rounds || BRACKET || {};
   const qfArray = Array.isArray(rounds.qf) ? rounds.qf : [];
@@ -174,12 +175,12 @@ function StatusScreen({ onTab }) {
     ? rounds.final 
     : (rounds.final && typeof rounds.final === 'object' ? [rounds.final] : []);
 
-  const myMatch = qfArray.find(m => m.home === ME || m.away === ME) ||
-                  sfArray.find(m => m.home === ME || m.away === ME) ||
-                  finalArray.find(m => m.home === ME || m.away === ME);
+  const myMatch = qfArray.find(m => m.home === window.ME || m.away === window.ME) ||
+                  sfArray.find(m => m.home === window.ME || m.away === window.ME) ||
+                  finalArray.find(m => m.home === window.ME || m.away === window.ME);
   
-  const myOpponent = myMatch ? (myMatch.home === ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
-  const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === ME);
+  const myOpponent = myMatch ? (myMatch.home === window.ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
+  const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === window.ME);
   const mySeed = mySeedObj ? mySeedObj.seed : (myStanding ? myStanding.rank : "?");
 
   const getRoundName = (matchId) => {
@@ -201,7 +202,7 @@ function StatusScreen({ onTab }) {
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
   const setViewingGw = window.setViewingGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
   
   const getOrdinal = n => {
     const num = Number(n);
@@ -321,7 +322,7 @@ function StatusScreen({ onTab }) {
             </div>
             <div>
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                Seed #{myMatch.home === ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
+                Seed #{myMatch.home === window.ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
               </div>
               <div className="h-display" style={{ fontSize: 22 }}>{myOpponent ? myOpponent.team : "TBD"}</div>
               <div className="muted" style={{ fontSize: 13 }}>{myOpponent ? myOpponent.name : "Awaiting Seeding"}</div>
@@ -359,20 +360,86 @@ function StatusScreen({ onTab }) {
 // ---------- POINTS (finished GW pitch) ----------
 function PointsScreen({ onTab }) {
   const [view, setView] = React.useState("pitch");
-  const lineup = MY_LINEUP_GW3;
+  // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP_GW3
+  // from GET /leagues/{lid}/lineup/{gw}). For a FINISHED gw we instead render
+  // the immutable gw_history snapshot (see snapLineup below) so the pitch shows
+  // exactly the squad that was locked for that GW — not whatever the squad
+  // became after later free-agent/trade moves.
+  const liveLineup = window.MY_LINEUP_GW3 || MY_LINEUP_GW3;
 
-  // Calculate total points dynamically without captain doubling
-  let totalPts = 0;
-  if (lineup && lineup.starting) {
-    lineup.starting.forEach(id => {
-      totalPts += GW3_POINTS[id] ?? 0;
-    });
-  } else {
-    totalPts = 65; // fallback
-  }
+  const currentGw = TOURNAMENT.currentGw;
+  const viewingGw = window.VIEWING_GW || currentGw;
+  const setViewingGw = window.setViewingGw;
+  const me = window.ME;
+
+  // Per-player breakdown for the VIEWED gw from the manager's gw_history
+  // snapshot (post-autosub starters+bench). statsById[id] = { points, stats }
+  // where points IS the engine output. Empty {} until the fetch lands.
+  const [statsById, setStatsById] = React.useState({});
+  // Locked lineup rebuilt from the gw_history snapshot for a finished GW.
+  const [snapLineup, setSnapLineup] = React.useState(null);
+  const lid = window.LEAGUE && window.LEAGUE.id;
+
+  React.useEffect(() => {
+    setStatsById({});
+    setSnapLineup(null);
+    if (!lid || !me) return;
+    let cancelled = false;
+    apiCall("GET", `/leagues/${lid}/gw-history/${me}?gw=${viewingGw}`)
+      .then(snap => {
+        if (cancelled || !snap || !Array.isArray(snap.players)) return;
+        const map = {};
+        snap.players.forEach(pl => { map[String(pl.id)] = { points: pl.points || 0, stats: pl.stats || {} }; });
+        setStatsById(map);
+        // Prefer the snapshot's frozen starting/bench; older snapshots that
+        // predate those fields fall back to the players order (starting first).
+        const ids = snap.players.map(pl => pl.id);
+        const starting = (Array.isArray(snap.starting) && snap.starting.length) ? snap.starting : ids.slice(0, 11);
+        const bench = Array.isArray(snap.bench) ? snap.bench : ids.slice(11);
+        setSnapLineup({ starting, bench, autoSubs: snap.autoSubs || [] });
+      })
+      .catch(err => { if (!cancelled) console.error("Failed to fetch gw-history snapshot:", err); });
+    return () => { cancelled = true; };
+  }, [lid, me, viewingGw]);
+
+  // For a finished GW, render the immutable snapshot lineup; for the live GW,
+  // the editable lineup doc. The Pitch lays starters out by formation, so order
+  // the snapshot's starting XI GK→DEF→MID→FWD and derive the formation from the
+  // players' real positions (resolved via window.PLAYER_MAP).
+  const EMPTY_LINEUP = { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] };
+  const lineup = React.useMemo(() => {
+    // A FINISHED gw must ONLY ever render its frozen gw_history snapshot — never
+    // the live squad, which may include free-agents/trades acquired AFTER that
+    // GW (that bug showed a just-signed player in a past, already-scored GW).
+    // While the snapshot is still loading, show an empty pitch, not the live one.
+    if (viewingGw < currentGw) {
+      if (!snapLineup) return EMPTY_LINEUP;
+    } else {
+      return liveLineup || EMPTY_LINEUP;
+    }
+    const pmap = window.PLAYER_MAP || {};
+    const posOf = (id) => (pmap[String(id)] ? pmap[String(id)].pos : 3);
+    const byPos = { 1: [], 2: [], 3: [], 4: [] };
+    (snapLineup.starting || []).forEach(id => { (byPos[posOf(id)] || byPos[3]).push(id); });
+    const ordered = [...byPos[1], ...byPos[2], ...byPos[3], ...byPos[4]];
+    const formation = [Math.max(1, byPos[1].length), byPos[2].length, byPos[3].length, byPos[4].length];
+    return { starting: ordered, bench: snapLineup.bench || [], formation, autoSubs: snapLineup.autoSubs || [] };
+  }, [viewingGw, currentGw, snapLineup, liveLineup]);
+
+  // Points-only map for the pitch slots.
+  const gwPointsById = React.useMemo(() => {
+    const m = {};
+    Object.entries(statsById).forEach(([id, v]) => { m[id] = v.points; });
+    return m;
+  }, [statsById]);
+
+  // Authoritative squad total for the viewed gw = backend results.{uid}.points
+  // (Σ starter points post-autosub + captain bonus), synced into GW3_TOTALS by
+  // app.jsx. Show "—" when that gw hasn't been scored for this manager.
+  const totalPts = (window.GW3_TOTALS && window.GW3_TOTALS[me] != null) ? window.GW3_TOTALS[me] : "—";
 
   // Get current user's team name dynamically
-  const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === (window.ME || ME))?.team || "My Squad";
+  const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === me)?.team || "My Squad";
 
   return (
     <div className="col" style={{ gap: 20 }}>
@@ -381,19 +448,19 @@ function PointsScreen({ onTab }) {
           Points · <span className="muted" style={{ fontWeight: 500 }}>{myTeamName}</span>
         </h2>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn--ghost-dark" style={{ padding: "8px 14px", fontSize: 12 }}>← GW2</button>
-          <button className="btn btn--ghost-dark" disabled style={{ padding: "8px 14px", fontSize: 12 }}>GW4 →</button>
+          <button className="btn btn--ghost-dark" style={{ padding: "8px 14px", fontSize: 12 }} disabled={viewingGw <= 1 || !setViewingGw} onClick={() => setViewingGw && setViewingGw(viewingGw - 1)}>← GW{viewingGw - 1}</button>
+          <button className="btn btn--ghost-dark" disabled={viewingGw >= currentGw || !setViewingGw} style={{ padding: "8px 14px", fontSize: 12 }} onClick={() => setViewingGw && setViewingGw(viewingGw + 1)}>GW{viewingGw + 1} →</button>
         </div>
       </div>
 
       <div className="card-dark" style={{ padding: 22 }}>
         <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 16 }}>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Gameweek 3 · Group Stage MD3</div>
-            <div className="h-display" style={{ fontSize: 22, marginTop: 2 }}>Final Points</div>
+            <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Gameweek {viewingGw}</div>
+            <div className="h-display" style={{ fontSize: 22, marginTop: 2 }}>{viewingGw < currentGw ? "Final Points" : "Live Points"}</div>
           </div>
           <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", borderRadius: 12, padding: "12px 22px", textAlign: "center", flexShrink: 0 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>FINAL POINTS</div>
+            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>{viewingGw < currentGw ? "FINAL POINTS" : "POINTS"}</div>
             <div className="mono" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1 }}>{totalPts}</div>
           </div>
         </div>
@@ -404,9 +471,9 @@ function PointsScreen({ onTab }) {
         </div>
 
         {view === "pitch" ? (
-          <Pitch lineup={lineup} mode="points" />
+          <Pitch lineup={lineup} mode="points" pointsById={gwPointsById} />
         ) : (
-          <PointsListView lineup={lineup} />
+          <PointsListView lineup={lineup} statsById={statsById} />
         )}
 
         {/* Auto-subs */}
@@ -439,7 +506,7 @@ function PointsScreen({ onTab }) {
   );
 }
 
-function PointsListView({ lineup }) {
+function PointsListView({ lineup, statsById = {} }) {
   const all = [...lineup.starting, ...lineup.bench];
   return (
     <table className="table-clean table-dark">
@@ -460,11 +527,15 @@ function PointsListView({ lineup }) {
           const p = playerById(id);
           const t = teamById(p.team);
           const inLineup = lineup.starting.includes(id);
-          const pts = GW3_POINTS[id] ?? 0;
-          // synth stats
-          const mins = pts === 0 ? 0 : 90;
-          const g = pts > 8 ? 1 : 0;
-          const a = pts > 5 ? 1 : 0;
+          // Real per-gw stats + points come from the SAME gw_history snapshot
+          // row (engine output). No fabrication: dashes when no data.
+          const row = statsById[String(id)];
+          const s = row ? (row.stats || {}) : {};
+          const pts = row ? row.points : 0;
+          const mins = s.minutes || 0;
+          const g = s.goals || 0;
+          const a = s.assists || 0;
+          const cs = !!s.cleanSheet;
           return (
             <tr key={id} style={{ opacity: inLineup ? 1 : 0.5 }}>
               <td><strong>{p.name}</strong></td>
@@ -473,7 +544,7 @@ function PointsListView({ lineup }) {
               <td className="num" style={{ textAlign: "right" }}>{mins}</td>
               <td className="num" style={{ textAlign: "right" }}>{g}</td>
               <td className="num" style={{ textAlign: "right" }}>{a}</td>
-              <td className="num" style={{ textAlign: "right" }}>{p.pos === 1 ? (mins ? "✓" : "—") : "—"}</td>
+              <td className="num" style={{ textAlign: "right" }}>{(p.pos === 1 || p.pos === 2) ? (cs ? "✓" : "—") : "—"}</td>
               <td className="num" style={{ textAlign: "right", fontWeight: 800, color: pts > 0 ? "var(--green-400)" : "rgba(255,255,255,0.4)" }}>{pts}</td>
             </tr>
           );

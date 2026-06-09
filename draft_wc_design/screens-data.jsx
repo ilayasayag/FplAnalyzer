@@ -11,10 +11,16 @@ function PlayerBrowserScreen() {
   const [owned, setOwned] = React.useState("all");
   const [sort, setSort] = React.useState("pts");
 
-  // squad ownership map
+  // Squad ownership map: playerId -> owning manager uid, across ALL managers.
+  // app.jsx preloads window.SQUADS_BY_UID from the per-manager squad endpoint;
+  // without it, only ME's squad would be known and every other manager's
+  // players (e.g. Haaland) would wrongly render as free agents.
   const owners = {};
-  MANAGERS.forEach(m => {
-    if (m.uid === ME) MY_SQUAD_IDS.forEach(id => owners[id] = m.uid);
+  const squadsByUid = window.SQUADS_BY_UID || {};
+  const activeManagers = window.MANAGERS || MANAGERS;
+  activeManagers.forEach(m => {
+    const ids = squadsByUid[m.uid] || (m.uid === window.ME ? (window.MY_SQUAD_IDS || MY_SQUAD_IDS) : []);
+    (ids || []).forEach(id => { owners[String(id)] = m.uid; });
   });
 
   const activePlayers = window.PLAYERS || PLAYERS;
@@ -35,7 +41,7 @@ function PlayerBrowserScreen() {
     const t = teamById(p.team);
     if (grp !== "all" && t.grp !== grp) return false;
     if (owned === "free" && owners[p.id]) return false;
-    if (owned === "mine" && owners[p.id] !== ME) return false;
+    if (owned === "mine" && owners[p.id] !== window.ME) return false;
     if (owned === "elim" && !(p.elim || t.elim)) return false;
     return true;
   });
@@ -153,7 +159,7 @@ function PlayerBrowserScreen() {
                   <td style={{ fontSize: 12 }}>
                     {owner ? (
                       <span className="row" style={{ gap: 6 }}>
-                        <span className="dot" style={{ background: owner === ME ? "var(--gold-500)" : "var(--ink-300)" }} />
+                        <span className="dot" style={{ background: owner === window.ME ? "var(--gold-500)" : "var(--ink-300)" }} />
                         {managerById(owner).team}
                       </span>
                     ) : (
@@ -164,8 +170,8 @@ function PlayerBrowserScreen() {
                   </td>
                   <td style={{ textAlign: "right" }}>
                     {!owner && <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }}>Claim</button>}
-                    {owner === ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Drop</button>}
-                    {owner && owner !== ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Trade</button>}
+                    {owner === window.ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Drop</button>}
+                    {owner && owner !== window.ME && <button className="btn btn--ghost-dark" style={{ padding: "6px 14px", fontSize: 11 }}>Trade</button>}
                   </td>
                 </tr>
               );
@@ -202,10 +208,63 @@ function FilterSelect({ label, value, onChange, options }) {
 
 
 // ---------- FIXTURES ----------
+// Normalize a backend fixture ({homeTeam,awayTeam,kickoff,status,score,wcRound})
+// into the row shape the renderer expects ({day,time,home,away,venue,...}).
+// `home`/`away` are isoCodes so teamById resolves flag/name/group for both the
+// live map and the static bracket.
+function normalizeFixtureRow(fx) {
+  const homeIso = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
+  const awayIso = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
+  let day = "", time = "";
+  if (fx.kickoff) {
+    const d = new Date(fx.kickoff);
+    if (!isNaN(d.getTime())) {
+      day = d.toLocaleDateString(undefined, { weekday: "short", day: "numeric", month: "short" });
+      time = d.toLocaleTimeString(undefined, { hour: "2-digit", minute: "2-digit" });
+    }
+  }
+  const sc = fx.score || {};
+  const hasScore = sc.home != null && sc.away != null;
+  return {
+    home: homeIso || (fx.homeTeam || {}).name || "?",
+    away: awayIso || (fx.awayTeam || {}).name || "?",
+    homeName: (fx.homeTeam || {}).name,
+    awayName: (fx.awayTeam || {}).name,
+    day: day || "Scheduled",
+    time: time || (fx.status || ""),
+    venue: hasScore ? `${sc.home}–${sc.away}` : "",
+    status: fx.status,
+  };
+}
+
 function FixturesScreen() {
   const [gw, setGw] = React.useState(4);
-  const fixtures = WC_FIXTURES_GW4;
+  const [fetched, setFetched] = React.useState(null); // null = not loaded yet
+  const [loading, setLoading] = React.useState(false);
   const round = TOURNAMENT.gwDates[gw];
+
+  React.useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    apiCall("GET", `/fixtures?gw=${gw}`)
+      .then(list => {
+        if (cancelled) return;
+        const rows = (Array.isArray(list) ? list : []).map(normalizeFixtureRow);
+        setFetched(rows);
+        setLoading(false);
+      })
+      .catch(e => {
+        if (cancelled) return;
+        console.warn("Fixtures fetch failed for gw", gw, e);
+        setFetched(null); // fall back to static
+        setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [gw]);
+
+  // Use live fixtures once loaded; otherwise the static GW4 round as a
+  // placeholder (only meaningful for GW4, but harmless elsewhere while loading).
+  const fixtures = fetched != null ? fetched : WC_FIXTURES_GW4;
 
   const byDay = {};
   fixtures.forEach(f => { (byDay[f.day] ||= []).push(f); });
@@ -225,25 +284,36 @@ function FixturesScreen() {
         </div>
 
         <div style={{ padding: "20px 28px", color: "white" }}>
+          {loading && fetched == null && (
+            <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading fixtures…</div>
+          )}
+          {!loading && fetched != null && fixtures.length === 0 && (
+            <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>No fixtures scheduled for GW{gw}.</div>
+          )}
           {Object.entries(byDay).map(([day, ms]) => (
             <div key={day} style={{ marginBottom: 18 }}>
               <div style={{ display: "inline-block", background: "var(--green-400)", color: "var(--navy-900)", padding: "4px 12px", borderRadius: 4, fontWeight: 800, fontSize: 11, letterSpacing: "0.06em", marginBottom: 8 }}>{day.toUpperCase()}</div>
               {ms.map((m, i) => {
                 const h = teamById(m.home);
                 const a = teamById(m.away);
+                const hName = (h && h.name && h.grp !== "?") ? h.name : (m.homeName || (h && h.name) || m.home);
+                const aName = (a && a.name && a.grp !== "?") ? a.name : (m.awayName || (a && a.name) || m.away);
+                const grpLabel = round.wcRound.includes("Group")
+                  ? (h && h.grp && h.grp !== "?" ? `Grp ${h.grp}` : "Group")
+                  : round.wcRound;
                 return (
                   <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 1fr 140px", padding: "12px 0", alignItems: "center", borderBottom: "1px solid var(--border-dark)", fontSize: 14 }}>
                     <span className="muted" style={{ fontSize: 12 }}>{m.time} <span style={{ opacity: 0.5 }}>local</span></span>
                     <span style={{ textAlign: "right", display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 10, fontWeight: 700 }}>
-                      {h.name} <Flag team={h} size="lg" />
+                      {hName} <Flag team={h} size="lg" />
                     </span>
                     <span style={{ textAlign: "center" }}>
                       <span className="pill pill--dark" style={{ background: "rgba(255,255,255,0.08)", fontSize: 11, color: "white" }}>
-                        {round.wcRound.includes("Group") ? `Grp ${h.grp}` : round.wcRound}
+                        {grpLabel}
                       </span>
                     </span>
                     <span style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: 700 }}>
-                      <Flag team={a} size="lg" /> {a.name}
+                      <Flag team={a} size="lg" /> {aName}
                     </span>
                     <span className="muted" style={{ fontSize: 11, textAlign: "right", color: "rgba(255,255,255,0.6)" }}>{m.venue}</span>
                   </div>
@@ -306,6 +376,12 @@ function LeagueScreen({ onTab }) {
 }
 
 function StandingsTable({ onTab }) {
+  const rows = (window.STANDINGS || STANDINGS);
+  // The qualification cut + round name come from the league config, not a
+  // hardcoded "Top 8 / Quarter-Finals" (#48): a league can qualify any N.
+  const qualifiers = (window.LEAGUE && window.LEAGUE.knockoutQualifiers) || 8;
+  const ROUND_BY_QUALS = { 32: "Round of 32", 16: "Round of 16", 8: "Quarter-Finals", 4: "Semi-Finals", 2: "Final" };
+  const roundName = ROUND_BY_QUALS[qualifiers] || "the Knockouts";
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       <table className="table-clean">
@@ -322,12 +398,14 @@ function StandingsTable({ onTab }) {
           </tr>
         </thead>
         <tbody>
-          {STANDINGS.map((s, i) => {
+          {rows.map((s, i) => {
             const m = managerById(s.uid);
             const t = teamById(m.flag);
-            const isMe = s.uid === ME;
+            const isMe = s.uid === window.ME;
             const qualified = !s.knockedOut;
-            const showQualLine = i === 7;
+            // Draw the cut line right below the last qualifying place (only if
+            // some teams actually miss out).
+            const showQualLine = i === qualifiers - 1 && qualifiers < rows.length;
             return (
               <React.Fragment key={s.uid}>
                 <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "")}>
@@ -345,7 +423,7 @@ function StandingsTable({ onTab }) {
                         <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.team}</div>
                         <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{m.name}</div>
                       </div>
-                      {qualified && i < 4 && <span className="pill pill--gold" style={{ marginLeft: 4, flexShrink: 0 }}>H2H Seed</span>}
+                      {qualified && !s.ptsSeed && <span className="pill pill--gold" style={{ marginLeft: 4, flexShrink: 0 }}>H2H Seed</span>}
                       {qualified && s.ptsSeed && <span className="pill pill--teal" style={{ marginLeft: 4, flexShrink: 0 }}>Pts Seed</span>}
                     </div>
                   </td>
@@ -362,7 +440,7 @@ function StandingsTable({ onTab }) {
                   <tr>
                     <td colSpan="8" style={{ padding: 0 }}>
                       <div style={{ borderTop: "2px dashed var(--hot-500)", padding: "6px 14px", background: "rgba(255,62,108,0.05)", fontSize: 11, fontWeight: 700, color: "var(--hot-500)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                        ↑ Qualification Line · Top 8 enter Quarter-Finals
+                        ↑ Qualification Line · Top {qualifiers} enter {roundName}
                       </div>
                     </td>
                   </tr>
@@ -373,7 +451,7 @@ function StandingsTable({ onTab }) {
         </tbody>
       </table>
       <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--ink-500)" }}>
-        Seeds 1–4 are top H2H; seeds 5–8 are best remaining by fantasy points (Pts Seed).
+        Top {qualifiers} qualify for {roundName}. H2H Seeds qualify on head-to-head record; Pts Seeds are the best remaining by fantasy points.
       </div>
     </div>
   );
@@ -403,7 +481,7 @@ function ScheduleTable() {
               const bp = gwScores && gwScores[b] !== undefined ? gwScores[b] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : "—");
               const hasScore = ap !== "—" && bp !== "—";
               const aWin = hasScore && Number(ap) > Number(bp);
-              const isMe = a === ME || b === ME;
+              const isMe = a === window.ME || b === window.ME;
               const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
               return (
                 <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
@@ -466,18 +544,35 @@ function ResultsTable() {
 function TradesScreen() {
   const [tab, setTab] = React.useState("inbox");
   const [showPropose, setShowPropose] = React.useState(false);
+  const inbox = window.TRADES_INBOX || TRADES_INBOX;
+  const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
+  // Manager↔manager trades are only open during the TRADE window. In the
+  // free-agents and gameweek windows the squad is otherwise managed (free-agent
+  // pickups / wishlist), so proposing a new trade is blocked.
+  const phase = (window.WINDOW && window.WINDOW.phase) || "none";
+  const tradesOpen = phase === "trade";
+  const phaseLabel = { free_agents: "free-agents window", next_gw_bid: "gameweek (wishlist only)", none: "closed window" }[phase] || "this window";
   return (
     <div className="col" style={{ gap: 16 }}>
-      {showPropose && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
+      {showPropose && tradesOpen && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Trades</h2>
-        <button className="btn btn--primary" onClick={() => setShowPropose(true)}>+ Propose Trade</button>
+        <button className="btn btn--primary" disabled={!tradesOpen}
+          title={tradesOpen ? "" : `Manager trades are closed during the ${phaseLabel}`}
+          style={{ opacity: tradesOpen ? 1 : 0.45, cursor: tradesOpen ? "pointer" : "not-allowed" }}
+          onClick={() => tradesOpen && setShowPropose(true)}>+ Propose Trade</button>
       </div>
+      {!tradesOpen && (
+        <div className="alert alert--gold">
+          <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
+          <div>Manager trades are open only during the <strong>trade window</strong>. You're in the <strong>{phaseLabel}</strong> — you can still respond to existing offers and build your wishlist.</div>
+        </div>
+      )}
 
       <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
-          ["inbox", `Inbox (${TRADES_INBOX.length})`],
-          ["outbox", `Sent (${TRADES_OUTBOX.length})`],
+          ["inbox", `Inbox (${inbox.length})`],
+          ["outbox", `Sent (${outbox.length})`],
           ["history", "History"],
         ].map(([id, label]) => (
           <button key={id}
@@ -489,8 +584,12 @@ function TradesScreen() {
         ))}
       </div>
 
-      {tab === "inbox" && TRADES_INBOX.map(t => <TradeCard key={t.id} trade={t} direction="inbox" />)}
-      {tab === "outbox" && TRADES_OUTBOX.map(t => <TradeCard key={t.id} trade={t} direction="outbox" />)}
+      {tab === "inbox" && (inbox.length
+        ? inbox.map(t => <TradeCard key={t.id} trade={t} direction="inbox" />)
+        : <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>No incoming trade offers.</div>)}
+      {tab === "outbox" && (outbox.length
+        ? outbox.map(t => <TradeCard key={t.id} trade={t} direction="outbox" />)
+        : <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>You haven't sent any trade offers.</div>)}
       {tab === "history" && (
         <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>
           No completed trades yet this season.
@@ -504,6 +603,25 @@ function TradeCard({ trade, direction }) {
   const proposer = managerById(trade.proposer);
   const target = managerById(trade.target);
   const isIncoming = direction === "inbox";
+  const [busy, setBusy] = React.useState(false);
+
+  const act = async (kind) => {
+    if (busy) return;
+    if (kind === "cancel" && !window.confirm("Cancel this trade offer?")) return;
+    setBusy(true);
+    try {
+      const lid = window.LEAGUE.id;
+      if (kind === "cancel") {
+        await apiCall("POST", `/leagues/${lid}/trades/${trade.id}/cancel`, {});
+      } else {
+        await apiCall("POST", `/leagues/${lid}/trades/${trade.id}/respond`, { action: kind });
+      }
+      window.location.reload();
+    } catch (err) {
+      alert("Trade action failed: " + (err.error || err.detail || JSON.stringify(err)));
+      setBusy(false);
+    }
+  };
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -564,11 +682,11 @@ function TradeCard({ trade, direction }) {
         </span>
         {isIncoming ? (
           <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn--ghost-dark">Decline</button>
-            <button className="btn btn--primary">Accept</button>
+            <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("decline")}>Decline</button>
+            <button className="btn btn--primary" disabled={busy} onClick={() => act("accept")}>{busy ? "…" : "Accept"}</button>
           </div>
         ) : (
-          <button className="btn btn--ghost-dark">Cancel</button>
+          <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : "Cancel"}</button>
         )}
       </div>
     </div>
@@ -577,33 +695,57 @@ function TradeCard({ trade, direction }) {
 
 // ---------- MANAGER SQUAD MODAL ----------
 function ManagerSquadModal({ uid, gw, onClose }) {
-  const [players, setPlayers] = React.useState(null); // null = loading
   const m = managerById(uid);
-  const gwPoints = window.GW3_POINTS || {};
-  const gwTotals = (window.ALL_GW_SCORES || {})[gw] || {};
-  const managerTotal = gwTotals[uid] !== undefined ? gwTotals[uid]
-    : (gw === 3 ? (window.GW3_TOTALS || {})[uid] : "—");
+  // Per-GW breakdown from the immutable gw_history snapshot — the SAME source the
+  // Points panel uses. It carries the frozen squad that was actually fielded for
+  // this GW, each player's points FOR THIS GW, and the authoritative total. This
+  // replaces the old GW3-only / season-total (GW3_POINTS) logic, so the league
+  // modal now shows real per-player points for any finished GW (#53), never a
+  // season total (#52-class), and never the post-transfer squad (#50-class).
+  const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot
+  const [fallbackIds, setFallbackIds] = React.useState(null);
 
   React.useEffect(() => {
-    const fetchSquad = async () => {
-      try {
-        const lid = window.LEAGUE.id;
-        const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
-        // API returns players as [{playerId, position, ...}] — normalize to string IDs
-        setPlayers((res.players || []).map(p => String(p.playerId)));
-      } catch (e) {
-        // Fallback: if we're the manager, use MY_SQUAD_IDS
-        setPlayers(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []);
-      }
+    let cancelled = false;
+    setSnap(undefined);
+    setFallbackIds(null);
+    const lid = window.LEAGUE && window.LEAGUE.id;
+    if (!lid) { setSnap(null); return; }
+    const loadCurrentSquad = () => {
+      apiCall("GET", `/leagues/${lid}/squads/${uid}`)
+        .then(res => { if (!cancelled) setFallbackIds((res.players || []).map(p => String(p.playerId))); })
+        .catch(() => { if (!cancelled) setFallbackIds(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []); });
     };
-    fetchSquad();
-  }, [uid]);
+    apiCall("GET", `/leagues/${lid}/gw-history/${uid}?gw=${gw}`)
+      .then(s => {
+        if (cancelled) return;
+        if (s && Array.isArray(s.players) && s.players.length) { setSnap(s); }
+        else { setSnap(null); loadCurrentSquad(); }   // GW not finalized yet → show current squad, dashes
+      })
+      .catch(() => { if (!cancelled) { setSnap(null); loadCurrentSquad(); } });
+    return () => { cancelled = true; };
+  }, [uid, gw]);
 
   React.useEffect(() => {
     const k = e => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
   }, []);
+
+  // Resolve the player-id list + points map: prefer the frozen snapshot, else the
+  // live squad (current/unplayed GW). `players === null` means still loading.
+  const hasSnap = !!snap;
+  const pointsMap = {};
+  let players = null;
+  let managerTotal = "—";
+  if (hasSnap) {
+    snap.players.forEach(pl => { pointsMap[String(pl.id)] = pl.points || 0; });
+    players = [...(snap.starting || []), ...(snap.bench || [])].map(String);
+    if (!players.length) players = snap.players.map(pl => String(pl.id));
+    managerTotal = snap.totalPoints != null ? snap.totalPoints : "—";
+  } else if (snap === null) {
+    players = fallbackIds; // null while the fallback squad loads
+  }
 
   // Group by position
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
@@ -615,11 +757,9 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     });
   }
 
-  const getGwPts = (p) => {
-    if (gw !== 3) return "—";
-    const v = gwPoints[p.id] ?? gwPoints[Number(p.id)] ?? gwPoints[String(p.id)];
-    return v !== undefined ? v : 0;
-  };
+  // Snapshot present → real per-GW points (0 if the player didn't feature);
+  // no snapshot (unplayed GW) → dash.
+  const getGwPts = (p) => hasSnap ? (pointsMap[String(p.id)] ?? 0) : "—";
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -759,6 +899,10 @@ function ProposeTradeModal({ onClose }) {
       });
       alert("Trade proposal sent! Awaiting their response.");
       onClose();
+      // Refetch so the new trade appears in the proposer's outbox (and the
+      // target's inbox). Mirrors TradeCard.act — there's no standalone
+      // trades-loader to call, so a reload is the reliable refresh here.
+      window.location.reload();
     } catch (err) {
       alert("Trade failed: " + (err.error || err.detail || JSON.stringify(err)));
     } finally {

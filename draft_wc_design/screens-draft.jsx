@@ -73,8 +73,23 @@ function DraftRoomScreen({ onTab }) {
       .finally(() => setLoadingWatchlist(false));
   }, []);
 
-  // Re-sync the clock whenever the server-provided deadline changes.
-  React.useEffect(() => { setSecondsLeft(serverSeconds); }, [serverSeconds]);
+  const lastPickRef = React.useRef(DRAFT_STATE.pickOverall);
+  const lastPausedRef = React.useRef(isPaused);
+
+  React.useEffect(() => {
+    if (draftNotStarted) {
+      setSecondsLeft(0);
+      return;
+    }
+    const timerVal = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.pickTimer) ? DRAFT_STATE.pickTimer : 30;
+    
+    if (DRAFT_STATE.pickOverall !== lastPickRef.current || (lastPausedRef.current && !isPaused)) {
+      setSecondsLeft(timerVal);
+    }
+    
+    lastPickRef.current = DRAFT_STATE.pickOverall;
+    lastPausedRef.current = isPaused;
+  }, [DRAFT_STATE.pickOverall, isPaused]);
 
   React.useEffect(() => {
     const t = setInterval(() => {
@@ -194,7 +209,7 @@ function DraftRoomScreen({ onTab }) {
   }
 
   // My squad so far
-  const myPicks = DRAFT_HISTORY.filter(p => p.uid === ME);
+  const myPicks = DRAFT_HISTORY.filter(p => p.uid === window.ME);
   const mySquadByPos = { 1: 0, 2: 0, 3: 0, 4: 0 };
   myPicks.forEach(p => { mySquadByPos[playerById(p.playerId).pos]++; });
 
@@ -209,7 +224,7 @@ function DraftRoomScreen({ onTab }) {
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
   return (
-    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 640 }}>
+    <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 560 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
@@ -588,10 +603,10 @@ function SquadCount({ label, cur, max }) {
 // ---------- CREATE / JOIN LEAGUE ----------
 function CreateLeagueScreen({ onTab }) {
   const [mode, setMode] = React.useState("home"); // home | create | join
-  const me = managerById(ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
-  const myStanding = STANDINGS.find(s => s.uid === ME) || { rank: "—", fpts: "—", hpts: "—" };
+  const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
+  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[ME] !== undefined ? window.GW3_TOTALS[ME] : "—";
+  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
   const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
   const [leaguesList, setLeaguesList] = React.useState([]);

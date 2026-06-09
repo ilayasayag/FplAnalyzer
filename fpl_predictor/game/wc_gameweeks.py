@@ -1,72 +1,83 @@
 """
 WC 2026 gameweek calendar.
 
-All GW dates are hardcoded — they don't change once the tournament starts.
-lockAt = kickoff of the earliest match in that GW.
+This hardcoded calendar is a db-less FALLBACK. The DURABLE source of truth for
+kickoff times is ``wc_config/schedule`` + the ``wc_fixtures`` kickoffs (see
+``fpl_predictor/seed/wc_simulator.py``): the live transfer-window state machine
+(``wc_windows.current_window_from_db``) and the lineup lock
+(``wc_windows.is_lineup_locked``) read those, so re-running the simulator never
+moves the windows. Keep ``lockAt`` here aligned with that schedule for the
+contexts that have no ``db`` handle (``get_current_gw``, predictions lock, the
+``is_transfer_window_open`` calendar wrapper).
+
+``lockAt`` = kickoff of the earliest match in that GW (= T0). These are the real
+WC 2026 kickoff times (confirmed 6 Dec 2025 draw), in UTC, and mirror the FIRST
+entry of each GW in ``wc_simulator.DEFAULT_GW_KICKOFFS``.
 """
 
 from datetime import datetime, timezone
 from typing import Dict, Optional, Tuple
 
 # ---------------------------------------------------------------------------
-# Hardcoded GW calendar — update lockAt if schedule changes pre-tournament
+# Hardcoded GW calendar — keep in sync with wc_simulator.DEFAULT_GW_KICKOFFS
 # ---------------------------------------------------------------------------
 
-# All times in UTC. Format: (start, end, lockAt, wc_round, label)
+# All times in UTC. Format: (start, end, lockAt, wc_round, label).
+# lockAt = the GW's first real kickoff (T0).
 _GW_CONFIG: Dict[int, Dict] = {
     1: {
         "start":    datetime(2026, 6, 11, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 6, 16, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 11, 17, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 6, 18, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 11, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 1",
         "label":    "Group Stage R1",
     },
     2: {
-        "start":    datetime(2026, 6, 16, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 6, 22, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 16, 17, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 6, 18, 0, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 6, 24, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 18, 16, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 2",
         "label":    "Group Stage R2",
     },
     3: {
-        "start":    datetime(2026, 6, 22, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 6, 27, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 22, 17, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 6, 24, 0, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 6, 28, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 24, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Group Stage - Round 3",
         "label":    "Group Stage R3",
     },
     4: {
-        "start":    datetime(2026, 6, 27, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 7, 5, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 6, 27, 17, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 6, 28, 0, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 7, 4, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 6, 28, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Round of 32",
         "label":    "Round of 32",
     },
     5: {
-        "start":    datetime(2026, 7, 5, 0, 0, tzinfo=timezone.utc),
-        "end":      datetime(2026, 7, 10, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 5, 17, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 7, 4, 0, 0, tzinfo=timezone.utc),
+        "end":      datetime(2026, 7, 9, 0, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 4, 17, 0, tzinfo=timezone.utc),
         "wcRound":  "Round of 16",
         "label":    "Round of 16",
     },
     6: {
-        "start":    datetime(2026, 7, 10, 0, 0, tzinfo=timezone.utc),
+        "start":    datetime(2026, 7, 9, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 10, 17, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 9, 20, 0, tzinfo=timezone.utc),
         "wcRound":  "Quarter-finals",
         "label":    "Quarter-finals",
     },
     7: {
         "start":    datetime(2026, 7, 14, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 18, 0, 0, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 14, 17, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 14, 19, 0, tzinfo=timezone.utc),
         "wcRound":  "Semi-finals",
         "label":    "Semi-finals",
     },
     8: {
         "start":    datetime(2026, 7, 18, 0, 0, tzinfo=timezone.utc),
         "end":      datetime(2026, 7, 20, 23, 59, tzinfo=timezone.utc),
-        "lockAt":   datetime(2026, 7, 18, 17, 0, tzinfo=timezone.utc),
+        "lockAt":   datetime(2026, 7, 18, 21, 0, tzinfo=timezone.utc),
         "wcRound":  "Final",
         "label":    "Final & 3rd Place",
     },
