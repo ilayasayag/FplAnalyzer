@@ -163,7 +163,9 @@ class _Coll:
     def stream(self):
         yield from self._children()
 
-    def get(self):
+    def get(self, *args, **kwargs):
+        # Tolerate kwargs the real client passes (e.g. timeout=) so production
+        # code paths can run against the fake DB unchanged.
         return list(self._children())
 
     def where(self, field, op, value):

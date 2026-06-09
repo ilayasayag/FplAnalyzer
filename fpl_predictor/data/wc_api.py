@@ -298,7 +298,24 @@ class WC2026Client:
         for attempt in range(1, 4):
             try:
                 docs = db.collection("wc_players").get(timeout=12)
-                players = [self._enrich_player_fpl_compat(d.to_dict()) for d in docs]
+                players = []
+                for d in docs:
+                    pd = d.to_dict() or {}
+                    # Skip malformed/empty pool docs. A real, draftable player
+                    # always has a position (1-4); the empty wc_players docs
+                    # (no position/name/id) otherwise enrich to "? / UNDEFINED"
+                    # rows that — with draft_rank 0 — sort to the TOP of the draft
+                    # pool and collide on a duplicate `undefined` React key.
+                    if pd.get("position") is None:
+                        continue
+                    # Guarantee an id (fall back to the Firestore doc id) so the
+                    # client never derives String(undefined) as a key.
+                    if pd.get("id") is None:
+                        try:
+                            pd["id"] = int(d.id)
+                        except (TypeError, ValueError):
+                            continue
+                    players.append(self._enrich_player_fpl_compat(pd))
                 if players:
                     with self._lock:
                         self._cache["__all_players__"] = {"data": players, "fetched_at": time.time()}

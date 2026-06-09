@@ -634,7 +634,14 @@ function App() {
           const players = await apiCall("GET", "/players");
           if (players && players.length > 0) {
             window.__PLAYERS_LOADED__ = true;
-            window.PLAYERS = players.map(p => ({
+            window.PLAYERS = players
+              // Defensive: drop any malformed pool entry (no real id or no
+              // position). The backend already filters these, but this guards
+              // against junk wc_players docs ever reaching the draft pool, where
+              // they'd render as "UNDEFINED / Group ?" rows with a duplicate
+              // String(undefined) React key.
+              .filter(p => p && p.id != null && String(p.id) !== "undefined" && p.position != null)
+              .map(p => ({
               id: String(p.id),
               name: p.name,
               pos: p.position,
