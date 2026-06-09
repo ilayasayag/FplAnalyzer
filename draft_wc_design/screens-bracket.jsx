@@ -728,7 +728,10 @@ function WishlistTab() {
   // excluding players already on this manager's wishlist.
   const dropPlayer = dropId ? window.PLAYER_MAP[String(dropId)] : null;
   const eligibleClaims = (window.FREE_AGENTS || []).filter(p => {
-    if (bids.some(b => b.playerIn === Number(p.id))) return false;
+    // The same incoming player MAY appear in multiple bids paired with different
+    // players OUT (ordered fallbacks). Only block the EXACT (in, out) pair that
+    // is already on the list for the currently-chosen drop.
+    if (dropId && bids.some(b => b.playerIn === Number(p.id) && b.playerOut === Number(dropId))) return false;
     if (!dropPlayer) return true;
     return p.pos === dropPlayer.pos;
   });
@@ -747,6 +750,9 @@ function WishlistTab() {
     const dp = window.PLAYER_MAP[String(dropId)];
     const cp = window.PLAYER_MAP[String(claimId)];
     if (dp && cp && dp.pos !== cp.pos) { alert("Drop and claim must be the same position."); return; }
+    if (bids.some(b => b.playerIn === Number(claimId) && b.playerOut === Number(dropId))) {
+      alert("That exact swap is already on your wishlist. Pick a different player to drop to add it as a fallback."); return;
+    }
     setBids([...bids, { playerIn: Number(claimId), playerOut: Number(dropId), position: cp ? POS_NAMES[cp.pos] : "?" }]);
     setAdding(false); setDropId(""); setClaimId("");
   };
@@ -778,6 +784,7 @@ function WishlistTab() {
           <strong>Wishlist auction{upcomingGw ? ` · GW${upcomingGw}` : ""}</strong> · Build an ORDERED list of same-position
           swaps. When the free-agents window closes, a single batch auction resolves all managers' lists by waiver priority —
           higher priority claims first, one pick per round, cycling until no claims remain. Your <strong>order = your preference</strong> (top tried first).
+          {" "}You can list the <strong>same player IN with different players OUT</strong> as fallbacks — if the first pairing can't resolve, the next is tried.
           {!isFaWindow && <span className="muted"> Bids can be edited any time; they only resolve during the free-agents window.</span>}
         </div>
       </div>

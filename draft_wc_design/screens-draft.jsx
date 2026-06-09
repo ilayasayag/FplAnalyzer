@@ -29,6 +29,8 @@ function DraftRoomScreen({ onTab }) {
   const [draggedIdx, setDraggedIdx] = React.useState(null);
   const watchlistSet = React.useMemo(() => new Set(watchlistIds.map(getNormalizedPlayerId)), [watchlistIds]);
   const [nationFilter, setNationFilter] = React.useState("all");
+  const [page, setPage] = React.useState(0);
+  const PAGE_SIZE = 30;
 
   const handleDraftPick = async (playerId) => {
     try {
@@ -151,6 +153,10 @@ function DraftRoomScreen({ onTab }) {
     if (nationFilter !== "all" && p.team !== nationFilter) return false;
     return true;
   }).sort((a, b) => a.dr - b.dr);
+
+  const totalPool = pool.length;
+  const startIdx = page * PAGE_SIZE;
+  const visiblePool = pool.slice(startIdx, startIdx + PAGE_SIZE);
 
   const sidebarOrder = (DRAFT_STATE.order && DRAFT_STATE.order.length > 0)
     ? DRAFT_STATE.order.map(uid => managerById(uid)).filter(Boolean)
@@ -416,12 +422,12 @@ function DraftRoomScreen({ onTab }) {
               type="text"
               placeholder="Search players…"
               value={search}
-              onChange={e => setSearch(e.target.value)}
+              onChange={e => { setSearch(e.target.value); setPage(0); }}
               style={{ padding: "10px 14px", borderRadius: 999, border: "1px solid var(--border-dark-strong)", background: "rgba(255,255,255,0.08)", color: "white" }}
             />
             <select
               value={nationFilter}
-              onChange={e => setNationFilter(e.target.value)}
+              onChange={e => { setNationFilter(e.target.value); setPage(0); }}
               style={{
                 padding: "10px 18px", borderRadius: 999,
                 border: "1px solid var(--border-dark-strong)",
@@ -445,7 +451,7 @@ function DraftRoomScreen({ onTab }) {
                     background: posFilter === p ? "var(--green-400)" : "transparent",
                     color: posFilter === p ? "var(--navy-900)" : "white",
                   }}
-                  onClick={() => setPosFilter(p)}>
+                  onClick={() => { setPosFilter(p); setPage(0); }}>
                   {p === "all" ? "ALL" : POS_NAMES[Number(p)]}
                 </button>
               ))}
@@ -459,7 +465,7 @@ function DraftRoomScreen({ onTab }) {
             <span></span>
           </div>
           <div style={{ flex: 1, overflowY: "auto", marginTop: 4 }}>
-            {pool.slice(0, 30).map(p => {
+            {visiblePool.map(p => {
               const t = teamById(p.team);
               const isWatched = watchlistSet.has(getNormalizedPlayerId(p.id));
               return (
@@ -500,6 +506,33 @@ function DraftRoomScreen({ onTab }) {
                 </div>
               );
             })}
+            {visiblePool.length === 0 && (
+              <div style={{ padding: "24px 12px", textAlign: "center", color: "rgba(255,255,255,0.5)", fontSize: 13 }}>No players match these filters.</div>
+            )}
+          </div>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 10, paddingTop: 10, borderTop: "1px solid var(--border-dark)" }}>
+            <span style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+              Showing {totalPool > 0 ? startIdx + 1 : 0}–{Math.min(startIdx + PAGE_SIZE, totalPool)} of {totalPool}
+            </span>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                disabled={page === 0}
+                onClick={() => setPage(p => Math.max(0, p - 1))}
+                style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, border: "none",
+                  background: page === 0 ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.14)",
+                  color: page === 0 ? "rgba(255,255,255,0.3)" : "white", cursor: page === 0 ? "default" : "pointer" }}>
+                ← Prev
+              </button>
+              <button
+                disabled={startIdx + PAGE_SIZE >= totalPool}
+                onClick={() => setPage(p => p + 1)}
+                style={{ padding: "6px 14px", borderRadius: 8, fontSize: 12, fontWeight: 700, border: "none",
+                  background: (startIdx + PAGE_SIZE >= totalPool) ? "rgba(255,255,255,0.05)" : "rgba(255,255,255,0.14)",
+                  color: (startIdx + PAGE_SIZE >= totalPool) ? "rgba(255,255,255,0.3)" : "white",
+                  cursor: (startIdx + PAGE_SIZE >= totalPool) ? "default" : "pointer" }}>
+                Next →
+              </button>
+            </div>
           </div>
         </div>
       </div>
