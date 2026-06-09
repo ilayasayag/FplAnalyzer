@@ -568,8 +568,10 @@ function FreeAgentsTab() {
     const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
       playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
     }));
-    if (existing.some(b => b.playerIn === pIn)) {
-      alert(`${p.name} is already on your wishlist.`); setActivePickup(null); return;
+    // Allow the same incoming player with a DIFFERENT player out (ordered
+    // fallbacks); only block an exact duplicate of the (in, out) pair.
+    if (existing.some(b => b.playerIn === pIn && b.playerOut === pOut)) {
+      alert(`That exact swap (${p.name} in / ${window.PLAYER_MAP[String(playerToDrop)]?.name || "player"} out) is already on your wishlist.`); setActivePickup(null); return;
     }
     try {
       const lid = window.LEAGUE.id;

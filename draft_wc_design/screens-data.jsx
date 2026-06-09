@@ -377,6 +377,11 @@ function LeagueScreen({ onTab }) {
 
 function StandingsTable({ onTab }) {
   const rows = (window.STANDINGS || STANDINGS);
+  const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
+  // "This GW" = the league's current gameweek. The modal shows real per-player
+  // points if that GW is finalised, otherwise the manager's current squad with
+  // dashes (mid-GW / not yet played).
+  const viewGw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
   // The qualification cut + round name come from the league config, not a
   // hardcoded "Top 8 / Quarter-Finals" (#48): a league can qualify any N.
   const qualifiers = (window.LEAGUE && window.LEAGUE.knockoutQualifiers) || 8;
@@ -384,6 +389,7 @@ function StandingsTable({ onTab }) {
   const roundName = ROUND_BY_QUALS[qualifiers] || "the Knockouts";
   return (
     <div className="card" style={{ overflow: "hidden" }}>
+      {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
       <table className="table-clean">
         <thead>
           <tr>
@@ -419,8 +425,10 @@ function StandingsTable({ onTab }) {
                   <td>
                     <div className="row" style={{ gap: 10, minWidth: 0 }}>
                       <Flag team={t} size="lg" />
-                      <div style={{ minWidth: 0, flex: 1 }}>
-                        <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{m.team}</div>
+                      <div style={{ minWidth: 0, flex: 1, cursor: "pointer" }}
+                        onClick={() => setSquadModal({ uid: s.uid, gw: viewGw })}
+                        title={`View ${m.team}'s squad & GW${viewGw} points`}>
+                        <div style={{ fontWeight: 700, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationStyle: "dotted" }}>{m.team}</div>
                         <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap" }}>{m.name}</div>
                       </div>
                       {qualified && !s.ptsSeed && <span className="pill pill--gold" style={{ marginLeft: 4, flexShrink: 0 }}>H2H Seed</span>}
