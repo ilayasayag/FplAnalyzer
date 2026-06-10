@@ -1,5 +1,30 @@
 // =====================================================================
 // WC26 — Screens: Draft Room (live snake draft) + Create/Join League
+
+// Real group-stage fixtures (3 rounds × 24). Used to show each squad player's
+// upcoming opponents (GW1→GW3) instead of mock points in the Draft Room.
+const GROUP_FIXTURES = {
+  1: [["MEX","RSA"],["KOR","CZE"],["CAN","BOS"],["USA","PAR"],["QAT","SWI"],["BRA","MOR"],
+      ["HAI","SCO"],["AUS","TUR"],["GER","CUW"],["NED","JAP"],["CIV","ECU"],["SWE","TUN"],
+      ["SPA","CPV"],["BEL","EGY"],["SAU","URU"],["IRA","NZL"],["FRA","SEN"],["IRQ","NOR"],
+      ["ARG","ALG"],["AUT","JOR"],["POR","COD"],["ENG","CRO"],["GHA","PAN"],["UZB","COL"]],
+  2: [["CZE","RSA"],["SWI","BOS"],["CAN","QAT"],["MEX","KOR"],["USA","AUS"],["SCO","MOR"],
+      ["BRA","HAI"],["TUR","PAR"],["NED","SWE"],["GER","CIV"],["ECU","CUW"],["TUN","JAP"],
+      ["SPA","SAU"],["BEL","IRA"],["URU","CPV"],["NZL","EGY"],["ARG","AUT"],["FRA","IRQ"],
+      ["NOR","SEN"],["JOR","ALG"],["POR","UZB"],["ENG","GHA"],["PAN","CRO"],["COL","COD"]],
+  3: [["SWI","CAN"],["BOS","QAT"],["MOR","HAI"],["SCO","BRA"],["RSA","KOR"],["CZE","MEX"],
+      ["ECU","GER"],["CUW","CIV"],["TUN","NED"],["JAP","SWE"],["TUR","USA"],["PAR","AUS"],
+      ["NOR","FRA"],["SEN","IRQ"],["URU","SPA"],["CPV","SAU"],["NZL","BEL"],["EGY","IRA"],
+      ["CRO","GHA"],["PAN","ENG"],["COD","UZB"],["COL","POR"],["JOR","ARG"],["ALG","AUT"]],
+};
+const GROUP_OPPONENTS = (() => {
+  const m = {};
+  [1, 2, 3].forEach(gw => GROUP_FIXTURES[gw].forEach(([h, a]) => {
+    (m[h] = m[h] || [])[gw - 1] = a;
+    (m[a] = m[a] || [])[gw - 1] = h;
+  }));
+  return m;
+})();
 // =====================================================================
 
 const getNormalizedPlayerId = (id) => {
@@ -79,6 +104,40 @@ function DraftRoomScreen({ onTab }) {
       .finally(() => setLoadingWatchlist(false));
   }, []);
 
+  // Emergency pause / resume — any manager may fire it; the server freezes all
+  // picks and stores the seconds left so resume continues exactly where it was.
+  const [pauseBusy, setPauseBusy] = React.useState(false);
+  const handlePauseResume = async () => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid || pauseBusy) return;
+    setPauseBusy(true);
+    try {
+      await apiCall("POST", `/leagues/${lid}/draft/${isPaused ? "resume" : "pause"}`);
+    } catch (err) {
+      alert("Failed to " + (isPaused ? "resume" : "pause") + ": " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setPauseBusy(false);
+    }
+  };
+
+  // Start the draft (league admin only — server enforces adminUid).
+  const [startBusy, setStartBusy] = React.useState(false);
+  const handleStartDraft = async () => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid || startBusy) return;
+    if (!window.confirm("Start the draft now for everyone? The first pick clock begins immediately.")) return;
+    setStartBusy(true);
+    try {
+      await apiCall("POST", `/leagues/${lid}/draft/start`);
+    } catch (err) {
+      alert("Failed to start draft: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setStartBusy(false);
+    }
+  };
+  const isLeagueAdmin = (typeof LEAGUE !== "undefined") && LEAGUE.admin
+    ? LEAGUE.admin === window.ME : true;
+
   const lastPickRef = React.useRef(DRAFT_STATE.pickOverall);
   const lastPausedRef = React.useRef(isPaused);
 
@@ -89,8 +148,12 @@ function DraftRoomScreen({ onTab }) {
     }
     const timerVal = (typeof DRAFT_STATE !== "undefined" && DRAFT_STATE.pickTimer) ? DRAFT_STATE.pickTimer : 30;
     
-    if (DRAFT_STATE.pickOverall !== lastPickRef.current || (lastPausedRef.current && !isPaused)) {
+    if (DRAFT_STATE.pickOverall !== lastPickRef.current) {
       setSecondsLeft(timerVal);
+    } else if (lastPausedRef.current && !isPaused) {
+      // Resume continues with the seconds saved at pause — sync from the
+      // server-computed remaining instead of resetting to a full clock.
+      setSecondsLeft(Math.max(0, DRAFT_STATE.secondsLeft != null ? DRAFT_STATE.secondsLeft : timerVal));
     }
     
     lastPickRef.current = DRAFT_STATE.pickOverall;
@@ -432,6 +495,21 @@ function DraftRoomScreen({ onTab }) {
             }}>
               {draftNotStarted ? "—" : (upcoming[1] ? managerById(upcoming[1].uid).name : "—")}
             </div>
+            {!draftNotStarted && !DRAFT_STATE.complete && (
+              <button
+                onClick={handlePauseResume}
+                disabled={pauseBusy}
+                title={isPaused ? "Resume the draft with the same clock" : "Emergency pause — freezes picks for everyone"}
+                style={{
+                  marginTop: 10, padding: "7px 14px", fontSize: 12, fontWeight: 800,
+                  borderRadius: 8, border: "none", cursor: "pointer", letterSpacing: "0.04em",
+                  background: isPaused ? "var(--green-400)" : "rgba(255,170,0,0.18)",
+                  color: isPaused ? "var(--navy-900)" : "var(--gold-500)",
+                  outline: isPaused ? "none" : "1px solid rgba(255,170,0,0.5)",
+                }}>
+                {pauseBusy ? "…" : (isPaused ? "▶ Resume draft" : "⏸ Pause draft")}
+              </button>
+            )}
           </div>
           {draftNotStarted ? (
             <div style={{
@@ -452,6 +530,19 @@ function DraftRoomScreen({ onTab }) {
               boxShadow: "0 4px 12px rgba(0,0,0,0.2)"
             }}>
               <span>⏳ Draft has not opened yet</span>
+              {isLeagueAdmin && (
+                <button
+                  onClick={handleStartDraft}
+                  disabled={startBusy}
+                  style={{
+                    marginLeft: 14, padding: "9px 22px", fontSize: 14, fontWeight: 900,
+                    borderRadius: 8, border: "none", cursor: "pointer",
+                    background: "var(--green-400)", color: "var(--navy-900)",
+                    letterSpacing: "0.04em", boxShadow: "0 2px 8px rgba(0,217,107,0.35)",
+                  }}>
+                  {startBusy ? "Starting…" : "▶ START DRAFT"}
+                </button>
+              )}
             </div>
           ) : (
             picksUntilMyTurn !== null && (
@@ -659,7 +750,13 @@ function DraftRoomScreen({ onTab }) {
                       <div style={{ color: "#cbd5e1", fontSize: 11, fontWeight: 600 }}>{POS_NAMES[pl.pos]} · {plT.id}</div>
                     </div>
                   </div>
-                  <span className="mono" style={{ color: "var(--green-400)", fontWeight: 700, fontSize: 13 }}>{pl.pts}</span>
+                  {/* Group-stage opponents GW1→GW3 (small flags), not mock points */}
+                  <span style={{ display: "inline-flex", gap: 4, flexShrink: 0, alignItems: "center" }}
+                    title={`Faces: ${(GROUP_OPPONENTS[pl.team] || []).join(" → ")} (GW1→GW3)`}>
+                    {(GROUP_OPPONENTS[pl.team] || []).map((iso, k) => (
+                      <span key={k} style={{ transform: "scale(0.85)" }}><Flag team={teamById(iso)} /></span>
+                    ))}
+                  </span>
                 </div>
               );
             })

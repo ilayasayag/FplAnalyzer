@@ -115,6 +115,16 @@ def test_autopick_fallback_avoids_capped_nation():
     assert pid in (24, 25)                         # never 23 (4th FRA)
 
 
+def test_make_pick_rejects_while_paused():
+    db = FakeDB()
+    (db.collection("leagues").document("L").collection("draft").document("state")
+     .set({"status": "active", "paused": True, "order": ["u1"], "currentPick": 0,
+           "totalPicks": 15, "pickTimer": 30, "pickedPlayerIds": []}))
+    eng = DraftEngine(db, _FakeFplNations())
+    with pytest.raises(ValueError, match="paused"):
+        eng.make_pick("L", "u1", 20)
+
+
 def test_make_pick_rejects_fourth_same_nation_player():
     db = FakeDB()
     lid, uid = "L", "u1"

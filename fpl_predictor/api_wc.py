@@ -721,6 +721,63 @@ def make_pick(lid: str):
         return _err(str(exc))
 
 
+@wc_bp.route("/leagues/<lid>/draft/pause", methods=["POST"])
+def pause_draft(lid: str):
+    """EMERGENCY PAUSE — any authenticated league member can hit it. Freezes
+    the draft for everyone (make_pick + auto_pick both reject while paused)
+    and remembers the seconds left on the clock so resume continues exactly
+    where it stopped."""
+    import time as _time
+    uid, err = _require_auth()
+    if err:
+        return err
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    snap = state_ref.get()
+    if not snap.exists:
+        return _err("Draft not found", 404)
+    state = snap.to_dict() or {}
+    if state.get("status") != "active":
+        return _err("Draft is not active")
+    if state.get("paused"):
+        return _ok({"paused": True, "alreadyPaused": True})
+    remaining = max(0, (state.get("pickDeadline") or 0) - _time.time())
+    state_ref.update({
+        "paused": True,
+        "pausedRemaining": remaining,
+        "pausedBy": uid,
+        "pausedAt": SERVER_TIMESTAMP,
+    })
+    return _ok({"paused": True, "secondsRemaining": round(remaining)})
+
+
+@wc_bp.route("/leagues/<lid>/draft/resume", methods=["POST"])
+def resume_draft(lid: str):
+    """Resume a paused draft with the SAME seconds the clock had at pause."""
+    import time as _time
+    uid, err = _require_auth()
+    if err:
+        return err
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    snap = state_ref.get()
+    if not snap.exists:
+        return _err("Draft not found", 404)
+    state = snap.to_dict() or {}
+    if not state.get("paused"):
+        return _ok({"paused": False, "alreadyRunning": True})
+    remaining = state.get("pausedRemaining")
+    if remaining is None or remaining <= 0:
+        remaining = state.get("pickTimer", 30)
+    state_ref.update({
+        "paused": False,
+        "pickDeadline": _time.time() + remaining,
+        "pausedRemaining": firestore.DELETE_FIELD,
+        "resumedBy": uid,
+    })
+    return _ok({"paused": False, "secondsRemaining": round(remaining)})
+
+
 @wc_bp.route("/leagues/<lid>/draft/auto-pick", methods=["POST"])
 def auto_pick(lid: str):
     """Fire the best-available auto-pick when the on-the-clock manager's

@@ -134,6 +134,10 @@ class DraftEngine:
         if state["status"] != "active":
             raise ValueError("Draft is not active")
 
+        # Emergency pause blocks ALL picks (manual and auto) until resume.
+        if state.get("paused", False):
+            raise ValueError("Draft is paused")
+
         current_pick = state["currentPick"]
         order = state["order"]
         num_members = len(order)
