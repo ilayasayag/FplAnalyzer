@@ -219,7 +219,7 @@ const MANAGERS = [
   { uid: "u_roy",    name: "Roy",     team: "La Liga Loca",   flag: "ESP", draftPos: 1, waiverPri: 7 },
   { uid: "u_yonatan",name: "Yonatan", team: "Tiki-Taka FC",   flag: "ARG", draftPos: 2, waiverPri: 6 },
   { uid: "u_nadav",  name: "Nadav",   team: "Red Devils 2026",flag: "BRA", draftPos: 3, waiverPri: 5 },
-  { uid: "u_yuval",  name: "Yuval",   team: "The Gunners",    flag: "ENG", draftPos: 4, waiverPri: 4 },
+  { uid: "u_yuval",  name: "Chen-David", team: "The Gunners",    flag: "ENG", draftPos: 4, waiverPri: 4 },
   { uid: "u_ido",    name: "Ido",     team: "Tel Aviv United",flag: "FRA", draftPos: 5, waiverPri: 3 },
   { uid: "u_shai",   name: "Shai",    team: "McShaike's XI",  flag: "MEX", draftPos: 6, waiverPri: 2 },
   { uid: "u_me",     name: "Ilay (you)", team: "Hapoel Eliyahu", flag: "POR", draftPos: 7, waiverPri: 1 },

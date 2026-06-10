@@ -254,7 +254,7 @@ function Sidebar({ onTab }) {
             <strong>{activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining</strong>
           </div>
           <div style={{ marginTop: 10 }}>
-            <Stat label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} accent="var(--green-400)" />
+            <Stat label="Free transfers" value="∞" accent="var(--green-400)" />
             <Stat label="Waiver priority" value={`#${me.waiverPri}`} />
           </div>
         </div>

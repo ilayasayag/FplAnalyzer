@@ -238,7 +238,8 @@ function normalizeFixtureRow(fx) {
 }
 
 function FixturesScreen() {
-  const [gw, setGw] = React.useState(4);
+  // Default to the tournament's REAL current GW (mock-era code hardcoded 4).
+  const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
   const [fetched, setFetched] = React.useState(null); // null = not loaded yet
   const [loading, setLoading] = React.useState(false);
   const round = TOURNAMENT.gwDates[gw];

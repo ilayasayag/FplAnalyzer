@@ -406,7 +406,7 @@ function TransfersScreen() {
               </div>
             </div>
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
-              <StatBlock label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} />
+              <StatBlock label="Free transfers" value="∞" />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
               <button className="btn" disabled={runningMock || !amLeagueAdmin} onClick={runMockWishlist}
                 title={amLeagueAdmin ? "Open the free-agents window and resolve the wishlist auction" : "Only the league admin can run the wishlist"}

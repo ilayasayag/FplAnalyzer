@@ -20,7 +20,7 @@ function AdminWindowSwitcher() {
   const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
-  const [gw, setGw] = React.useState(4); // upcoming gw the auction/orchestrator run for
+  const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1); // upcoming gw the auction/orchestrator run for
   const [running, setRunning] = React.useState(false);
 
   // Derive the displayed phase from a transfer-window response: when an
