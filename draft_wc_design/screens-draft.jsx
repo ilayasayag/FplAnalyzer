@@ -138,6 +138,34 @@ function DraftRoomScreen({ onTab }) {
   const isLeagueAdmin = (typeof LEAGUE !== "undefined") && LEAGUE.admin
     ? LEAGUE.admin === window.ME : true;
 
+  // ← Undo last pick (admin): one press = one pick back. Handles the whole
+  // pause -> rollback -> resume cycle itself, so pressing it 3 times rewinds
+  // 3 picks. The server rebuilds pickedPlayerIds deduped on every rollback.
+  const [rollbackBusy, setRollbackBusy] = React.useState(false);
+  const handleUndoLastPick = async () => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid || rollbackBusy) return;
+    const last = DRAFT_HISTORY[DRAFT_HISTORY.length - 1];
+    if (!last) return;
+    const mgr = managerById(last.uid) || { name: last.uid };
+    const pl = playerById(last.playerId) || { name: last.playerId };
+    if (!window.confirm(`Undo the last pick?\n\n#${last.overall} ${mgr.name}: ${pl.name} is removed and ${mgr.name} picks again with a fresh clock.`)) return;
+    setRollbackBusy(true);
+    try {
+      const wasPaused = isPaused;
+      if (!wasPaused) await apiCall("POST", `/leagues/${lid}/draft/pause`);
+      await apiCall("POST", `/leagues/${lid}/draft/rollback`, { toPick: last.overall - 1 });
+      await apiCall("POST", `/leagues/${lid}/draft/resume`);
+      // Optimistic local trim so an immediate second press targets the
+      // PREVIOUS pick (the 2.5s poll re-syncs the truth right after).
+      window.DRAFT_HISTORY = DRAFT_HISTORY.slice(0, -1);
+    } catch (err) {
+      alert("Undo failed: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setRollbackBusy(false);
+    }
+  };
+
   const lastPickRef = React.useRef(DRAFT_STATE.pickOverall);
   const lastPausedRef = React.useRef(isPaused);
 
@@ -187,8 +215,13 @@ function DraftRoomScreen({ onTab }) {
       if (!lid) return;
       apiCall("POST", `/leagues/${lid}/draft/auto-pick`).catch((err) => {
         // Expected: another client already fired it, or the deadline hasn't
-        // actually elapsed on the server clock. Swallow silently.
+        // actually elapsed on the server clock. Swallow silently — but RE-ARM
+        // after a short delay so a transient conflict can't stall the draft
+        // (the old once-per-deadline latch never retried).
         console.debug("auto-pick declined:", err && (err.error || err.detail));
+        setTimeout(() => {
+          if (lastFiredFor.current === deadline) lastFiredFor.current = null;
+        }, 3000);
       });
     }
   }, [secondsLeft, isPaused]);
@@ -330,11 +363,28 @@ function DraftRoomScreen({ onTab }) {
 
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
+  // Duplicate-pick detector: the same player on two squads means corrupted
+  // state — surface it loudly so the admin pauses + rolls back.
+  const duplicatePicks = (() => {
+    const seen = {}; const dups = [];
+    DRAFT_HISTORY.forEach(p => {
+      if (seen[p.playerId]) dups.push(p); else seen[p.playerId] = p;
+    });
+    return dups;
+  })();
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 480 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
+        </div>
+      )}
+
+      {duplicatePicks.length > 0 && (
+        <div style={{ gridColumn: "1 / -1", background: "var(--red-500)", borderRadius: 10, padding: "12px 16px", color: "white", fontSize: 13, fontWeight: 700 }}>
+          🚨 Duplicate pick detected: {duplicatePicks.map(p => `${(playerById(p.playerId)||{}).name||p.playerId} (pick #${p.overall})`).join(", ")} — the same player is on two squads.
+          {isLeagueAdmin ? " Use ← Undo last pick (repeat until past the duplicate)." : " Ask the league admin to undo."}
         </div>
       )}
 
@@ -508,6 +558,20 @@ function DraftRoomScreen({ onTab }) {
                   outline: isPaused ? "none" : "1px solid rgba(255,170,0,0.5)",
                 }}>
                 {pauseBusy ? "…" : (isPaused ? "▶ Resume draft" : "⏸ Pause draft")}
+              </button>
+            )}
+            {!draftNotStarted && isLeagueAdmin && DRAFT_HISTORY.length > 0 && (
+              <button
+                onClick={handleUndoLastPick}
+                disabled={rollbackBusy}
+                title={(() => { const l = DRAFT_HISTORY[DRAFT_HISTORY.length - 1]; if (!l) return ""; const m = managerById(l.uid) || { name: l.uid }; const p = playerById(l.playerId) || { name: l.playerId }; return `Undo #${l.overall} ${m.name}: ${p.name}`; })()}
+                style={{
+                  marginTop: 8, padding: "7px 14px", fontSize: 12, fontWeight: 800,
+                  borderRadius: 8, border: "1px solid rgba(255,255,255,0.25)", cursor: "pointer",
+                  background: "rgba(255,255,255,0.10)", color: "white", letterSpacing: "0.04em",
+                  display: "block",
+                }}>
+                {rollbackBusy ? "…" : "← Undo last pick"}
               </button>
             )}
           </div>
@@ -1193,4 +1257,4 @@ function JoinForm({ onBack }) {
   );
 }
 
-Object.assign(window, { DraftRoomScreen, CreateLeagueScreen });
+Object.assign(window, { DraftRoomScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });

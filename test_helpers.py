@@ -172,6 +172,12 @@ class _Coll:
         return _Query([s for s in self._children()
                        if _matches(s.to_dict() or {}, field, op, value)])
 
+    def order_by(self, field, direction=None):
+        snaps = sorted(self._children(),
+                       key=lambda s: (s.to_dict() or {}).get(field) or 0,
+                       reverse=(str(direction).upper() == "DESCENDING"))
+        return _Query(snaps)
+
 
 def _matches(data, field, op, value):
     """Minimal Firestore filter support for the fake DB: ``==`` and ``in``."""

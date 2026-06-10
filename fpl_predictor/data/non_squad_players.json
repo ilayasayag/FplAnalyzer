@@ -1,0 +1,950 @@
+{
+ "source": "wc_non_squad_players.html (red entries, user-approved)",
+ "count": 236,
+ "players": [
+  {
+   "iso": "ALG",
+   "name": "Abdelatif Ramdane"
+  },
+  {
+   "iso": "ALG",
+   "name": "Adil Aouchiche"
+  },
+  {
+   "iso": "ALG",
+   "name": "Amin Chiakha"
+  },
+  {
+   "iso": "ALG",
+   "name": "Anthony Mandréa"
+  },
+  {
+   "iso": "ALG",
+   "name": "Kilian Belazzoug"
+  },
+  {
+   "iso": "ALG",
+   "name": "Mehdi Dorval"
+  },
+  {
+   "iso": "ALG",
+   "name": "Sohaib Nair"
+  },
+  {
+   "iso": "ARG",
+   "name": "Agustín Giay"
+  },
+  {
+   "iso": "ARG",
+   "name": "Alan Varela"
+  },
+  {
+   "iso": "ARG",
+   "name": "Alejandro Garnacho"
+  },
+  {
+   "iso": "ARG",
+   "name": "Aníbal Moreno"
+  },
+  {
+   "iso": "ARG",
+   "name": "Claudio Echeverri"
+  },
+  {
+   "iso": "ARG",
+   "name": "Emiliano Buendía"
+  },
+  {
+   "iso": "ARG",
+   "name": "Equi Fernández"
+  },
+  {
+   "iso": "ARG",
+   "name": "Facundo Cambeses"
+  },
+  {
+   "iso": "ARG",
+   "name": "Franco Mastantuono"
+  },
+  {
+   "iso": "ARG",
+   "name": "Gabriel Rojas"
+  },
+  {
+   "iso": "ARG",
+   "name": "Germán Pezzella"
+  },
+  {
+   "iso": "ARG",
+   "name": "Gianluca Prestianni"
+  },
+  {
+   "iso": "ARG",
+   "name": "Guido Rodríguez"
+  },
+  {
+   "iso": "ARG",
+   "name": "Kevin Mac Allister"
+  },
+  {
+   "iso": "ARG",
+   "name": "Lautaro Di Lollo"
+  },
+  {
+   "iso": "ARG",
+   "name": "Leonardo Balerdi"
+  },
+  {
+   "iso": "ARG",
+   "name": "Lucas Martínez Quarta"
+  },
+  {
+   "iso": "ARG",
+   "name": "Marcos Acuña"
+  },
+  {
+   "iso": "ARG",
+   "name": "Marcos Senesi"
+  },
+  {
+   "iso": "ARG",
+   "name": "Mateo Pellegrino"
+  },
+  {
+   "iso": "ARG",
+   "name": "Matías Soulé"
+  },
+  {
+   "iso": "ARG",
+   "name": "Milton Delgado"
+  },
+  {
+   "iso": "ARG",
+   "name": "Máximo Perrone"
+  },
+  {
+   "iso": "ARG",
+   "name": "Nicolás Capaldo"
+  },
+  {
+   "iso": "ARG",
+   "name": "Nicolás Domínguez"
+  },
+  {
+   "iso": "ARG",
+   "name": "Santiago Beltrán"
+  },
+  {
+   "iso": "ARG",
+   "name": "Santiago Castro"
+  },
+  {
+   "iso": "ARG",
+   "name": "Tomás Aranda"
+  },
+  {
+   "iso": "ARG",
+   "name": "Walter Benítez"
+  },
+  {
+   "iso": "ARG",
+   "name": "Zaid Romero"
+  },
+  {
+   "iso": "AUS",
+   "name": "Alex Robertson"
+  },
+  {
+   "iso": "AUS",
+   "name": "Ante Suto"
+  },
+  {
+   "iso": "AUS",
+   "name": "Brandon Borrello"
+  },
+  {
+   "iso": "AUS",
+   "name": "Deni Juric"
+  },
+  {
+   "iso": "AUS",
+   "name": "Fran Karacic"
+  },
+  {
+   "iso": "AUS",
+   "name": "Joe Gauci"
+  },
+  {
+   "iso": "AUS",
+   "name": "Kye Rowles"
+  },
+  {
+   "iso": "AUS",
+   "name": "Martin Boyle"
+  },
+  {
+   "iso": "AUS",
+   "name": "Patrick Yazbek"
+  },
+  {
+   "iso": "AUS",
+   "name": "Riley McGree"
+  },
+  {
+   "iso": "AUT",
+   "name": "Christoph Baumgartner"
+  },
+  {
+   "iso": "BOS",
+   "name": "Osman Hadzikic"
+  },
+  {
+   "iso": "BRA",
+   "name": "Wesley"
+  },
+  {
+   "iso": "CAN",
+   "name": "Daniel Jebbison"
+  },
+  {
+   "iso": "CAN",
+   "name": "Jacen Russell-Rowe"
+  },
+  {
+   "iso": "CAN",
+   "name": "Jamie Knight-Lebel"
+  },
+  {
+   "iso": "CAN",
+   "name": "Marcelo Flores"
+  },
+  {
+   "iso": "CAN",
+   "name": "Ralph Priso"
+  },
+  {
+   "iso": "CAN",
+   "name": "Zorhan Bassong"
+  },
+  {
+   "iso": "CIV",
+   "name": "Clément Akpa"
+  },
+  {
+   "iso": "CPV",
+   "name": "Pico"
+  },
+  {
+   "iso": "CZE",
+   "name": "Christophe Kabongo"
+  },
+  {
+   "iso": "CZE",
+   "name": "Pavel Bucha"
+  },
+  {
+   "iso": "CZE",
+   "name": "Tomás Ladra"
+  },
+  {
+   "iso": "ECU",
+   "name": "Bruno Caicedo"
+  },
+  {
+   "iso": "ECU",
+   "name": "Cristhian Loor"
+  },
+  {
+   "iso": "ECU",
+   "name": "Darwin Guagua"
+  },
+  {
+   "iso": "ECU",
+   "name": "Deinner Ordóñez"
+  },
+  {
+   "iso": "ECU",
+   "name": "Ederson Castillo"
+  },
+  {
+   "iso": "ECU",
+   "name": "Fricio Caicedo"
+  },
+  {
+   "iso": "ECU",
+   "name": "John Mercado"
+  },
+  {
+   "iso": "ECU",
+   "name": "José Hurtado"
+  },
+  {
+   "iso": "ECU",
+   "name": "Luis Fragozo"
+  },
+  {
+   "iso": "ECU",
+   "name": "Malcom DaCosta"
+  },
+  {
+   "iso": "EGY",
+   "name": "Aqtay Abdallah"
+  },
+  {
+   "iso": "GER",
+   "name": "Jonas Urbig"
+  },
+  {
+   "iso": "GER",
+   "name": "Lennart Karl"
+  },
+  {
+   "iso": "GHA",
+   "name": "Alexander Djiku"
+  },
+  {
+   "iso": "GHA",
+   "name": "Paul Reverson"
+  },
+  {
+   "iso": "GHA",
+   "name": "Solomon Agbasi"
+  },
+  {
+   "iso": "IRA",
+   "name": "Amirhossein Mahmoudi"
+  },
+  {
+   "iso": "IRA",
+   "name": "Dennis Dargahi"
+  },
+  {
+   "iso": "IRA",
+   "name": "Hadi Habibinejad"
+  },
+  {
+   "iso": "IRA",
+   "name": "Kasra Taheri"
+  },
+  {
+   "iso": "IRA",
+   "name": "Mohammad Khalifeh"
+  },
+  {
+   "iso": "IRA",
+   "name": "Omid Noorafkan"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Ahmed Yahya"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Dario Naamo"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Hasan Abdulkareem"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Jussef Nasrawe"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Karar Nabeel"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Kumel Saadi"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Maytham Jabbar"
+  },
+  {
+   "iso": "IRQ",
+   "name": "Peter Gwargis"
+  },
+  {
+   "iso": "JAP",
+   "name": "Maya Yoshida"
+  },
+  {
+   "iso": "JOR",
+   "name": "Ahmad Al Juaidi"
+  },
+  {
+   "iso": "JOR",
+   "name": "Ahmad Assaf"
+  },
+  {
+   "iso": "JOR",
+   "name": "Ibrahim Sabra"
+  },
+  {
+   "iso": "JOR",
+   "name": "Mohammad Abu Ghoush"
+  },
+  {
+   "iso": "JOR",
+   "name": "Yousef Qashi"
+  },
+  {
+   "iso": "KOR",
+   "name": "Cho Yu-Min"
+  },
+  {
+   "iso": "MEX",
+   "name": "Alejandro Gómez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Alexis Gutiérrez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Alexéi Domínguez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Antonio Rodríguez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Bryan González"
+  },
+  {
+   "iso": "MEX",
+   "name": "Carlos Moreno"
+  },
+  {
+   "iso": "MEX",
+   "name": "Carlos Rodríguez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Diego Lainez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Efraín Álvarez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Elías Montiel"
+  },
+  {
+   "iso": "MEX",
+   "name": "Everardo López"
+  },
+  {
+   "iso": "MEX",
+   "name": "Germán Berterame"
+  },
+  {
+   "iso": "MEX",
+   "name": "Jeremy Márquez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Jordán Carrillo"
+  },
+  {
+   "iso": "MEX",
+   "name": "Jorge Ruvalcaba"
+  },
+  {
+   "iso": "MEX",
+   "name": "Julián Araujo"
+  },
+  {
+   "iso": "MEX",
+   "name": "Kevin Castañeda"
+  },
+  {
+   "iso": "MEX",
+   "name": "Marcel Ruiz"
+  },
+  {
+   "iso": "MEX",
+   "name": "Ramón Juárez"
+  },
+  {
+   "iso": "MEX",
+   "name": "Richard Ledezma"
+  },
+  {
+   "iso": "MEX",
+   "name": "Víctor Guzmán"
+  },
+  {
+   "iso": "MEX",
+   "name": "Álex Padilla"
+  },
+  {
+   "iso": "MEX",
+   "name": "Érick Sánchez"
+  },
+  {
+   "iso": "MOR",
+   "name": "Abdelhamid Aït Boudlal"
+  },
+  {
+   "iso": "MOR",
+   "name": "Amine Sbaï"
+  },
+  {
+   "iso": "MOR",
+   "name": "El Mehdi Al Harrar"
+  },
+  {
+   "iso": "MOR",
+   "name": "Ibrahim Gomis"
+  },
+  {
+   "iso": "MOR",
+   "name": "Imrân Louza"
+  },
+  {
+   "iso": "MOR",
+   "name": "Ismaël Baouf"
+  },
+  {
+   "iso": "MOR",
+   "name": "Marwane Saadane"
+  },
+  {
+   "iso": "MOR",
+   "name": "Mohamed Chibi"
+  },
+  {
+   "iso": "MOR",
+   "name": "Othmane Maamma"
+  },
+  {
+   "iso": "MOR",
+   "name": "Oussama Targhalline"
+  },
+  {
+   "iso": "MOR",
+   "name": "Rayane Bounida"
+  },
+  {
+   "iso": "MOR",
+   "name": "Sofiane Boufal"
+  },
+  {
+   "iso": "MOR",
+   "name": "Souffian El Karouani"
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane Benjdida"
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane Bouftini"
+  },
+  {
+   "iso": "MOR",
+   "name": "Soufiane El-Faouzi"
+  },
+  {
+   "iso": "MOR",
+   "name": "Tawfik Bentayeb"
+  },
+  {
+   "iso": "MOR",
+   "name": "Yanis Begraoui"
+  },
+  {
+   "iso": "MOR",
+   "name": "Yanis Benchaouch"
+  },
+  {
+   "iso": "MOR",
+   "name": "Yassir Zabiri"
+  },
+  {
+   "iso": "NED",
+   "name": "Jerdy Schouten"
+  },
+  {
+   "iso": "NED",
+   "name": "Jurriën Timber"
+  },
+  {
+   "iso": "NED",
+   "name": "Justin Bijlow"
+  },
+  {
+   "iso": "NED",
+   "name": "Kees Smit"
+  },
+  {
+   "iso": "NED",
+   "name": "Luciano Valente"
+  },
+  {
+   "iso": "NED",
+   "name": "Stefan de Vrij"
+  },
+  {
+   "iso": "PAN",
+   "name": "Iván Anderson"
+  },
+  {
+   "iso": "PAN",
+   "name": "JD Gunn"
+  },
+  {
+   "iso": "PAN",
+   "name": "José Murillo"
+  },
+  {
+   "iso": "PAN",
+   "name": "Kadir Barría"
+  },
+  {
+   "iso": "PAN",
+   "name": "Martín Krug"
+  },
+  {
+   "iso": "PAN",
+   "name": "Víctor Griffith"
+  },
+  {
+   "iso": "PAR",
+   "name": "Adam Bareiro"
+  },
+  {
+   "iso": "PAR",
+   "name": "Adrián Alcaraz"
+  },
+  {
+   "iso": "PAR",
+   "name": "Agustín Sández"
+  },
+  {
+   "iso": "PAR",
+   "name": "Alan Benítez"
+  },
+  {
+   "iso": "PAR",
+   "name": "Alan Núñez"
+  },
+  {
+   "iso": "PAR",
+   "name": "Alcides Benítez"
+  },
+  {
+   "iso": "PAR",
+   "name": "Blás Riveros"
+  },
+  {
+   "iso": "PAR",
+   "name": "Carlos Coronel"
+  },
+  {
+   "iso": "PAR",
+   "name": "Carlos González"
+  },
+  {
+   "iso": "PAR",
+   "name": "Diego González"
+  },
+  {
+   "iso": "PAR",
+   "name": "Diego León"
+  },
+  {
+   "iso": "PAR",
+   "name": "Enso González"
+  },
+  {
+   "iso": "PAR",
+   "name": "Hugo Cuenca"
+  },
+  {
+   "iso": "PAR",
+   "name": "Juan Espínola"
+  },
+  {
+   "iso": "PAR",
+   "name": "Lorenzo Melgarejo"
+  },
+  {
+   "iso": "PAR",
+   "name": "Lucas Romero"
+  },
+  {
+   "iso": "PAR",
+   "name": "Mateo Gamarra"
+  },
+  {
+   "iso": "PAR",
+   "name": "Mathías Villasanti"
+  },
+  {
+   "iso": "PAR",
+   "name": "Robert Morales"
+  },
+  {
+   "iso": "PAR",
+   "name": "Robert Piris Da Motta"
+  },
+  {
+   "iso": "PAR",
+   "name": "Rodney Redes"
+  },
+  {
+   "iso": "PAR",
+   "name": "Ronaldo Dejesús"
+  },
+  {
+   "iso": "PAR",
+   "name": "Ronaldo Martínez"
+  },
+  {
+   "iso": "PAR",
+   "name": "Rubén Lezcano"
+  },
+  {
+   "iso": "PAR",
+   "name": "Santiago Rojas"
+  },
+  {
+   "iso": "PAR",
+   "name": "Saúl Salcedo"
+  },
+  {
+   "iso": "PAR",
+   "name": "Álvaro Campuzano"
+  },
+  {
+   "iso": "PAR",
+   "name": "Ángel Romero"
+  },
+  {
+   "iso": "PAR",
+   "name": "Óscar Romero"
+  },
+  {
+   "iso": "POR",
+   "name": "Ricardo Velho"
+  },
+  {
+   "iso": "QAT",
+   "name": "Bassam Al Rawi"
+  },
+  {
+   "iso": "QAT",
+   "name": "Fahad Younis"
+  },
+  {
+   "iso": "QAT",
+   "name": "Mohammed Waad"
+  },
+  {
+   "iso": "QAT",
+   "name": "Mubarak Shanan"
+  },
+  {
+   "iso": "QAT",
+   "name": "Niall Mason"
+  },
+  {
+   "iso": "QAT",
+   "name": "Rayyan Al Ali"
+  },
+  {
+   "iso": "QAT",
+   "name": "Sebastián Soria"
+  },
+  {
+   "iso": "QAT",
+   "name": "Shehab Ellethy"
+  },
+  {
+   "iso": "QAT",
+   "name": "Tarek Salman"
+  },
+  {
+   "iso": "RSA",
+   "name": "Brandon Petersen"
+  },
+  {
+   "iso": "RSA",
+   "name": "Brooklyn Poggenpoel"
+  },
+  {
+   "iso": "RSA",
+   "name": "Lebohang Maboe"
+  },
+  {
+   "iso": "RSA",
+   "name": "Patrick Maswanganyi"
+  },
+  {
+   "iso": "RSA",
+   "name": "Thabiso Monyane"
+  },
+  {
+   "iso": "RSA",
+   "name": "Thapelo Morena"
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdullah Al Salem"
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdulquddus Atiah"
+  },
+  {
+   "iso": "SAU",
+   "name": "Abdulrahman Al Sanbi"
+  },
+  {
+   "iso": "SAU",
+   "name": "Saleh Abu Al Shamat"
+  },
+  {
+   "iso": "SAU",
+   "name": "Zakaria Hawsawi"
+  },
+  {
+   "iso": "SCO",
+   "name": "Billy Gilmour"
+  },
+  {
+   "iso": "SEN",
+   "name": "Ilay Camara"
+  },
+  {
+   "iso": "SEN",
+   "name": "Moustapha Mbow"
+  },
+  {
+   "iso": "SEN",
+   "name": "Pape Sy"
+  },
+  {
+   "iso": "SWE",
+   "name": "Emil Holm"
+  },
+  {
+   "iso": "SWE",
+   "name": "Sebastian Nanasi"
+  },
+  {
+   "iso": "TUR",
+   "name": "Ahmetcan Kaplan"
+  },
+  {
+   "iso": "TUR",
+   "name": "Aral Simsir"
+  },
+  {
+   "iso": "TUR",
+   "name": "Atakan Karazor"
+  },
+  {
+   "iso": "TUR",
+   "name": "Demir Ege Tiknaz"
+  },
+  {
+   "iso": "TUR",
+   "name": "Ersin Destanoglu"
+  },
+  {
+   "iso": "TUR",
+   "name": "Muhammed Sengezer"
+  },
+  {
+   "iso": "TUR",
+   "name": "Mustafa Eskihellaç"
+  },
+  {
+   "iso": "TUR",
+   "name": "Yusuf Akçiçek"
+  },
+  {
+   "iso": "TUR",
+   "name": "Yusuf Sari"
+  },
+  {
+   "iso": "URU",
+   "name": "Agustín Álvarez"
+  },
+  {
+   "iso": "URU",
+   "name": "Benjamín García"
+  },
+  {
+   "iso": "URU",
+   "name": "Brian Barboza"
+  },
+  {
+   "iso": "URU",
+   "name": "Facundo Martínez"
+  },
+  {
+   "iso": "URU",
+   "name": "Facundo Torres"
+  },
+  {
+   "iso": "URU",
+   "name": "José Rodríguez"
+  },
+  {
+   "iso": "URU",
+   "name": "Luciano González"
+  },
+  {
+   "iso": "URU",
+   "name": "Nicolás Fonseca"
+  },
+  {
+   "iso": "URU",
+   "name": "Pablo Alcoba"
+  },
+  {
+   "iso": "USA",
+   "name": "Aidan Morris"
+  },
+  {
+   "iso": "USA",
+   "name": "Johnny Cardoso"
+  },
+  {
+   "iso": "USA",
+   "name": "Patrick Agyemang"
+  },
+  {
+   "iso": "USA",
+   "name": "Patrick Schulte"
+  },
+  {
+   "iso": "USA",
+   "name": "Tanner Tessmann"
+  },
+  {
+   "iso": "UZB",
+   "name": "Jasurbek Jaloliddinov"
+  },
+  {
+   "iso": "UZB",
+   "name": "Ruslanbek Jiyanov"
+  },
+  {
+   "iso": "UZB",
+   "name": "Sherzod Temirov"
+  },
+  {
+   "iso": "UZB",
+   "name": "Umarali Rakhmonaliev"
+  }
+ ]
+}

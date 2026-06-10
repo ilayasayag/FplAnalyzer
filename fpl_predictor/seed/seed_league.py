@@ -458,7 +458,7 @@ def seed_mock_league(db, USER_UID, USER_NAME):
     # in user, which is how the live roster grew past 6.)
     mock_managers = [
         {"uid": "u_ilay",    "name": "Ilay",    "team": "Ilay's Squad",    "flag": "GER", "draftPos": 1, "waiverPri": 6},
-        {"uid": "u_yuval",   "name": "Yuval",   "team": "Yuval's Squad",   "flag": "GER", "draftPos": 2, "waiverPri": 5},
+        {"uid": "u_yuval",   "name": "Chen-David", "team": "Chen-David's Squad", "flag": "GER", "draftPos": 2, "waiverPri": 5},
         {"uid": "u_netanel", "name": "Netanel", "team": "Netanel's Squad", "flag": "GER", "draftPos": 3, "waiverPri": 4},
         {"uid": "u_shay",    "name": "Shay",    "team": "Shay's Squad",    "flag": "GER", "draftPos": 4, "waiverPri": 3},
         {"uid": "u_nadav",   "name": "Nadav",   "team": "Nadav's Squad",   "flag": "GER", "draftPos": 5, "waiverPri": 2},
@@ -590,7 +590,7 @@ def seed_pre_draft_league(db, USER_UID, USER_NAME):
         {"uid": "u_roy",     "name": "Roy",     "team": "La Liga Loca",     "flag": "ESP"},
         {"uid": "u_yonatan", "name": "Yonatan", "team": "Tiki-Taka FC",     "flag": "ARG"},
         {"uid": "u_nadav",   "name": "Nadav",   "team": "Red Devils 2026",  "flag": "BRA"},
-        {"uid": "u_yuval",   "name": "Yuval",   "team": "The Gunners",      "flag": "ENG"},
+        {"uid": "u_yuval",   "name": "Chen-David", "team": "The Gunners",      "flag": "ENG"},
         {"uid": "u_ido",     "name": "Ido",     "team": "Tel Aviv United",  "flag": "FRA"},
         {"uid": "u_shai",    "name": "Shai",    "team": "McShaike's XI",    "flag": "MEX"},
         {"uid": "u_omer",    "name": "Omer",    "team": "Catenaccio Kings", "flag": "ITA"},

@@ -778,6 +778,48 @@ def resume_draft(lid: str):
     return _ok({"paused": False, "secondsRemaining": round(remaining)})
 
 
+@wc_bp.route("/leagues/<lid>/draft/rollback", methods=["POST"])
+def rollback_draft(lid: str):
+    """Rewind the draft to a previous pick (admin-only, paused-only). Body:
+    {"toPick": <pickNumber>} — that pick goes back ON THE CLOCK; it and every
+    later pick are deleted, pickedPlayerIds is rebuilt deduped. The draft
+    stays paused; resume hands the re-picking manager a full clock."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    league_doc = _db.collection("leagues").document(lid).get()
+    if not league_doc.exists:
+        return _err("League not found", 404)
+    if (league_doc.to_dict() or {}).get("adminUid") != uid:
+        return _err("Only the league admin can roll back the draft", 403)
+    body = request.get_json(silent=True) or {}
+    if "toPick" not in body:
+        return _err("toPick required")
+    try:
+        to_pick = int(body["toPick"])
+    except (TypeError, ValueError):
+        return _err("toPick must be an integer")
+    try:
+        from .game.draft import DraftEngine
+        return _ok(DraftEngine(_db, _wc).rollback_draft(lid, to_pick))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/draft/validate", methods=["GET"])
+def validate_draft(lid: str):
+    """Draft integrity report: duplicate players, quota/nation violations,
+    pick gaps, state-vs-docs drift. Any league member can run it."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        from .game.draft import DraftEngine
+        return _ok(DraftEngine(_db, _wc).validate_draft(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
 @wc_bp.route("/leagues/<lid>/draft/auto-pick", methods=["POST"])
 def auto_pick(lid: str):
     """Fire the best-available auto-pick when the on-the-clock manager's
@@ -928,6 +970,345 @@ def advance_draft_sim(lid: str):
     return _ok({"advanced": advanced, "n": len(advanced)})
 
 
+@wc_bp.route("/admin/remove-non-squad-players", methods=["POST"])
+def admin_remove_non_squad_players():
+    """Delete the user-approved 236 provisional players who did NOT make their
+    final 26-man squad (bundled kill list = the red entries of
+    wc_non_squad_players.html, reviewed by the admin). Ownership-guarded: any
+    player currently on a league squad is SKIPPED and reported (re-run after
+    go-live wipes the mock squads). Deleted ids are scrubbed from every draft
+    watchlist. Idempotent."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    import json as _json
+    spec_path = os.path.join(os.path.dirname(__file__), "data",
+                             "non_squad_players.json")
+    with open(spec_path, encoding="utf-8") as f:
+        kill = _json.load(f)["players"]
+    kill_keys = {(k["iso"], _fifa_norm(k["name"])) for k in kill}
+
+    owned = set()
+    for lid in (MOCK_LID, SANDBOX_LID):
+        for sq in _db.collection("leagues").document(lid).collection("squads").get():
+            owned.update(int(p["playerId"]) for p in (sq.to_dict() or {}).get("players", []))
+
+    summary = {"deleted": 0, "skippedOwned": [], "notFound": 0,
+               "watchlistsScrubbed": []}
+    deleted_ids = []
+    batch, ops = _db.batch(), 0
+    for d in _db.collection("wc_players").get():
+        pd = d.to_dict() or {}
+        key = (pd.get("teamIso", ""), _fifa_norm(pd.get("name", "")))
+        if key not in kill_keys:
+            continue
+        kill_keys.discard(key)
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = None
+        if pid in owned:
+            summary["skippedOwned"].append({"id": pid, "name": pd.get("name")})
+            continue
+        batch.delete(d.reference)
+        ops += 1
+        summary["deleted"] += 1
+        if pid is not None:
+            deleted_ids.append(pid)
+        if ops >= 450:
+            batch.commit()
+            batch, ops = _db.batch(), 0
+    if ops:
+        batch.commit()
+    summary["notFound"] = len(kill_keys)
+
+    if deleted_ids:
+        gone = {str(i) for i in deleted_ids} | set(deleted_ids)
+        for lid in (MOCK_LID, SANDBOX_LID):
+            league_ref = _db.collection("leagues").document(lid)
+            wl_doc = league_ref.collection("draft").document("watchlists")
+            for m in league_ref.collection("members").get():
+                d = wl_doc.collection(m.id).document("list").get()
+                if not d.exists:
+                    continue
+                ids = (d.to_dict() or {}).get("playerIds", [])
+                kept = [x for x in ids if x not in gone and str(x) not in gone]
+                if len(kept) != len(ids):
+                    d.reference.update({"playerIds": kept})
+                    summary["watchlistsScrubbed"].append(
+                        f"{lid}/{m.id}: {len(ids)} -> {len(kept)}")
+    return _ok(summary)
+
+
+@wc_bp.route("/admin/leagues/<lid>/set-admin", methods=["POST"])
+def admin_set_league_admin(lid: str):
+    """Global-admin-only: set the league's adminUid (the uid that gates START
+    DRAFT / pause-rollback / start-season). Body: {"uid": "u_..."} — must be
+    an existing league member. Fixes legacy leagues whose admin is a seed bot
+    (lg_mock_draft shipped with adminUid=u_mk_golden)."""
+    caller, err = _require_admin()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    new_admin = body.get("uid")
+    if not new_admin:
+        return _err("uid required")
+    league_ref = _db.collection("leagues").document(lid)
+    if not league_ref.get().exists:
+        return _err("League not found", 404)
+    if not league_ref.collection("members").document(new_admin).get().exists:
+        return _err(f"{new_admin} is not a member of {lid}")
+    league_ref.update({"adminUid": new_admin})
+    return _ok({"lid": lid, "adminUid": new_admin})
+
+
+@wc_bp.route("/admin/golive-reset", methods=["POST"])
+def admin_golive_reset():
+    """GO-LIVE: transform the showcase league into THE real league, in place.
+
+    One-shot, GLOBAL-ADMIN-only, run once on draft day BEFORE the real draft:
+      - Backs up the league doc + squads + member list to wc_config/golive_backup.
+      - Keeps: the 6 canonical members and every draft watchlist (draft prep).
+      - Deletes: squads, lineups, scores, gw_history, standings, knockout,
+        schedule, trades, transactions, wishlist bids/results, waivers,
+        transfer_windows, old draft state + picks — ALL mock gameplay data.
+      - League doc: simulated -> False (hides the mock chip / window switcher /
+        sim+sandbox endpoints), status -> pre_draft, currentGw -> 1,
+        pickTimer -> 45 (real draft clock), format h2h, clears windowOverride.
+      - Globals: every wc_players totalPoints -> 0 / eliminated -> False,
+        wc_fixtures rewritten to the real 72-game schedule ALL UNPLAYED,
+        wc_gameweeks re-seeded, wc_config currentGw -> 1 + results cleared.
+    After this the time-based window machine runs the real timeline (trades ->
+    free agents at T0-5h -> squad/XI lock at T0-1h) off the real kickoffs, and
+    the Draft Room START button begins the real draft. Idempotent."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    league_ref = _db.collection("leagues").document(MOCK_LID)
+    league_snap = league_ref.get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    league = league_snap.to_dict() or {}
+    draft_state = league_ref.collection("draft").document("state").get()
+    if draft_state.exists and (draft_state.to_dict() or {}).get("status") == "active":
+        return _err("A draft is in progress — finish or reset it first", 409)
+
+    summary = {"lid": MOCK_LID, "deleted": {}, "membersKept": [],
+               "watchlistsKept": 0, "playersReset": 0}
+
+    # 0. Backup (league doc + squads + members).
+    backup = {"ts": SERVER_TIMESTAMP, "league": league, "squads": {}, "members": []}
+    for sq in league_ref.collection("squads").get():
+        backup["squads"][sq.id] = sq.to_dict()
+    for m in league_ref.collection("members").get():
+        backup["members"].append(m.id)
+    _db.collection("wc_config").document("golive_backup").set(backup)
+
+    # 1. Members: keep exactly the canonical 6.
+    for m in league_ref.collection("members").get():
+        if m.id in MOCK_CANONICAL_ROSTER:
+            summary["membersKept"].append(m.id)
+        else:
+            m.reference.delete()
+    wl_doc = league_ref.collection("draft").document("watchlists")
+    for muid in summary["membersKept"]:
+        if wl_doc.collection(muid).document("list").get().exists:
+            summary["watchlistsKept"] += 1
+
+    # 2. Wipe ALL mock gameplay data (keep members + watchlists).
+    for coll in ("squads", "lineups", "scores", "gw_history", "standings",
+                 "knockout", "schedule", "trades", "transactions",
+                 "wishlist_bids", "wishlist_results", "waivers",
+                 "transfer_windows"):
+        n = 0
+        for d in league_ref.collection(coll).get():
+            d.reference.delete()
+            n += 1
+        summary["deleted"][coll] = n
+    st = league_ref.collection("draft").document("state")
+    if st.get().exists:
+        n = 0
+        for p in st.collection("picks").get():
+            p.reference.delete()
+            n += 1
+        st.delete()
+        summary["deleted"]["draftPicks"] = n
+
+    # 3. League doc -> the real league, ready to draft.
+    league_ref.update({
+        "simulated": False,
+        "adminUid": "u_ilay",   # START DRAFT / undo / rollback gate on this
+        "status": "pre_draft",
+        "currentGw": 1,
+        "draftComplete": False,
+        "pickTimer": 45,
+        "format": "h2h",
+        "maxMembers": len(MOCK_CANONICAL_ROSTER),
+        "leaguePhaseGws": [1, 2, 3],
+        "knockoutStartGw": 4,
+        "knockoutQualifiers": 4,
+        "windowOverride": firestore.DELETE_FIELD,
+    })
+
+    # 4. Global resets: player stats, fixtures (real schedule, all unplayed),
+    #    gameweeks, tournament config.
+    batch, ops = _db.batch(), 0
+    for d in _db.collection("wc_players").get():
+        pd = d.to_dict() or {}
+        if pd.get("totalPoints") or pd.get("eliminated"):
+            batch.update(d.reference, {"totalPoints": 0, "eliminated": False})
+            ops += 1
+            summary["playersReset"] += 1
+            if ops >= 450:
+                batch.commit()
+                batch, ops = _db.batch(), 0
+    if ops:
+        batch.commit()
+
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+    summary["fixtures"] = seed_real_fixtures(_db, {}, GROUP_STAGE_EVENTS,
+                                             played_gws=())
+    from .game.wc_gameweeks import gw_as_dict
+    for gw in range(1, 9):
+        _db.collection("wc_gameweeks").document(str(gw)).set(gw_as_dict(gw))
+    _db.collection("wc_config").document("tournament").update({
+        "currentGw": 1, "winner": None, "topScorer": None,
+        # GW1 special: free agents open IMMEDIATELY after the draft (T0-36h is
+        # already in the past) and still auto-lock at T0-1h. Restore to 5
+        # after GW1 locks via /admin/window-config for the normal GW rhythm.
+        "fa_open_before_hours": 36,
+    })
+    return _ok(summary)
+
+
+@wc_bp.route("/admin/window-config", methods=["POST"])
+def admin_window_config():
+    """Global-admin: tune the transfer-window offsets on wc_config/tournament.
+    Body keys (all optional): faOpenBeforeHours, squadLockBeforeHours,
+    tradeReopenAfterHours. Used to restore the normal rhythm (fa=5) after the
+    GW1 always-open free-agents special."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    mapping = {"faOpenBeforeHours": "fa_open_before_hours",
+               "squadLockBeforeHours": "squad_lock_before_hours",
+               "tradeReopenAfterHours": "trade_reopen_after_hours"}
+    update = {}
+    for k, field in mapping.items():
+        if k in body:
+            try:
+                update[field] = float(body[k])
+            except (TypeError, ValueError):
+                return _err(f"{k} must be a number")
+    if not update:
+        return _err("nothing to update")
+    _db.collection("wc_config").document("tournament").update(update)
+    return _ok(update)
+
+
+# Final-squad corrections vs the official Wikipedia 2026 squads (June 2026).
+# adds: real squad members our pool lacks (the second BRA Danilo/Éderson the
+# FIFA feed name-collided away, plus Geertruida). deletes: provisional players
+# who did NOT make their final squad and were explicitly flagged by the admin.
+SQUAD_CORRECTION_ADDS = [
+    {"iso": "BRA", "name": "Danilo Oliveira", "specKey": "danilo", "pos": 3},
+    # "Éderson Santos" (Atalanta MID) — distinct display name so he can't be
+    # confused with (or idempotency-collide into) GK "Ederson".
+    {"iso": "BRA", "name": "Éderson Santos", "specKey": "ederson", "pos": 3},
+    {"iso": "NED", "name": "Lutsharel Geertruida", "specKey": "lutsharel geertruida", "pos": 2},
+]
+SQUAD_CORRECTION_DELETES = [
+    {"iso": "NED", "name": "Xavi Simons"},
+    {"iso": "NED", "name": "Jeremie Frimpong"},
+]
+
+
+@wc_bp.route("/admin/squad-corrections", methods=["POST"])
+def admin_squad_corrections():
+    """One-shot, idempotent final-squad fix: add SQUAD_CORRECTION_ADDS to
+    wc_players (draftRank from the bundled FIFA spec), delete
+    SQUAD_CORRECTION_DELETES (refusing if owned by any squad in the mock or
+    sandbox league), and scrub the deleted ids out of EVERY manager's draft
+    watchlist in both leagues."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    spec = _load_align_spec()
+    summary = {"added": [], "addSkipped": [], "deleted": [], "deleteBlocked": [],
+               "watchlistsScrubbed": []}
+
+    all_docs = list(_db.collection("wc_players").get())
+    max_id, by_iso_norm, team_meta = 0, {}, {}
+    for d in all_docs:
+        pd = d.to_dict() or {}
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = 0
+        max_id = max(max_id, pid)
+        iso = pd.get("teamIso", "")
+        by_iso_norm[(iso, _fifa_norm(pd.get("name", "")))] = (d.reference, pd)
+        if iso and iso not in team_meta and pd.get("teamId"):
+            team_meta[iso] = {"teamId": pd["teamId"], "teamName": pd.get("teamName", "")}
+
+    # 1. Adds (skip if an identically-named player already exists for the iso).
+    next_id = max_id + 1
+    for a in SQUAD_CORRECTION_ADDS:
+        if (a["iso"], _fifa_norm(a["name"])) in by_iso_norm:
+            summary["addSkipped"].append(a["name"])
+            continue
+        entry = spec["teams"].get(a["iso"], {}).get(a["specKey"]) or {}
+        meta = team_meta.get(a["iso"], {"teamId": 0, "teamName": a["iso"]})
+        pid, next_id = next_id, next_id + 1
+        _db.collection("wc_players").document(str(pid)).set({
+            "id": pid, "name": a["name"], "position": a["pos"],
+            "positionName": _POS_NAME[a["pos"]], "element_type": a["pos"],
+            "teamIso": a["iso"], "teamId": meta["teamId"],
+            "teamName": meta["teamName"],
+            "draftRank": entry.get("rank", 0), "totalPoints": 0,
+            "eliminated": False, "photo": "",
+        })
+        summary["added"].append({"id": pid, "name": a["name"]})
+
+    # 2. Deletes — but never orphan a squad: block if owned anywhere.
+    owned = set()
+    for lid in (MOCK_LID, SANDBOX_LID):
+        for sq in _db.collection("leagues").document(lid).collection("squads").get():
+            owned.update(int(p["playerId"]) for p in (sq.to_dict() or {}).get("players", []))
+    deleted_ids = []
+    for rm in SQUAD_CORRECTION_DELETES:
+        hit = by_iso_norm.get((rm["iso"], _fifa_norm(rm["name"])))
+        if not hit:
+            continue  # already gone — idempotent
+        ref, pd = hit
+        pid = int(pd.get("id", ref.id))
+        if pid in owned:
+            summary["deleteBlocked"].append({"id": pid, "name": rm["name"]})
+            continue
+        ref.delete()
+        deleted_ids.append(pid)
+        summary["deleted"].append({"id": pid, "name": rm["name"]})
+
+    # 3. Scrub deleted players from every draft watchlist (mock + sandbox).
+    if deleted_ids:
+        gone = {str(i) for i in deleted_ids} | set(deleted_ids)
+        for lid in (MOCK_LID, SANDBOX_LID):
+            league_ref = _db.collection("leagues").document(lid)
+            wl_doc = league_ref.collection("draft").document("watchlists")
+            for m in league_ref.collection("members").get():
+                d = wl_doc.collection(m.id).document("list").get()
+                if not d.exists:
+                    continue
+                ids = (d.to_dict() or {}).get("playerIds", [])
+                kept = [x for x in ids if x not in gone and str(x) not in gone]
+                if len(kept) != len(ids):
+                    d.reference.update({"playerIds": kept})
+                    summary["watchlistsScrubbed"].append(
+                        f"{lid}/{m.id}: {len(ids)} -> {len(kept)}")
+    return _ok(summary)
+
+
 # --- Draft sandbox: a disposable clone league for live-draft rehearsal. -----
 # All WRITES go to SANDBOX_LID only; the mock league is READ-ONLY source data.
 SANDBOX_LID = "lg_draft_test"
@@ -973,7 +1354,7 @@ def create_draft_sandbox():
         "status": "pre_draft",
         "adminUid": "u_ilay",
         "maxMembers": len(MOCK_CANONICAL_ROSTER),
-        "pickTimer": 30,
+        "pickTimer": 45,   # match the real draft clock
         "draftComplete": False,
         "sandbox": True,
         "createdAt": SERVER_TIMESTAMP,
@@ -2401,8 +2782,11 @@ def admin_run_mock_wishlist(lid: str):
     if not league_snap.exists:
         return _err("League not found", 404)
     ld = league_snap.to_dict() or {}
-    if not ld.get("simulated"):
-        return _err("MOCK_ONLY: this endpoint only runs on simulated leagues", 403)
+    # Simulated leagues: any member may run it (showcase behaviour). Real
+    # leagues: LEAGUE-ADMIN ONLY (Ilay) — the auto-generated bids touch other
+    # managers' squads, so nobody else gets the trigger.
+    if not ld.get("simulated") and ld.get("adminUid") != uid:
+        return _err("Only the league admin can run the wishlist on a real league", 403)
     body = request.get_json(silent=True) or {}
     try:
         gw = int(body.get("gw") or ld.get("currentGw") or 1)

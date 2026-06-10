@@ -116,147 +116,309 @@ class DraftEngine:
         }
 
     def make_pick(self, lid: str, uid: str, player_id: int,
-                  is_auto: bool = False, idempotency_key: str = None) -> dict:
-        # idempotency_key is accepted but not yet enforced. The "not your turn"
-        # gate + the pickedPlayerIds dedupe already block the common dup-submit
-        # cases. A retry after a successful pick will fail with "Player already
-        # drafted" (harmless). A retry mid-flight could double-advance — low
-        # likelihood at 7 humans on a click-driven UI. Wire proper per-uid
-        # last-key caching here when we move to a higher-traffic deployment.
+                  is_auto: bool = False, idempotency_key: str = None,
+                  expected_pick: int = None) -> dict:
+        """Make one draft pick ATOMICALLY.
+
+        All multi-writer hazards (several clients firing auto-picks, the
+        advance nudge, manual clicks) funnel through a Firestore transaction
+        on the state doc: the pick-doc write, the currentPick advance and the
+        pickedPlayerIds append commit together or not at all. Stale callers
+        fail with clean retryable errors instead of corrupting state:
+          - "Player already drafted"  (dedupe re-checked inside the txn)
+          - "STALE_PICK"              (expected_pick no longer current)
+          - "TURN_CHANGED"            (auto pick computed for a previous
+                                       drafter must NOT be credited to the
+                                       next one — the old behaviour silently
+                                       reassigned it)
+        FakeDB (tests) has no transactions — falls back to plain ops there.
+        """
         league_ref = self.db.collection("leagues").document(lid)
         draft_ref = league_ref.collection("draft").document("state")
-
-        draft_snap = draft_ref.get()
-        if not draft_snap.exists:
-            raise ValueError("Draft not found")
-
-        state = draft_snap.to_dict()
-        if state["status"] != "active":
-            raise ValueError("Draft is not active")
-
-        # Emergency pause blocks ALL picks (manual and auto) until resume.
-        if state.get("paused", False):
-            raise ValueError("Draft is paused")
-
-        current_pick = state["currentPick"]
-        order = state["order"]
-        num_members = len(order)
-        expected_drafter = self._get_drafter(current_pick, order)
-
-        if not is_auto and uid != expected_drafter:
-            raise ValueError("Not your turn to pick")
-
-        picked_ids = state.get("pickedPlayerIds", [])
-        if player_id in picked_ids:
-            raise ValueError("Player already drafted")
 
         player_map = self.fpl.get_player_map()
         player = player_map.get(player_id)
         if not player:
             raise ValueError("Player not found")
 
-        drafter_uid = expected_drafter
-        drafter_picks = self._get_drafter_picks(draft_ref, drafter_uid)
-        pos = player["element_type"]
-        pos_count = sum(1 for p in drafter_picks if p["position"] == pos)
-        if pos_count >= POSITION_QUOTA[pos]:
-            raise ValueError(
-                f"Already have max {POS_NAMES[pos]}s ({POSITION_QUOTA[pos]})"
-            )
+        def _pick(txn):
+            snap = (draft_ref.get(transaction=txn) if txn is not None
+                    else draft_ref.get())
+            if not snap.exists:
+                raise ValueError("Draft not found")
+            state = snap.to_dict()
+            if state["status"] != "active":
+                raise ValueError("Draft is not active")
+            if state.get("paused", False):
+                raise ValueError("Draft is paused")
 
-        # Nation cap: at most NATION_QUOTA players from one nation per squad.
-        # Nations are compared by the enriched player's teamShort (ISO) — the
-        # stored pick teamShort can't be trusted for legacy picks.
-        nation = player.get("teamShort")
-        if nation:
-            nation_count = 0
-            for p in drafter_picks:
-                try:
-                    held = player_map.get(int(p.get("playerId"))) or {}
-                except (TypeError, ValueError):
-                    held = {}
-                if held.get("teamShort") == nation:
-                    nation_count += 1
-            if nation_count >= NATION_QUOTA:
+            current_pick = state["currentPick"]
+            if expected_pick is not None and current_pick != expected_pick:
+                raise ValueError("STALE_PICK: state advanced, recompute")
+            order = state["order"]
+            num_members = len(order)
+            expected_drafter = self._get_drafter(current_pick, order)
+            if not is_auto and uid != expected_drafter:
+                raise ValueError("Not your turn to pick")
+            if is_auto and uid and uid != expected_drafter:
+                # Candidate was computed for a drafter whose turn has passed.
+                raise ValueError("TURN_CHANGED: recompute for current drafter")
+
+            picked_ids = list(state.get("pickedPlayerIds", []))
+            if player_id in picked_ids:
+                raise ValueError("Player already drafted")
+
+            drafter_uid = expected_drafter
+            drafter_picks = self._get_drafter_picks(draft_ref, drafter_uid)
+            pos = player["element_type"]
+            pos_count = sum(1 for p in drafter_picks if p["position"] == pos)
+            if pos_count >= POSITION_QUOTA[pos]:
                 raise ValueError(
-                    f"Already have max {NATION_QUOTA} players from {nation}"
+                    f"Already have max {POS_NAMES[pos]}s ({POSITION_QUOTA[pos]})"
                 )
 
-        rnd = (current_pick // num_members) + 1
-        pick_in_round = (current_pick % num_members) + 1
+            # Nation cap (compared via the enriched teamShort ISO).
+            nation = player.get("teamShort")
+            if nation:
+                nation_count = 0
+                for p in drafter_picks:
+                    try:
+                        held = player_map.get(int(p.get("playerId"))) or {}
+                    except (TypeError, ValueError):
+                        held = {}
+                    if held.get("teamShort") == nation:
+                        nation_count += 1
+                if nation_count >= NATION_QUOTA:
+                    raise ValueError(
+                        f"Already have max {NATION_QUOTA} players from {nation}"
+                    )
 
-        pick_data = {
-            "pickNumber": current_pick,
-            "round": rnd,
-            "pickInRound": pick_in_round,
-            "uid": drafter_uid,
-            "playerId": player_id,
-            "webName": player.get("web_name", "?"),
-            "position": pos,
-            "positionName": POS_NAMES[pos],
-            "teamId": player.get("teamId", player.get("team", 0)),
-            "teamShort": player.get("teamShort") or "?",
-            "isAutoPick": is_auto,
-            "timestamp": SERVER_TIMESTAMP,
-        }
+            rnd = (current_pick // num_members) + 1
+            pick_data = {
+                "pickNumber": current_pick,
+                "round": rnd,
+                "pickInRound": (current_pick % num_members) + 1,
+                "uid": drafter_uid,
+                "playerId": player_id,
+                "webName": player.get("web_name", "?"),
+                "position": pos,
+                "positionName": POS_NAMES[pos],
+                "teamId": player.get("teamId", player.get("team", 0)),
+                "teamShort": player.get("teamShort") or "?",
+                "isAutoPick": is_auto,
+                "timestamp": SERVER_TIMESTAMP,
+            }
 
-        draft_ref.collection("picks").document(str(current_pick)).set(pick_data)
+            new_pick = current_pick + 1
+            picked_ids.append(player_id)
+            update = {
+                "currentPick": new_pick,
+                "pickedPlayerIds": picked_ids,
+                "pickDeadline": time.time() + state.get("pickTimer", 30),
+                "currentDrafter": (self._get_drafter(new_pick, order)
+                                   if new_pick < state["totalPicks"] else None),
+            }
+            completed = new_pick >= state["totalPicks"]
+            if completed:
+                update["status"] = "complete"
+                update["completedAt"] = SERVER_TIMESTAMP
 
-        new_pick = current_pick + 1
-        picked_ids.append(player_id)
-        pick_timer = state.get("pickTimer", 30)
+            pick_ref = draft_ref.collection("picks").document(str(current_pick))
+            if txn is not None:
+                txn.set(pick_ref, pick_data)
+                txn.update(draft_ref, update)
+            else:
+                pick_ref.set(pick_data)
+                draft_ref.update(update)
 
-        if new_pick < state["totalPicks"]:
-            next_drafter = self._get_drafter(new_pick, order)
+            return {
+                "pickNumber": current_pick,
+                "round": rnd,
+                "uid": drafter_uid,
+                "playerId": player_id,
+                "webName": pick_data["webName"],
+                "positionName": POS_NAMES[pos],
+                "teamShort": pick_data["teamShort"],
+                "_completed": completed,
+            }
+
+        if hasattr(self.db, "transaction"):
+            from google.cloud.firestore_v1 import transactional
+
+            @transactional
+            def _txn_pick(txn):
+                return _pick(txn)
+
+            result = _txn_pick(self.db.transaction())
         else:
-            next_drafter = None
+            result = _pick(None)
 
-        update = {
-            "currentPick": new_pick,
-            "pickedPlayerIds": picked_ids,
-            "pickDeadline": time.time() + pick_timer,
-            "currentDrafter": next_drafter,
-        }
-
-        if new_pick >= state["totalPicks"]:
-            update["status"] = "complete"
-            update["completedAt"] = SERVER_TIMESTAMP
-
-        draft_ref.update(update)
-
-        if update.get("status") == "complete":
+        if result.pop("_completed", False):
             self._finalize_draft(lid)
+        return result
 
-        return {
-            "pickNumber": current_pick,
-            "round": rnd,
-            "uid": drafter_uid,
-            "playerId": player_id,
-            "webName": pick_data["webName"],
-            "positionName": POS_NAMES[pos],
-            "teamShort": pick_data["teamShort"],
-        }
+    # make_pick errors that mean "recompute from fresh state and try again"
+    # rather than "give up" — stale candidate, advanced state, raced quota.
+    _RETRYABLE = ("already drafted", "STALE_PICK", "TURN_CHANGED", "max ")
 
     def auto_pick(self, lid: str) -> dict:
-        draft_doc = (self.db.collection("leagues").document(lid)
-                     .collection("draft").document("state").get())
-        if not draft_doc.exists:
+        """Timeout pick. NEVER stalls on a stale candidate: if the chosen
+        player was just taken (or the state advanced under us), recompute the
+        next-best candidate from fresh state and retry, up to 3 attempts."""
+        state_ref = (self.db.collection("leagues").document(lid)
+                     .collection("draft").document("state"))
+        last_err = None
+        for _attempt in range(3):
+            draft_doc = state_ref.get()
+            if not draft_doc.exists:
+                raise ValueError("Draft not found")
+            state = draft_doc.to_dict()
+            if state["status"] != "active":
+                raise ValueError("Draft is not active")
+            if state.get("paused", False):
+                raise ValueError("Draft is paused")
+            if time.time() < state.get("pickDeadline", float("inf")):
+                raise ValueError("Pick timer has not expired")
+
+            drafter_uid = self._get_drafter(state["currentPick"], state["order"])
+            player_id = self._find_best_available(lid, drafter_uid, state)
+            if not player_id:
+                raise ValueError("No legal player available")
+            try:
+                return self.make_pick(lid, drafter_uid, player_id,
+                                      is_auto=True,
+                                      expected_pick=state["currentPick"])
+            except ValueError as exc:
+                msg = str(exc)
+                if any(t in msg for t in self._RETRYABLE):
+                    last_err = exc
+                    continue
+                raise
+        raise last_err or ValueError("Auto-pick failed")
+
+    def rollback_draft(self, lid: str, to_pick: int) -> dict:
+        """Roll the draft back so pick number ``to_pick`` is ON THE CLOCK again.
+
+        Deletes every pick doc with pickNumber >= to_pick, rebuilds
+        pickedPlayerIds from the surviving picks (deduped — this also repairs
+        any pre-existing duplicate corruption), resets currentPick/currentDrafter
+        and re-arms a full pick clock for the resume. Only allowed while the
+        draft is PAUSED so no concurrent picks race the rewind. If the draft
+        had completed, squads are wiped and the league reopened for drafting.
+        """
+        league_ref = self.db.collection("leagues").document(lid)
+        draft_ref = league_ref.collection("draft").document("state")
+        snap = draft_ref.get()
+        if not snap.exists:
             raise ValueError("Draft not found")
+        state = snap.to_dict()
+        if not state.get("paused", False) and state.get("status") == "active":
+            raise ValueError("Pause the draft before rolling back")
+        current_pick = state.get("currentPick", 0)
+        if to_pick < 0 or to_pick >= current_pick:
+            raise ValueError(
+                f"toPick must be between 0 and {current_pick - 1}")
 
-        state = draft_doc.to_dict()
-        if state["status"] != "active":
-            raise ValueError("Draft is not active")
+        removed = []
+        survivors = []
+        for p in draft_ref.collection("picks").get():
+            pd = p.to_dict() or {}
+            if pd.get("pickNumber", 0) >= to_pick:
+                removed.append({"pickNumber": pd.get("pickNumber"),
+                                "uid": pd.get("uid"),
+                                "webName": pd.get("webName")})
+                p.reference.delete()
+            else:
+                survivors.append(pd)
 
-        if state.get("paused", False):
-            raise ValueError("Draft is paused")
+        picked_ids, seen = [], set()
+        for pd in sorted(survivors, key=lambda x: x.get("pickNumber", 0)):
+            pid = pd.get("playerId")
+            if pid is not None and pid not in seen:
+                seen.add(pid)
+                picked_ids.append(pid)
 
-        if time.time() < state.get("pickDeadline", float("inf")):
-            raise ValueError("Pick timer has not expired")
+        order = state.get("order", [])
+        draft_ref.update({
+            "currentPick": to_pick,
+            "pickedPlayerIds": picked_ids,
+            "currentDrafter": self._get_drafter(to_pick, order) if order else None,
+            "status": "active",
+            "paused": True,
+            "pausedRemaining": state.get("pickTimer", 30),
+            "completedAt": None,
+        })
 
-        drafter_uid = self._get_drafter(state["currentPick"], state["order"])
-        player_id = self._find_best_available(lid, drafter_uid, state)
+        league_doc = league_ref.get()
+        if league_doc.exists and (league_doc.to_dict() or {}).get("draftComplete"):
+            for sq in league_ref.collection("squads").get():
+                sq.reference.delete()
+            league_ref.update({"draftComplete": False, "status": "drafting"})
 
-        return self.make_pick(lid, drafter_uid, player_id, is_auto=True)
+        return {"currentPick": to_pick,
+                "currentDrafter": self._get_drafter(to_pick, order) if order else None,
+                "removed": sorted(removed, key=lambda x: x["pickNumber"]),
+                "stillPaused": True}
+
+    def validate_draft(self, lid: str) -> dict:
+        """Integrity report: duplicate players, quota/nation violations,
+        pick-number gaps, and pickedPlayerIds drift vs the pick docs."""
+        league_ref = self.db.collection("leagues").document(lid)
+        draft_ref = league_ref.collection("draft").document("state")
+        snap = draft_ref.get()
+        if not snap.exists:
+            raise ValueError("Draft not found")
+        state = snap.to_dict()
+        picks = [p.to_dict() or {} for p in draft_ref.collection("picks").get()]
+        picks.sort(key=lambda x: x.get("pickNumber", 0))
+
+        by_player = {}
+        for pd in picks:
+            by_player.setdefault(pd.get("playerId"), []).append(pd)
+        duplicates = [
+            {"playerId": pid, "webName": lst[0].get("webName"),
+             "picks": [{"pickNumber": p.get("pickNumber"), "uid": p.get("uid")}
+                       for p in lst]}
+            for pid, lst in by_player.items() if len(lst) > 1]
+
+        player_map = self.fpl.get_player_map()
+        quota_violations, nation_violations = [], []
+        by_uid = {}
+        for pd in picks:
+            by_uid.setdefault(pd.get("uid"), []).append(pd)
+        for muid, lst in by_uid.items():
+            pos_counts, nat_counts = {}, {}
+            for pd in lst:
+                pos_counts[pd.get("position")] = pos_counts.get(pd.get("position"), 0) + 1
+                try:
+                    iso = (player_map.get(int(pd.get("playerId"))) or {}).get("teamShort")
+                except (TypeError, ValueError):
+                    iso = None
+                if iso:
+                    nat_counts[iso] = nat_counts.get(iso, 0) + 1
+            for pos, c in pos_counts.items():
+                if c > POSITION_QUOTA.get(pos, 99):
+                    quota_violations.append({"uid": muid, "position": POS_NAMES.get(pos), "count": c})
+            for iso, c in nat_counts.items():
+                if c > NATION_QUOTA:
+                    nation_violations.append({"uid": muid, "nation": iso, "count": c})
+
+        nums = [pd.get("pickNumber") for pd in picks]
+        gaps = [n for n in range(state.get("currentPick", 0)) if n not in set(nums)]
+        doc_ids = {pd.get("playerId") for pd in picks}
+        state_ids = set(state.get("pickedPlayerIds", []))
+        return {
+            "ok": not (duplicates or quota_violations or nation_violations or gaps
+                       or doc_ids != state_ids),
+            "duplicates": duplicates,
+            "quotaViolations": quota_violations,
+            "nationViolations": nation_violations,
+            "pickNumberGaps": gaps,
+            "stateIdsMissingFromDocs": sorted(state_ids - doc_ids),
+            "docIdsMissingFromState": sorted(doc_ids - state_ids),
+            "currentPick": state.get("currentPick"),
+            "nPickDocs": len(picks),
+        }
 
     def get_available_players(self, lid: str, position: int = None) -> list:
         draft_doc = (self.db.collection("leagues").document(lid)
@@ -403,19 +565,30 @@ class DraftEngine:
             draft_ref.collection("picks").order_by("pickNumber").get()
         )
 
+        # Write squads in the CANONICAL player-object shape every downstream
+        # consumer reads (scoring pos_map fallback, Pick Team, trades, the
+        # squad UI): name/teamIso/teamName/eliminated — enriched from the live
+        # player pool, with the pick doc as fallback. The old webName/teamShort
+        # shape rendered blank names/flags and broke lineups after a real draft.
+        player_map = self.fpl.get_player_map()
         squads = {}
         for p in picks:
             pd = p.to_dict()
             uid = pd["uid"]
-            if uid not in squads:
-                squads[uid] = []
-            squads[uid].append({
+            try:
+                live = player_map.get(int(pd["playerId"])) or {}
+            except (TypeError, ValueError):
+                live = {}
+            squads.setdefault(uid, []).append({
                 "playerId": pd["playerId"],
-                "webName": pd["webName"],
+                "draftedRound": pd.get("round", 0),
+                "name": live.get("name", pd.get("webName", "?")),
                 "position": pd["position"],
                 "positionName": pd["positionName"],
-                "teamId": pd["teamId"],
-                "teamShort": pd["teamShort"],
+                "teamId": live.get("teamId", pd.get("teamId", 0)),
+                "teamIso": live.get("teamIso", pd.get("teamShort", "")),
+                "teamName": live.get("teamName", ""),
+                "eliminated": bool(live.get("eliminated", False)),
             })
 
         for uid, players in squads.items():
@@ -423,12 +596,59 @@ class DraftEngine:
                 "players": players,
             })
 
-        # Draft is done, but the SEASON has not started yet. Leave the league
-        # in "drafting" so start_season() can transition drafting -> group_phase
-        # (the canonical playing state recognized by scoring/propagation/squads/
-        # trades/waivers). Do NOT set "active" — it is an orphan status that
-        # every gameplay subsystem ignores and that start_season rejects.
+        # Durable draft-result backup: the full pick log + every final squad
+        # in one doc. Survives any later squad mutation (trades/FA), and is
+        # exported to a local JSON right after the draft.
+        try:
+            league_ref.collection("draft").document("result_backup").set({
+                "ts": SERVER_TIMESTAMP,
+                "leagueId": lid,
+                "picks": [p.to_dict() for p in picks],
+                "squads": squads,
+            })
+        except Exception as exc:
+            print(f"[Draft] result backup failed for {lid}: {exc}")
+
+        # Default GW1 lineup for every manager (same helper the reset flows
+        # use) so Pick Team shows a valid XI immediately — managers can edit
+        # until the T0-1h lock; scoring always has a lineup to work with.
+        try:
+            from fpl_predictor.seed.seed_league import select_lineup
+            for uid, players in squads.items():
+                ln_ref = league_ref.collection("lineups").document(f"{uid}_1")
+                if not ln_ref.get().exists:
+                    rich = [{"playerId": p["playerId"], "position": p["position"]}
+                            for p in players]
+                    try:
+                        ln_ref.set(select_lineup(rich))
+                    except Exception as exc:
+                        print(f"[Draft] default lineup failed for {uid}: {exc}")
+        except Exception as exc:
+            print(f"[Draft] lineup seeding unavailable: {exc}")
+
         league_ref.update({
             "draftComplete": True,
             "draftCompletedAt": SERVER_TIMESTAMP,
         })
+
+        # AUTO season start: the moment the draft finalizes the league moves
+        # to group_phase at GW1 with a fresh H2H schedule. From here the
+        # time-based window machine takes over (trades -> free agents at
+        # T0-5h -> squads + XI LOCK at T0-1h, anchored on the real GW1
+        # kickoffs) with no further admin action needed.
+        league_doc = league_ref.get()
+        league = league_doc.to_dict() if league_doc.exists else {}
+        league_ref.update({
+            "status": "group_phase",
+            "currentGw": 1,
+            "seasonStartedAt": SERVER_TIMESTAMP,
+        })
+        try:
+            from fpl_predictor.game.schedule import ScheduleManager
+            gws = league.get("leaguePhaseGws", [1, 2, 3])
+            ScheduleManager(self.db).generate_schedule(
+                lid, start_gw=gws[0], end_gw=gws[-1])
+        except Exception as exc:
+            # Schedule generation must never strand the finalize — the admin
+            # start-season endpoint can regenerate it.
+            print(f"[Draft] schedule generation failed for {lid}: {exc}")
