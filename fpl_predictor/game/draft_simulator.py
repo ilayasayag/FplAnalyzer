@@ -77,6 +77,11 @@ class DraftSimulator:
                     cfg_doc = self.db.collection("wc_config").document("tournament").get()
                     current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
                     draft.start_draft(lid, admin_uid, current_gw)
+                    # Persist the human list on the fresh state doc so polling
+                    # clients + /draft/sim/advance see who the bots are.
+                    self.db.collection("leagues").document(lid).collection("draft").document("state").update({
+                        "humanUids": sorted(human_uids)
+                    })
                     time.sleep(2)
                     continue
                 
@@ -88,6 +93,9 @@ class DraftSimulator:
                     cfg_doc = self.db.collection("wc_config").document("tournament").get()
                     current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
                     draft.start_draft(lid, admin_uid, current_gw)
+                    self.db.collection("leagues").document(lid).collection("draft").document("state").update({
+                        "humanUids": sorted(human_uids)
+                    })
                     time.sleep(2)
                     continue
                 

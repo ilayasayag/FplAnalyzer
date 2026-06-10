@@ -827,6 +827,49 @@ def reset_draft_sim(lid: str):
     return _ok({"status": "reset"})
 
 
+@wc_bp.route("/leagues/<lid>/draft/sim/advance", methods=["POST"])
+def advance_draft_sim(lid: str):
+    """Make bot picks synchronously while a NON-human manager is on the clock.
+
+    Cloud Run throttles CPU between requests, so the background simulator
+    thread stalls in production — this request-driven advance is how deployed
+    drafts move bots forward. The client polls draft state and calls this when
+    it sees a bot on the clock. Picks at most ``count`` (default 1, max 5) so
+    each call is fast; stops early at a human's turn / pause / completion.
+    Bots = anyone NOT in the state doc's humanUids. Sim-league gated.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    count = max(1, min(int(body.get("count", 1)), 5))
+    engine = DraftEngine(_db, _wc)
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    advanced = []
+    for _i in range(count):
+        snap = state_ref.get()
+        if not snap.exists:
+            break
+        state = snap.to_dict() or {}
+        if state.get("status") != "active" or state.get("paused"):
+            break
+        humans = set(state.get("humanUids") or [])
+        drafter = engine._get_drafter(state.get("currentPick", 0),
+                                      state.get("order", []))
+        if drafter in humans:
+            break
+        try:
+            pid = engine._find_best_available(lid, drafter, state)
+            if not pid:
+                break
+            res = engine.make_pick(lid, drafter, pid, is_auto=True)
+            advanced.append(res)
+        except ValueError:
+            break
+    return _ok({"advanced": advanced, "n": len(advanced)})
+
+
 # --- Draft sandbox: a disposable clone league for live-draft rehearsal. -----
 # All WRITES go to SANDBOX_LID only; the mock league is READ-ONLY source data.
 SANDBOX_LID = "lg_draft_test"

@@ -111,6 +111,8 @@ class DraftEngine:
             "currentDrafter": drafter_uid,
             "currentRound": (state["currentPick"] // num_members) + 1 if num_members else 0,
             "pickedPlayerIds": state.get("pickedPlayerIds", []),
+            "paused": state.get("paused", False),
+            "humanUids": state.get("humanUids", []),
         }
 
     def make_pick(self, lid: str, uid: str, player_id: int,

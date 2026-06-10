@@ -488,6 +488,63 @@ function App() {
         forceUpdate();
       }, (err) => console.error("Draft picks listen error:", err));
 
+    // 4b. Draft state POLL (REST). The compat SDK silently ignores the named-
+    // database arg (firestore("gamedb") -> "(default)"), so the two listeners
+    // above receive NOTHING in production. This poll is the real live-update
+    // path for the draft: one GET returns state + picks; it also nudges bot
+    // picks forward via /draft/sim/advance when a bot is on the clock (only
+    // the first human does the nudging so concurrent clients don't race).
+    let draftPollBusy = false, advanceBusy = false, lastDraftSig = "";
+    const draftPoll = setInterval(async () => {
+      if (draftPollBusy || !user) return;
+      draftPollBusy = true;
+      try {
+        const s = await apiCall("GET", `/leagues/${lid}/draft/state`);
+        if (!s || s.status === "pending" || !s.order || !s.order.length) return;
+        const numMembers = s.order.length;
+        const sig = `${s.currentPick}|${s.status}|${s.paused}|${Math.round(s.pickDeadline || 0)}`;
+        window.DRAFT_STATE = {
+          round: Math.floor((s.currentPick || 0) / numMembers) + 1,
+          pickOverall: (s.currentPick || 0) + 1,
+          pickInRound: ((s.currentPick || 0) % numMembers) + 1,
+          onTheClock: s.currentDrafter || "",
+          totalRounds: 15,
+          totalPicks: s.totalPicks || 0,
+          pickTimer: s.pickTimer || 30,
+          secondsLeft: Math.max(0, Math.round((s.pickDeadline || 0) - Date.now() / 1000)),
+          isMyTurn: s.currentDrafter === user.uid,
+          order: s.order,
+          paused: !!s.paused,
+          humanUids: s.humanUids || [],
+          complete: s.status === "complete",
+          // The auto-pick watchdog gates on these two — without them the
+          // timeout pick can never fire.
+          status: s.status,
+          pickDeadline: s.pickDeadline,
+        };
+        window.DRAFT_HISTORY = (s.picks || []).map(d => ({
+          round: d.round, overall: (d.pickNumber || 0) + 1,
+          uid: d.uid, playerId: String(d.playerId),
+        }));
+        if (sig !== lastDraftSig) { lastDraftSig = sig; forceUpdate(); }
+        else forceUpdate(); // clock re-sync is cheap; keep the countdown honest
+        // Bot nudge: first human in humanUids drives the bots forward.
+        const humans = s.humanUids || [];
+        if (s.status === "active" && !s.paused && humans.length &&
+            user.uid === humans[0] && s.currentDrafter &&
+            !humans.includes(s.currentDrafter) && !advanceBusy) {
+          advanceBusy = true;
+          try { await apiCall("POST", `/leagues/${lid}/draft/sim/advance`, { count: 1 }); }
+          catch (e) { /* not a sim league / race — fine */ }
+          finally { advanceBusy = false; }
+        }
+      } catch (e) {
+        // 404 = no draft yet; network blips are retried next tick.
+      } finally {
+        draftPollBusy = false;
+      }
+    }, 2500);
+
     // 5. Initial HTTP fetches (Bracket, Schedule, Squad, Lineup, Players)
     const loadInitialData = async () => {
       let criticalFailed = false;
@@ -1028,6 +1085,7 @@ function App() {
       unsubScores();
       unsubDraft();
       unsubDraftPicks();
+      clearInterval(draftPoll);
     };
   }, [user, activeLid, viewingGw]);
 
