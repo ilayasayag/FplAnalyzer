@@ -363,6 +363,10 @@ class WCSquadManager:
 
     def _log_transaction(self, lid: str, uid: str, txn_type: str,
                          player_in: Optional[int], player_out: Optional[int]):
+        # Stamp the current GW so free-agent / drop moves group correctly in the
+        # league History tab (which buckets everything per gameweek).
+        league = self.db.collection("leagues").document(lid).get()
+        gw = (league.to_dict() or {}).get("currentGw") if league.exists else None
         ref = (self.db.collection("leagues").document(lid)
                .collection("transactions").document())
         ref.set({
@@ -370,6 +374,7 @@ class WCSquadManager:
             "uid": uid,
             "playerIn": player_in,
             "playerOut": player_out,
+            "gw": gw,
             "timestamp": SERVER_TIMESTAMP,
         })
 

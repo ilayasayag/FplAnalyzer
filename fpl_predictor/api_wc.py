@@ -721,6 +721,63 @@ def make_pick(lid: str):
         return _err(str(exc))
 
 
+@wc_bp.route("/leagues/<lid>/draft/pause", methods=["POST"])
+def pause_draft(lid: str):
+    """EMERGENCY PAUSE — any authenticated league member can hit it. Freezes
+    the draft for everyone (make_pick + auto_pick both reject while paused)
+    and remembers the seconds left on the clock so resume continues exactly
+    where it stopped."""
+    import time as _time
+    uid, err = _require_auth()
+    if err:
+        return err
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    snap = state_ref.get()
+    if not snap.exists:
+        return _err("Draft not found", 404)
+    state = snap.to_dict() or {}
+    if state.get("status") != "active":
+        return _err("Draft is not active")
+    if state.get("paused"):
+        return _ok({"paused": True, "alreadyPaused": True})
+    remaining = max(0, (state.get("pickDeadline") or 0) - _time.time())
+    state_ref.update({
+        "paused": True,
+        "pausedRemaining": remaining,
+        "pausedBy": uid,
+        "pausedAt": SERVER_TIMESTAMP,
+    })
+    return _ok({"paused": True, "secondsRemaining": round(remaining)})
+
+
+@wc_bp.route("/leagues/<lid>/draft/resume", methods=["POST"])
+def resume_draft(lid: str):
+    """Resume a paused draft with the SAME seconds the clock had at pause."""
+    import time as _time
+    uid, err = _require_auth()
+    if err:
+        return err
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    snap = state_ref.get()
+    if not snap.exists:
+        return _err("Draft not found", 404)
+    state = snap.to_dict() or {}
+    if not state.get("paused"):
+        return _ok({"paused": False, "alreadyRunning": True})
+    remaining = state.get("pausedRemaining")
+    if remaining is None or remaining <= 0:
+        remaining = state.get("pickTimer", 30)
+    state_ref.update({
+        "paused": False,
+        "pickDeadline": _time.time() + remaining,
+        "pausedRemaining": firestore.DELETE_FIELD,
+        "resumedBy": uid,
+    })
+    return _ok({"paused": False, "secondsRemaining": round(remaining)})
+
+
 @wc_bp.route("/leagues/<lid>/draft/auto-pick", methods=["POST"])
 def auto_pick(lid: str):
     """Fire the best-available auto-pick when the on-the-clock manager's
@@ -793,7 +850,9 @@ def toggle_draft_sim(lid: str):
     body = request.get_json(silent=True) or {}
     active = body.get("active", False)
     if active:
-        _sim.start(lid)
+        # humanUids: live managers the bots must NOT pick for. Optional —
+        # defaults to the previously stored list (or u_netanel legacy).
+        _sim.start(lid, human_uids=body.get("humanUids"))
     else:
         _sim.stop(lid)
     return _ok({"active": _sim.active, "status": _sim.last_status})
@@ -823,6 +882,147 @@ def reset_draft_sim(lid: str):
         sq.reference.delete()
     league_ref.update({"status": "pre_draft", "draftComplete": False})
     return _ok({"status": "reset"})
+
+
+@wc_bp.route("/leagues/<lid>/draft/sim/advance", methods=["POST"])
+def advance_draft_sim(lid: str):
+    """Make bot picks synchronously while a NON-human manager is on the clock.
+
+    Cloud Run throttles CPU between requests, so the background simulator
+    thread stalls in production — this request-driven advance is how deployed
+    drafts move bots forward. The client polls draft state and calls this when
+    it sees a bot on the clock. Picks at most ``count`` (default 1, max 5) so
+    each call is fast; stops early at a human's turn / pause / completion.
+    Bots = anyone NOT in the state doc's humanUids. Sim-league gated.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    from .game.draft import DraftEngine
+    body = request.get_json(silent=True) or {}
+    count = max(1, min(int(body.get("count", 1)), 5))
+    engine = DraftEngine(_db, _wc)
+    state_ref = (_db.collection("leagues").document(lid)
+                 .collection("draft").document("state"))
+    advanced = []
+    for _i in range(count):
+        snap = state_ref.get()
+        if not snap.exists:
+            break
+        state = snap.to_dict() or {}
+        if state.get("status") != "active" or state.get("paused"):
+            break
+        humans = set(state.get("humanUids") or [])
+        drafter = engine._get_drafter(state.get("currentPick", 0),
+                                      state.get("order", []))
+        if drafter in humans:
+            break
+        try:
+            pid = engine._find_best_available(lid, drafter, state)
+            if not pid:
+                break
+            res = engine.make_pick(lid, drafter, pid, is_auto=True)
+            advanced.append(res)
+        except ValueError:
+            break
+    return _ok({"advanced": advanced, "n": len(advanced)})
+
+
+# --- Draft sandbox: a disposable clone league for live-draft rehearsal. -----
+# All WRITES go to SANDBOX_LID only; the mock league is READ-ONLY source data.
+SANDBOX_LID = "lg_draft_test"
+assert SANDBOX_LID != MOCK_LID
+
+
+@wc_bp.route("/admin/draft-sandbox", methods=["POST"])
+def create_draft_sandbox():
+    """Create/refresh the draft-rehearsal sandbox league (lg_draft_test).
+
+    Copies FROM lg_mock_draft (reads only): the 6 canonical members and every
+    manager's draft watchlist. Creates a fresh simulated league in pre_draft
+    with adminUid=u_ilay so humans + bots can run a full draft there without
+    touching ANY mock-league data (squads, wishlists, scores all stay put).
+    Idempotent: wipes any previous sandbox state first (sandbox only).
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    src_ref = _db.collection("leagues").document(MOCK_LID)
+    dst_ref = _db.collection("leagues").document(SANDBOX_LID)
+    summary = {"lid": SANDBOX_LID, "members": [], "watchlistsCopied": 0}
+
+    # 0. Wipe previous sandbox state (members/draft/squads/watchlists).
+    if dst_ref.get().exists:
+        st = dst_ref.collection("draft").document("state")
+        if st.get().exists:
+            for p in st.collection("picks").get():
+                p.reference.delete()
+            st.delete()
+        wl_doc = dst_ref.collection("draft").document("watchlists")
+        for m in dst_ref.collection("members").get():
+            for d in wl_doc.collection(m.id).get():
+                d.reference.delete()
+            m.reference.delete()
+        for sq in dst_ref.collection("squads").get():
+            sq.reference.delete()
+
+    # 1. League doc: simulated + pre_draft, admin u_ilay (sandbox-only knobs).
+    dst_ref.set({
+        "name": "DRAFT REHEARSAL (sandbox)",
+        "simulated": True,
+        "status": "pre_draft",
+        "adminUid": "u_ilay",
+        "maxMembers": len(MOCK_CANONICAL_ROSTER),
+        "pickTimer": 30,
+        "draftComplete": False,
+        "sandbox": True,
+        "createdAt": SERVER_TIMESTAMP,
+    })
+
+    # 2. Copy the canonical members (read from mock, write to sandbox).
+    for m in src_ref.collection("members").get():
+        if m.id not in MOCK_CANONICAL_ROSTER:
+            continue
+        dst_ref.collection("members").document(m.id).set(m.to_dict() or {})
+        summary["members"].append(m.id)
+
+    # 3. Copy each member's draft watchlist (read mock, write sandbox).
+    src_wl = src_ref.collection("draft").document("watchlists")
+    dst_wl = dst_ref.collection("draft").document("watchlists")
+    for muid in summary["members"]:
+        d = src_wl.collection(muid).document("list").get()
+        if d.exists:
+            dst_wl.collection(muid).document("list").set(d.to_dict() or {})
+            summary["watchlistsCopied"] += 1
+
+    return _ok(summary)
+
+
+@wc_bp.route("/admin/draft-sandbox", methods=["DELETE"])
+def delete_draft_sandbox():
+    """Tear the sandbox league down completely (sandbox docs only)."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    dst_ref = _db.collection("leagues").document(SANDBOX_LID)
+    if not dst_ref.get().exists:
+        return _ok({"status": "absent"})
+    _sim.stop()
+    st = dst_ref.collection("draft").document("state")
+    if st.get().exists:
+        for p in st.collection("picks").get():
+            p.reference.delete()
+        st.delete()
+    wl_doc = dst_ref.collection("draft").document("watchlists")
+    members = [m.id for m in dst_ref.collection("members").get()]
+    for muid in members:
+        for d in wl_doc.collection(muid).get():
+            d.reference.delete()
+        dst_ref.collection("members").document(muid).delete()
+    for sq in dst_ref.collection("squads").get():
+        sq.reference.delete()
+    dst_ref.delete()
+    return _ok({"status": "deleted", "membersRemoved": members})
 
 
 # ---------------------------------------------------------------------------
@@ -1820,6 +2020,313 @@ def admin_reposition_fwd_to_mid(lid: str):
         except Exception as exc:
             summary["finalizeErrors"][gw] = str(exc)
     league_ref.update({"currentGw": 3, "status": "group_phase"})
+    return _ok(summary)
+
+
+def _fifa_norm(s):
+    """Match the normaliser used to build fifa_alignment_spec.json exactly:
+    NFKD -> ASCII-ignore (drops ø/ß/accents to nothing) -> lower -> strip '/./-."""
+    import unicodedata
+    s = unicodedata.normalize("NFKD", s or "").encode("ascii", "ignore").decode().lower()
+    s = s.replace("'", "").replace(".", " ").replace("-", " ")
+    return " ".join(s.split())
+
+
+_ALIGN_SPEC = None
+
+
+def _load_align_spec():
+    global _ALIGN_SPEC
+    if _ALIGN_SPEC is None:
+        import json
+        p = os.path.join(os.path.dirname(__file__), "data", "fifa_alignment_spec.json")
+        with open(p, encoding="utf-8") as f:
+            _ALIGN_SPEC = json.load(f)
+    return _ALIGN_SPEC
+
+
+@wc_bp.route("/admin/leagues/<lid>/align-to-fifa", methods=["POST"])
+def admin_align_to_fifa(lid: str):
+    """MOCK-ONLY: align the live wc_players pool + the 6 canonical squads to the
+    FIFA fantasy dataset, then re-score GW1+GW2.
+
+    Per player (matched by team + normalised name against the bundled
+    fifa_alignment_spec.json): adopt FIFA position + canonical name + draftRank
+    (FIFA price ordering). Colliding names (two players sharing a normalised name
+    within a team) KEEP their current position — never guessed. Adds the 244
+    FIFA-only players, drops the 10 DB-only players that are not owned. Each
+    squad is relabelled and rebalanced back to a legal 2/5/5/3 by dropping its
+    lowest-value surplus-position player and adding a VALUE-MATCHED free agent
+    (closest draftRank). GW1/GW2 playerScores + lineups are rebuilt and
+    re-finalised so points/standings reflect the new positions.
+
+    Body ``{"dryRun": true}`` computes the entire plan and returns it with NO
+    writes. Idempotent. Gated to simulated leagues + authenticated callers.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    dry = bool(body.get("dryRun"))
+    spec = _load_align_spec()
+    teams, renames = spec["teams"], spec["renames"]
+    collisions = {tuple(c.split("|", 1)) for c in spec["collisions"]}
+    drops_set = {(d["iso"], d["norm"]) for d in spec["drops"]}
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+    league_ref = _db.collection("leagues").document(lid)
+    QUOTA = {1: 2, 2: 5, 3: 5, 4: 3}
+    summary = {"dryRun": dry, "poolFlips": [], "poolRenames": [], "added": [],
+               "dropped": [], "dropBlockedOwned": [], "collisionKept": [],
+               "unmatched": [], "rebalanced": {}, "finalized": [],
+               "finalizeErrors": {}}
+
+    # 1. Squads + ownership first (needed for drop-safety + rebalance).
+    squads, owned = {}, set()
+    for sq in league_ref.collection("squads").get():
+        players = (sq.to_dict() or {}).get("players", [])
+        squads[sq.id] = players
+        owned.update(int(p["playerId"]) for p in players)
+
+    # 2. Walk wc_players: relabel / flip / rename / collision-keep / mark drops.
+    all_docs = list(_db.collection("wc_players").get())
+
+    # 2a. Backup the pre-migration pool + squads to a single doc (apply only) so
+    #     the change has a one-shot rollback point. gamedb is not writable from a
+    #     local SDK, so the snapshot lives server-side.
+    if not dry:
+        backup = {"ts": SERVER_TIMESTAMP, "players": {}, "squads": {}}
+        for d in all_docs:
+            pd = d.to_dict() or {}
+            backup["players"][str(d.id)] = {
+                "name": pd.get("name"), "position": pd.get("position"),
+                "positionName": pd.get("positionName"),
+                "draftRank": pd.get("draftRank")}
+        for uid, players in squads.items():
+            backup["squads"][uid] = players
+        _db.collection("wc_config").document("fifa_align_backup").set(backup)
+
+    new_by_id = {}        # pid -> {pos,name,iso,rank,teamId,teamName}
+    existing_norm = {}    # (iso, norm) -> pid  (post-rename; for add idempotency)
+    team_meta = {}        # iso -> {teamId, teamName}
+    drop_refs, max_id = [], 0
+    for d in all_docs:
+        pd = d.to_dict() or {}
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = None
+        if pid and pid > max_id:
+            max_id = pid
+        iso = pd.get("teamIso", "")
+        tid, tname = pd.get("teamId"), pd.get("teamName", "")
+        if iso and iso not in team_meta and tid:
+            team_meta[iso] = {"teamId": tid, "teamName": tname}
+        cur_pos = pd.get("position")
+        name = pd.get("name", "")
+        nn = _fifa_norm(name)
+
+        def _remember(pos, nm, rank, key_norm):
+            if pid is not None:
+                new_by_id[pid] = {"pos": pos, "name": nm, "iso": iso, "rank": rank,
+                                  "teamId": tid, "teamName": tname}
+                existing_norm[(iso, key_norm)] = pid
+
+        if (iso, nn) in collisions:
+            entry = teams.get(iso, {}).get(nn)
+            rank = entry["rank"] if entry else pd.get("draftRank", 0)
+            if not dry:
+                d.reference.update({"draftRank": rank})
+            summary["collisionKept"].append({"id": pid, "name": name, "pos": cur_pos})
+            _remember(cur_pos, name, rank, nn)
+            continue
+
+        target = renames.get(iso, {}).get(nn, nn)
+        entry = teams.get(iso, {}).get(target)
+        if entry:
+            np_, nname, rank = entry["pos"], entry["name"], entry["rank"]
+            if not dry:
+                d.reference.update({"position": np_, "positionName": _POS_NAME[np_],
+                                    "element_type": np_, "name": nname, "draftRank": rank})
+            if np_ != cur_pos:
+                summary["poolFlips"].append({"id": pid, "name": nname,
+                                             "from": cur_pos, "to": np_})
+            if nname != name:
+                summary["poolRenames"].append({"id": pid, "from": name, "to": nname})
+            _remember(np_, nname, rank, _fifa_norm(nname))
+        elif (iso, nn) in drops_set:
+            if pid in owned:
+                summary["dropBlockedOwned"].append({"id": pid, "name": name})
+                _remember(cur_pos, name, pd.get("draftRank", 0), nn)
+            else:
+                drop_refs.append(d.reference)
+                summary["dropped"].append({"id": pid, "name": name, "iso": iso})
+        else:
+            summary["unmatched"].append({"id": pid, "name": name, "iso": iso})
+            _remember(cur_pos, name, pd.get("draftRank", 0), nn)
+
+    # 3. Drop the unowned not-in-FIFA players.
+    if not dry:
+        for ref in drop_refs:
+            ref.delete()
+
+    # 4. Add the FIFA-only players (idempotent — skip any already present).
+    next_id = max_id + 1
+    for a in spec["adds"]:
+        iso, name, pos, rank = a["iso"], a["name"], a["pos"], a["rank"]
+        nn = _fifa_norm(name)
+        if (iso, nn) in existing_norm:
+            continue
+        meta = team_meta.get(iso, {"teamId": 0, "teamName": iso})
+        pid, next_id = next_id, next_id + 1
+        doc = {"id": pid, "name": name, "position": pos, "positionName": _POS_NAME[pos],
+               "element_type": pos, "teamIso": iso, "teamId": meta["teamId"],
+               "teamName": meta["teamName"], "draftRank": rank, "totalPoints": 0,
+               "eliminated": False, "photo": ""}
+        if not dry:
+            _db.collection("wc_players").document(str(pid)).set(doc)
+        summary["added"].append({"id": pid, "name": name, "iso": iso, "pos": pos})
+        new_by_id[pid] = {"pos": pos, "name": name, "iso": iso, "rank": rank,
+                          "teamId": meta["teamId"], "teamName": meta["teamName"]}
+        existing_norm[(iso, nn)] = pid
+
+    # 5. Relabel each squad's denormalised fields, then rebalance to 2/5/5/3.
+    def _free_agents(pos, exclude):
+        out = []
+        for fid, info in new_by_id.items():
+            if info["pos"] == pos and fid not in owned and fid not in exclude:
+                out.append((info["rank"], fid, info))
+        out.sort(key=lambda x: x[0])
+        return out
+
+    picked = set()
+    for uid in MOCK_CANONICAL_ROSTER:
+        players = squads.get(uid)
+        if not players:
+            continue
+        for p in players:
+            info = new_by_id.get(int(p["playerId"]))
+            if info:
+                p["position"] = info["pos"]
+                p["positionName"] = _POS_NAME[info["pos"]]
+                p["name"] = info["name"]
+
+        def _counts():
+            c = {1: 0, 2: 0, 3: 0, 4: 0}
+            for p in players:
+                c[int(p["position"])] += 1
+            return c
+
+        def _rank(p):
+            info = new_by_id.get(int(p["playerId"]))
+            return info["rank"] if info else 99999
+
+        drops, adds = [], []
+        # trim surplus: drop the LOWEST-value (highest rank number) player
+        for pos in (1, 2, 3, 4):
+            while _counts()[pos] > QUOTA[pos]:
+                cands = sorted((p for p in players if int(p["position"]) == pos),
+                               key=_rank)
+                victim = cands[-1]
+                players.remove(victim)
+                owned.discard(int(victim["playerId"]))
+                drops.append(victim)
+        # fill deficits with value-matched free agents (closest rank to a drop)
+        deficit = []
+        cc = _counts()
+        for pos in (1, 2, 3, 4):
+            deficit += [pos] * (QUOTA[pos] - cc[pos])
+        drop_ranks = sorted((_rank(v) for v in drops), reverse=True)
+        for i, pos in enumerate(deficit):
+            target = drop_ranks[i] if i < len(drop_ranks) else 0
+            fa = _free_agents(pos, picked)
+            if not fa:
+                continue
+            fa.sort(key=lambda x: abs(x[0] - target))
+            rank, fid, info = fa[0]
+            picked.add(fid)
+            owned.add(fid)
+            adds.append({"playerId": fid, "draftedRound": 99, "position": pos,
+                         "positionName": _POS_NAME[pos], "name": info["name"],
+                         "teamIso": info["iso"], "teamId": info["teamId"],
+                         "teamName": info["teamName"], "eliminated": False})
+        for a in adds:
+            players.append(a)
+        if drops or adds:
+            if not dry:
+                league_ref.collection("squads").document(uid).update({"players": players})
+            summary["rebalanced"][uid] = {
+                "drop": [v.get("name") for v in drops],
+                "add": [a["name"] for a in adds],
+                "counts": _counts()}
+
+    # 6. Rebuild playerScores with the new positions, regenerate every squad's
+    #    GW1/GW2 lineup (positions changed -> old XI may be illegal) and
+    #    re-finalise so points + standings are consistent. (apply mode only)
+    if not dry:
+        drafted = {}
+        for uid in MOCK_CANONICAL_ROSTER:
+            for p in squads.get(uid, []):
+                drafted[int(p["playerId"])] = {
+                    "id": int(p["playerId"]), "name": p.get("name", ""),
+                    "position": int(p["position"]), "teamIso": p.get("teamIso", "")}
+        summary["fixtures"] = seed_real_fixtures(
+            _db, drafted, GROUP_STAGE_EVENTS, played_gws=(1, 2))
+        for uid in MOCK_CANONICAL_ROSTER:
+            rich = [{"playerId": p["playerId"], "position": int(p["position"])}
+                    for p in squads.get(uid, [])]
+            if not rich:
+                continue
+            for gw in (1, 2):
+                try:
+                    league_ref.collection("lineups").document(f"{uid}_{gw}").set(
+                        select_lineup(rich))
+                except Exception as exc:
+                    summary["finalizeErrors"][f"lineup_{uid}_{gw}"] = str(exc)
+        for gw in (1, 2):
+            try:
+                finalize_gw(lid, gw, _db, _wc)
+                summary["finalized"].append(gw)
+            except Exception as exc:
+                summary["finalizeErrors"][gw] = str(exc)
+        league_ref.update({"currentGw": 3, "status": "group_phase"})
+
+    summary["totals"] = {
+        "poolFlips": len(summary["poolFlips"]),
+        "poolRenames": len(summary["poolRenames"]),
+        "added": len(summary["added"]),
+        "dropped": len(summary["dropped"]),
+        "dropBlockedOwned": len(summary["dropBlockedOwned"]),
+        "collisionKept": len(summary["collisionKept"]),
+        "unmatched": len(summary["unmatched"]),
+        "squadsRebalanced": len(summary["rebalanced"])}
+    return _ok(summary)
+
+
+@wc_bp.route("/admin/leagues/<lid>/clear-history", methods=["POST"])
+def admin_clear_history(lid: str):
+    """MOCK-ONLY: wipe the transfer/trade/wishlist HISTORY (all reset/seed/demo
+    artifacts that no longer reflect real activity). Deletes every doc in the
+    league's ``transactions``, ``wishlist_results`` and ``trades`` collections —
+    the exact sources the History tab reads. Squads, lineups, scores, standings,
+    gw_history and current pending ``wishlist_bids`` are NOT touched, and the
+    write paths are unchanged, so any NEW trade / wishlist claim records cleanly
+    from here on. Snapshots the cleared docs to ``wc_config/history_backup``
+    first. Idempotent. Gated to simulated leagues + authenticated callers.
+    """
+    _, err = _require_sim_league(lid)
+    if err:
+        return err
+    league_ref = _db.collection("leagues").document(lid)
+    colls = ["transactions", "wishlist_results", "trades"]
+    backup = {"ts": SERVER_TIMESTAMP, "lid": lid}
+    summary = {"deleted": {}}
+    for c in colls:
+        docs = list(league_ref.collection(c).get())
+        backup[c] = [{"id": d.id, **(d.to_dict() or {})} for d in docs]
+        for d in docs:
+            d.reference.delete()
+        summary["deleted"][c] = len(docs)
+    _db.collection("wc_config").document("history_backup").set(backup)
     return _ok(summary)
 
 
