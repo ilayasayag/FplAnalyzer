@@ -928,6 +928,106 @@ def advance_draft_sim(lid: str):
     return _ok({"advanced": advanced, "n": len(advanced)})
 
 
+# Final-squad corrections vs the official Wikipedia 2026 squads (June 2026).
+# adds: real squad members our pool lacks (the second BRA Danilo/Éderson the
+# FIFA feed name-collided away, plus Geertruida). deletes: provisional players
+# who did NOT make their final squad and were explicitly flagged by the admin.
+SQUAD_CORRECTION_ADDS = [
+    {"iso": "BRA", "name": "Danilo Oliveira", "specKey": "danilo", "pos": 3},
+    {"iso": "BRA", "name": "Éderson", "specKey": "ederson", "pos": 3},
+    {"iso": "NED", "name": "Lutsharel Geertruida", "specKey": "lutsharel geertruida", "pos": 2},
+]
+SQUAD_CORRECTION_DELETES = [
+    {"iso": "NED", "name": "Xavi Simons"},
+    {"iso": "NED", "name": "Jeremie Frimpong"},
+]
+
+
+@wc_bp.route("/admin/squad-corrections", methods=["POST"])
+def admin_squad_corrections():
+    """One-shot, idempotent final-squad fix: add SQUAD_CORRECTION_ADDS to
+    wc_players (draftRank from the bundled FIFA spec), delete
+    SQUAD_CORRECTION_DELETES (refusing if owned by any squad in the mock or
+    sandbox league), and scrub the deleted ids out of EVERY manager's draft
+    watchlist in both leagues."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    spec = _load_align_spec()
+    summary = {"added": [], "addSkipped": [], "deleted": [], "deleteBlocked": [],
+               "watchlistsScrubbed": []}
+
+    all_docs = list(_db.collection("wc_players").get())
+    max_id, by_iso_norm, team_meta = 0, {}, {}
+    for d in all_docs:
+        pd = d.to_dict() or {}
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = 0
+        max_id = max(max_id, pid)
+        iso = pd.get("teamIso", "")
+        by_iso_norm[(iso, _fifa_norm(pd.get("name", "")))] = (d.reference, pd)
+        if iso and iso not in team_meta and pd.get("teamId"):
+            team_meta[iso] = {"teamId": pd["teamId"], "teamName": pd.get("teamName", "")}
+
+    # 1. Adds (skip if an identically-named player already exists for the iso).
+    next_id = max_id + 1
+    for a in SQUAD_CORRECTION_ADDS:
+        if (a["iso"], _fifa_norm(a["name"])) in by_iso_norm:
+            summary["addSkipped"].append(a["name"])
+            continue
+        entry = spec["teams"].get(a["iso"], {}).get(a["specKey"]) or {}
+        meta = team_meta.get(a["iso"], {"teamId": 0, "teamName": a["iso"]})
+        pid, next_id = next_id, next_id + 1
+        _db.collection("wc_players").document(str(pid)).set({
+            "id": pid, "name": a["name"], "position": a["pos"],
+            "positionName": _POS_NAME[a["pos"]], "element_type": a["pos"],
+            "teamIso": a["iso"], "teamId": meta["teamId"],
+            "teamName": meta["teamName"],
+            "draftRank": entry.get("rank", 0), "totalPoints": 0,
+            "eliminated": False, "photo": "",
+        })
+        summary["added"].append({"id": pid, "name": a["name"]})
+
+    # 2. Deletes — but never orphan a squad: block if owned anywhere.
+    owned = set()
+    for lid in (MOCK_LID, SANDBOX_LID):
+        for sq in _db.collection("leagues").document(lid).collection("squads").get():
+            owned.update(int(p["playerId"]) for p in (sq.to_dict() or {}).get("players", []))
+    deleted_ids = []
+    for rm in SQUAD_CORRECTION_DELETES:
+        hit = by_iso_norm.get((rm["iso"], _fifa_norm(rm["name"])))
+        if not hit:
+            continue  # already gone — idempotent
+        ref, pd = hit
+        pid = int(pd.get("id", ref.id))
+        if pid in owned:
+            summary["deleteBlocked"].append({"id": pid, "name": rm["name"]})
+            continue
+        ref.delete()
+        deleted_ids.append(pid)
+        summary["deleted"].append({"id": pid, "name": rm["name"]})
+
+    # 3. Scrub deleted players from every draft watchlist (mock + sandbox).
+    if deleted_ids:
+        gone = {str(i) for i in deleted_ids} | set(deleted_ids)
+        for lid in (MOCK_LID, SANDBOX_LID):
+            league_ref = _db.collection("leagues").document(lid)
+            wl_doc = league_ref.collection("draft").document("watchlists")
+            for m in league_ref.collection("members").get():
+                d = wl_doc.collection(m.id).document("list").get()
+                if not d.exists:
+                    continue
+                ids = (d.to_dict() or {}).get("playerIds", [])
+                kept = [x for x in ids if x not in gone and str(x) not in gone]
+                if len(kept) != len(ids):
+                    d.reference.update({"playerIds": kept})
+                    summary["watchlistsScrubbed"].append(
+                        f"{lid}/{m.id}: {len(ids)} -> {len(kept)}")
+    return _ok(summary)
+
+
 # --- Draft sandbox: a disposable clone league for live-draft rehearsal. -----
 # All WRITES go to SANDBOX_LID only; the mock league is READ-ONLY source data.
 SANDBOX_LID = "lg_draft_test"
