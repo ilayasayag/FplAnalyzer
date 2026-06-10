@@ -970,6 +970,76 @@ def advance_draft_sim(lid: str):
     return _ok({"advanced": advanced, "n": len(advanced)})
 
 
+@wc_bp.route("/admin/remove-non-squad-players", methods=["POST"])
+def admin_remove_non_squad_players():
+    """Delete the user-approved 236 provisional players who did NOT make their
+    final 26-man squad (bundled kill list = the red entries of
+    wc_non_squad_players.html, reviewed by the admin). Ownership-guarded: any
+    player currently on a league squad is SKIPPED and reported (re-run after
+    go-live wipes the mock squads). Deleted ids are scrubbed from every draft
+    watchlist. Idempotent."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    import json as _json
+    spec_path = os.path.join(os.path.dirname(__file__), "data",
+                             "non_squad_players.json")
+    with open(spec_path, encoding="utf-8") as f:
+        kill = _json.load(f)["players"]
+    kill_keys = {(k["iso"], _fifa_norm(k["name"])) for k in kill}
+
+    owned = set()
+    for lid in (MOCK_LID, SANDBOX_LID):
+        for sq in _db.collection("leagues").document(lid).collection("squads").get():
+            owned.update(int(p["playerId"]) for p in (sq.to_dict() or {}).get("players", []))
+
+    summary = {"deleted": 0, "skippedOwned": [], "notFound": 0,
+               "watchlistsScrubbed": []}
+    deleted_ids = []
+    batch, ops = _db.batch(), 0
+    for d in _db.collection("wc_players").get():
+        pd = d.to_dict() or {}
+        key = (pd.get("teamIso", ""), _fifa_norm(pd.get("name", "")))
+        if key not in kill_keys:
+            continue
+        kill_keys.discard(key)
+        try:
+            pid = int(pd.get("id", d.id))
+        except (TypeError, ValueError):
+            pid = None
+        if pid in owned:
+            summary["skippedOwned"].append({"id": pid, "name": pd.get("name")})
+            continue
+        batch.delete(d.reference)
+        ops += 1
+        summary["deleted"] += 1
+        if pid is not None:
+            deleted_ids.append(pid)
+        if ops >= 450:
+            batch.commit()
+            batch, ops = _db.batch(), 0
+    if ops:
+        batch.commit()
+    summary["notFound"] = len(kill_keys)
+
+    if deleted_ids:
+        gone = {str(i) for i in deleted_ids} | set(deleted_ids)
+        for lid in (MOCK_LID, SANDBOX_LID):
+            league_ref = _db.collection("leagues").document(lid)
+            wl_doc = league_ref.collection("draft").document("watchlists")
+            for m in league_ref.collection("members").get():
+                d = wl_doc.collection(m.id).document("list").get()
+                if not d.exists:
+                    continue
+                ids = (d.to_dict() or {}).get("playerIds", [])
+                kept = [x for x in ids if x not in gone and str(x) not in gone]
+                if len(kept) != len(ids):
+                    d.reference.update({"playerIds": kept})
+                    summary["watchlistsScrubbed"].append(
+                        f"{lid}/{m.id}: {len(ids)} -> {len(kept)}")
+    return _ok(summary)
+
+
 @wc_bp.route("/admin/golive-reset", methods=["POST"])
 def admin_golive_reset():
     """GO-LIVE: transform the showcase league into THE real league, in place.
@@ -1045,6 +1115,7 @@ def admin_golive_reset():
     # 3. League doc -> the real league, ready to draft.
     league_ref.update({
         "simulated": False,
+        "adminUid": "u_ilay",   # START DRAFT / undo / rollback gate on this
         "status": "pre_draft",
         "currentGw": 1,
         "draftComplete": False,

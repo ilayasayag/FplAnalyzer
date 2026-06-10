@@ -453,7 +453,7 @@ function TransfersScreen() {
           ["wishlist", `Wishlist (${(window.MY_WISHLIST_BIDS || []).length})`],
           ["squad",   "My Squad"],
           ["history", "History"],
-          ["draft",   "Draft Room"],
+          // ("draft" sub-tab removed — the top-nav Draft Room is the only one)
         ].map(([id, label]) => (
           <button key={id}
             className={"btn " + (tab === id ? "btn--solid-dark" : "")}
@@ -468,7 +468,6 @@ function TransfersScreen() {
       {tab === "wishlist" && <WishlistTab />}
       {tab === "squad" && <MySquadTab />}
       {tab === "history" && <TransferHistoryTab />}
-      {tab === "draft" && <DraftTab />}
     </div>
   );
 }
@@ -919,7 +918,7 @@ function MySquadTab() {
             const t = teamById(p.team);
             const isElim = p.elim || t?.elim;
             return (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
+              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
                 <div style={{ width: 32, height: 32 }}><Jersey team={t} pos={p.pos} /></div>
                 <div>
                   <div style={{ fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", display: "inline" }}
@@ -928,7 +927,7 @@ function MySquadTab() {
                   <div className="muted" style={{ fontSize: 12 }}>{t.name} · {POS_NAMES[p.pos]}</div>
                 </div>
                 <div className="num" style={{ textAlign: "right" }}><span className="muted" style={{ fontSize: 11 }}>Pts</span> <strong>{p.pts}</strong></div>
-                <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 11 }}>Drop</button>
+                {/* Drop removed — squad exits go through Trade / the FA swap flow */}
                 <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 11 }}>Trade</button>
               </div>
             );
