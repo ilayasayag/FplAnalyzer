@@ -574,6 +574,11 @@ function DraftRoomScreen({ onTab }) {
                 {pauseBusy ? "…" : (isPaused ? "▶ Resume draft" : "⏸ Pause draft")}
               </button>
             )}
+            {!draftNotStarted && !DRAFT_STATE.complete && !isPaused && isLeagueAdmin && (
+              <div style={{ marginTop: 6, fontSize: 10, color: "rgba(255,255,255,0.45)", fontWeight: 600 }}>
+                pausing unlocks ↩ rollback
+              </div>
+            )}
           </div>
           {draftNotStarted ? (
             <div style={{
