@@ -1324,7 +1324,7 @@ def create_draft_sandbox():
         "status": "pre_draft",
         "adminUid": "u_ilay",
         "maxMembers": len(MOCK_CANONICAL_ROSTER),
-        "pickTimer": 30,
+        "pickTimer": 45,   # match the real draft clock
         "draftComplete": False,
         "sandbox": True,
         "createdAt": SERVER_TIMESTAMP,
