@@ -1040,6 +1040,28 @@ def admin_remove_non_squad_players():
     return _ok(summary)
 
 
+@wc_bp.route("/admin/leagues/<lid>/set-admin", methods=["POST"])
+def admin_set_league_admin(lid: str):
+    """Global-admin-only: set the league's adminUid (the uid that gates START
+    DRAFT / pause-rollback / start-season). Body: {"uid": "u_..."} — must be
+    an existing league member. Fixes legacy leagues whose admin is a seed bot
+    (lg_mock_draft shipped with adminUid=u_mk_golden)."""
+    caller, err = _require_admin()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    new_admin = body.get("uid")
+    if not new_admin:
+        return _err("uid required")
+    league_ref = _db.collection("leagues").document(lid)
+    if not league_ref.get().exists:
+        return _err("League not found", 404)
+    if not league_ref.collection("members").document(new_admin).get().exists:
+        return _err(f"{new_admin} is not a member of {lid}")
+    league_ref.update({"adminUid": new_admin})
+    return _ok({"lid": lid, "adminUid": new_admin})
+
+
 @wc_bp.route("/admin/golive-reset", methods=["POST"])
 def admin_golive_reset():
     """GO-LIVE: transform the showcase league into THE real league, in place.
