@@ -970,6 +970,120 @@ def advance_draft_sim(lid: str):
     return _ok({"advanced": advanced, "n": len(advanced)})
 
 
+@wc_bp.route("/admin/golive-reset", methods=["POST"])
+def admin_golive_reset():
+    """GO-LIVE: transform the showcase league into THE real league, in place.
+
+    One-shot, GLOBAL-ADMIN-only, run once on draft day BEFORE the real draft:
+      - Backs up the league doc + squads + member list to wc_config/golive_backup.
+      - Keeps: the 6 canonical members and every draft watchlist (draft prep).
+      - Deletes: squads, lineups, scores, gw_history, standings, knockout,
+        schedule, trades, transactions, wishlist bids/results, waivers,
+        transfer_windows, old draft state + picks — ALL mock gameplay data.
+      - League doc: simulated -> False (hides the mock chip / window switcher /
+        sim+sandbox endpoints), status -> pre_draft, currentGw -> 1,
+        pickTimer -> 45 (real draft clock), format h2h, clears windowOverride.
+      - Globals: every wc_players totalPoints -> 0 / eliminated -> False,
+        wc_fixtures rewritten to the real 72-game schedule ALL UNPLAYED,
+        wc_gameweeks re-seeded, wc_config currentGw -> 1 + results cleared.
+    After this the time-based window machine runs the real timeline (trades ->
+    free agents at T0-5h -> squad/XI lock at T0-1h) off the real kickoffs, and
+    the Draft Room START button begins the real draft. Idempotent."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    league_ref = _db.collection("leagues").document(MOCK_LID)
+    league_snap = league_ref.get()
+    if not league_snap.exists:
+        return _err("League not found", 404)
+    league = league_snap.to_dict() or {}
+    draft_state = league_ref.collection("draft").document("state").get()
+    if draft_state.exists and (draft_state.to_dict() or {}).get("status") == "active":
+        return _err("A draft is in progress — finish or reset it first", 409)
+
+    summary = {"lid": MOCK_LID, "deleted": {}, "membersKept": [],
+               "watchlistsKept": 0, "playersReset": 0}
+
+    # 0. Backup (league doc + squads + members).
+    backup = {"ts": SERVER_TIMESTAMP, "league": league, "squads": {}, "members": []}
+    for sq in league_ref.collection("squads").get():
+        backup["squads"][sq.id] = sq.to_dict()
+    for m in league_ref.collection("members").get():
+        backup["members"].append(m.id)
+    _db.collection("wc_config").document("golive_backup").set(backup)
+
+    # 1. Members: keep exactly the canonical 6.
+    for m in league_ref.collection("members").get():
+        if m.id in MOCK_CANONICAL_ROSTER:
+            summary["membersKept"].append(m.id)
+        else:
+            m.reference.delete()
+    wl_doc = league_ref.collection("draft").document("watchlists")
+    for muid in summary["membersKept"]:
+        if wl_doc.collection(muid).document("list").get().exists:
+            summary["watchlistsKept"] += 1
+
+    # 2. Wipe ALL mock gameplay data (keep members + watchlists).
+    for coll in ("squads", "lineups", "scores", "gw_history", "standings",
+                 "knockout", "schedule", "trades", "transactions",
+                 "wishlist_bids", "wishlist_results", "waivers",
+                 "transfer_windows"):
+        n = 0
+        for d in league_ref.collection(coll).get():
+            d.reference.delete()
+            n += 1
+        summary["deleted"][coll] = n
+    st = league_ref.collection("draft").document("state")
+    if st.get().exists:
+        n = 0
+        for p in st.collection("picks").get():
+            p.reference.delete()
+            n += 1
+        st.delete()
+        summary["deleted"]["draftPicks"] = n
+
+    # 3. League doc -> the real league, ready to draft.
+    league_ref.update({
+        "simulated": False,
+        "status": "pre_draft",
+        "currentGw": 1,
+        "draftComplete": False,
+        "pickTimer": 45,
+        "format": "h2h",
+        "maxMembers": len(MOCK_CANONICAL_ROSTER),
+        "leaguePhaseGws": [1, 2, 3],
+        "knockoutStartGw": 4,
+        "knockoutQualifiers": 4,
+        "windowOverride": firestore.DELETE_FIELD,
+    })
+
+    # 4. Global resets: player stats, fixtures (real schedule, all unplayed),
+    #    gameweeks, tournament config.
+    batch, ops = _db.batch(), 0
+    for d in _db.collection("wc_players").get():
+        pd = d.to_dict() or {}
+        if pd.get("totalPoints") or pd.get("eliminated"):
+            batch.update(d.reference, {"totalPoints": 0, "eliminated": False})
+            ops += 1
+            summary["playersReset"] += 1
+            if ops >= 450:
+                batch.commit()
+                batch, ops = _db.batch(), 0
+    if ops:
+        batch.commit()
+
+    from .seed.seed_league import seed_real_fixtures, GROUP_STAGE_EVENTS
+    summary["fixtures"] = seed_real_fixtures(_db, {}, GROUP_STAGE_EVENTS,
+                                             played_gws=())
+    from .game.wc_gameweeks import gw_as_dict
+    for gw in range(1, 9):
+        _db.collection("wc_gameweeks").document(str(gw)).set(gw_as_dict(gw))
+    _db.collection("wc_config").document("tournament").update({
+        "currentGw": 1, "winner": None, "topScorer": None,
+    })
+    return _ok(summary)
+
+
 # Final-squad corrections vs the official Wikipedia 2026 squads (June 2026).
 # adds: real squad members our pool lacks (the second BRA Danilo/Éderson the
 # FIFA feed name-collided away, plus Geertruida). deletes: provisional players

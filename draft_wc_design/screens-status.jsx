@@ -13,6 +13,10 @@
 const WINDOW_TEST_LID = "lg_mock_draft";
 function AdminWindowSwitcher() {
   const isAdmin = !!window.IS_ADMIN;
+  // MOCK-ONLY control: once the league goes live (simulated:false) the
+  // time-based window machine is the only authority — nobody moves windows
+  // by hand, so the whole panel disappears.
+  const isMockLeague = !!(window.LEAGUE && window.LEAGUE.simulated);
   const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
   const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
@@ -41,7 +45,7 @@ function AdminWindowSwitcher() {
 
   React.useEffect(() => { refresh(); }, [refresh]);
 
-  if (!isAdmin) return null;
+  if (!isAdmin || !isMockLeague) return null;
 
   const OPTIONS = [
     { key: "auto", label: "Auto" },

@@ -565,19 +565,30 @@ class DraftEngine:
             draft_ref.collection("picks").order_by("pickNumber").get()
         )
 
+        # Write squads in the CANONICAL player-object shape every downstream
+        # consumer reads (scoring pos_map fallback, Pick Team, trades, the
+        # squad UI): name/teamIso/teamName/eliminated — enriched from the live
+        # player pool, with the pick doc as fallback. The old webName/teamShort
+        # shape rendered blank names/flags and broke lineups after a real draft.
+        player_map = self.fpl.get_player_map()
         squads = {}
         for p in picks:
             pd = p.to_dict()
             uid = pd["uid"]
-            if uid not in squads:
-                squads[uid] = []
-            squads[uid].append({
+            try:
+                live = player_map.get(int(pd["playerId"])) or {}
+            except (TypeError, ValueError):
+                live = {}
+            squads.setdefault(uid, []).append({
                 "playerId": pd["playerId"],
-                "webName": pd["webName"],
+                "draftedRound": pd.get("round", 0),
+                "name": live.get("name", pd.get("webName", "?")),
                 "position": pd["position"],
                 "positionName": pd["positionName"],
-                "teamId": pd["teamId"],
-                "teamShort": pd["teamShort"],
+                "teamId": live.get("teamId", pd.get("teamId", 0)),
+                "teamIso": live.get("teamIso", pd.get("teamShort", "")),
+                "teamName": live.get("teamName", ""),
+                "eliminated": bool(live.get("eliminated", False)),
             })
 
         for uid, players in squads.items():
@@ -585,12 +596,29 @@ class DraftEngine:
                 "players": players,
             })
 
-        # Draft is done, but the SEASON has not started yet. Leave the league
-        # in "drafting" so start_season() can transition drafting -> group_phase
-        # (the canonical playing state recognized by scoring/propagation/squads/
-        # trades/waivers). Do NOT set "active" — it is an orphan status that
-        # every gameplay subsystem ignores and that start_season rejects.
         league_ref.update({
             "draftComplete": True,
             "draftCompletedAt": SERVER_TIMESTAMP,
         })
+
+        # AUTO season start: the moment the draft finalizes the league moves
+        # to group_phase at GW1 with a fresh H2H schedule. From here the
+        # time-based window machine takes over (trades -> free agents at
+        # T0-5h -> squads + XI LOCK at T0-1h, anchored on the real GW1
+        # kickoffs) with no further admin action needed.
+        league_doc = league_ref.get()
+        league = league_doc.to_dict() if league_doc.exists else {}
+        league_ref.update({
+            "status": "group_phase",
+            "currentGw": 1,
+            "seasonStartedAt": SERVER_TIMESTAMP,
+        })
+        try:
+            from fpl_predictor.game.schedule import ScheduleManager
+            gws = league.get("leaguePhaseGws", [1, 2, 3])
+            ScheduleManager(self.db).generate_schedule(
+                lid, start_gw=gws[0], end_gw=gws[-1])
+        except Exception as exc:
+            # Schedule generation must never strand the finalize — the admin
+            # start-season endpoint can regenerate it.
+            print(f"[Draft] schedule generation failed for {lid}: {exc}")
