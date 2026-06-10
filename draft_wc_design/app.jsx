@@ -658,6 +658,16 @@ function App() {
           }
         } catch (e) {
           console.warn("Failed to fetch league details, using mock defaults", e);
+          // A dead ?lid (e.g. a bookmarked sandbox league that was deleted)
+          // must not strand the app on demo data — strip the param and fall
+          // back to the home league.
+          if (lid !== "lg_mock_draft" &&
+              new URLSearchParams(window.location.search).get("lid") === lid) {
+            console.warn(`League ${lid} unavailable — falling back to lg_mock_draft`);
+            window.history.replaceState({}, "", window.location.pathname);
+            setActiveLid("lg_mock_draft");
+            return;
+          }
           // Only flag the app as "down" if we have no previously-loaded league
           // for this id. A transient blip on a re-run must not wipe the league
           // the user is already viewing.
