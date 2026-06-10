@@ -934,7 +934,9 @@ def advance_draft_sim(lid: str):
 # who did NOT make their final squad and were explicitly flagged by the admin.
 SQUAD_CORRECTION_ADDS = [
     {"iso": "BRA", "name": "Danilo Oliveira", "specKey": "danilo", "pos": 3},
-    {"iso": "BRA", "name": "Éderson", "specKey": "ederson", "pos": 3},
+    # "Éderson Santos" (Atalanta MID) — distinct display name so he can't be
+    # confused with (or idempotency-collide into) GK "Ederson".
+    {"iso": "BRA", "name": "Éderson Santos", "specKey": "ederson", "pos": 3},
     {"iso": "NED", "name": "Lutsharel Geertruida", "specKey": "lutsharel geertruida", "pos": 2},
 ]
 SQUAD_CORRECTION_DELETES = [
