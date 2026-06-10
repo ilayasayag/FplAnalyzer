@@ -333,6 +333,10 @@ function TransfersScreen() {
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
+  // Window switching + the wishlist runner are LEAGUE-ADMIN powers (Ilay).
+  // Everyone still SEES the buttons (current window highlighted) but they are
+  // greyed/disabled for non-admins. Server-side gates match.
+  const amLeagueAdmin = !!(window.LEAGUE && window.LEAGUE.admin && window.LEAGUE.admin === window.ME);
   const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
 
   // MOCK: flip the league's transfer-window phase so the page renders that
@@ -404,46 +408,46 @@ function TransfersScreen() {
             <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value={`${activeWindow.freeTransfers - activeWindow.used}/${activeWindow.freeTransfers}`} />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
-              {isMock && (
-                <button className="btn" disabled={runningMock} onClick={runMockWishlist}
-                  title="Mock: open the free-agents window and resolve the wishlist auction"
-                  style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap", background: runningMock ? "rgba(255,255,255,0.4)" : "var(--gold-500)", color: "var(--navy-900)", border: "none", cursor: runningMock ? "default" : "pointer" }}>
-                  {runningMock ? "Running…" : "▶ Run wishlist (mock)"}
-                </button>
-              )}
+              <button className="btn" disabled={runningMock || !amLeagueAdmin} onClick={runMockWishlist}
+                title={amLeagueAdmin ? "Open the free-agents window and resolve the wishlist auction" : "Only the league admin can run the wishlist"}
+                style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap",
+                  background: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.25)" : "var(--gold-500)",
+                  color: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.55)" : "var(--navy-900)",
+                  border: "none", cursor: (runningMock || !amLeagueAdmin) ? "default" : "pointer",
+                  opacity: !amLeagueAdmin ? 0.6 : 1 }}>
+                {runningMock ? "Running…" : "▶ Run wishlist"}
+              </button>
             </div>
           </div>
         </div>
-        {isMock ? (
-          <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>Mock · switch window</div>
-            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-              {[
-                ["trade", "Trade", "manager trades + wishlist"],
-                ["free_agents", "Free agents", "instant pickups + wishlist"],
-                ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
-              ].map(([key, label, hint]) => {
-                const active = curPhase === key;
-                return (
-                  <button key={key} disabled={switching} onClick={() => switchWindow(key)} title={hint}
-                    style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: switching ? "default" : "pointer",
-                      background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
-                      color: active ? "var(--navy-900)" : "white",
-                      border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
-                    {label}
-                    <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
-                  </button>
-                );
-              })}
-            </div>
+        <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>
+            {amLeagueAdmin ? "Switch window (league admin)" : "Current window"}
           </div>
-        ) : (
-          <div style={{ padding: "8px 24px 12px", display: "flex", gap: 16, alignItems: "center", fontSize: 12, color: "rgba(255,255,255,0.7)", borderTop: "1px solid var(--border-dark)" }}>
-            <span><span className="dot dot--gold" style={{ marginRight: 6 }} /> Waivers processed dynamically</span>
-            <span><span className="dot dot--green" style={{ marginRight: 6 }} /> Free agents available immediately after waivers</span>
-            <span><span className="dot dot--red" style={{ marginRight: 6 }} /> Window closes {activeWindow.closesAt || "—"}</span>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {[
+              ["trade", "Trade", "manager trades + wishlist"],
+              ["free_agents", "Free agents", "instant pickups + wishlist"],
+              ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
+            ].map(([key, label, hint]) => {
+              const active = curPhase === key;
+              const locked = switching || !amLeagueAdmin;
+              return (
+                <button key={key} disabled={locked} onClick={() => switchWindow(key)}
+                  title={amLeagueAdmin ? hint : "Only the league admin can switch windows"}
+                  style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                    cursor: locked ? "default" : "pointer",
+                    background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
+                    color: active ? "var(--navy-900)" : (amLeagueAdmin ? "white" : "rgba(255,255,255,0.45)"),
+                    opacity: (!amLeagueAdmin && !active) ? 0.55 : 1,
+                    border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
+                  {label}
+                  <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
+                </button>
+              );
+            })}
           </div>
-        )}
+        </div>
       </div>
 
       {/* Tabs */}

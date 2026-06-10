@@ -45,7 +45,9 @@ function AdminWindowSwitcher() {
 
   React.useEffect(() => { refresh(); }, [refresh]);
 
-  if (!isAdmin || !isMockLeague) return null;
+  // Visible to the global admin (Ilay) on ANY league — he keeps window
+  // control after go-live; nobody else ever sees this panel.
+  if (!isAdmin) return null;
 
   const OPTIONS = [
     { key: "auto", label: "Auto" },

@@ -2752,8 +2752,11 @@ def admin_run_mock_wishlist(lid: str):
     if not league_snap.exists:
         return _err("League not found", 404)
     ld = league_snap.to_dict() or {}
-    if not ld.get("simulated"):
-        return _err("MOCK_ONLY: this endpoint only runs on simulated leagues", 403)
+    # Simulated leagues: any member may run it (showcase behaviour). Real
+    # leagues: LEAGUE-ADMIN ONLY (Ilay) — the auto-generated bids touch other
+    # managers' squads, so nobody else gets the trigger.
+    if not ld.get("simulated") and ld.get("adminUid") != uid:
+        return _err("Only the league admin can run the wishlist on a real league", 403)
     body = request.get_json(silent=True) or {}
     try:
         gw = int(body.get("gw") or ld.get("currentGw") or 1)
