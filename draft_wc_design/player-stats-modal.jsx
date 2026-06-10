@@ -298,7 +298,7 @@ function FixturesTab({ fixtures }) {
         </tbody>
       </table>
       <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-        FDR = Fixture Difficulty Rating (1 easy → 5 very hard). Fixtures confirmed after group stage draw.
+        FDR = Fixture Difficulty Rating (1 easy → 5 very hard). Knockout opponents confirmed as the bracket fills.
       </div>
     </div>
   );
@@ -316,23 +316,37 @@ function CompareTab({ player }) {
 
 
 // ---------- Upcoming-fixture schedule (tournament calendar, not stats) ----------
-// NOTE: this is the static knockout-stage CALENDAR, not fabricated player stats.
-// There is no per-player fixture endpoint loaded by the frontend yet; the
-// History tab's per-match scoring is now fetched from /players/{id}/scores.
+// GW1–3 come from the REAL group-stage schedule (GROUP_OPPONENTS, built in
+// screens-draft.jsx from the 72-fixture calendar). Knockout rows are the real
+// WC26 calendar with TBD opponents until the bracket fills. Group GWs the
+// league has already played are dropped — the History tab covers those.
 function fixturesFor(p, t) {
   if (!t || t.elim) return [
     { gw: "—", date: "—", round: "OUT", opp: "—", home: true, venue: "—", diff: 5 },
   ];
-  const koOpponents = { BRA: "USA", ARG: "ECU", FRA: "POR2", ENG: "URU", ESP: "JPN", GER: "MEX2", NED: "EGY", POR: "FRA", BEL: "AUS", COL: "KOR", USA: "BRA", KOR: "COL" };
-  const opp = koOpponents[p.team];
-  if (!opp) return [{ gw: 4, date: "Jul 1–4", round: "R32", opp: "TBD", home: true, venue: "TBD", diff: 3 }];
-  return [
-    { gw: 4, date: "Wed 1 Jul", round: "R32", opp, home: true, venue: "Mexico City", diff: 2 },
-    { gw: 5, date: "Sun 5 Jul", round: "R16", opp: "TBD", home: true, venue: "TBD",         diff: 3 },
-    { gw: 6, date: "Sat 11 Jul", round: "QF",  opp: "TBD", home: false, venue: "TBD",       diff: 4 },
-    { gw: 7, date: "Wed 15 Jul", round: "SF",  opp: "TBD", home: true, venue: "TBD",        diff: 4 },
-    { gw: 8, date: "Sun 19 Jul", round: "FINAL", opp: "TBD", home: true, venue: "NJ/NYC",   diff: 5 },
-  ];
+  const GW_DATES = { 1: "11–17 Jun", 2: "18–23 Jun", 3: "24–27 Jun" };
+  // FDR by opponent tier (no per-team strength feed yet): contenders 4, solid 3, rest 2.
+  const TIER1 = new Set(["FRA", "BRA", "ARG", "ENG", "SPA", "GER", "POR", "NED"]);
+  const TIER2 = new Set(["URU", "CRO", "COL", "BEL", "MEX", "USA", "SWI", "MOR", "JAP", "KOR", "SEN", "ECU", "AUT", "TUR"]);
+  const diffFor = iso => TIER1.has(iso) ? 4 : TIER2.has(iso) ? 3 : 2;
+  const groupOpps =
+    (typeof GROUP_OPPONENTS !== "undefined" && GROUP_OPPONENTS[p.team]) ||
+    (window.GROUP_OPPONENTS && window.GROUP_OPPONENTS[p.team]) || [];
+  const currentGw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+  const rows = [];
+  [1, 2, 3].forEach(gw => {
+    if (gw < currentGw) return;
+    const opp = groupOpps[gw - 1] || "TBD";
+    rows.push({ gw, date: GW_DATES[gw], round: `Group ${t.grp}`, opp, home: true, venue: "Group stage", diff: diffFor(opp) });
+  });
+  rows.push(
+    { gw: 4, date: "28 Jun – 3 Jul", round: "R32",   opp: "TBD", home: true,  venue: "TBD",    diff: 3 },
+    { gw: 5, date: "4–7 Jul",        round: "R16",   opp: "TBD", home: true,  venue: "TBD",    diff: 3 },
+    { gw: 6, date: "9–11 Jul",       round: "QF",    opp: "TBD", home: false, venue: "TBD",    diff: 4 },
+    { gw: 7, date: "14–15 Jul",      round: "SF",    opp: "TBD", home: true,  venue: "TBD",    diff: 4 },
+    { gw: 8, date: "Sun 19 Jul",     round: "FINAL", opp: "TBD", home: true,  venue: "NJ/NYC", diff: 5 },
+  );
+  return rows;
 }
 
 // Position/overall RANK derived from REAL season points (p.pts). This computes

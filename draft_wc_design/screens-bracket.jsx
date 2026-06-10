@@ -523,7 +523,9 @@ function FreeAgentsTab() {
       return ownerFilter === "__free" ? !o : o === ownerFilter;
     })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
-    .sort((a, b) => (b.pts || 0) - (a.pts || 0));
+    // Points first; while everyone is on 0 pts (pre-GW1) fall back to draft
+    // rank so the list is still best-player-first instead of pool order.
+    .sort((a, b) => (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999));
   const CAP = 120;
   const shown = filtered.slice(0, CAP);
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);

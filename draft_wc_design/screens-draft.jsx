@@ -1257,4 +1257,4 @@ function JoinForm({ onBack }) {
   );
 }
 
-Object.assign(window, { DraftRoomScreen, CreateLeagueScreen });
+Object.assign(window, { DraftRoomScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });
