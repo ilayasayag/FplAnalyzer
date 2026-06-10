@@ -841,6 +841,7 @@ def advance_draft_sim(lid: str):
     _, err = _require_sim_league(lid)
     if err:
         return err
+    from .game.draft import DraftEngine
     body = request.get_json(silent=True) or {}
     count = max(1, min(int(body.get("count", 1)), 5))
     engine = DraftEngine(_db, _wc)
