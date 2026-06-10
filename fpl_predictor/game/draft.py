@@ -596,6 +596,36 @@ class DraftEngine:
                 "players": players,
             })
 
+        # Durable draft-result backup: the full pick log + every final squad
+        # in one doc. Survives any later squad mutation (trades/FA), and is
+        # exported to a local JSON right after the draft.
+        try:
+            league_ref.collection("draft").document("result_backup").set({
+                "ts": SERVER_TIMESTAMP,
+                "leagueId": lid,
+                "picks": [p.to_dict() for p in picks],
+                "squads": squads,
+            })
+        except Exception as exc:
+            print(f"[Draft] result backup failed for {lid}: {exc}")
+
+        # Default GW1 lineup for every manager (same helper the reset flows
+        # use) so Pick Team shows a valid XI immediately — managers can edit
+        # until the T0-1h lock; scoring always has a lineup to work with.
+        try:
+            from fpl_predictor.seed.seed_league import select_lineup
+            for uid, players in squads.items():
+                ln_ref = league_ref.collection("lineups").document(f"{uid}_1")
+                if not ln_ref.get().exists:
+                    rich = [{"playerId": p["playerId"], "position": p["position"]}
+                            for p in players]
+                    try:
+                        ln_ref.set(select_lineup(rich))
+                    except Exception as exc:
+                        print(f"[Draft] default lineup failed for {uid}: {exc}")
+        except Exception as exc:
+            print(f"[Draft] lineup seeding unavailable: {exc}")
+
         league_ref.update({
             "draftComplete": True,
             "draftCompletedAt": SERVER_TIMESTAMP,

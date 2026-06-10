@@ -1173,8 +1173,38 @@ def admin_golive_reset():
         _db.collection("wc_gameweeks").document(str(gw)).set(gw_as_dict(gw))
     _db.collection("wc_config").document("tournament").update({
         "currentGw": 1, "winner": None, "topScorer": None,
+        # GW1 special: free agents open IMMEDIATELY after the draft (T0-36h is
+        # already in the past) and still auto-lock at T0-1h. Restore to 5
+        # after GW1 locks via /admin/window-config for the normal GW rhythm.
+        "fa_open_before_hours": 36,
     })
     return _ok(summary)
+
+
+@wc_bp.route("/admin/window-config", methods=["POST"])
+def admin_window_config():
+    """Global-admin: tune the transfer-window offsets on wc_config/tournament.
+    Body keys (all optional): faOpenBeforeHours, squadLockBeforeHours,
+    tradeReopenAfterHours. Used to restore the normal rhythm (fa=5) after the
+    GW1 always-open free-agents special."""
+    uid, err = _require_admin()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    mapping = {"faOpenBeforeHours": "fa_open_before_hours",
+               "squadLockBeforeHours": "squad_lock_before_hours",
+               "tradeReopenAfterHours": "trade_reopen_after_hours"}
+    update = {}
+    for k, field in mapping.items():
+        if k in body:
+            try:
+                update[field] = float(body[k])
+            except (TypeError, ValueError):
+                return _err(f"{k} must be a number")
+    if not update:
+        return _err("nothing to update")
+    _db.collection("wc_config").document("tournament").update(update)
+    return _ok(update)
 
 
 # Final-squad corrections vs the official Wikipedia 2026 squads (June 2026).

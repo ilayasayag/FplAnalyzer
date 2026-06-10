@@ -187,6 +187,45 @@ def test_rollback_rewinds_and_dedupes():
     assert state["currentDrafter"] == "u2"       # pick 1 in [u1,u2] snake
 
 
+def test_finalize_writes_canonical_squads_backup_and_season_start():
+    db = FakeDB()
+    db.collection("leagues").document("L").set(
+        {"adminUid": "u1", "status": "drafting", "leaguePhaseGws": [1, 2, 3]})
+    state_ref = (db.collection("leagues").document("L")
+                 .collection("draft").document("state"))
+    state_ref.set({"status": "complete", "order": ["u1"], "currentPick": 2,
+                   "totalPicks": 2, "pickedPlayerIds": [20, 24]})
+    picks = state_ref.collection("picks")
+    picks.document("0").set({"pickNumber": 0, "uid": "u1", "playerId": 20,
+                             "round": 1, "position": 2, "positionName": "DEF",
+                             "webName": "A", "teamShort": "FRA", "teamId": 0})
+    picks.document("1").set({"pickNumber": 1, "uid": "u1", "playerId": 24,
+                             "round": 2, "position": 2, "positionName": "DEF",
+                             "webName": "E", "teamShort": "GER", "teamId": 0})
+    eng = DraftEngine(db, _FakeFplNations())
+    eng._finalize_draft("L")
+
+    squad = (db.collection("leagues").document("L")
+             .collection("squads").document("u1").get().to_dict())
+    p0 = squad["players"][0]
+    # canonical shape — the fields scoring/PickTeam/trades read
+    for field in ("playerId", "name", "position", "positionName",
+                  "teamIso", "teamName", "eliminated", "draftedRound"):
+        assert field in p0, field
+    assert p0["teamIso"] == "FRA"
+
+    backup = (db.collection("leagues").document("L")
+              .collection("draft").document("result_backup").get())
+    assert backup.exists
+    bd = backup.to_dict()
+    assert len(bd["picks"]) == 2 and "u1" in bd["squads"]
+
+    league = db.collection("leagues").document("L").get().to_dict()
+    assert league["draftComplete"] is True
+    assert league["status"] == "group_phase"
+    assert league["currentGw"] == 1
+
+
 def test_validate_detects_duplicates():
     db = FakeDB()
     _seed_state(db, currentPick=2, pickedPlayerIds=[20])
