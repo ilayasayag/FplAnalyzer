@@ -10,18 +10,24 @@ class DraftSimulator:
         self._lock = threading.Lock()
         self.last_status = "idle"
 
-    def start(self, lid: str):
+    def start(self, lid: str, human_uids=None):
         with self._lock:
-            # Mark draft as unpaused and refresh the deadline
+            # Mark draft as unpaused and refresh the deadline. humanUids = the
+            # managers the bots must NOT pick for (live humans); persisted on
+            # the state doc so the loop and any restart read the same list.
+            self.human_uids = list(human_uids) if human_uids else None
             state_ref = self.db.collection("leagues").document(lid).collection("draft").document("state")
             state_doc = state_ref.get()
             if state_doc.exists:
                 state_data = state_doc.to_dict()
                 pick_timer = state_data.get("pickTimer", 30)
-                state_ref.update({
+                update = {
                     "paused": False,
                     "pickDeadline": time.time() + pick_timer
-                })
+                }
+                if self.human_uids is not None:
+                    update["humanUids"] = self.human_uids
+                state_ref.update(update)
 
             if self.active:
                 return
@@ -48,10 +54,19 @@ class DraftSimulator:
         print(f"[Draft Simulator] Started loop for league {lid}")
         from .draft import DraftEngine
         draft = DraftEngine(self.db, self.fpl)
-        
-        # Human UID is u_netanel (local user)
-        human_uid = "u_netanel"
-        
+
+        # Humans the bots must never pick for. Priority: start() arg ->
+        # humanUids on the draft state doc -> legacy default (u_netanel).
+        human_uids = getattr(self, "human_uids", None)
+        if not human_uids:
+            sd = self.db.collection("leagues").document(lid).collection("draft").document("state").get()
+            human_uids = (sd.to_dict() or {}).get("humanUids") if sd.exists else None
+        if not human_uids:
+            human_uids = ["u_netanel"]
+        human_uids = set(human_uids)
+        print(f"[Draft Simulator] Human (non-bot) managers: {sorted(human_uids)}")
+        admin_uid = sorted(human_uids)[0]
+
         while self.active:
             try:
                 state_doc = self.db.collection("leagues").document(lid).collection("draft").document("state").get()
@@ -61,7 +76,7 @@ class DraftSimulator:
                     print("[Draft Simulator] Draft state doesn't exist. Auto starting draft...")
                     cfg_doc = self.db.collection("wc_config").document("tournament").get()
                     current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
-                    draft.start_draft(lid, human_uid, current_gw)
+                    draft.start_draft(lid, admin_uid, current_gw)
                     time.sleep(2)
                     continue
                 
@@ -72,7 +87,7 @@ class DraftSimulator:
                     print("[Draft Simulator] Draft is pending. Auto starting draft...")
                     cfg_doc = self.db.collection("wc_config").document("tournament").get()
                     current_gw = cfg_doc.to_dict().get("currentGw", 1) if cfg_doc.exists else 1
-                    draft.start_draft(lid, human_uid, current_gw)
+                    draft.start_draft(lid, admin_uid, current_gw)
                     time.sleep(2)
                     continue
                 
@@ -97,7 +112,7 @@ class DraftSimulator:
                 pos_in_round = current_pick % num_members
                 current_drafter = order[pos_in_round] if rnd % 2 == 0 else order[num_members - 1 - pos_in_round]
                 
-                if current_drafter != human_uid:
+                if current_drafter not in human_uids:
                     print(f"[Draft Simulator] Bot turn: {current_drafter} on clock (Pick #{current_pick + 1})")
                     # Sleep 2.0 seconds so it's clear the timer is ticking down for this manager
                     time.sleep(2.0)

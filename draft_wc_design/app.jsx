@@ -252,7 +252,10 @@ function App() {
   // (lg_mock_draft), which "transforms" into the real league once its data is
   // updated. There is no platform-chooser lobby any more: lg_mock_draft IS the
   // home/default. (No data syncs until `user` resolves — see the sync effect.)
-  const [activeLid, setActiveLid] = React.useState("lg_mock_draft");
+  // ?lid=<leagueId> opens another league (e.g. lg_draft_test, the draft
+  // rehearsal sandbox) without changing the default single-league experience.
+  const [activeLid, setActiveLid] = React.useState(
+    new URLSearchParams(window.location.search).get("lid") || "lg_mock_draft");
   const [myLeagues, setMyLeagues] = React.useState([]);
   const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);

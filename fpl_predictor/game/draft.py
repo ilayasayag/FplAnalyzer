@@ -11,6 +11,7 @@ import time
 from google.cloud.firestore_v1 import SERVER_TIMESTAMP
 
 POSITION_QUOTA = {1: 2, 2: 5, 3: 5, 4: 3}  # GK, DEF, MID, FWD
+NATION_QUOTA = 3   # max players from one nation per squad
 TOTAL_ROUNDS = 15
 POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"}
 
@@ -143,7 +144,8 @@ class DraftEngine:
         if player_id in picked_ids:
             raise ValueError("Player already drafted")
 
-        player = self.fpl.get_player_map().get(player_id)
+        player_map = self.fpl.get_player_map()
+        player = player_map.get(player_id)
         if not player:
             raise ValueError("Player not found")
 
@@ -156,9 +158,26 @@ class DraftEngine:
                 f"Already have max {POS_NAMES[pos]}s ({POSITION_QUOTA[pos]})"
             )
 
+        # Nation cap: at most NATION_QUOTA players from one nation per squad.
+        # Nations are compared by the enriched player's teamShort (ISO) — the
+        # stored pick teamShort can't be trusted for legacy picks.
+        nation = player.get("teamShort")
+        if nation:
+            nation_count = 0
+            for p in drafter_picks:
+                try:
+                    held = player_map.get(int(p.get("playerId"))) or {}
+                except (TypeError, ValueError):
+                    held = {}
+                if held.get("teamShort") == nation:
+                    nation_count += 1
+            if nation_count >= NATION_QUOTA:
+                raise ValueError(
+                    f"Already have max {NATION_QUOTA} players from {nation}"
+                )
+
         rnd = (current_pick // num_members) + 1
         pick_in_round = (current_pick % num_members) + 1
-        team_map = self.fpl.get_team_map()
 
         pick_data = {
             "pickNumber": current_pick,
@@ -169,10 +188,8 @@ class DraftEngine:
             "webName": player.get("web_name", "?"),
             "position": pos,
             "positionName": POS_NAMES[pos],
-            "teamId": player.get("team", 0),
-            "teamShort": team_map.get(
-                player.get("team", 0), {}
-            ).get("short_name", "?"),
+            "teamId": player.get("teamId", player.get("team", 0)),
+            "teamShort": player.get("teamShort") or "?",
             "isAutoPick": is_auto,
             "timestamp": SERVER_TIMESTAMP,
         }
@@ -308,11 +325,26 @@ class DraftEngine:
         picked_ids = set(state.get("pickedPlayerIds", []))
         players = self.fpl.get_players()
 
+        # Nation counts for this drafter (cap = NATION_QUOTA per nation).
+        by_pid = {p["id"]: p for p in players}
+        nation_counts = {}
+        for dp in drafter_picks:
+            try:
+                iso = (by_pid.get(int(dp.get("playerId"))) or {}).get("teamShort")
+            except (TypeError, ValueError):
+                iso = None
+            if iso:
+                nation_counts[iso] = nation_counts.get(iso, 0) + 1
+
+        def nation_ok(p):
+            iso = p.get("teamShort")
+            return not iso or nation_counts.get(iso, 0) < NATION_QUOTA
+
         # Honor the manager's saved watchlist FIRST (the priority queue they
         # built in the Draft Room). Pick the highest-priority watchlisted player
-        # that is still available AND keeps the squad within its position quota.
-        # Only if none qualifies do we fall back to the best-available-by-draft-
-        # rank heuristic below. (Bots / managers with no watchlist skip this.)
+        # that is still available AND keeps the squad within its position quota
+        # AND under the per-nation cap. Only if none qualifies do we fall back
+        # to the best-available-by-draft-rank heuristic below.
         watchlist = self._get_watchlist(lid, uid)
         if watchlist:
             by_id = {}
@@ -329,7 +361,7 @@ class DraftEngine:
                 if not p or p["id"] in picked_ids:
                     continue
                 pos = p.get("element_type")
-                if pos_counts.get(pos, 0) < POSITION_QUOTA.get(pos, 0):
+                if pos_counts.get(pos, 0) < POSITION_QUOTA.get(pos, 0) and nation_ok(p):
                     return p["id"]
 
         for _, target_pos in needs:
@@ -337,6 +369,7 @@ class DraftEngine:
                 p for p in players
                 if p["id"] not in picked_ids
                 and p["element_type"] == target_pos
+                and nation_ok(p)
             ]
             candidates.sort(
                 key=lambda x: (x.get("draft_rank") or 9999,
@@ -345,7 +378,11 @@ class DraftEngine:
             if candidates:
                 return candidates[0]["id"]
 
-        all_available = [p for p in players if p["id"] not in picked_ids]
+        all_available = [p for p in players
+                         if p["id"] not in picked_ids and nation_ok(p)]
+        if not all_available:
+            # Degenerate safety net: never deadlock the draft.
+            all_available = [p for p in players if p["id"] not in picked_ids]
         all_available.sort(
             key=lambda x: (x.get("draft_rank") or 9999,
                            -x.get("total_points", 0))

@@ -793,7 +793,9 @@ def toggle_draft_sim(lid: str):
     body = request.get_json(silent=True) or {}
     active = body.get("active", False)
     if active:
-        _sim.start(lid)
+        # humanUids: live managers the bots must NOT pick for. Optional —
+        # defaults to the previously stored list (or u_netanel legacy).
+        _sim.start(lid, human_uids=body.get("humanUids"))
     else:
         _sim.stop(lid)
     return _ok({"active": _sim.active, "status": _sim.last_status})
@@ -823,6 +825,103 @@ def reset_draft_sim(lid: str):
         sq.reference.delete()
     league_ref.update({"status": "pre_draft", "draftComplete": False})
     return _ok({"status": "reset"})
+
+
+# --- Draft sandbox: a disposable clone league for live-draft rehearsal. -----
+# All WRITES go to SANDBOX_LID only; the mock league is READ-ONLY source data.
+SANDBOX_LID = "lg_draft_test"
+assert SANDBOX_LID != MOCK_LID
+
+
+@wc_bp.route("/admin/draft-sandbox", methods=["POST"])
+def create_draft_sandbox():
+    """Create/refresh the draft-rehearsal sandbox league (lg_draft_test).
+
+    Copies FROM lg_mock_draft (reads only): the 6 canonical members and every
+    manager's draft watchlist. Creates a fresh simulated league in pre_draft
+    with adminUid=u_ilay so humans + bots can run a full draft there without
+    touching ANY mock-league data (squads, wishlists, scores all stay put).
+    Idempotent: wipes any previous sandbox state first (sandbox only).
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    src_ref = _db.collection("leagues").document(MOCK_LID)
+    dst_ref = _db.collection("leagues").document(SANDBOX_LID)
+    summary = {"lid": SANDBOX_LID, "members": [], "watchlistsCopied": 0}
+
+    # 0. Wipe previous sandbox state (members/draft/squads/watchlists).
+    if dst_ref.get().exists:
+        st = dst_ref.collection("draft").document("state")
+        if st.get().exists:
+            for p in st.collection("picks").get():
+                p.reference.delete()
+            st.delete()
+        wl_doc = dst_ref.collection("draft").document("watchlists")
+        for m in dst_ref.collection("members").get():
+            for d in wl_doc.collection(m.id).get():
+                d.reference.delete()
+            m.reference.delete()
+        for sq in dst_ref.collection("squads").get():
+            sq.reference.delete()
+
+    # 1. League doc: simulated + pre_draft, admin u_ilay (sandbox-only knobs).
+    dst_ref.set({
+        "name": "DRAFT REHEARSAL (sandbox)",
+        "simulated": True,
+        "status": "pre_draft",
+        "adminUid": "u_ilay",
+        "maxMembers": len(MOCK_CANONICAL_ROSTER),
+        "pickTimer": 30,
+        "draftComplete": False,
+        "sandbox": True,
+        "createdAt": SERVER_TIMESTAMP,
+    })
+
+    # 2. Copy the canonical members (read from mock, write to sandbox).
+    for m in src_ref.collection("members").get():
+        if m.id not in MOCK_CANONICAL_ROSTER:
+            continue
+        dst_ref.collection("members").document(m.id).set(m.to_dict() or {})
+        summary["members"].append(m.id)
+
+    # 3. Copy each member's draft watchlist (read mock, write sandbox).
+    src_wl = src_ref.collection("draft").document("watchlists")
+    dst_wl = dst_ref.collection("draft").document("watchlists")
+    for muid in summary["members"]:
+        d = src_wl.collection(muid).document("list").get()
+        if d.exists:
+            dst_wl.collection(muid).document("list").set(d.to_dict() or {})
+            summary["watchlistsCopied"] += 1
+
+    return _ok(summary)
+
+
+@wc_bp.route("/admin/draft-sandbox", methods=["DELETE"])
+def delete_draft_sandbox():
+    """Tear the sandbox league down completely (sandbox docs only)."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    dst_ref = _db.collection("leagues").document(SANDBOX_LID)
+    if not dst_ref.get().exists:
+        return _ok({"status": "absent"})
+    _sim.stop()
+    st = dst_ref.collection("draft").document("state")
+    if st.get().exists:
+        for p in st.collection("picks").get():
+            p.reference.delete()
+        st.delete()
+    wl_doc = dst_ref.collection("draft").document("watchlists")
+    members = [m.id for m in dst_ref.collection("members").get()]
+    for muid in members:
+        for d in wl_doc.collection(muid).get():
+            d.reference.delete()
+        dst_ref.collection("members").document(muid).delete()
+    for sq in dst_ref.collection("squads").get():
+        sq.reference.delete()
+    dst_ref.delete()
+    return _ok({"status": "deleted", "membersRemoved": members})
 
 
 # ---------------------------------------------------------------------------

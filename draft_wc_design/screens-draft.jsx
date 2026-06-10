@@ -31,6 +31,10 @@ function DraftRoomScreen({ onTab }) {
   const [nationFilter, setNationFilter] = React.useState("all");
   const [page, setPage] = React.useState(0);
   const PAGE_SIZE = 30;
+  // Watchlist panel display filters (display-only; saved order unchanged)
+  const [wlPos, setWlPos] = React.useState("all");
+  const [wlNation, setWlNation] = React.useState("all");
+  const [wlStatus, setWlStatus] = React.useState("all"); // all | available | picked
 
   const handleDraftPick = async (playerId) => {
     try {
@@ -217,7 +221,26 @@ function DraftRoomScreen({ onTab }) {
   // My squad so far
   const myPicks = DRAFT_HISTORY.filter(p => p.uid === window.ME);
   const mySquadByPos = { 1: 0, 2: 0, 3: 0, 4: 0 };
-  myPicks.forEach(p => { mySquadByPos[playerById(p.playerId).pos]++; });
+  const myNationCounts = {};
+  myPicks.forEach(p => {
+    const pl = playerById(p.playerId);
+    if (!pl) return;
+    mySquadByPos[pl.pos]++;
+    if (pl.team) myNationCounts[pl.team] = (myNationCounts[pl.team] || 0) + 1;
+  });
+
+  // Why can't I pick this player? null = eligible. Mirrors the server rules
+  // (position quota 2/5/5/3 + max 3 per nation) so the UI greys/blocks instead
+  // of letting a click bounce off a 400.
+  const POS_QUOTA = { 1: 2, 2: 5, 3: 5, 4: 3 };
+  const NATION_MAX = 3;
+  const ineligibleReason = (p) => {
+    if (!p) return null;
+    if (taken.has(getNormalizedPlayerId(p.id))) return "TAKEN";
+    if (mySquadByPos[p.pos] >= POS_QUOTA[p.pos]) return "POS FULL";
+    if ((myNationCounts[p.team] || 0) >= NATION_MAX) return "NATION MAX";
+    return null;
+  };
 
   const formatTime = s => `0:${String(s).padStart(2, "0")}`;
 
@@ -225,7 +248,22 @@ function DraftRoomScreen({ onTab }) {
   // live draft. Show a clear notice instead of a misleading "running" board.
   const draftNotStarted = (typeof DRAFT_STATE !== "undefined") && (DRAFT_STATE.notStarted || !DRAFT_STATE.round) && DRAFT_HISTORY.length === 0;
 
-  const activeWatchlistIds = watchlistIds.filter(id => !taken.has(getNormalizedPlayerId(id)));
+  // Full watchlist with eligibility status. Ineligible entries stay visible
+  // (greyed + reason tag) so the ranked order is preserved; filters below are
+  // display-only. availableCount drives the header badge.
+  const watchlistRows = watchlistIds.map((id, idx) => {
+    const p = playerById(id);
+    return { id, idx, p, reason: p ? ineligibleReason(p) : "TAKEN" };
+  }).filter(r => r.p);
+  const availableCount = watchlistRows.filter(r => !r.reason).length;
+  const visibleWatchlist = watchlistRows.filter(r => {
+    if (wlPos !== "all" && r.p.pos !== Number(wlPos)) return false;
+    if (wlNation !== "all" && r.p.team !== wlNation) return false;
+    if (wlStatus === "available" && r.reason) return false;
+    if (wlStatus === "picked" && r.reason !== "TAKEN") return false;
+    return true;
+  });
+  const wlNations = [...new Set(watchlistRows.map(r => r.p.team).filter(Boolean))].sort();
 
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
@@ -242,19 +280,44 @@ function DraftRoomScreen({ onTab }) {
         {/* Watchlist */}
         <div className="card-dark" style={{ display: "flex", flexDirection: "column", height: "100%" }}>
           <div className="card-dark__title">
-            ★ Watchlist ({activeWatchlistIds.length})
+            ★ Watchlist ({availableCount}/{watchlistRows.length})
             {loadingWatchlist && <span style={{ fontSize: 10, fontWeight: 400, marginLeft: 6, opacity: 0.6 }}>loading…</span>}
           </div>
-          {activeWatchlistIds.length === 0 ? (
+          {/* Display-only filters: position / nation / availability */}
+          <div style={{ display: "flex", gap: 5, padding: "8px 10px", flexWrap: "wrap", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+            {["all", "1", "2", "3", "4"].map(p => (
+              <button key={p}
+                style={{ padding: "3px 8px", fontSize: 10, fontWeight: 700, borderRadius: 999, border: "none", cursor: "pointer",
+                  background: wlPos === p ? "var(--green-400)" : "rgba(255,255,255,0.08)",
+                  color: wlPos === p ? "var(--navy-900)" : "white" }}
+                onClick={() => setWlPos(p)}>
+                {p === "all" ? "ALL" : POS_NAMES[Number(p)]}
+              </button>
+            ))}
+            <select value={wlNation} onChange={e => setWlNation(e.target.value)}
+              style={{ padding: "2px 6px", fontSize: 10, fontWeight: 700, borderRadius: 999, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "white" }}>
+              <option value="all" style={{ background: "var(--navy-900)" }}>All nations</option>
+              {wlNations.map(n => <option key={n} value={n} style={{ background: "var(--navy-900)" }}>{n}</option>)}
+            </select>
+            <select value={wlStatus} onChange={e => setWlStatus(e.target.value)}
+              style={{ padding: "2px 6px", fontSize: 10, fontWeight: 700, borderRadius: 999, border: "1px solid rgba(255,255,255,0.15)", background: "rgba(255,255,255,0.08)", color: "white" }}>
+              <option value="all" style={{ background: "var(--navy-900)" }}>All</option>
+              <option value="available" style={{ background: "var(--navy-900)" }}>Available</option>
+              <option value="picked" style={{ background: "var(--navy-900)" }}>Picked</option>
+            </select>
+          </div>
+          {visibleWatchlist.length === 0 ? (
             <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.5)", fontSize: 12, padding: "14px 16px", lineHeight: 1.5 }}>
-              Star players (☆) to queue them.<br />Auto-pick uses this order.
+              {watchlistRows.length === 0
+                ? <span>Star players (☆) to queue them.<br />Auto-pick uses this order.</span>
+                : <span>No watchlist players match these filters.</span>}
             </div>
           ) : (
             <div style={{ overflowY: "auto", flex: 1 }}>
-              {activeWatchlistIds.map((id, idx) => {
-                const p = playerById(id);
-                if (!p) return null;
+              {visibleWatchlist.map(({ id, idx, p, reason }) => {
                 const t = teamById(p.team);
+                const grey = !!reason;
+                const tagColor = reason === "TAKEN" ? "#f87171" : "#f5c518";
                 return (
                   <div
                     key={id}
@@ -271,25 +334,29 @@ function DraftRoomScreen({ onTab }) {
                       await saveWatchlist(reordered);
                     }}
                     className="card-section"
-                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 14px", cursor: "grab" }}
+                    style={{ display: "flex", alignItems: "center", gap: 7, padding: "12px 14px", cursor: "grab", opacity: grey ? 0.45 : 1 }}
                   >
                     <span style={{ color: "rgba(255,255,255,0.25)", fontSize: 13, userSelect: "none", flexShrink: 0 }}>⣿</span>
                     <span className="mono" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12, minWidth: 16, flexShrink: 0 }}>{idx + 1}</span>
-                    <div 
+                    <div
                       style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 7, cursor: "pointer" }}
                       onClick={() => window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: p.id } }))}
                     >
                       <div style={{ width: 24, height: 24, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
                       <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white", textDecoration: "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
-                        <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>{t.id} · {POS_NAMES[p.pos]}</div>
+                        <div style={{ fontWeight: 700, fontSize: 14, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: "white", textDecoration: grey && reason === "TAKEN" ? "line-through" : "underline", decorationColor: "rgba(255,255,255,0.15)" }}>{p.name}</div>
+                        <div style={{ color: "#cbd5e1", fontSize: 12, fontWeight: 700 }}>
+                          {t.id} · {POS_NAMES[p.pos]}
+                          {reason && <span style={{ marginLeft: 6, fontSize: 9, fontWeight: 800, padding: "1px 5px", borderRadius: 4, background: "rgba(0,0,0,0.35)", color: tagColor }}>{reason}</span>}
+                        </div>
                       </div>
                     </div>
                     <button
                       onClick={() => handleDraftPick(id)}
                       className="btn btn--draft"
                       style={{ padding: "3px 8px", fontSize: 10, flexShrink: 0 }}
-                      disabled={!DRAFT_STATE.isMyTurn}
+                      disabled={!DRAFT_STATE.isMyTurn || grey}
+                      title={reason || ""}
                     >Pick</button>
                     <button
                       onClick={() => handleToggleWatchlist(id)}
@@ -501,7 +568,17 @@ function DraftRoomScreen({ onTab }) {
                       title={isWatched ? "Remove from watchlist" : "Add to watchlist"}>
                       {isWatched ? "★" : "☆"}
                     </button>
-                    <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft" style={{ padding: "5px 12px", fontSize: 11 }} disabled={!DRAFT_STATE.isMyTurn}>Draft</button>
+                    {(() => {
+                      const reason = ineligibleReason(p);
+                      return (
+                        <button onClick={() => handleDraftPick(p.id)} className="btn btn--draft"
+                          style={{ padding: "5px 12px", fontSize: 11, opacity: reason ? 0.4 : 1 }}
+                          disabled={!DRAFT_STATE.isMyTurn || !!reason}
+                          title={reason || ""}>
+                          {reason && reason !== "TAKEN" ? (reason === "POS FULL" ? "Full" : "Max 3") : "Draft"}
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               );
@@ -548,6 +625,19 @@ function DraftRoomScreen({ onTab }) {
             <SquadCount label="MID" cur={mySquadByPos[3]} max={5} />
             <SquadCount label="FWD" cur={mySquadByPos[4]} max={3} />
           </div>
+          {Object.keys(myNationCounts).length > 0 && (
+            <div className="card-section" style={{ display: "flex", flexWrap: "wrap", gap: 5, padding: "8px 14px" }}>
+              {Object.entries(myNationCounts).sort((a, b) => b[1] - a[1]).map(([iso, c]) => (
+                <span key={iso} style={{ fontSize: 10, fontWeight: 800, padding: "2px 7px", borderRadius: 999,
+                  background: c >= NATION_MAX ? "rgba(245,197,24,0.18)" : "rgba(255,255,255,0.08)",
+                  color: c >= NATION_MAX ? "#f5c518" : "rgba(255,255,255,0.75)",
+                  border: c >= NATION_MAX ? "1px solid rgba(245,197,24,0.5)" : "1px solid transparent" }}
+                  title={c >= NATION_MAX ? "Nation cap reached (3)" : ""}>
+                  {iso} {c}/3
+                </span>
+              ))}
+            </div>
+          )}
           {myPicks.length === 0 ? (
             <div className="card-section" style={{ textAlign: "center", color: "rgba(255,255,255,0.55)", fontSize: 13 }}>
               Your picks will appear here.
