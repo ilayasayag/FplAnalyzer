@@ -125,6 +125,82 @@ def test_make_pick_rejects_while_paused():
         eng.make_pick("L", "u1", 20)
 
 
+def _seed_state(db, lid="L", **over):
+    base = {"status": "active", "order": ["u1", "u2"], "currentPick": 0,
+            "totalPicks": 30, "pickTimer": 30, "pickedPlayerIds": [],
+            "paused": False}
+    base.update(over)
+    (db.collection("leagues").document(lid).collection("draft")
+     .document("state").set(base))
+    return base
+
+
+def test_make_pick_rejects_stale_expected_pick():
+    db = FakeDB()
+    _seed_state(db, currentPick=5)
+    eng = DraftEngine(db, _FakeFplNations())
+    with pytest.raises(ValueError, match="STALE_PICK"):
+        eng.make_pick("L", "u2", 24, is_auto=True, expected_pick=4)
+
+
+def test_auto_pick_for_previous_drafter_not_reassigned():
+    # An auto pick computed for u1 must NOT be credited to u2 after the turn
+    # advanced (the old code silently reassigned it — "random player" bug).
+    db = FakeDB()
+    _seed_state(db, currentPick=1)              # drafter at pick 1 = u2
+    eng = DraftEngine(db, _FakeFplNations())
+    with pytest.raises(ValueError, match="TURN_CHANGED"):
+        eng.make_pick("L", "u1", 24, is_auto=True)
+
+
+def test_auto_pick_retries_next_candidate_when_taken():
+    # Best candidate already in pickedPlayerIds -> engine must pick the NEXT
+    # best instead of stalling. 20 is "taken", so the auto pick lands 21.
+    import time as _t
+    db = FakeDB()
+    _seed_state(db, order=["u1"], currentPick=0,
+                pickedPlayerIds=[20], pickDeadline=_t.time() - 5)
+    _seed_watchlist(db, "L", "u1", [20, 21])
+    eng = DraftEngine(db, _FakeFplNations())
+    res = eng.auto_pick("L")
+    assert res["playerId"] == 21
+
+
+def test_rollback_rewinds_and_dedupes():
+    db = FakeDB()
+    _seed_state(db, currentPick=3, paused=True,
+                pickedPlayerIds=[20, 21, 21])    # corrupted: 21 duplicated
+    picks = (db.collection("leagues").document("L").collection("draft")
+             .document("state").collection("picks"))
+    picks.document("0").set({"pickNumber": 0, "uid": "u1", "playerId": 20, "webName": "A"})
+    picks.document("1").set({"pickNumber": 1, "uid": "u2", "playerId": 21, "webName": "B"})
+    picks.document("2").set({"pickNumber": 2, "uid": "u2", "playerId": 21, "webName": "B"})  # dup!
+    eng = DraftEngine(db, _FakeFplNations())
+    res = eng.rollback_draft("L", 1)             # pick 1 back on the clock
+    assert res["currentPick"] == 1
+    assert [r["pickNumber"] for r in res["removed"]] == [1, 2]
+    state = (db.collection("leagues").document("L").collection("draft")
+             .document("state").get().to_dict())
+    assert state["currentPick"] == 1
+    assert state["pickedPlayerIds"] == [20]      # rebuilt + deduped
+    assert state["paused"] is True               # stays paused until resume
+    assert state["currentDrafter"] == "u2"       # pick 1 in [u1,u2] snake
+
+
+def test_validate_detects_duplicates():
+    db = FakeDB()
+    _seed_state(db, currentPick=2, pickedPlayerIds=[20])
+    picks = (db.collection("leagues").document("L").collection("draft")
+             .document("state").collection("picks"))
+    picks.document("0").set({"pickNumber": 0, "uid": "u1", "playerId": 20, "position": 2, "webName": "A"})
+    picks.document("1").set({"pickNumber": 1, "uid": "u2", "playerId": 20, "position": 2, "webName": "A"})
+    eng = DraftEngine(db, _FakeFplNations())
+    rep = eng.validate_draft("L")
+    assert rep["ok"] is False
+    assert rep["duplicates"][0]["playerId"] == 20
+    assert len(rep["duplicates"][0]["picks"]) == 2
+
+
 def test_make_pick_rejects_fourth_same_nation_player():
     db = FakeDB()
     lid, uid = "L", "u1"

@@ -138,6 +138,23 @@ function DraftRoomScreen({ onTab }) {
   const isLeagueAdmin = (typeof LEAGUE !== "undefined") && LEAGUE.admin
     ? LEAGUE.admin === window.ME : true;
 
+  // Rollback (admin, while paused): pick N goes back on the clock; it and all
+  // later picks are deleted server-side and pickedPlayerIds is rebuilt deduped.
+  const [rollbackBusy, setRollbackBusy] = React.useState(false);
+  const handleRollback = async (toPick, label) => {
+    const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+    if (!lid || rollbackBusy) return;
+    if (!window.confirm(`Rollback the draft?\n\n${label} and every pick after it will be UNDONE. That manager picks again on resume.`)) return;
+    setRollbackBusy(true);
+    try {
+      await apiCall("POST", `/leagues/${lid}/draft/rollback`, { toPick });
+    } catch (err) {
+      alert("Rollback failed: " + (err.error || err.detail || JSON.stringify(err)));
+    } finally {
+      setRollbackBusy(false);
+    }
+  };
+
   const lastPickRef = React.useRef(DRAFT_STATE.pickOverall);
   const lastPausedRef = React.useRef(isPaused);
 
@@ -187,8 +204,13 @@ function DraftRoomScreen({ onTab }) {
       if (!lid) return;
       apiCall("POST", `/leagues/${lid}/draft/auto-pick`).catch((err) => {
         // Expected: another client already fired it, or the deadline hasn't
-        // actually elapsed on the server clock. Swallow silently.
+        // actually elapsed on the server clock. Swallow silently — but RE-ARM
+        // after a short delay so a transient conflict can't stall the draft
+        // (the old once-per-deadline latch never retried).
         console.debug("auto-pick declined:", err && (err.error || err.detail));
+        setTimeout(() => {
+          if (lastFiredFor.current === deadline) lastFiredFor.current = null;
+        }, 3000);
       });
     }
   }, [secondsLeft, isPaused]);
@@ -330,11 +352,53 @@ function DraftRoomScreen({ onTab }) {
 
   const onClockName = draftNotStarted ? "—" : (onClock.name || "—");
 
+  // Duplicate-pick detector: the same player on two squads means corrupted
+  // state — surface it loudly so the admin pauses + rolls back.
+  const duplicatePicks = (() => {
+    const seen = {}; const dups = [];
+    DRAFT_HISTORY.forEach(p => {
+      if (seen[p.playerId]) dups.push(p); else seen[p.playerId] = p;
+    });
+    return dups;
+  })();
+
   return (
     <div style={{ display: "grid", gridTemplateColumns: "320px 1fr 260px", gap: 16, height: 480 }}>
       {draftNotStarted && (
         <div style={{ gridColumn: "1 / -1", background: "rgba(74,27,168,0.22)", border: "1px solid rgba(167,139,250,0.45)", borderRadius: 10, padding: "12px 16px", color: "#d9ccff", fontSize: 13, fontWeight: 600 }}>
           ⏳ This league's draft hasn't started yet. The order below is a preview — live picks begin when the draft opens.
+        </div>
+      )}
+
+      {duplicatePicks.length > 0 && (
+        <div style={{ gridColumn: "1 / -1", background: "rgba(230,57,70,0.18)", border: "2px solid var(--red-500)", borderRadius: 10, padding: "12px 16px", color: "#ffd7db", fontSize: 13, fontWeight: 700 }}>
+          🚨 Duplicate pick detected: {duplicatePicks.map(p => `${(playerById(p.playerId)||{}).name||p.playerId} (pick #${p.overall})`).join(", ")} — the same player is on two squads.
+          {isLeagueAdmin ? " Pause the draft, then use the Rollback panel below to rewind past the duplicate." : " Ask the league admin to pause and roll back."}
+        </div>
+      )}
+
+      {isPaused && isLeagueAdmin && DRAFT_HISTORY.length > 0 && (
+        <div style={{ gridColumn: "1 / -1", background: "rgba(255,170,0,0.10)", border: "1px solid rgba(255,170,0,0.45)", borderRadius: 10, padding: "12px 16px" }}>
+          <div style={{ fontSize: 12, fontWeight: 800, color: "var(--gold-500)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 8 }}>
+            ↩ Rollback (admin · while paused) — pick a point to redo from
+          </div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {DRAFT_HISTORY.slice(-6).reverse().map(p => {
+              const mgr = managerById(p.uid) || { name: p.uid };
+              const pl = playerById(p.playerId) || { name: p.playerId };
+              const label = `Pick #${p.overall} (${mgr.name}: ${pl.name})`;
+              return (
+                <button key={p.overall}
+                  disabled={rollbackBusy}
+                  onClick={() => handleRollback(p.overall - 1, label)}
+                  style={{ padding: "6px 12px", fontSize: 12, fontWeight: 700, borderRadius: 8, cursor: "pointer",
+                    background: "rgba(255,255,255,0.07)", color: "#ffe9b3", border: "1px solid rgba(255,170,0,0.4)" }}
+                  title={`Undo ${label} and everything after it`}>
+                  ↩ #{p.overall} {mgr.name}: {pl.name}
+                </button>
+              );
+            })}
+          </div>
         </div>
       )}
 

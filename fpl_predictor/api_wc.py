@@ -778,6 +778,48 @@ def resume_draft(lid: str):
     return _ok({"paused": False, "secondsRemaining": round(remaining)})
 
 
+@wc_bp.route("/leagues/<lid>/draft/rollback", methods=["POST"])
+def rollback_draft(lid: str):
+    """Rewind the draft to a previous pick (admin-only, paused-only). Body:
+    {"toPick": <pickNumber>} — that pick goes back ON THE CLOCK; it and every
+    later pick are deleted, pickedPlayerIds is rebuilt deduped. The draft
+    stays paused; resume hands the re-picking manager a full clock."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    league_doc = _db.collection("leagues").document(lid).get()
+    if not league_doc.exists:
+        return _err("League not found", 404)
+    if (league_doc.to_dict() or {}).get("adminUid") != uid:
+        return _err("Only the league admin can roll back the draft", 403)
+    body = request.get_json(silent=True) or {}
+    if "toPick" not in body:
+        return _err("toPick required")
+    try:
+        to_pick = int(body["toPick"])
+    except (TypeError, ValueError):
+        return _err("toPick must be an integer")
+    try:
+        from .game.draft import DraftEngine
+        return _ok(DraftEngine(_db, _wc).rollback_draft(lid, to_pick))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/draft/validate", methods=["GET"])
+def validate_draft(lid: str):
+    """Draft integrity report: duplicate players, quota/nation violations,
+    pick gaps, state-vs-docs drift. Any league member can run it."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    try:
+        from .game.draft import DraftEngine
+        return _ok(DraftEngine(_db, _wc).validate_draft(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
 @wc_bp.route("/leagues/<lid>/draft/auto-pick", methods=["POST"])
 def auto_pick(lid: str):
     """Fire the best-available auto-pick when the on-the-clock manager's
