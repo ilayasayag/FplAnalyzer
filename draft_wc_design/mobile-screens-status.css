@@ -48,10 +48,16 @@
   .player-slot--eliminated::before {
     font-size: 11px;
   }
-  /* The hover-only "i" stats button never appears on touch and its 18px target
-     is too small anyway; the whole chip already opens stats / selects. */
+  /* On touch there is no hover, and tapping the chip itself SELECTS the player
+     for substitution — so the stats button must be permanently visible and big
+     enough to tap. 22px circle + always-on opacity replaces the hover reveal. */
   .player-slot__info {
-    display: none;
+    opacity: 1;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    top: -8px;
+    right: -8px;
   }
 
   /* ---------- Bench row (PickTeamScreen) ----------
