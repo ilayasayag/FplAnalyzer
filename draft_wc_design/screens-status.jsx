@@ -170,6 +170,7 @@ function AdminWindowSwitcher() {
 
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
+  const isMobile = useIsMobile();
   const _standings = window.STANDINGS || STANDINGS;
   const myStanding = _standings.find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const top5 = _standings.slice(0, 8);
@@ -229,8 +230,11 @@ function StatusScreen({ onTab }) {
         <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
           <div style={{
             background: "linear-gradient(94deg, #14104a 0%, #2a2080 50%, #1be8d4 130%)",
-            padding: "22px 28px",
-            display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 24,
+            padding: isMobile ? "18px 16px" : "22px 28px",
+            display: "grid",
+            gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "1fr auto",
+            alignItems: "center",
+            gap: isMobile ? 14 : 24,
           }}>
             <div>
               <div className="pill pill--green" style={{ marginBottom: 10 }}>● Group Stage Complete</div>
@@ -265,7 +269,10 @@ function StatusScreen({ onTab }) {
                 onClick={() => setViewingGw(viewingGw - 1)}
                 style={{
                   background: "transparent", border: "none", color: viewingGw <= 1 ? "rgba(255,255,255,0.2)" : "white",
-                  cursor: viewingGw <= 1 ? "not-allowed" : "pointer", padding: "2px 6px", fontWeight: 700
+                  cursor: viewingGw <= 1 ? "not-allowed" : "pointer",
+                  padding: isMobile ? "10px 12px" : "2px 6px",
+                  minHeight: isMobile ? 40 : undefined,
+                  fontWeight: 700
                 }}
               >
                 ◀
@@ -278,28 +285,31 @@ function StatusScreen({ onTab }) {
                 onClick={() => setViewingGw(viewingGw + 1)}
                 style={{
                   background: "transparent", border: "none", color: viewingGw >= currentGw ? "rgba(255,255,255,0.2)" : "white",
-                  cursor: viewingGw >= currentGw ? "not-allowed" : "pointer", padding: "2px 6px", fontWeight: 700
+                  cursor: viewingGw >= currentGw ? "not-allowed" : "pointer",
+                  padding: isMobile ? "10px 12px" : "2px 6px",
+                  minHeight: isMobile ? 40 : undefined,
+                  fontWeight: 700
                 }}
               >
                 ▶
               </button>
             </div>
 
-            <span className={`pill ${viewingGw === currentGw ? "pill--green" : "pill--dark"}`} style={{ padding: "4px 8px", fontSize: 10, fontWeight: 700 }}>
+            <span className={`pill ${viewingGw === currentGw ? "pill--green" : "pill--dark"}`} style={{ padding: "4px 8px", fontSize: isMobile ? 11 : 10, fontWeight: 700 }}>
               {viewingGw === currentGw ? "LIVE" : "PAST"}
             </span>
           </div>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", borderTop: "1px solid var(--border-dark)" }}>
-          <div style={{ padding: "22px 24px", borderRight: "1px solid var(--border-dark)" }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) minmax(0, 1fr)" : "1fr 1fr", borderTop: "1px solid var(--border-dark)" }}>
+          <div style={{ padding: isMobile ? "16px 14px" : "22px 24px", borderRight: "1px solid var(--border-dark)", minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW{viewingGw} Points</div>
-            <div className="h-display" style={{ fontSize: 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>{String(gwPoints)}</div>
+            <div className="h-display" style={{ fontSize: isMobile ? 42 : 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>{String(gwPoints)}</div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Live performance points</div>
           </div>
-          <div style={{ padding: "22px 24px" }}>
+          <div style={{ padding: isMobile ? "16px 14px" : "22px 24px", minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>League Rank</div>
-            <div className="h-display" style={{ fontSize: 56, color: "var(--gold-500)", lineHeight: 1.1, marginTop: 4 }}>
-              {myStanding.rank}{myStanding.rank !== "—" && <span style={{ fontSize: 22, color: "rgba(255,255,255,0.5)", verticalAlign: "super" }}>{getOrdinal(myStanding.rank)}</span>}
+            <div className="h-display" style={{ fontSize: isMobile ? 42 : 56, color: "var(--gold-500)", lineHeight: 1.1, marginTop: 4 }}>
+              {myStanding.rank}{myStanding.rank !== "—" && <span style={{ fontSize: isMobile ? 17 : 22, color: "rgba(255,255,255,0.5)", verticalAlign: "super" }}>{getOrdinal(myStanding.rank)}</span>}
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>
               {myStanding.hpts !== "—" ? `${myStanding.hpts} H2H pts` : "—"} · {myStanding.fpts !== "—" ? `${myStanding.fpts} total fpts` : "—"}
@@ -315,8 +325,8 @@ function StatusScreen({ onTab }) {
             <span style={{ fontWeight: 700, letterSpacing: "-0.01em" }}>Your {getRoundName(myMatch.id)} · GW{myMatch.gw}</span>
             <span className="pill pill--gold">{getRoundPhase(myMatch.id)}</span>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", padding: "24px 28px", alignItems: "center", gap: 24 }}>
-            <div style={{ textAlign: "right" }}>
+          <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "1fr auto 1fr", padding: isMobile ? "18px 16px" : "24px 28px", alignItems: "center", gap: isMobile ? 12 : 24 }}>
+            <div style={{ textAlign: isMobile ? "center" : "right", minWidth: isMobile ? 0 : undefined }}>
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Seed #{mySeed}</div>
               <div className="h-display" style={{ fontSize: 22 }}>{myStanding ? myStanding.team : "My Team"}</div>
               <div className="muted" style={{ fontSize: 13 }}>{myStanding ? myStanding.displayName || myStanding.name : "Manager"} · {myStanding ? myStanding.fpts : 0} fpts</div>
@@ -326,7 +336,7 @@ function StatusScreen({ onTab }) {
               <div className="muted" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>{getRoundName(myMatch.id)}</div>
               <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>GW {myMatch.gw}</div>
             </div>
-            <div>
+            <div style={{ textAlign: isMobile ? "center" : undefined, minWidth: isMobile ? 0 : undefined }}>
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Seed #{myMatch.home === window.ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
               </div>
@@ -340,19 +350,21 @@ function StatusScreen({ onTab }) {
       {/* Top performer of GW3 */}
       <div className="card-dark">
         <div className="card-dark__title">GW{currentGw} Standout XI</div>
-        <div style={{ padding: 18, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
+        <div style={isMobile
+          ? { padding: 14, display: "flex", overflowX: "auto", WebkitOverflowScrolling: "touch", gap: 12 }
+          : { padding: 18, display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 12 }}>
           {[...(window.PLAYERS || PLAYERS || [])]
             .sort((a, b) => b.pts - a.pts)
             .slice(0, 5).length > 0 ? (
               [...(window.PLAYERS || PLAYERS || [])]
                 .sort((a, b) => b.pts - a.pts)
                 .slice(0, 5).map(p => (
-                  <div key={p.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6 }}>
+                  <div key={p.id} style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 6, flex: isMobile ? "0 0 auto" : undefined }}>
                     <PlayerSlot playerId={p.id} points={p.pts} mode="points" />
                   </div>
                 ))
             ) : (
-              <div style={{ gridColumn: "span 5", textAlign: "center", padding: 10, color: "rgba(255,255,255,0.45)" }}>
+              <div style={{ gridColumn: "span 5", textAlign: "center", padding: 10, color: "rgba(255,255,255,0.45)", flex: isMobile ? "1 0 100%" : undefined }}>
                 No performance data yet.
               </div>
             )}
@@ -365,6 +377,7 @@ function StatusScreen({ onTab }) {
 
 // ---------- POINTS (finished GW pitch) ----------
 function PointsScreen({ onTab }) {
+  const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
   // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP_GW3
   // from GET /leagues/{lid}/lineup/{gw}). For a FINISHED gw we instead render
@@ -449,31 +462,31 @@ function PointsScreen({ onTab }) {
 
   return (
     <div className="col" style={{ gap: 20 }}>
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-        <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: isMobile ? "wrap" : undefined, gap: isMobile ? 10 : undefined }}>
+        <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0, minWidth: isMobile ? 0 : undefined }}>
           Points · <span className="muted" style={{ fontWeight: 500 }}>{myTeamName}</span>
         </h2>
         <div className="row" style={{ gap: 6 }}>
-          <button className="btn btn--ghost-dark" style={{ padding: "8px 14px", fontSize: 12 }} disabled={viewingGw <= 1 || !setViewingGw} onClick={() => setViewingGw && setViewingGw(viewingGw - 1)}>← GW{viewingGw - 1}</button>
-          <button className="btn btn--ghost-dark" disabled={viewingGw >= currentGw || !setViewingGw} style={{ padding: "8px 14px", fontSize: 12 }} onClick={() => setViewingGw && setViewingGw(viewingGw + 1)}>GW{viewingGw + 1} →</button>
+          <button className="btn btn--ghost-dark" style={{ padding: isMobile ? "11px 14px" : "8px 14px", fontSize: 12, minHeight: isMobile ? 40 : undefined }} disabled={viewingGw <= 1 || !setViewingGw} onClick={() => setViewingGw && setViewingGw(viewingGw - 1)}>← GW{viewingGw - 1}</button>
+          <button className="btn btn--ghost-dark" disabled={viewingGw >= currentGw || !setViewingGw} style={{ padding: isMobile ? "11px 14px" : "8px 14px", fontSize: 12, minHeight: isMobile ? 40 : undefined }} onClick={() => setViewingGw && setViewingGw(viewingGw + 1)}>GW{viewingGw + 1} →</button>
         </div>
       </div>
 
-      <div className="card-dark" style={{ padding: 22 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: 16 }}>
+      <div className="card-dark" style={{ padding: isMobile ? 14 : 22 }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 18, gap: isMobile ? 12 : 16 }}>
           <div style={{ minWidth: 0 }}>
             <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>Gameweek {viewingGw}</div>
-            <div className="h-display" style={{ fontSize: 22, marginTop: 2 }}>{viewingGw < currentGw ? "Final Points" : "Live Points"}</div>
+            <div className="h-display" style={{ fontSize: isMobile ? 19 : 22, marginTop: 2 }}>{viewingGw < currentGw ? "Final Points" : "Live Points"}</div>
           </div>
-          <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", borderRadius: 12, padding: "12px 22px", textAlign: "center", flexShrink: 0 }}>
+          <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", borderRadius: 12, padding: isMobile ? "10px 16px" : "12px 22px", textAlign: "center", flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>{viewingGw < currentGw ? "FINAL POINTS" : "POINTS"}</div>
-            <div className="mono" style={{ fontSize: 38, fontWeight: 800, lineHeight: 1 }}>{totalPts}</div>
+            <div className="mono" style={{ fontSize: isMobile ? 32 : 38, fontWeight: 800, lineHeight: 1 }}>{totalPts}</div>
           </div>
         </div>
 
         <div style={{ display: "inline-flex", padding: 4, background: "rgba(0,0,0,0.25)", borderRadius: 999, marginBottom: 14 }}>
-          <button className={"btn " + (view === "pitch" ? "btn--primary" : "")} style={{ padding: "6px 18px", fontSize: 12, background: view === "pitch" ? undefined : "transparent", color: view === "pitch" ? undefined : "white" }} onClick={() => setView("pitch")}>Pitch View</button>
-          <button className={"btn " + (view === "list" ? "btn--primary" : "")} style={{ padding: "6px 18px", fontSize: 12, background: view === "list" ? undefined : "transparent", color: view === "list" ? undefined : "white" }} onClick={() => setView("list")}>List View</button>
+          <button className={"btn " + (view === "pitch" ? "btn--primary" : "")} style={{ padding: isMobile ? "11px 18px" : "6px 18px", fontSize: 12, minHeight: isMobile ? 40 : undefined, background: view === "pitch" ? undefined : "transparent", color: view === "pitch" ? undefined : "white" }} onClick={() => setView("pitch")}>Pitch View</button>
+          <button className={"btn " + (view === "list" ? "btn--primary" : "")} style={{ padding: isMobile ? "11px 18px" : "6px 18px", fontSize: 12, minHeight: isMobile ? 40 : undefined, background: view === "list" ? undefined : "transparent", color: view === "list" ? undefined : "white" }} onClick={() => setView("list")}>List View</button>
         </div>
 
         {view === "pitch" ? (
@@ -485,6 +498,7 @@ function PointsScreen({ onTab }) {
         {/* Auto-subs */}
         <div style={{ marginTop: 22, paddingTop: 18, borderTop: "1px solid var(--border-dark)" }}>
           <div className="h-display" style={{ fontSize: 16, marginBottom: 10 }}>Automatic Substitutions</div>
+          <div className="table-scroll">
           <table style={{ width: "100%", color: "white", fontSize: 13 }}>
             <thead>
               <tr style={{ color: "rgba(255,255,255,0.55)", fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>
@@ -506,6 +520,7 @@ function PointsScreen({ onTab }) {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       </div>
     </div>
@@ -515,6 +530,7 @@ function PointsScreen({ onTab }) {
 function PointsListView({ lineup, statsById = {} }) {
   const all = [...lineup.starting, ...lineup.bench];
   return (
+    <div className="table-scroll">
     <table className="table-clean table-dark">
       <thead>
         <tr>
@@ -557,12 +573,14 @@ function PointsListView({ lineup, statsById = {} }) {
         })}
       </tbody>
     </table>
+    </div>
   );
 }
 
 
 // ---------- PICK TEAM ----------
 function PickTeamScreen({ onTab, squadLoading }) {
+  const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [selected, setSelected] = React.useState(null);
@@ -715,21 +733,21 @@ function PickTeamScreen({ onTab, squadLoading }) {
         </div>
       )}
 
-      <div className="card-dark" style={{ padding: 18 }}>
+      <div className="card-dark" style={{ padding: isMobile ? 12 : 18 }}>
         {/* tabs */}
         <div style={{ display: "flex", justifyContent: "center", marginBottom: 12 }}>
           <div style={{ display: "inline-flex", padding: 4, background: "rgba(0,0,0,0.25)", borderRadius: 999 }}>
-            <button className={"btn " + (view === "pitch" ? "btn--primary" : "")} style={{ padding: "6px 18px", fontSize: 12, background: view === "pitch" ? undefined : "transparent", color: view === "pitch" ? undefined : "white" }} onClick={() => setView("pitch")}>Pitch View</button>
-            <button className={"btn " + (view === "list" ? "btn--primary" : "")} style={{ padding: "6px 18px", fontSize: 12, background: view === "list" ? undefined : "transparent", color: view === "list" ? undefined : "white" }} onClick={() => setView("list")}>List View</button>
+            <button className={"btn " + (view === "pitch" ? "btn--primary" : "")} style={{ padding: isMobile ? "11px 18px" : "6px 18px", fontSize: 12, minHeight: isMobile ? 40 : undefined, background: view === "pitch" ? undefined : "transparent", color: view === "pitch" ? undefined : "white" }} onClick={() => setView("pitch")}>Pitch View</button>
+            <button className={"btn " + (view === "list" ? "btn--primary" : "")} style={{ padding: isMobile ? "11px 18px" : "6px 18px", fontSize: 12, minHeight: isMobile ? 40 : undefined, background: view === "list" ? undefined : "transparent", color: view === "list" ? undefined : "white" }} onClick={() => setView("list")}>List View</button>
           </div>
         </div>
 
 
         <Pitch lineup={lineup} mode="pick" selected={selected} onPlayerClick={handlePlayerClick} />
 
-        <div style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
+        <div className="pickteam-savebar" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
-          <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: 200 }}>Save Lineup for GW{TOURNAMENT.currentGw}</button>
+          <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: isMobile ? 0 : 200, flex: isMobile ? 1 : undefined }}>Save Lineup for GW{TOURNAMENT.currentGw}</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining
