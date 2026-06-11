@@ -423,5 +423,26 @@ function useIsMobile() {
   return isMobile;
 }
 
+// ---------- Custom per-manager team flags (fun league flags) ----------
+// 600x400 normalized PNGs in /flags. Falls back to the member's nation flag
+// for any uid without a custom one (future joiners).
+const CUSTOM_TEAM_FLAGS = {
+  u_ilay: "flags/u_ilay.png",
+  u_netanel: "flags/u_netanel.png",
+  u_yuval: "flags/u_yuval.png",
+  u_roy: "flags/u_roy.png",
+  u_nadav: "flags/u_nadav.png",
+  u_shay: "flags/u_shay.png",
+};
+function ManagerFlag({ uid, size = "sm", fallback = null }) {
+  const src = CUSTOM_TEAM_FLAGS[uid];
+  if (!src) return fallback ? <Flag team={fallback} size={size} /> : null;
+  return (
+    <span className={"flag" + (size === "lg" ? " flag--lg" : "")} title="Team flag">
+      <img src={src} alt="team flag" />
+    </span>
+  );
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS });

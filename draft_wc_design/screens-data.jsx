@@ -454,7 +454,7 @@ function StandingsTable({ onTab }) {
                   </td>
                   <td>
                     <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                      <Flag team={t} size="lg" />
+                      <ManagerFlag uid={s.uid} size="lg" fallback={t} />
                       <div style={{ minWidth: 0, flex: 1, cursor: "pointer" }}
                         onClick={() => setSquadModal({ uid: s.uid, gw: viewGw })}
                         title={`View ${m.team}'s squad & GW${viewGw} points`}>
@@ -527,7 +527,7 @@ function ScheduleTable() {
                 <div key={i} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto minmax(0,1fr)" : "1fr 90px 1fr", gap: isMobile ? 6 : undefined, padding: isMobile ? "10px 12px" : "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
                   <div className="m-min0" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? 6 : 10, fontWeight: hasScore && aWin ? 700 : 500, fontSize: isMobile ? 13 : undefined }}>
                     <span className="m-truncate" style={nameStyle} onClick={() => setSquadModal({ uid: a, gw })}>{A.team}</span>
-                    <Flag team={aT} />
+                    <ManagerFlag uid={a} fallback={aT} />
                   </div>
                   <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: isMobile ? 14 : 16 }}>
                     <span style={{ color: hasScore && aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
@@ -535,7 +535,7 @@ function ScheduleTable() {
                     <span style={{ color: hasScore && !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
                   </div>
                   <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, fontWeight: !aWin ? 700 : 500, fontSize: isMobile ? 13 : undefined }}>
-                    <Flag team={bT} />
+                    <ManagerFlag uid={b} fallback={bT} />
                     <span className="m-truncate" style={nameStyle} onClick={() => setSquadModal({ uid: b, gw })}>{B.team}</span>
                   </div>
                 </div>
@@ -565,11 +565,11 @@ function ResultsTable() {
             <div key={i} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto minmax(0,1fr)" : "1fr auto 1fr", gap: isMobile ? 8 : 10, alignItems: "center" }}>
               <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
                 <span className="m-truncate" style={{ fontSize: 13, fontWeight: ap > bp ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: a, gw: 3 })}>{A.team}</span>
-                <Flag team={teamById(A.flag)} />
+                <ManagerFlag uid={a} fallback={teamById(A.flag)} />
               </div>
               <div className="mono" style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18 }}>{ap}–{bp}</div>
               <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Flag team={teamById(B.flag)} />
+                <ManagerFlag uid={b} fallback={teamById(B.flag)} />
                 <span className="m-truncate" style={{ fontSize: 13, fontWeight: bp > ap ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: b, gw: 3 })}>{B.team}</span>
               </div>
             </div>
@@ -811,7 +811,7 @@ function ManagerSquadModal({ uid, gw, onClose }) {
         <button className="modal__close" onClick={onClose}>×</button>
         <div style={{ padding: isMobile ? "20px 16px 12px" : "24px 24px 12px", borderBottom: "1px solid var(--border)" }}>
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Squad Breakdown · GW{gw}</div>
-          <div className="h-display" style={{ fontSize: 24, marginTop: 4 }}>{m?.team || "Squad"}</div>
+          <div className="h-display" style={{ fontSize: 24, marginTop: 4, display: "flex", alignItems: "center", gap: 10 }}><ManagerFlag uid={uid} size="lg" /> {m?.team || "Squad"}</div>
           <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{m?.name}</div>
           <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 10, background: "var(--navy-900)", color: "white", padding: "10px 16px", borderRadius: 10 }}>
             <span style={{ fontSize: 12, opacity: 0.7 }}>GW{gw} Total</span>
@@ -1011,7 +1011,7 @@ function ProposeTradeModal({ onClose }) {
                     style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--cream)", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "box-shadow 0.1s" }}
                     onMouseOver={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.10)"}
                     onMouseOut={e => e.currentTarget.style.boxShadow = "none"}>
-                    {t && <Flag team={t} />}
+                    <ManagerFlag uid={m.uid} fallback={t} />
                     <div>
                       <div style={{ fontWeight: 700 }}>{m.team}</div>
                       <div className="muted" style={{ fontSize: 12 }}>{m.name}</div>

@@ -277,7 +277,7 @@ function Sidebar({ onTab }) {
       {/* Identity card */}
       <div className="card-dark">
         <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-          <Flag team={myTeam} size="lg" />
+          <ManagerFlag uid={window.ME} size="lg" fallback={myTeam} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{me.name.replace(" (you)", "")}</div>
             <div className="muted" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{me.team}</div>
