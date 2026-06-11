@@ -1278,6 +1278,8 @@ function App() {
         {!isWide && <Sidebar onTab={setTab} />}
       </div>
 
+      <MobileNav tab={tab} onTab={setTab} />
+
       <PlayerStatsModal />
 
       <TweaksPanel>

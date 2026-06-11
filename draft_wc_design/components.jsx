@@ -409,5 +409,19 @@ function Stat({ label, value, accent, big }) {
   );
 }
 
+// ---------- useIsMobile (WP0 mobile layer) ----------
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(
+    () => window.matchMedia("(max-width: 768px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const fn = e => setIsMobile(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", fn) : mq.addListener(fn);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", fn) : mq.removeListener(fn); };
+  }, []);
+  return isMobile;
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile });
