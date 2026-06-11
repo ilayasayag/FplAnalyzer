@@ -220,7 +220,7 @@ function HistoryTab({ history, error }) {
     );
   }
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="table-scroll">
       <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
         <thead>
           <tr style={{ background: "var(--cream)" }}>
@@ -268,7 +268,7 @@ function FixturesTab({ fixtures }) {
   const diffColor = d => d >= 5 ? "var(--red-500)" : d >= 4 ? "var(--hot-500)" : d >= 3 ? "var(--gold-500)" : "var(--green-500)";
   const diffLabel = d => d >= 5 ? "Very Hard" : d >= 4 ? "Hard" : d >= 3 ? "Medium" : "Easy";
   return (
-    <div style={{ overflowX: "auto" }}>
+    <div className="table-scroll">
       <table className="table-clean" style={{ fontSize: 13, width: "100%" }}>
         <thead>
           <tr style={{ background: "var(--cream)" }}>

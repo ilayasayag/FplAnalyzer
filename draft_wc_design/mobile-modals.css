@@ -1,1 +1,67 @@
-/* mobile-modals.css — mobile-only overrides (WP0 placeholder; rules go inside @media (max-width: 768px)) */
+/* mobile-modals.css — mobile-only overrides for the player-stats modal,
+   Draft Room, Create-League and Config screens. Every rule lives inside
+   the max-width media query, so desktop (>768px) is untouched. */
+
+@media (max-width: 768px) {
+
+  /* ---------- Player stats modal ---------- */
+
+  /* Header: jersey + name + flags wrap instead of the rigid auto/1fr grid */
+  .player-modal__head {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    padding: 18px 16px 20px;
+    gap: 14px;
+  }
+  .player-modal__id { min-width: 0; flex: 1 1 220px; }
+  .player-modal__name { font-size: 24px; }
+  .player-modal__team { white-space: normal; }
+
+  /* Quick stats: 5-across -> 2-per-row (last card spans the full row) */
+  .player-modal__stats { grid-template-columns: repeat(2, 1fr); }
+  .player-modal__stat {
+    padding: 12px 10px;
+    border-bottom: 1px solid rgba(12, 10, 62, 0.10);
+  }
+  .player-modal__stat:nth-child(even) { border-right: none; }
+  .player-modal__stat:last-child { grid-column: 1 / -1; border-bottom: none; }
+
+  /* Points-Rank sections stack */
+  .player-modal__ict { grid-template-columns: 1fr; }
+  .player-modal__ict-section {
+    border-right: none;
+    border-bottom: 1px solid rgba(12, 10, 62, 0.10);
+  }
+  .player-modal__ict-section:last-child { border-bottom: none; }
+
+  .player-modal__tabs { padding: 0 8px; overflow-x: auto; }
+  .player-modal__tabs button { padding: 12px 14px; white-space: nowrap; }
+  .player-modal__body { padding: 8px 12px 18px; }
+
+  /* ---------- Draft Room: mobile panel switcher chips ---------- */
+  .draft-mobile-tabs { display: flex; gap: 8px; }
+  .draft-mobile-tabs button {
+    flex: 1;
+    min-height: 42px;
+    padding: 8px 4px;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.18);
+    background: rgba(255, 255, 255, 0.08);
+    color: white;
+    font-size: 12px;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    cursor: pointer;
+  }
+  .draft-mobile-tabs button.is-active {
+    background: var(--green-400);
+    border-color: transparent;
+    color: var(--navy-900);
+  }
+
+  /* ---------- Config screen: nothing may overflow the body ---------- */
+  .cfg-screen { overflow-x: hidden; }
+  .cfg-screen input,
+  .cfg-screen select { max-width: 100%; }
+}
