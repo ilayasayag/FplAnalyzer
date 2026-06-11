@@ -1,1 +1,101 @@
-/* mobile-screens-bracket.css — mobile-only overrides (WP0 placeholder; rules go inside @media (max-width: 768px)) */
+/* mobile-screens-bracket.css — mobile-only overrides for Transfers + Knockout screens.
+   All rules live inside @media (max-width: 768px) EXCEPT the .bracket-scroll
+   container itself (overflow has no visual effect on desktop, where the bracket
+   fits its container — no scrollbar appears). */
+
+/* Knockout bracket horizontal scroller (class added in screens-bracket.jsx) */
+.bracket-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  /* ---------- shared ---------- */
+  /* Screen headers (title + pill) wrap instead of squeezing */
+  .screen-head { flex-wrap: wrap; row-gap: 8px; }
+
+  /* Tap targets inside horizontally-scrolled tables (pick up / wishlist /
+     reorder / confirm buttons) */
+  .table-scroll .btn { min-height: 40px; }
+  .table-scroll .pill { font-size: 11px !important; }
+
+  /* ---------- Knockout bracket ---------- */
+  /* The bracket keeps its desktop layout inside the scroller; round labels
+     (.bracket__col-head) sit at the top of each column and scroll with it. */
+  .bracket-scroll .bracket { min-width: 880px; }
+
+  /* "Your Path to Glory" cards: stack to one column */
+  .path-grid { grid-template-columns: 1fr !important; }
+
+  /* Auction replay modal rows: manager name above the in/out chips */
+  .auction-row { grid-template-columns: 1fr !important; gap: 6px !important; }
+
+  /* ---------- Transfers: window banner ---------- */
+  /* Banner: text block above the stat chips instead of side-by-side */
+  .transfers-banner__grid { grid-template-columns: 1fr !important; gap: 14px !important; }
+
+  /* Stat chips: 2-col grid, "Run wishlist" button full-width below */
+  .transfers-banner__stats {
+    display: grid !important;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px !important;
+    width: 100%;
+  }
+  .transfers-banner__stats > div { min-width: 0 !important; }
+  .transfers-banner__stats > button { grid-column: 1 / -1; width: 100%; min-height: 44px; }
+  .stat-block__label { font-size: 11px !important; }
+
+  /* Admin "switch window" segmented buttons: stacked, full-width, tappable */
+  .transfers-window-switch { flex-direction: column; align-items: stretch; }
+  .transfers-window-switch button { width: 100%; min-height: 48px; }
+  .transfers-window-switch button span { font-size: 11px !important; }
+
+  /* ---------- Transfers: sub-tab row ---------- */
+  /* Horizontally scrollable chips — no wrapping */
+  .transfers-tabs {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
+  }
+  .transfers-tabs .btn { white-space: nowrap; flex: 0 0 auto; min-height: 40px; }
+
+  /* ---------- Free Agents tab ---------- */
+  /* Search input takes the full row; all filter controls are tappable */
+  .fa-filters input { flex: 1 1 100% !important; width: 100%; min-height: 40px; }
+  .fa-filters select { min-height: 40px; }
+  .fa-filters .btn { min-height: 40px; }
+
+  /* Inline pickup flow (drop-select + confirm/cancel): stack vertically */
+  .fa-pickup {
+    flex-direction: column !important;
+    align-items: stretch !important;
+    justify-content: flex-start !important;
+    min-width: 180px;
+  }
+  .fa-pickup select { width: 100% !important; min-height: 40px; }
+  .fa-pickup .btn { min-height: 40px; }
+
+  /* ---------- Wishlist tab ---------- */
+  /* Bid row in/out chips: stack (the ↔ separator is hidden when stacked) */
+  .wishlist-swap { grid-template-columns: 1fr !important; gap: 6px !important; }
+  .wishlist-swap > span.h-display { display: none; }
+
+  /* Add-bid form: stack the two selects full-width, hide the ↔ between them */
+  .wishlist-add { flex-direction: column !important; align-items: stretch !important; }
+  .wishlist-add select { width: 100% !important; min-height: 44px; }
+  .wishlist-add > span.h-display { display: none; }
+
+  /* ---------- My Squad tab ---------- */
+  /* Player rows: drop the fixed 100px columns, let the name column shrink */
+  .squad-row {
+    grid-template-columns: auto minmax(0, 1fr) auto auto !important;
+    gap: 8px !important;
+    padding-left: 12px !important;
+    padding-right: 12px !important;
+  }
+  .squad-row .btn { min-height: 40px; }
+  .squad-row .pill { font-size: 11px !important; }
+
+  /* ---------- History tab ---------- */
+  .history-badge { font-size: 11px !important; }
+}

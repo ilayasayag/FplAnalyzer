@@ -10,7 +10,7 @@ function BracketScreen({ onTab }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+      <div className="screen-head" style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
         <div>
           <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Knockout Bracket</h2>
           <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{LEAGUE.name} · {LEAGUE.inviteCode ? `${LEAGUE.knockoutQualifiers} qualifiers` : "—"} · {hasQf ? "QF → SF → Final" : "SF → Final"}</div>
@@ -28,6 +28,7 @@ function BracketScreen({ onTab }) {
         </div>
       </div>
 
+      <div className="bracket-scroll">
       <div className="bracket" style={{ gridTemplateColumns: gridColumns }}>
         {/* QF column */}
         {hasQf && (
@@ -93,6 +94,7 @@ function BracketScreen({ onTab }) {
             <div style={{ fontSize: 11, marginTop: 6, opacity: 0.75 }}>Decided Jul 18–19</div>
           </div>
         </div>
+      </div>
       </div>
 
       {/* Path to glory */}
@@ -168,7 +170,7 @@ function BracketScreen({ onTab }) {
           }
 
           return (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(" + pathItems.length + ", 1fr)", gap: 12 }}>
+            <div className="path-grid" style={{ display: "grid", gridTemplateColumns: "repeat(" + pathItems.length + ", 1fr)", gap: 12 }}>
               {pathItems.map((r, i) => (
                 <div key={i} style={{ padding: "14px 16px", border: "1px solid var(--border)", borderRadius: 8, background: i === 0 ? "rgba(255,200,68,0.10)" : "var(--cream)", borderColor: i === 0 ? "var(--gold-500)" : "var(--border)" }}>
                   <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>{r.round} · GW{r.gw}</div>
@@ -285,7 +287,7 @@ function AuctionViz({ result, onClose }) {
             <div style={{ color: "rgba(255,255,255,0.6)", fontSize: 13 }}>No bids were submitted this round.</div>
           )}
           {items.slice(0, revealed).map((it, i) => (
-            <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center",
+            <div key={i} className="auction-row" style={{ display: "grid", gridTemplateColumns: "120px 1fr", gap: 12, alignItems: "center",
               padding: "11px 13px", borderRadius: 10,
               background: it.ok ? "rgba(255,255,255,0.06)" : "rgba(230,57,70,0.08)",
               border: "1px solid " + (it.ok ? "rgba(255,255,255,0.08)" : "rgba(230,57,70,0.25)"),
@@ -395,7 +397,7 @@ function TransfersScreen() {
           background: "linear-gradient(94deg, #1d1864 0%, #4a1ba8 50%, #ff3e6c 100%)",
           padding: "20px 24px",
         }}>
-          <div style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20 }}>
+          <div className="transfers-banner__grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20 }}>
             <div>
               <div className="pill pill--gold" style={{ marginBottom: 8 }}>⏳ WINDOW {activeWindow.number || activeWindow.windowNumber || "—"}</div>
               <div className="h-display" style={{ fontSize: 22, color: "white", marginBottom: 4 }}>
@@ -405,7 +407,7 @@ function TransfersScreen() {
                 Window closes <strong>{activeWindow.closesAt || "—"}</strong> · {activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining
               </div>
             </div>
-            <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+            <div className="transfers-banner__stats" style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value="∞" />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
               <button className="btn" disabled={runningMock || !amLeagueAdmin} onClick={runMockWishlist}
@@ -424,7 +426,7 @@ function TransfersScreen() {
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>
             {amLeagueAdmin ? "Switch window (league admin)" : "Current window"}
           </div>
-          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          <div className="transfers-window-switch" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
               ["trade", "Trade", "manager trades + wishlist"],
               ["free_agents", "Free agents", "instant pickups + wishlist"],
@@ -451,7 +453,7 @@ function TransfersScreen() {
       </div>
 
       {/* Tabs */}
-      <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
+      <div className="card transfers-tabs" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
         {[
           ["free",    "Free Agents"],
           ["wishlist", `Wishlist (${(window.MY_WISHLIST_BIDS || []).length})`],
@@ -479,7 +481,7 @@ function TransfersScreen() {
 function StatBlock({ label, value, accent }) {
   return (
     <div style={{ background: "rgba(0,0,0,0.25)", padding: "10px 18px", borderRadius: 10, textAlign: "center", minWidth: 110 }}>
-      <div style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</div>
+      <div className="stat-block__label" style={{ fontSize: 10, fontWeight: 700, color: "rgba(255,255,255,0.6)", letterSpacing: "0.08em", textTransform: "uppercase", whiteSpace: "nowrap" }}>{label}</div>
       <div className="mono" style={{ fontSize: 22, fontWeight: 800, color: accent || "white", lineHeight: 1.1, whiteSpace: "nowrap" }}>{value}</div>
     </div>
   );
@@ -608,7 +610,7 @@ function FreeAgentsTab() {
             ))}
           </div>
         </div>
-        <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
+        <div className="fa-filters" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or club…"
             style={{ flex: "1 1 200px", minWidth: 160, padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" }} />
           <select value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={selStyle}>
@@ -638,6 +640,7 @@ function FreeAgentsTab() {
           )}
         </div>
       </div>
+      <div className="table-scroll">
       <table className="table-clean">
         <thead>
           <tr>
@@ -689,7 +692,7 @@ function FreeAgentsTab() {
                   {owner ? (
                     <span className="muted" style={{ fontSize: 11 }}>Owned</span>
                   ) : isPicking ? (
-                    <div className="row" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
+                    <div className="row fa-pickup" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                       <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
                         <option value="">{faOpen ? "-- Drop player --" : "-- Swap out --"}</option>
                         {eligibleDrops.map(s => (
@@ -710,6 +713,7 @@ function FreeAgentsTab() {
           })}
         </tbody>
       </table>
+      </div>
     </div>
   );
 }
@@ -797,6 +801,7 @@ function WishlistTab() {
       </div>
 
       <div className="card">
+        <div className="table-scroll">
         <table className="table-clean">
           <thead>
             <tr>
@@ -818,7 +823,7 @@ function WishlistTab() {
                 <tr key={`${b.playerIn}_${b.playerOut}`}>
                   <td className="num" style={{ fontWeight: 800, fontSize: 16 }}>#{i + 1}</td>
                   <td>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center", maxWidth: 500 }}>
+                    <div className="wishlist-swap" style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center", maxWidth: 500 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
                         <Flag team={tIn} />
                         <div>
@@ -848,10 +853,11 @@ function WishlistTab() {
             })}
           </tbody>
         </table>
+        </div>
 
         {adding ? (
           <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
-            <div style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
+            <div className="wishlist-add" style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
               <div className="col">
                 <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DROP PLAYER</span>
                 <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={dropId} onChange={e => { setDropId(e.target.value); setClaimId(""); }}>
@@ -924,7 +930,7 @@ function MySquadTab() {
             const t = teamById(p.team);
             const isElim = p.elim || t?.elim;
             return (
-              <div key={p.id} style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
+              <div key={p.id} className="squad-row" style={{ display: "grid", gridTemplateColumns: "auto 1fr 100px 100px", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", gap: 12, opacity: isElim ? 0.7 : 1 }}>
                 <div style={{ width: 32, height: 32 }}><Jersey team={t} pos={p.pos} /></div>
                 <div>
                   <div style={{ fontWeight: 700, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", display: "inline" }}
@@ -1041,7 +1047,7 @@ function TransferHistoryTab() {
             {/* Manager↔manager trades */}
             {gwTrades.map((t, i) => (
               <div key={`t${i}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 16px", borderTop: "1px solid var(--border)", background: "rgba(46,91,255,0.04)" }}>
-                <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#2e5bff", background: "rgba(46,91,255,0.12)", padding: "3px 7px", borderRadius: 6 }}>TRADE</span>
+                <span className="history-badge" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#2e5bff", background: "rgba(46,91,255,0.12)", padding: "3px 7px", borderRadius: 6 }}>TRADE</span>
                 <strong style={{ fontSize: 13 }}>{mgr(t.proposerUid)}</strong>
                 {tradePids(t.proposerPlayers).map((id, k) => <span key={`p${k}`}>{chip(pl(id), "out")}</span>)}
                 <span style={{ color: "var(--ink-400)" }}>↔</span>
@@ -1075,7 +1081,7 @@ function TransferHistoryTab() {
               const pOut = m.playerOut != null ? pl(m.playerOut) : null;
               return (
                 <div key={`fa${i}`} style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", padding: "10px 16px", borderTop: "1px solid var(--border)", background: "rgba(0,168,67,0.04)" }}>
-                  <span style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#0a7d3c", background: "rgba(0,168,67,0.12)", padding: "3px 7px", borderRadius: 6 }}>FREE AGENT</span>
+                  <span className="history-badge" style={{ fontSize: 10, fontWeight: 800, letterSpacing: "0.06em", color: "#0a7d3c", background: "rgba(0,168,67,0.12)", padding: "3px 7px", borderRadius: 6 }}>FREE AGENT</span>
                   <strong style={{ fontSize: 13, minWidth: 90 }}>{mgr(m.uid)}</strong>
                   {pIn && chip(pIn, "in")}
                   {pIn && pOut && <span style={{ color: "var(--ink-400)" }}>↔</span>}
