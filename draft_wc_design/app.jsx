@@ -6,7 +6,6 @@ const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
   "leagueSize": 7,
   "gwPhase": "knockout",
   "themeAccent": "wc",
-  "showElimToast": true,
   "compactMode": false
 }/*EDITMODE-END*/;
 
@@ -238,7 +237,6 @@ function TweakDraftSimulator({ lid }) {
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
-  const [toastDismissed, setToastDismissed] = React.useState(false);
 
   // Auth States
   const [user, setUser] = React.useState(null);
@@ -1106,8 +1104,6 @@ function App() {
     document.documentElement.style.setProperty("--grad-pill-active", theme.pill);
   }, [t.themeAccent]);
 
-  // Mock notification banner
-  const showElim = t.showElimToast && !toastDismissed && (tab === "status" || tab === "pickteam");
 
   const renderScreen = () => {
     switch (tab) {
@@ -1263,15 +1259,6 @@ function App() {
       <Hero tab={tab} />
       <SubNav tab={tab} onTab={setTab} />
 
-      {showElim && (
-        <div style={{ background: "linear-gradient(94deg, #c52836, #ff3e6c)", color: "white", padding: "10px 32px", display: "flex", justifyContent: "space-between", alignItems: "center", fontSize: 13, fontWeight: 600 }}>
-          <span><strong>⚠ Group stage final:</strong> Italy, Morocco, Poland & 13 others eliminated. 3 of your players are dead. Open the transfer window before GW4 lock.</span>
-          <div className="row" style={{ gap: 10 }}>
-            <button className="btn btn--primary" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => setTab("transfers")}>Open transfers</button>
-            <button onClick={() => setToastDismissed(true)} style={{ color: "white", padding: "2px 8px", fontSize: 18, opacity: 0.7 }}>×</button>
-          </div>
-        </div>
-      )}
 
       <div className={"page " + (isWide ? "page--wide" : "")}>
         <main>{renderScreen()}</main>
@@ -1305,8 +1292,6 @@ function App() {
           onChange={v => setTweak('themeAccent', v)} />
 
         <TweakSection label="Behaviour" />
-        <TweakToggle label="Show elim banner" value={t.showElimToast}
-          onChange={v => { setTweak('showElimToast', v); setToastDismissed(false); }} />
 
         <TweakSection label="Database Sync" />
         <TweakToggle label="Connect to Prod DB" value={localStorage.getItem("firebase_use_prod") === "true"}
