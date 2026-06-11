@@ -328,7 +328,7 @@ function StatusScreen({ onTab }) {
           <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr)" : "1fr auto 1fr", padding: isMobile ? "18px 16px" : "24px 28px", alignItems: "center", gap: isMobile ? 12 : 24 }}>
             <div style={{ textAlign: isMobile ? "center" : "right", minWidth: isMobile ? 0 : undefined }}>
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Seed #{mySeed}</div>
-              <div className="h-display" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 8, justifyContent: isMobile ? "center" : "flex-end" }}>{myStanding ? myStanding.team : "My Team"} <ManagerFlag uid={window.ME} /></div>
+              <div className="h-display" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 8, justifyContent: isMobile ? "center" : "flex-end" }}>{myStanding ? myStanding.team : "My Team"} <ManagerFlag uid={window.ME} size="lg" /></div>
               <div className="muted" style={{ fontSize: 13 }}>{myStanding ? myStanding.displayName || myStanding.name : "Manager"} · {myStanding ? myStanding.fpts : 0} fpts</div>
             </div>
             <div style={{ textAlign: "center" }}>
@@ -340,7 +340,7 @@ function StatusScreen({ onTab }) {
               <div style={{ fontSize: 11, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
                 Seed #{myMatch.home === window.ME ? (myMatch.seedAway ?? myMatch.awaySeed ?? "?") : (myMatch.seedHome ?? myMatch.homeSeed ?? "?")}
               </div>
-              <div className="h-display" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 8, justifyContent: isMobile ? "center" : "flex-start" }}>{myOpponent && myOpponent.uid && <ManagerFlag uid={myOpponent.uid} />}{myOpponent ? myOpponent.team : "TBD"}</div>
+              <div className="h-display" style={{ fontSize: 22, display: "flex", alignItems: "center", gap: 8, justifyContent: isMobile ? "center" : "flex-start" }}>{myOpponent && myOpponent.uid && <ManagerFlag uid={myOpponent.uid} size="lg" />}{myOpponent ? myOpponent.team : "TBD"}</div>
               <div className="muted" style={{ fontSize: 13 }}>{myOpponent ? myOpponent.name : "Awaiting Seeding"}</div>
             </div>
           </div>

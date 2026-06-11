@@ -434,13 +434,18 @@ const CUSTOM_TEAM_FLAGS = {
   u_nadav: "flags/u_nadav.png",
   u_shay: "flags/u_shay.png",
 };
-function ManagerFlag({ uid, size = "sm", fallback = null }) {
+// size: sm 22x14 · lg 32x22 · xl 66x44 (page headers) · hero 144x96 (modals)
+const MANAGER_FLAG_SIZES = {
+  xl:   { width: 66,  height: 44, borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.18)" },
+  hero: { width: 144, height: 96, borderRadius: 10, boxShadow: "0 3px 12px rgba(0,0,0,0.22)" },
+};
+function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
   const src = CUSTOM_TEAM_FLAGS[uid];
-  if (!src) return fallback ? <Flag team={fallback} size={size === "xl" ? "lg" : size} /> : null;
-  const xl = size === "xl";
+  if (!src) return fallback ? <Flag team={fallback} size={MANAGER_FLAG_SIZES[size] ? "lg" : size} /> : null;
+  const big = MANAGER_FLAG_SIZES[size];
   return (
-    <span className={"flag" + (size === "lg" || xl ? " flag--lg" : "")}
-          style={xl ? { width: 66, height: 44, borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.18)" } : undefined}
+    <span className={"flag" + (size !== "sm" ? " flag--lg" : "")}
+          style={big ? { ...big, ...(style || {}) } : (style || undefined)}
           title="Team flag">
       <img src={src} alt="team flag" />
     </span>
