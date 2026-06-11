@@ -464,7 +464,7 @@ function PointsScreen({ onTab }) {
     <div className="col" style={{ gap: 20 }}>
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: isMobile ? "wrap" : undefined, gap: isMobile ? 10 : undefined }}>
         <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0, minWidth: isMobile ? 0 : undefined, display: "flex", alignItems: "center", gap: 10 }}>
-          <ManagerFlag uid={window.ME} size="lg" /> Points · <span className="muted" style={{ fontWeight: 500 }}>{myTeamName}</span>
+          <ManagerFlag uid={window.ME} size="xl" /> Points · <span className="muted" style={{ fontWeight: 500 }}>{myTeamName}</span>
         </h2>
         <div className="row" style={{ gap: 6 }}>
           <button className="btn btn--ghost-dark" style={{ padding: isMobile ? "11px 14px" : "8px 14px", fontSize: 12, minHeight: isMobile ? 40 : undefined }} disabled={viewingGw <= 1 || !setViewingGw} onClick={() => setViewingGw && setViewingGw(viewingGw - 1)}>← GW{viewingGw - 1}</button>
@@ -717,7 +717,7 @@ function PickTeamScreen({ onTab, squadLoading }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <h2 className="h-display" style={{ fontSize: 26, margin: 0, display: "flex", alignItems: "center", gap: 10 }}><ManagerFlag uid={window.ME} size="lg" /> My Team</h2>
+      <h2 className="h-display" style={{ fontSize: 26, margin: 0, display: "flex", alignItems: "center", gap: 12 }}><ManagerFlag uid={window.ME} size="xl" /> My Team</h2>
 
       {elimStarting.length > 0 && (
         <div className="alert alert--danger">

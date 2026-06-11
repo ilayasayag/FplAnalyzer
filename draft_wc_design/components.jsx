@@ -436,9 +436,12 @@ const CUSTOM_TEAM_FLAGS = {
 };
 function ManagerFlag({ uid, size = "sm", fallback = null }) {
   const src = CUSTOM_TEAM_FLAGS[uid];
-  if (!src) return fallback ? <Flag team={fallback} size={size} /> : null;
+  if (!src) return fallback ? <Flag team={fallback} size={size === "xl" ? "lg" : size} /> : null;
+  const xl = size === "xl";
   return (
-    <span className={"flag" + (size === "lg" ? " flag--lg" : "")} title="Team flag">
+    <span className={"flag" + (size === "lg" || xl ? " flag--lg" : "")}
+          style={xl ? { width: 66, height: 44, borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.18)" } : undefined}
+          title="Team flag">
       <img src={src} alt="team flag" />
     </span>
   );
