@@ -1,0 +1,22 @@
+name: WC Live Scores
+# Free remote scheduler (public repo = unlimited Actions minutes, no LLM cost).
+# Pings the secret-gated cron endpoint; the Cloud Function fetches FIFA + ESPN
+# and writes live points/breakdowns. (WhoScored DefCon needs a residential IP —
+# the local launchd agent enriches that when the Mac is awake; this FIFA pass
+# preserves any DefCon already computed.)
+on:
+  schedule:
+    # every 10 min during WC match windows (UTC ~15:00–04:00 covers all kickoffs + 1h after)
+    - cron: '*/10 15-23 * * *'
+    - cron: '*/10 0-4 * * *'
+  workflow_dispatch: {}   # allow manual runs from the Actions tab
+jobs:
+  ingest:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger live-score ingestion
+        run: |
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" -m 180 -X POST \
+            "https://fpl-analyzer-792eb.web.app/api/v1/wc/cron/ingest-live-scores?key=${{ secrets.WC_CRON_KEY }}")
+          echo "HTTP $code"; cat /tmp/out.json; echo
+          test "$code" = "200"

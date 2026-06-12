@@ -3,6 +3,7 @@
 // =====================================================================
 
 function ConfigScreen({ onTab }) {
+  const isMobile = useIsMobile();
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState(null); // { type: 'success'|'error', text: '' }
@@ -262,10 +263,10 @@ function ConfigScreen({ onTab }) {
   }
 
   return (
-    <div style={{ maxWidth: 1080, margin: "0 auto", padding: "0 20px 40px" }}>
-      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 28 }}>
+    <div className="cfg-screen" style={{ maxWidth: 1080, margin: "0 auto", padding: isMobile ? "0 0 40px" : "0 20px 40px" }}>
+      <div className="row" style={{ justifyContent: "space-between", alignItems: "center", marginBottom: 28, ...(isMobile ? { flexWrap: "wrap", gap: 12 } : {}) }}>
         <div>
-          <h2 className="h-display" style={{ fontSize: 32, margin: 0 }}>System Rules Config</h2>
+          <h2 className="h-display" style={{ fontSize: isMobile ? 24 : 32, margin: 0 }}>System Rules Config</h2>
           <p className="muted" style={{ fontSize: 13, marginTop: 4 }}>Configure scoring tables, positional quotas, dynamic promotion criteria, and hybrid layouts.</p>
         </div>
         <button
@@ -395,7 +396,7 @@ function ConfigScreen({ onTab }) {
         </div>
 
         {/* Section 2: Squad Positional Limits & optimal sizes */}
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 24 }}>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 24 }}>
           
           <div className="card-dark" style={{ padding: 24, borderRadius: 16 }}>
             <div style={{ borderBottom: "1px solid rgba(255,255,255,0.08)", paddingBottom: 12, marginBottom: 20 }}>

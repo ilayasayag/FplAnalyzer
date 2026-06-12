@@ -190,6 +190,69 @@ function SubNav({ tab, onTab }) {
   );
 }
 
+// ---------- MobileNav (bottom tab bar, mobile only) ----------
+const MOBILE_PRIMARY_TABS = [
+  { id: "status",    icon: "⚡" },
+  { id: "points",    icon: "📊" },
+  { id: "pickteam",  icon: "⚽" },
+  { id: "transfers", icon: "🔁" },
+];
+
+function MobileNav({ tab, onTab }) {
+  const isMobile = useIsMobile();
+  const [moreOpen, setMoreOpen] = React.useState(false);
+  if (!isMobile) return null;
+
+  const primaryIds = MOBILE_PRIMARY_TABS.map(t => t.id);
+  const moreTabs = TABS.filter(t =>
+    !primaryIds.includes(t.id) && (t.id !== "config" || window.IS_ADMIN)
+  );
+  const moreActive = moreTabs.some(t => t.id === tab);
+
+  const pick = (id) => { onTab(id); setMoreOpen(false); };
+
+  return (
+    <React.Fragment>
+      {moreOpen && <div className="mobilenav-backdrop" onClick={() => setMoreOpen(false)} />}
+      {moreOpen && (
+        <div className="mobilenav-sheet">
+          {moreTabs.map(t => (
+            <button
+              key={t.id}
+              className={"mobilenav-sheet__item " + (tab === t.id ? "is-active" : "")}
+              onClick={() => pick(t.id)}
+            >
+              {t.label}
+            </button>
+          ))}
+        </div>
+      )}
+      <nav className="mobilenav">
+        {MOBILE_PRIMARY_TABS.map(t => {
+          const meta = TABS.find(x => x.id === t.id) || { label: t.id };
+          return (
+            <button
+              key={t.id}
+              className={"mobilenav__slot " + (tab === t.id && !moreOpen ? "is-active" : "")}
+              onClick={() => pick(t.id)}
+            >
+              <span className="mobilenav__icon">{t.icon}</span>
+              <span className="mobilenav__label">{meta.label}</span>
+            </button>
+          );
+        })}
+        <button
+          className={"mobilenav__slot " + (moreOpen || moreActive ? "is-active" : "")}
+          onClick={() => setMoreOpen(o => !o)}
+        >
+          <span className="mobilenav__icon">☰</span>
+          <span className="mobilenav__label">More</span>
+        </button>
+      </nav>
+    </React.Fragment>
+  );
+}
+
 // ---------- Sidebar (right) ----------
 function Sidebar({ onTab }) {
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
@@ -214,7 +277,7 @@ function Sidebar({ onTab }) {
       {/* Identity card */}
       <div className="card-dark">
         <div style={{ padding: "16px 18px", display: "flex", alignItems: "center", gap: 12 }}>
-          <Flag team={myTeam} size="lg" />
+          <ManagerFlag uid={window.ME} size="xl" fallback={myTeam} />
           <div>
             <div style={{ fontWeight: 700, fontSize: 15 }}>{me.name.replace(" (you)", "")}</div>
             <div className="muted" style={{ color: "rgba(255,255,255,0.65)", fontSize: 12 }}>{me.team}</div>
@@ -287,4 +350,4 @@ function Sidebar({ onTab }) {
   );
 }
 
-Object.assign(window, { TABS, TopBar, Hero, SubNav, Sidebar });
+Object.assign(window, { TABS, TopBar, Hero, SubNav, Sidebar, MobileNav });

@@ -10,6 +10,7 @@ function PlayerBrowserScreen() {
   const [nation, setNation] = React.useState("all");
   const [owned, setOwned] = React.useState("all");
   const [sort, setSort] = React.useState("pts");
+  const isMobile = useIsMobile();
 
   // Squad ownership map: playerId -> owning manager uid, across ALL managers.
   // app.jsx preloads window.SQUADS_BY_UID from the per-manager squad endpoint;
@@ -58,8 +59,8 @@ function PlayerBrowserScreen() {
 
       {/* Filters */}
       <div className="card-dark" style={{ padding: 18 }}>
-        <div style={{ display: "grid", gridTemplateColumns: "1fr 110px 130px 150px 150px 120px", gap: 12 }}>
-          <div>
+        <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr 1fr" : "1fr 110px 130px 150px 150px 120px", gap: 12 }}>
+          <div style={isMobile ? { gridColumn: "1 / -1" } : undefined}>
             <div style={{ fontSize: 11, fontWeight: 700, opacity: 0.7, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Search</div>
             <input
               type="text"
@@ -85,7 +86,7 @@ function PlayerBrowserScreen() {
             ["pts", "Points"], ["dr", "Draft rank"], ["name", "Name A→Z"]
           ]} />
         </div>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14, fontSize: 12, color: "rgba(255,255,255,0.7)", flexWrap: isMobile ? "wrap" : undefined, gap: isMobile ? 8 : undefined }}>
           <span>
             <span className="mono" style={{ fontWeight: 800, color: "var(--green-400)" }}>{filtered.length}</span> players shown
             <span style={{ opacity: 0.6 }}> · </span>
@@ -100,12 +101,12 @@ function PlayerBrowserScreen() {
       </div>
 
       {/* Group flag bands */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(12, 1fr)", gap: 4, marginBottom: 4 }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "repeat(6, 1fr)" : "repeat(12, 1fr)", gap: 4, marginBottom: 4 }}>
         {["A","B","C","D","E","F","G","H","I","J","K","L"].map(g => (
           <button key={g}
             onClick={() => setGrp(grp === g ? "all" : g)}
             style={{
-              padding: "8px 0", borderRadius: 6, fontSize: 11, fontWeight: 800,
+              padding: isMobile ? "12px 0" : "8px 0", borderRadius: 6, fontSize: 11, fontWeight: 800,
               background: `var(--grp-${g})`,
               color: ["B","C","D","E","F"].includes(g) ? "var(--navy-900)" : "white",
               opacity: grp === "all" || grp === g ? 1 : 0.35,
@@ -117,6 +118,7 @@ function PlayerBrowserScreen() {
       </div>
 
       <div className="card" style={{ overflow: "hidden" }}>
+        <div className="table-scroll">
         <table className="table-clean">
           <thead>
             <tr>
@@ -144,7 +146,7 @@ function PlayerBrowserScreen() {
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 700, opacity: isElim ? 0.5 : 1, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline" }}
                           onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
-                        {isElim && <div style={{ fontSize: 10, color: "var(--red-500)", fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>OUT · ELIMINATED</div>}
+                        {isElim && <div style={{ fontSize: isMobile ? 11 : 10, color: "var(--red-500)", fontWeight: 700, letterSpacing: "0.06em", whiteSpace: "nowrap" }}>OUT · ELIMINATED</div>}
                       </div>
                     </div>
                   </td>
@@ -154,7 +156,7 @@ function PlayerBrowserScreen() {
                     </span>
                   </td>
                   <td><GroupChip group={t.grp} /></td>
-                  <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
+                  <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: isMobile ? 11 : 10 }}>{POS_NAMES[p.pos]}</span></td>
                   <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
                   <td style={{ fontSize: 12 }}>
                     {owner ? (
@@ -178,6 +180,7 @@ function PlayerBrowserScreen() {
             })}
           </tbody>
         </table>
+        </div>
         {filtered.length > 30 && (
           <div style={{ textAlign: "center", padding: 14, borderTop: "1px solid var(--border)" }}>
             <button className="btn btn--ghost-dark">Load more ({filtered.length - 30} more)</button>
@@ -242,6 +245,7 @@ function FixturesScreen() {
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
   const [fetched, setFetched] = React.useState(null); // null = not loaded yet
   const [loading, setLoading] = React.useState(false);
+  const isMobile = useIsMobile();
   const round = TOURNAMENT.gwDates[gw];
 
   React.useEffect(() => {
@@ -275,16 +279,16 @@ function FixturesScreen() {
       <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Fixtures</h2>
 
       <div className="card-dark" style={{ overflow: "hidden" }}>
-        <div style={{ background: "var(--grad-pill-active)", padding: "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12, background: "rgba(0,0,0,0.10)", border: "1px solid rgba(0,0,0,0.15)" }} onClick={() => setGw(g => Math.max(1, g - 1))}>← GW{gw - 1}</button>
-          <div style={{ textAlign: "center", color: "var(--navy-900)" }}>
-            <div className="h-display" style={{ fontSize: 18 }}>Gameweek {gw}</div>
-            <div style={{ fontSize: 12, fontWeight: 600 }}>{round.wcRound} · {round.start} – {round.end}</div>
+        <div style={{ background: "var(--grad-pill-active)", padding: isMobile ? "10px 12px" : "12px 20px", display: "flex", alignItems: "center", justifyContent: "space-between", gap: isMobile ? 8 : undefined }}>
+          <button className="btn btn--ghost-dark" style={{ padding: isMobile ? "6px 8px" : "6px 12px", fontSize: isMobile ? 11 : 12, background: "rgba(0,0,0,0.10)", border: "1px solid rgba(0,0,0,0.15)", flexShrink: isMobile ? 0 : undefined }} onClick={() => setGw(g => Math.max(1, g - 1))}>← GW{gw - 1}</button>
+          <div className="m-min0" style={{ textAlign: "center", color: "var(--navy-900)" }}>
+            <div className="h-display" style={{ fontSize: isMobile ? 15 : 18 }}>Gameweek {gw}</div>
+            <div style={{ fontSize: isMobile ? 11 : 12, fontWeight: 600 }}>{round.wcRound} · {round.start} – {round.end}</div>
           </div>
-          <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12, background: "rgba(0,0,0,0.10)", border: "1px solid rgba(0,0,0,0.15)" }} onClick={() => setGw(g => Math.min(8, g + 1))} disabled={gw >= 8}>GW{gw + 1} →</button>
+          <button className="btn btn--ghost-dark" style={{ padding: isMobile ? "6px 8px" : "6px 12px", fontSize: isMobile ? 11 : 12, background: "rgba(0,0,0,0.10)", border: "1px solid rgba(0,0,0,0.15)", flexShrink: isMobile ? 0 : undefined }} onClick={() => setGw(g => Math.min(8, g + 1))} disabled={gw >= 8}>GW{gw + 1} →</button>
         </div>
 
-        <div style={{ padding: "20px 28px", color: "white" }}>
+        <div style={{ padding: isMobile ? "14px 12px" : "20px 28px", color: "white" }}>
           {loading && fetched == null && (
             <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading fixtures…</div>
           )}
@@ -302,6 +306,29 @@ function FixturesScreen() {
                 const grpLabel = round.wcRound.includes("Group")
                   ? (h && h.grp && h.grp !== "?" ? `Grp ${h.grp}` : "Group")
                   : round.wcRound;
+                if (isMobile) {
+                  return (
+                    <div key={i} style={{ padding: "10px 0", borderBottom: "1px solid var(--border-dark)" }}>
+                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8, fontSize: 11, marginBottom: 6 }}>
+                        <span className="muted">{m.time} <span style={{ opacity: 0.5 }}>local</span></span>
+                        <span className="muted" style={{ color: "rgba(255,255,255,0.6)" }}>{m.venue}</span>
+                      </div>
+                      <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto minmax(0,1fr)", gap: 6, alignItems: "center", fontSize: 12 }}>
+                        <span className="m-min0" style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: 6, fontWeight: 700 }}>
+                          <span className="m-truncate">{hName}</span> <Flag team={h} />
+                        </span>
+                        <span style={{ textAlign: "center" }}>
+                          <span className="pill pill--dark" style={{ background: "rgba(255,255,255,0.08)", fontSize: 11, color: "white" }}>
+                            {grpLabel}
+                          </span>
+                        </span>
+                        <span className="m-min0" style={{ display: "flex", alignItems: "center", gap: 6, fontWeight: 700 }}>
+                          <Flag team={a} /> <span className="m-truncate">{aName}</span>
+                        </span>
+                      </div>
+                    </div>
+                  );
+                }
                 return (
                   <div key={i} style={{ display: "grid", gridTemplateColumns: "120px 1fr 1fr 1fr 140px", padding: "12px 0", alignItems: "center", borderBottom: "1px solid var(--border-dark)", fontSize: 14 }}>
                     <span className="muted" style={{ fontSize: 12 }}>{m.time} <span style={{ opacity: 0.5 }}>local</span></span>
@@ -326,13 +353,13 @@ function FixturesScreen() {
       </div>
 
       {/* GW bar (jump) */}
-      <div className="card" style={{ padding: "12px 16px", display: "flex", gap: 6 }}>
+      <div className="card" style={{ padding: "12px 16px", display: "flex", gap: 6, flexWrap: isMobile ? "wrap" : undefined }}>
         {[1,2,3,4,5,6,7,8].map(n => (
           <button key={n} onClick={() => setGw(n)}
             className={"btn " + (gw === n ? "btn--solid-dark" : "btn--ghost-dark")}
-            style={{ flex: 1, padding: "10px 0", fontSize: 12 }}>
+            style={{ flex: isMobile ? "1 1 22%" : 1, padding: "10px 0", fontSize: 12 }}>
             GW{n}
-            <span style={{ display: "block", fontSize: 9, opacity: 0.7, fontWeight: 500, marginTop: 2 }}>{TOURNAMENT.gwDates[n].wcRound.replace("Group Stage · ", "")}</span>
+            <span style={{ display: "block", fontSize: isMobile ? 11 : 9, opacity: 0.7, fontWeight: 500, marginTop: 2 }}>{TOURNAMENT.gwDates[n].wcRound.replace("Group Stage · ", "")}</span>
           </button>
         ))}
       </div>
@@ -344,17 +371,18 @@ function FixturesScreen() {
 // ---------- LEAGUE STANDINGS ----------
 function LeagueScreen({ onTab }) {
   const [tab, setTab] = React.useState("standings");
+  const isMobile = useIsMobile();
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 16 }}>
-        <h2 className="h-display" style={{ fontSize: 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{LEAGUE.name}</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: isMobile ? "wrap" : undefined }}>
+        <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{LEAGUE.name}</h2>
         <div className="row" style={{ gap: 8, flexShrink: 0 }}>
           <span className="pill pill--gold">Knockout Phase</span>
           <span className="pill pill--dark" style={{ background: "var(--navy-900)", color: "white" }}>{LEAGUE.size} managers</span>
         </div>
       </div>
 
-      <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
+      <div className="card" style={{ padding: isMobile ? "4px 8px" : "4px 14px", display: "flex", gap: 4 }}>
         {[
           ["standings", "Standings"],
           ["schedule",  "Group Schedule"],
@@ -362,7 +390,7 @@ function LeagueScreen({ onTab }) {
         ].map(([id, label]) => (
           <button key={id}
             className={"btn " + (tab === id ? "btn--solid-dark" : "")}
-            style={{ padding: "10px 18px", fontSize: 13, background: tab === id ? undefined : "transparent", color: tab === id ? undefined : "var(--ink-700)" }}
+            style={{ padding: isMobile ? "10px 6px" : "10px 18px", fontSize: isMobile ? 12 : 13, flex: isMobile ? 1 : undefined, background: tab === id ? undefined : "transparent", color: tab === id ? undefined : "var(--ink-700)" }}
             onClick={() => setTab(id)}>
             {label}
           </button>
@@ -391,6 +419,7 @@ function StandingsTable({ onTab }) {
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
+      <div className="table-scroll">
       <table className="table-clean">
         <thead>
           <tr>
@@ -425,7 +454,7 @@ function StandingsTable({ onTab }) {
                   </td>
                   <td>
                     <div className="row" style={{ gap: 10, minWidth: 0 }}>
-                      <Flag team={t} size="lg" />
+                      <ManagerFlag uid={s.uid} size="xl" fallback={t} />
                       <div style={{ minWidth: 0, flex: 1, cursor: "pointer" }}
                         onClick={() => setSquadModal({ uid: s.uid, gw: viewGw })}
                         title={`View ${m.team}'s squad & GW${viewGw} points`}>
@@ -459,6 +488,7 @@ function StandingsTable({ onTab }) {
           })}
         </tbody>
       </table>
+      </div>
       <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", fontSize: 12, color: "var(--ink-500)" }}>
         Top {qualifiers} qualify for {roundName}. H2H Seeds qualify on head-to-head record; Pts Seeds are the best remaining by fantasy points.
       </div>
@@ -469,6 +499,7 @@ function StandingsTable({ onTab }) {
 function ScheduleTable() {
   const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
   const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
+  const isMobile = useIsMobile();
   return (
     <div className="card">
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
@@ -493,19 +524,19 @@ function ScheduleTable() {
               const isMe = a === window.ME || b === window.ME;
               const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
               return (
-                <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 90px 1fr", padding: "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
-                  <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: 10, fontWeight: hasScore && aWin ? 700 : 500 }}>
-                    <span style={nameStyle} onClick={() => setSquadModal({ uid: a, gw })}>{A.team}</span>
-                    <Flag team={aT} />
+                <div key={i} style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto minmax(0,1fr)" : "1fr 90px 1fr", gap: isMobile ? 6 : undefined, padding: isMobile ? "10px 12px" : "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
+                  <div className="m-min0" style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: isMobile ? 6 : 10, fontWeight: hasScore && aWin ? 700 : 500, fontSize: isMobile ? 13 : undefined }}>
+                    <span className="m-truncate" style={nameStyle} onClick={() => setSquadModal({ uid: a, gw })}>{A.team}</span>
+                    <ManagerFlag uid={a} size="lg" fallback={aT} />
                   </div>
-                  <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 16 }}>
+                  <div style={{ textAlign: "center", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: isMobile ? 14 : 16 }}>
                     <span style={{ color: hasScore && aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{ap}</span>
-                    <span style={{ color: "var(--ink-300)", margin: "0 8px" }}>–</span>
+                    <span style={{ color: "var(--ink-300)", margin: isMobile ? "0 4px" : "0 8px" }}>–</span>
                     <span style={{ color: hasScore && !aWin ? "var(--navy-900)" : "var(--ink-500)" }}>{bp}</span>
                   </div>
-                  <div style={{ display: "flex", alignItems: "center", gap: 10, fontWeight: !aWin ? 700 : 500 }}>
-                    <Flag team={bT} />
-                    <span style={nameStyle} onClick={() => setSquadModal({ uid: b, gw })}>{B.team}</span>
+                  <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, fontWeight: !aWin ? 700 : 500, fontSize: isMobile ? 13 : undefined }}>
+                    <ManagerFlag uid={b} size="lg" fallback={bT} />
+                    <span className="m-truncate" style={nameStyle} onClick={() => setSquadModal({ uid: b, gw })}>{B.team}</span>
                   </div>
                 </div>
               );
@@ -519,26 +550,27 @@ function ScheduleTable() {
 
 function ResultsTable() {
   const [squadModal, setSquadModal] = React.useState(null);
+  const isMobile = useIsMobile();
   return (
     <div className="card" style={{ padding: 20 }}>
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
       <div className="h-display" style={{ fontSize: 16, marginBottom: 8 }}>Latest Results · GW3</div>
       <div className="muted" style={{ fontSize: 13 }}>Final H2H results from group stage MD3. Click a name to see their squad breakdown.</div>
-      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+      <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
         {SCHEDULE[3].map(([a, b], i) => {
           const A = managerById(a), B = managerById(b);
           const ap = GW3_TOTALS[a], bp = GW3_TOTALS[b];
           const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
           return (
-            <div key={i} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, display: "grid", gridTemplateColumns: "1fr auto 1fr", gap: 10, alignItems: "center" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
-                <span style={{ fontSize: 13, fontWeight: ap > bp ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: a, gw: 3 })}>{A.team}</span>
-                <Flag team={teamById(A.flag)} />
+            <div key={i} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto minmax(0,1fr)" : "1fr auto 1fr", gap: isMobile ? 8 : 10, alignItems: "center" }}>
+              <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+                <span className="m-truncate" style={{ fontSize: 13, fontWeight: ap > bp ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: a, gw: 3 })}>{A.team}</span>
+                <ManagerFlag uid={a} size="lg" fallback={teamById(A.flag)} />
               </div>
-              <div className="mono" style={{ fontWeight: 800, fontSize: 18 }}>{ap}–{bp}</div>
-              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <Flag team={teamById(B.flag)} />
-                <span style={{ fontSize: 13, fontWeight: bp > ap ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: b, gw: 3 })}>{B.team}</span>
+              <div className="mono" style={{ fontWeight: 800, fontSize: isMobile ? 16 : 18 }}>{ap}–{bp}</div>
+              <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <ManagerFlag uid={b} size="lg" fallback={teamById(B.flag)} />
+                <span className="m-truncate" style={{ fontSize: 13, fontWeight: bp > ap ? 700 : 500, ...nameStyle }} onClick={() => setSquadModal({ uid: b, gw: 3 })}>{B.team}</span>
               </div>
             </div>
           );
@@ -553,6 +585,7 @@ function ResultsTable() {
 function TradesScreen() {
   const [tab, setTab] = React.useState("inbox");
   const [showPropose, setShowPropose] = React.useState(false);
+  const isMobile = useIsMobile();
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
   // Manager↔manager trades are only open during the TRADE window. In the
@@ -564,8 +597,8 @@ function TradesScreen() {
   return (
     <div className="col" style={{ gap: 16 }}>
       {showPropose && tradesOpen && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-        <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Trades</h2>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: isMobile ? 10 : undefined, flexWrap: isMobile ? "wrap" : undefined }}>
+        <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0 }}>Trades</h2>
         <button className="btn btn--primary" disabled={!tradesOpen}
           title={tradesOpen ? "" : `Manager trades are closed during the ${phaseLabel}`}
           style={{ opacity: tradesOpen ? 1 : 0.45, cursor: tradesOpen ? "pointer" : "not-allowed" }}
@@ -578,7 +611,7 @@ function TradesScreen() {
         </div>
       )}
 
-      <div className="card" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
+      <div className="card" style={{ padding: isMobile ? "4px 8px" : "4px 14px", display: "flex", gap: 4 }}>
         {[
           ["inbox", `Inbox (${inbox.length})`],
           ["outbox", `Sent (${outbox.length})`],
@@ -586,7 +619,7 @@ function TradesScreen() {
         ].map(([id, label]) => (
           <button key={id}
             className={"btn " + (tab === id ? "btn--solid-dark" : "")}
-            style={{ padding: "10px 18px", fontSize: 13, background: tab === id ? undefined : "transparent", color: tab === id ? undefined : "var(--ink-700)" }}
+            style={{ padding: isMobile ? "10px 6px" : "10px 18px", fontSize: isMobile ? 12 : 13, flex: isMobile ? 1 : undefined, background: tab === id ? undefined : "transparent", color: tab === id ? undefined : "var(--ink-700)" }}
             onClick={() => setTab(id)}>
             {label}
           </button>
@@ -613,6 +646,7 @@ function TradeCard({ trade, direction }) {
   const target = managerById(trade.target);
   const isIncoming = direction === "inbox";
   const [busy, setBusy] = React.useState(false);
+  const isMobile = useIsMobile();
 
   const act = async (kind) => {
     if (busy) return;
@@ -635,12 +669,12 @@ function TradeCard({ trade, direction }) {
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
       <div style={{ background: "var(--navy-900)", color: "white", padding: "10px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <span style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
+        <span className="m-truncate" style={{ fontSize: 13, fontWeight: 700, whiteSpace: "nowrap" }}>
           {isIncoming ? `${proposer.team} offers a trade` : `Sent to ${target.team}`}
         </span>
         <span className="muted" style={{ color: "rgba(255,255,255,0.6)", fontSize: 12, whiteSpace: "nowrap" }}>{trade.createdAt}</span>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "1fr auto 1fr", padding: 20, gap: 16, alignItems: "center" }}>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr auto 1fr", padding: isMobile ? 14 : 20, gap: isMobile ? 10 : 16, alignItems: "center" }}>
         <div>
           <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
             {isIncoming ? "You give" : "You give"}
@@ -650,16 +684,16 @@ function TradeCard({ trade, direction }) {
             const t = teamById(p.team);
             return (
               <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--cream)", borderRadius: 8 }}>
-                <div style={{ width: 36, height: 36 }}><Jersey team={t} pos={p.pos} /></div>
-                <div>
+                <div style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                <div className="m-min0">
                   <div style={{ fontWeight: 700 }}>{p.name}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{POS_NAMES[p.pos]} · {t.name} · {p.pts} pts</div>
+                  <div className="muted m-truncate" style={{ fontSize: 12 }}>{POS_NAMES[p.pos]} · {t.name} · {p.pts} pts</div>
                 </div>
               </div>
             );
           })}
         </div>
-        <div className="h-display" style={{ fontSize: 26, color: "var(--ink-300)" }}>↔</div>
+        <div className="h-display" style={{ fontSize: isMobile ? 20 : 26, color: "var(--ink-300)", ...(isMobile ? { justifySelf: "center", transform: "rotate(90deg)" } : {}) }}>↔</div>
         <div>
           <div className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
             {isIncoming ? "You get" : "You get"}
@@ -669,10 +703,10 @@ function TradeCard({ trade, direction }) {
             const t = teamById(p.team);
             return (
               <div key={id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 12px", background: "var(--cream)", borderRadius: 8 }}>
-                <div style={{ width: 36, height: 36 }}><Jersey team={t} pos={p.pos} /></div>
-                <div>
+                <div style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                <div className="m-min0">
                   <div style={{ fontWeight: 700 }}>{p.name}</div>
-                  <div className="muted" style={{ fontSize: 12 }}>{POS_NAMES[p.pos]} · {t.name} · {p.pts} pts</div>
+                  <div className="muted m-truncate" style={{ fontSize: 12 }}>{POS_NAMES[p.pos]} · {t.name} · {p.pts} pts</div>
                 </div>
               </div>
             );
@@ -684,7 +718,7 @@ function TradeCard({ trade, direction }) {
           "{trade.message}"
         </div>
       )}
-      <div style={{ padding: "12px 20px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center" }}>
+      <div style={{ padding: isMobile ? "12px 14px" : "12px 20px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", flexWrap: isMobile ? "wrap" : undefined }}>
         <span className="muted" style={{ fontSize: 12 }}>
           {trade.status === "pending" && (isIncoming ? "Awaiting your decision" : "Awaiting their decision")}
           {" · "}League approval: vote (3 vetoes needed)
@@ -705,6 +739,7 @@ function TradeCard({ trade, direction }) {
 // ---------- MANAGER SQUAD MODAL ----------
 function ManagerSquadModal({ uid, gw, onClose }) {
   const m = managerById(uid);
+  const isMobile = useIsMobile();
   // Per-GW breakdown from the immutable gw_history snapshot — the SAME source the
   // Points panel uses. It carries the frozen squad that was actually fielded for
   // this GW, each player's points FOR THIS GW, and the authoritative total. This
@@ -772,11 +807,13 @@ function ManagerSquadModal({ uid, gw, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 520, maxHeight: "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 520, maxHeight: isMobile ? undefined : "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <button className="modal__close" onClick={onClose}>×</button>
-        <div style={{ padding: "24px 24px 12px", borderBottom: "1px solid var(--border)" }}>
+        <div style={{ padding: isMobile ? "20px 16px 12px" : "24px 24px 12px", borderBottom: "1px solid var(--border)", position: "relative" }}>
+          <ManagerFlag uid={uid} size="hero"
+            style={{ position: "absolute", top: isMobile ? 16 : 20, right: isMobile ? 48 : 56, width: isMobile ? 96 : 144, height: isMobile ? 64 : 96 }} />
           <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Squad Breakdown · GW{gw}</div>
-          <div className="h-display" style={{ fontSize: 24, marginTop: 4 }}>{m?.team || "Squad"}</div>
+          <div className="h-display" style={{ fontSize: 24, marginTop: 4, paddingRight: isMobile ? 110 : 170 }}>{m?.team || "Squad"}</div>
           <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{m?.name}</div>
           <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 10, background: "var(--navy-900)", color: "white", padding: "10px 16px", borderRadius: 10 }}>
             <span style={{ fontSize: 12, opacity: 0.7 }}>GW{gw} Total</span>
@@ -790,7 +827,7 @@ function ManagerSquadModal({ uid, gw, onClose }) {
         ) : players.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>No squad data available.</div>
         ) : (
-          <div style={{ padding: "12px 24px 24px" }}>
+          <div style={{ padding: isMobile ? "12px 16px 24px" : "12px 24px 24px" }}>
             {[1, 2, 3, 4].map(pos => {
               const list = byPos[pos];
               if (!list.length) return null;
@@ -805,11 +842,11 @@ function ManagerSquadModal({ uid, gw, onClose }) {
                     const pts = getGwPts(p);
                     const isElim = p.elim || t?.elim;
                     return (
-                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: "36px 1fr auto", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
+                      <div key={p.id} style={{ display: "grid", gridTemplateColumns: isMobile ? "36px minmax(0,1fr) auto" : "36px 1fr auto", gap: 10, padding: "8px 0", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
                         <div style={{ width: 36, height: 36 }}><Jersey team={t} pos={p.pos} /></div>
-                        <div>
-                          <div style={{ fontWeight: 700 }}>{p.name} {isElim && <span className="pill pill--red" style={{ fontSize: 9, marginLeft: 4 }}>OUT</span>}</div>
-                          <div className="muted" style={{ fontSize: 12 }}>{t?.name} · {POS_NAMES[p.pos]}</div>
+                        <div className="m-min0">
+                          <div style={{ fontWeight: 700 }}>{p.name} {isElim && <span className="pill pill--red" style={{ fontSize: isMobile ? 11 : 9, marginLeft: 4 }}>OUT</span>}</div>
+                          <div className="muted m-truncate" style={{ fontSize: 12 }}>{t?.name} · {POS_NAMES[p.pos]}</div>
                         </div>
                         <div className="mono" style={{ fontWeight: 800, fontSize: 20, color: pts > 0 ? "var(--navy-900)" : "var(--ink-300)", minWidth: 32, textAlign: "right" }}>
                           {pts}
@@ -836,6 +873,7 @@ function ProposeTradeModal({ onClose }) {
   const [mySelected, setMySelected] = React.useState(new Set());
   const [theirSelected, setTheirSelected] = React.useState(new Set());
   const [submitting, setSubmitting] = React.useState(false);
+  const isMobile = useIsMobile();
 
   const managers = (window.MANAGERS || []).filter(m => m.uid !== window.ME);
   const mySquad = (window.MY_SQUAD_IDS || []).map(rawId => {
@@ -935,16 +973,16 @@ function ProposeTradeModal({ onClose }) {
       <div key={p.id}
         onClick={() => onToggle(p.id)}
         style={{
-          display: "grid", gridTemplateColumns: "28px 1fr auto", gap: 8,
+          display: "grid", gridTemplateColumns: isMobile ? "28px minmax(0,1fr) auto" : "28px 1fr auto", gap: 8,
           padding: "8px 10px", cursor: "pointer", borderRadius: 6, marginBottom: 2,
           background: isSel ? "rgba(91,61,242,0.12)" : "transparent",
           border: isSel ? "1px solid rgba(91,61,242,0.35)" : "1px solid transparent",
           opacity: isElim ? 0.55 : 1,
         }}>
         <div style={{ width: 28, height: 28 }}><Jersey team={t} pos={p.pos} /></div>
-        <div>
+        <div className="m-min0">
           <div style={{ fontWeight: 700, fontSize: 13 }}>{p.name}</div>
-          <div style={{ fontSize: 11, color: "var(--ink-500)" }}>{POS_NAMES[p.pos]} · {t?.name}</div>
+          <div className="m-truncate" style={{ fontSize: 11, color: "var(--ink-500)" }}>{POS_NAMES[p.pos]} · {t?.name}</div>
         </div>
         <div style={{ alignSelf: "center" }}>
           <span style={{
@@ -959,7 +997,7 @@ function ProposeTradeModal({ onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: step === 2 ? 760 : 500, maxHeight: "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: step === 2 ? 760 : 500, maxHeight: isMobile ? undefined : "90vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <button className="modal__close" onClick={onClose}>×</button>
 
         {/* Step 1 — pick manager */}
@@ -975,7 +1013,7 @@ function ProposeTradeModal({ onClose }) {
                     style={{ padding: "14px 16px", borderRadius: 10, border: "1px solid var(--border)", background: "var(--cream)", textAlign: "left", cursor: "pointer", display: "flex", alignItems: "center", gap: 10, transition: "box-shadow 0.1s" }}
                     onMouseOver={e => e.currentTarget.style.boxShadow = "0 2px 8px rgba(0,0,0,0.10)"}
                     onMouseOut={e => e.currentTarget.style.boxShadow = "none"}>
-                    {t && <Flag team={t} />}
+                    <ManagerFlag uid={m.uid} size="lg" fallback={t} />
                     <div>
                       <div style={{ fontWeight: 700 }}>{m.team}</div>
                       <div className="muted" style={{ fontSize: 12 }}>{m.name}</div>
@@ -991,28 +1029,28 @@ function ProposeTradeModal({ onClose }) {
         {step === 2 && (
           <div style={{ padding: "0 0 0" }}>
             {/* Header */}
-            <div style={{ padding: "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
-              <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12 }} onClick={() => { setStep(1); setMySelected(new Set()); setTheirSelected(new Set()); }}>← Back</button>
-              <div>
+            <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
+              <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12, flexShrink: isMobile ? 0 : undefined }} onClick={() => { setStep(1); setMySelected(new Set()); setTheirSelected(new Set()); }}>← Back</button>
+              <div className="m-min0">
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Propose Trade · Step 2 of 2</div>
-                <div className="h-display" style={{ fontSize: 18, marginTop: 2 }}>Select players to swap with {targetMgr?.team}</div>
+                <div className="h-display" style={{ fontSize: isMobile ? 15 : 18, marginTop: 2 }}>Select players to swap with {targetMgr?.team}</div>
               </div>
             </div>
 
             {/* Squads side by side */}
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+            <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 0 }}>
               {/* My squad */}
-              <div style={{ padding: 18, borderRight: "1px solid var(--border)" }}>
+              <div style={{ padding: isMobile ? 14 : 18, borderRight: isMobile ? undefined : "1px solid var(--border)", borderBottom: isMobile ? "1px solid var(--border)" : undefined }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
                   Your Squad — you give
-                  {mySelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: 10 }}>{mySelected.size} selected</span>}
+                  {mySelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: isMobile ? 11 : 10 }}>{mySelected.size} selected</span>}
                 </div>
                 {[1, 2, 3, 4].map(pos => {
                   const list = mySquad.filter(p => p.pos === pos);
                   if (!list.length) return null;
                   return (
                     <div key={pos} style={{ marginBottom: 10 }}>
-                      <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                      <div style={{ fontSize: isMobile ? 11 : 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
                         {POS_NAMES[pos]}s
                       </div>
                       {list.map(p => renderPlayerRow(p, mySelected, toggleMy, "my"))}
@@ -1022,10 +1060,10 @@ function ProposeTradeModal({ onClose }) {
               </div>
 
               {/* Their squad */}
-              <div style={{ padding: 18 }}>
+              <div style={{ padding: isMobile ? 14 : 18 }}>
                 <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
                   {targetMgr?.team} — you receive
-                  {theirSelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: 10 }}>{theirSelected.size} selected</span>}
+                  {theirSelected.size > 0 && <span className="pill pill--dark" style={{ marginLeft: 8, fontSize: isMobile ? 11 : 10 }}>{theirSelected.size} selected</span>}
                 </div>
                 {theirPlayers === null ? (
                   <div style={{ padding: 24, textAlign: "center", color: "var(--ink-500)", fontSize: 13 }}>Loading their squad…</div>
@@ -1037,7 +1075,7 @@ function ProposeTradeModal({ onClose }) {
                     if (!list.length) return null;
                     return (
                       <div key={pos} style={{ marginBottom: 10 }}>
-                        <div style={{ fontSize: 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
+                        <div style={{ fontSize: isMobile ? 11 : 10, fontWeight: 700, color: "var(--ink-400)", letterSpacing: "0.06em", textTransform: "uppercase", marginBottom: 4 }}>
                           {POS_NAMES[pos]}s
                         </div>
                         {list.map(p => renderPlayerRow(p, theirSelected, toggleTheir, "their"))}
@@ -1049,7 +1087,7 @@ function ProposeTradeModal({ onClose }) {
             </div>
 
             {/* Validation + Submit */}
-            <div style={{ padding: "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "var(--cream)" }}>
+            <div style={{ padding: isMobile ? "14px 16px" : "14px 24px", borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, background: "var(--cream)", flexWrap: isMobile ? "wrap" : undefined }}>
               <div style={{ fontSize: 13, color: posValid ? "var(--green-600)" : "var(--ink-500)" }}>
                 {validationMsg() || "✓ Trade looks good — positions match!"}
               </div>

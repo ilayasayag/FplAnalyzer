@@ -1,0 +1,20 @@
+/* mobile-screens-data.css — mobile-only overrides for the data screens
+   (Player Browser, Fixtures, League, Trades).
+   Desktop >768px is untouched: every rule lives inside the media query and
+   only targets opt-in m-* classNames added in screens-data.jsx (the classes
+   are inert on desktop). */
+
+@media (max-width: 768px) {
+  /* Let a grid/flex child shrink below its content width — kills the
+     min-width:auto overflow trap on 375px viewports. */
+  .m-min0 { min-width: 0; }
+
+  /* Truncate long labels (team / player names) with an ellipsis instead of
+     blowing the row out sideways. */
+  .m-truncate {
+    min-width: 0;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+}

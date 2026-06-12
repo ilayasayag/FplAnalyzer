@@ -190,9 +190,9 @@ function TweaksPanel({ title = 'Tweaks', children }) {
   // localhost. The design-tool host path (__activate_edit_mode postMessage)
   // is unaffected and still works in any environment.
   const _isDevHost = window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
-  // Admins may open the panel in production too (it hosts the admin-only Mock
-  // Simulator + DB tools). End users never see the trigger.
-  const _canUse = _isDevHost || !!window.IS_ADMIN;
+  // Dev-host only: the panel drives MOCK data (simulator, DB tools) and has
+  // no place in production now the league is live — not even for admins.
+  const _canUse = _isDevHost;
   const [open, setOpen] = React.useState(_isDevHost && window === window.top);
   const dragRef = React.useRef(null);
   const offsetRef = React.useRef({ x: 16, y: 16 });

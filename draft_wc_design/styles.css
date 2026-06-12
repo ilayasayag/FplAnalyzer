@@ -1220,3 +1220,149 @@ a { color: inherit; text-decoration: none; }
     transform: translate(-50%, 0);
   }
 }
+
+/* ============ MOBILE LAYER (WP0) ============ */
+/* Additive only — nothing above this line changes. Desktop (>768px) is
+   untouched apart from the .table-scroll utility, which is layout-neutral
+   unless content overflows. */
+
+/* Horizontal-scroll wrapper for wide tables (applies at all widths) */
+.table-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+@media (max-width: 768px) {
+  html { -webkit-text-size-adjust: 100%; }
+
+  /* Grid items default to min-width:auto, so any wide descendant (e.g. a
+     640px table inside .table-scroll) punches through every overflow wrapper
+     and stretches the whole page. Zeroing min-width on .page's children lets
+     overflow-x:auto actually contain wide content. */
+  .page > * { min-width: 0; }
+
+  /* Dev tweaks panel is a desktop tool — it covers half a phone screen. */
+  .twk-panel, .twk-trigger { display: none !important; }
+
+  /* Account chip in the topbar can push past the viewport on small screens. */
+  .topbar__right { min-width: 0; flex-shrink: 1; overflow: hidden; }
+
+  /* Single-column page, room at the bottom for the fixed nav bar */
+  .page {
+    grid-template-columns: 1fr;
+    padding: 12px 12px 96px;
+    gap: 14px;
+  }
+
+  /* Comfortable touch targets */
+  .btn { min-height: 44px; }
+
+  /* Hero scaled down ~40% */
+  .hero { padding: 16px 16px 40px; }
+  .hero__wordmark { font-size: 31px; gap: 10px; }
+  .hero__wordmark .trophy { font-size: 26px; }
+  .hero__wordmark .trophy svg { width: 34px; height: 34px; }
+
+  /* Desktop navs hidden — MobileNav (bottom bar) takes over */
+  .topbar__nav { display: none; }
+  .subnav { display: none; }
+  .topbar { padding: 14px 16px; }
+
+  /* Modals become full-screen sheets */
+  .modal-backdrop { padding: 0; }
+  .modal {
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    max-height: 100dvh;
+    border-radius: 0;
+    overflow-y: auto;
+  }
+
+  /* Wrapped tables keep their layout and scroll sideways */
+  .table-scroll table { min-width: 640px; }
+
+  /* Cap media inside cards so images/SVGs can't blow out the column */
+  .card img, .card svg { max-width: 100%; }
+
+  /* ---------- Bottom tab bar (MobileNav) ---------- */
+  .mobilenav {
+    position: fixed;
+    bottom: 0; left: 0; right: 0;
+    z-index: 50;
+    display: flex;
+    align-items: stretch;
+    background: var(--grad-nav);
+    border-top: 1px solid rgba(255, 255, 255, 0.12);
+    padding-bottom: env(safe-area-inset-bottom);
+    box-shadow: 0 -6px 18px rgba(12, 10, 62, 0.35);
+  }
+  .mobilenav__slot {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 2px;
+    padding: 8px 0 6px;
+    min-height: 52px;
+    color: rgba(255, 255, 255, 0.72);
+    background: transparent;
+    border: none;
+    position: relative;
+    cursor: pointer;
+  }
+  .mobilenav__slot.is-active { color: white; }
+  .mobilenav__slot.is-active::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 18%; right: 18%;
+    height: 3px;
+    background: var(--gold-500);
+    border-radius: 0 0 3px 3px;
+  }
+  .mobilenav__icon { font-size: 18px; line-height: 1; }
+  .mobilenav__label {
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
+  }
+
+  /* "More" bottom sheet */
+  .mobilenav-backdrop {
+    position: fixed;
+    inset: 0;
+    background: rgba(12, 10, 62, 0.55);
+    z-index: 49;
+  }
+  .mobilenav-sheet {
+    position: fixed;
+    left: 0; right: 0;
+    bottom: calc(52px + env(safe-area-inset-bottom));
+    z-index: 51;
+    background: var(--grad-nav);
+    border-radius: 14px 14px 0 0;
+    padding: 10px 8px 12px;
+    box-shadow: 0 -10px 30px rgba(12, 10, 62, 0.45);
+    max-height: 60dvh;
+    overflow-y: auto;
+  }
+  .mobilenav-sheet__item {
+    display: block;
+    width: 100%;
+    text-align: left;
+    padding: 13px 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: rgba(255, 255, 255, 0.85);
+    background: transparent;
+    border: none;
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .mobilenav-sheet__item.is-active {
+    color: var(--navy-900);
+    background: var(--gold-500);
+  }
+}

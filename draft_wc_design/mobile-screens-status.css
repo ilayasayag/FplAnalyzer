@@ -1,0 +1,102 @@
+/* mobile-screens-status.css — mobile-only overrides for StatusScreen / PointsScreen / PickTeamScreen.
+   Loaded AFTER styles.css; every rule lives inside @media (max-width: 768px) so desktop is untouched. */
+
+@media (max-width: 768px) {
+
+  /* ---------- Pitch internals (PickTeamScreen + PointsScreen pitch view) ----------
+     Desktop player chips are 82px wide with a 72px jersey; five-across rows
+     need 410px+ and the 16/11 pitch is too short for chip stacks at 375px.
+     Shrink chips and let the pitch go portrait so 5-wide rows fit without
+     overlap. */
+  .pitch-wrap {
+    padding: 8px;
+  }
+  .pitch {
+    aspect-ratio: 3 / 4; /* taller pitch: 4 formation rows get ~95px each at 375px wide */
+  }
+  .pitch__rows {
+    padding: 10px 4px;
+  }
+  .player-slot {
+    width: 54px;
+  }
+  .player-slot__jersey {
+    width: 54px;
+    height: 46px;
+  }
+  .player-slot__jersey svg {
+    width: 40px;
+    height: 40px;
+  }
+  .player-slot__name {
+    font-size: 11px;
+    padding: 4px 2px;
+  }
+  .player-slot__fixture {
+    font-size: 11px;
+  }
+  .player-slot__pts {
+    font-size: 11px;
+    padding: 1px 6px;
+  }
+  .player-slot__bench-order {
+    font-size: 11px;
+  }
+  .player-slot__bench-role {
+    font-size: 11px;
+  }
+  .player-slot--eliminated::before {
+    font-size: 11px;
+  }
+  /* On touch there is no hover, and tapping the chip itself SELECTS the player
+     for substitution — so the stats button must be permanently visible and big
+     enough to tap. 22px circle + always-on opacity replaces the hover reveal. */
+  .player-slot__info {
+    opacity: 1;
+    width: 22px;
+    height: 22px;
+    font-size: 12px;
+    top: -8px;
+    right: -8px;
+  }
+
+  /* ---------- Bench row (PickTeamScreen) ----------
+     Desktop is a [60px label | 4-col grid]; at 375px the 4 chips don't fit.
+     Stack the label on top and let the slots scroll horizontally. */
+  .bench-row {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+    padding: 10px 12px;
+  }
+  .bench-row__slots {
+    display: flex;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    gap: 14px;
+    padding: 2px 2px 6px;
+  }
+  .bench-row__slot {
+    flex: 0 0 auto;
+  }
+  .bench-row__order {
+    font-size: 11px;
+  }
+
+  /* ---------- Save/confirm bar (PickTeamScreen) ----------
+     Sticks above the fixed bottom nav (96px) while the manager scrolls the
+     pitch, so Save is always reachable. */
+  .pickteam-savebar {
+    position: sticky;
+    bottom: 96px;
+    z-index: 30;
+    background: rgba(12, 10, 62, 0.94);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 12px;
+    padding: 10px;
+  }
+  .pickteam-savebar .btn {
+    min-height: 44px;
+  }
+}

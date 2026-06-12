@@ -24,6 +24,14 @@
         "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
       },
       {
+        "source": "/",
+        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+      },
+      {
+        "source": "**/*.css",
+        "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
+      },
+      {
         "source": "**/*.jsx",
         "headers": [{"key": "Cache-Control", "value": "no-cache, no-store, must-revalidate"}]
       }

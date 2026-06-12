@@ -409,5 +409,48 @@ function Stat({ label, value, accent, big }) {
   );
 }
 
+// ---------- useIsMobile (WP0 mobile layer) ----------
+function useIsMobile() {
+  const [isMobile, setIsMobile] = React.useState(
+    () => window.matchMedia("(max-width: 768px)").matches
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 768px)");
+    const fn = e => setIsMobile(e.matches);
+    mq.addEventListener ? mq.addEventListener("change", fn) : mq.addListener(fn);
+    return () => { mq.removeEventListener ? mq.removeEventListener("change", fn) : mq.removeListener(fn); };
+  }, []);
+  return isMobile;
+}
+
+// ---------- Custom per-manager team flags (fun league flags) ----------
+// 600x400 normalized PNGs in /flags. Falls back to the member's nation flag
+// for any uid without a custom one (future joiners).
+const CUSTOM_TEAM_FLAGS = {
+  u_ilay: "flags/u_ilay.png",
+  u_netanel: "flags/u_netanel.png",
+  u_yuval: "flags/u_yuval.png",
+  u_roy: "flags/u_roy.png",
+  u_nadav: "flags/u_nadav.png",
+  u_shay: "flags/u_shay.png",
+};
+// size: sm 22x14 · lg 32x22 · xl 66x44 (page headers) · hero 144x96 (modals)
+const MANAGER_FLAG_SIZES = {
+  xl:   { width: 66,  height: 44, borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.18)" },
+  hero: { width: 144, height: 96, borderRadius: 10, boxShadow: "0 3px 12px rgba(0,0,0,0.22)" },
+};
+function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
+  const src = CUSTOM_TEAM_FLAGS[uid];
+  if (!src) return fallback ? <Flag team={fallback} size={MANAGER_FLAG_SIZES[size] ? "lg" : size} /> : null;
+  const big = MANAGER_FLAG_SIZES[size];
+  return (
+    <span className={"flag" + (size !== "sm" ? " flag--lg" : "")}
+          style={big ? { ...big, ...(style || {}) } : (style || undefined)}
+          title="Team flag">
+      <img src={src} alt="team flag" />
+    </span>
+  );
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS });
