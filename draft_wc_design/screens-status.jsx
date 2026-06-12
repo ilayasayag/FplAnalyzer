@@ -2,41 +2,28 @@
 // WC26 — Screens: Status, Points, Pick Team
 // =====================================================================
 
-// ---------- ADMIN: Transfer Window switcher ----------
+// ---------- ADMIN: Transfer Window run-actions ----------
 // Admin-only control (gated on backend `IS_ADMIN`, NOT on localhost) that lets
-// an admin force the transfer-window phase of the shared MOCK DRAFT test league
-// for testing. The four phases cycle none -> trade -> free_agents ->
-// next_gw_bid; "Auto" clears the override and returns to the fixture-clock
-// logic. It always targets `lg_mock_draft` (the designated test sandbox) so
-// every admin account controls the same windows regardless of which league
-// they happen to be viewing.
+// an admin RUN the window machinery of the shared MOCK DRAFT test league: the
+// wishlist auction for a GW, or the full trade-window-open orchestrator.
+// Rendered on the TRANSFERS screen under the window switcher (the phase
+// switching itself — Auto/Trade/Free agents/Gameweek — lives in
+// TransfersScreen's inline switcher so there is exactly one switcher). It
+// always targets `lg_mock_draft` (the designated test sandbox) so every admin
+// account controls the same windows regardless of which league they happen to
+// be viewing.
 const WINDOW_TEST_LID = "lg_mock_draft";
 function AdminWindowSwitcher() {
   const isAdmin = !!window.IS_ADMIN;
-  // MOCK-ONLY control: once the league goes live (simulated:false) the
-  // time-based window machine is the only authority — nobody moves windows
-  // by hand, so the whole panel disappears.
-  const isMockLeague = !!(window.LEAGUE && window.LEAGUE.simulated);
-  const [phase, setPhase] = React.useState(null); // "auto" | "none" | "trade" | "free_agents" | "next_gw_bid"
-  const [busy, setBusy] = React.useState(false);
   const [msg, setMsg] = React.useState("");
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1); // upcoming gw the auction/orchestrator run for
   const [running, setRunning] = React.useState(false);
 
-  // Derive the displayed phase from a transfer-window response: when an
-  // override is active show the forced phase; otherwise "auto". A closed
-  // window with no override means the real clock says nothing is open.
-  const phaseFromWin = (win) => {
-    if (!win) return "auto";
-    if (win.overridden) return win.window ? win.window.phase : "none";
-    return "auto";
-  };
-
+  // Prefill the GW input from the mock league's live window when one is open.
   const refresh = React.useCallback(async () => {
     if (!isAdmin) return;
     try {
       const win = await apiCall("GET", `/leagues/${WINDOW_TEST_LID}/transfer-window`);
-      setPhase(phaseFromWin(win));
       if (win && win.window && win.window.gw) setGw(win.window.gw);
     } catch (e) {
       console.warn("AdminWindowSwitcher: failed to read window", e);
@@ -48,31 +35,6 @@ function AdminWindowSwitcher() {
   // Visible to the global admin (Ilay) on ANY league — he keeps window
   // control after go-live; nobody else ever sees this panel.
   if (!isAdmin) return null;
-
-  const OPTIONS = [
-    { key: "auto", label: "Auto" },
-    { key: "trade", label: "Trade" },
-    { key: "free_agents", label: "Free Agents" },
-    { key: "next_gw_bid", label: "Next GW Bid" },
-  ];
-  const LABELS = { auto: "Auto", none: "Closed", trade: "Trade", free_agents: "Free Agents", next_gw_bid: "Next GW Bid" };
-
-  const setWindow = async (key) => {
-    if (busy) return;
-    setBusy(true);
-    setMsg("");
-    try {
-      const res = await apiCall("POST", `/leagues/${WINDOW_TEST_LID}/admin/window-override`, { phase: key });
-      const eff = phaseFromWin(res);
-      setPhase(eff);
-      setMsg(`Window set to ${LABELS[eff] || eff}`);
-    } catch (e) {
-      console.warn("AdminWindowSwitcher: failed to set window", e);
-      setMsg(`Failed: ${(e && (e.error || e.message)) || "error"}`);
-    } finally {
-      setBusy(false);
-    }
-  };
 
   // Run a backend action for the mock league and report a short summary.
   // `kind` is "auction" (PR-4 wishlist-only) or "orchestrator" (PR-5: deferred
@@ -109,33 +71,10 @@ function AdminWindowSwitcher() {
   return (
     <div className="card-dark">
       <div className="card-dark__title" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
-        <span>Transfer Window (admin · mock draft)</span>
+        <span>Transfer Window Actions (admin · mock draft)</span>
         {msg && <span style={{ fontSize: 12, fontWeight: 600, color: "var(--green-400)" }}>{msg}</span>}
       </div>
-      <div style={{ padding: 18, display: "flex", flexWrap: "wrap", gap: 8 }}>
-        {OPTIONS.map(opt => {
-          const active = phase === opt.key;
-          return (
-            <button
-              key={opt.key}
-              disabled={busy}
-              onClick={() => setWindow(opt.key)}
-              className="btn"
-              style={{
-                background: active ? "var(--green-400)" : "rgba(255,255,255,0.08)",
-                color: active ? "var(--navy-900)" : "white",
-                border: "1px solid " + (active ? "var(--green-400)" : "rgba(255,255,255,0.18)"),
-                fontWeight: 700,
-                cursor: busy ? "wait" : "pointer",
-                opacity: busy ? 0.7 : 1,
-              }}
-            >
-              {opt.label}
-            </button>
-          );
-        })}
-      </div>
-      <div style={{ padding: "0 18px 18px", display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center", borderTop: "1px solid rgba(255,255,255,0.08)", paddingTop: 14 }}>
+      <div style={{ padding: 18, display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
         <span style={{ fontSize: 12, opacity: 0.7, marginRight: 4 }}>
           Run for GW
         </span>
@@ -222,9 +161,6 @@ function StatusScreen({ onTab }) {
 
   return (
     <div className="col" style={{ gap: 20 }}>
-      {/* Admin-only transfer-window switcher (gated on backend IS_ADMIN) */}
-      <AdminWindowSwitcher />
-
       {/* Phase transition banner */}
       {LEAGUE.status === "knockout" && myMatch && (
         <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
@@ -628,6 +564,21 @@ function PickTeamScreen({ onTab, squadLoading }) {
     return () => { cancelled = true; };
   }, []);
 
+  // Player cards must show opponents for the GW being EDITED (the one in
+  // "Save Lineup for GWX"), not the viewed GW. Fetch that round's per-team
+  // map into the window.WC_FIXTURES_BY_GW cache, then bump state so the pitch
+  // re-renders from "—" to real opponents once it lands.
+  const [, setFixturesGwLoaded] = React.useState(0);
+  React.useEffect(() => {
+    if (typeof window.fetchFixturesByTeamForGw !== "function") return;
+    if (window.WC_FIXTURES_BY_GW && window.WC_FIXTURES_BY_GW[editGw]) return;
+    let cancelled = false;
+    window.fetchFixturesByTeamForGw(editGw)
+      .then(() => { if (!cancelled) setFixturesGwLoaded(editGw); })
+      .catch(e => console.warn(`Pick Team: fixtures fetch failed for GW${editGw}`, e));
+    return () => { cancelled = true; };
+  }, [editGw]);
+
   React.useEffect(() => {
     if (toast) {
       const timer = setTimeout(() => setToast(null), 3000);
@@ -779,7 +730,10 @@ function PickTeamScreen({ onTab, squadLoading }) {
         </div>
 
 
-        <Pitch lineup={lineup} mode="pick" selected={selected} onPlayerClick={handlePlayerClick} />
+        {/* Cards show the EDIT gw's opponents (matches the Save button). */}
+        <FixtureGwContext.Provider value={editGw}>
+          <Pitch lineup={lineup} mode="pick" selected={selected} onPlayerClick={handlePlayerClick} />
+        </FixtureGwContext.Provider>
 
         <div className="pickteam-savebar" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
@@ -803,4 +757,4 @@ function PickTeamScreen({ onTab, squadLoading }) {
   );
 }
 
-Object.assign(window, { StatusScreen, PointsScreen, PickTeamScreen });
+Object.assign(window, { StatusScreen, PointsScreen, PickTeamScreen, AdminWindowSwitcher });

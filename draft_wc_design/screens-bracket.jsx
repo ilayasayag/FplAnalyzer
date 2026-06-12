@@ -340,17 +340,22 @@ function TransfersScreen() {
   // greyed/disabled for non-admins. Server-side gates match.
   const amLeagueAdmin = !!(window.LEAGUE && window.LEAGUE.admin && window.LEAGUE.admin === window.ME);
   const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
+  const overridden = !!(window.WINDOW && window.WINDOW.overridden);
 
   // MOCK: flip the league's transfer-window phase so the page renders that
   // window. Trade = manager trades + wishlist; Free agents = instant pickups +
-  // wishlist; Gameweek = wishlist only (no manager trades, picks go to wishlist).
+  // wishlist; Gameweek = wishlist only (no manager trades, picks go to wishlist);
+  // Auto = clear the override and hand control back to the fixture clock.
   const switchWindow = async (phase) => {
-    if (switching || phase === curPhase) return;
+    if (switching) return;
+    if (phase === "auto" ? !overridden : phase === curPhase) return;
     setSwitching(true);
     try {
       const lid = window.LEAGUE.id;
       const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-      await apiCall("POST", `/leagues/${lid}/admin/window-override`, { phase, gw });
+      // "auto" sends no gw — same call shape the old Status-screen admin
+      // switcher used to clear the override.
+      await apiCall("POST", `/leagues/${lid}/admin/window-override`, phase === "auto" ? { phase } : { phase, gw });
       window.location.reload();
     } catch (err) {
       alert("Failed to switch window: " + (err.error || err.detail || JSON.stringify(err)));
@@ -428,11 +433,12 @@ function TransfersScreen() {
           </div>
           <div className="transfers-window-switch" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
+              ["auto", "Auto", "fixture clock decides"],
               ["trade", "Trade", "manager trades + wishlist"],
               ["free_agents", "Free agents", "instant pickups + wishlist"],
               ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
             ].map(([key, label, hint]) => {
-              const active = curPhase === key;
+              const active = key === "auto" ? !overridden : curPhase === key;
               const locked = switching || !amLeagueAdmin;
               return (
                 <button key={key} disabled={locked} onClick={() => switchWindow(key)}
@@ -451,6 +457,10 @@ function TransfersScreen() {
           </div>
         </div>
       </div>
+
+      {/* Admin-only run-actions for the mock league (wishlist auction / trade-
+          window orchestrator). Self-gates on IS_ADMIN — renders null otherwise. */}
+      <AdminWindowSwitcher />
 
       {/* Tabs */}
       <div className="card transfers-tabs" style={{ padding: "4px 14px", display: "flex", gap: 4 }}>
