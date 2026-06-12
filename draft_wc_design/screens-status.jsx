@@ -585,12 +585,48 @@ function PickTeamScreen({ onTab, squadLoading }) {
   const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
   const [selected, setSelected] = React.useState(null);
   const [toast, setToast] = React.useState(null);
+  // The GW we EDIT = the earliest unlocked GW (GW2 while GW1 is live/locked),
+  // resolved from the backend so we never edit a frozen, already-scored GW.
+  const [editGw, setEditGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
 
   React.useEffect(() => {
     if (MY_LINEUP_GW3) {
       setLineup(MY_LINEUP_GW3);
     }
   }, [MY_LINEUP_GW3]);
+
+  // Resolve the editable GW and load ITS lineup (carries the current squad
+  // forward when that GW has no saved lineup yet). Independent of the Points
+  // tab's viewing GW, so editing GW2 never disturbs the locked GW1 view.
+  React.useEffect(() => {
+    const lid = window.LEAGUE && window.LEAGUE.id;
+    if (!lid) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
+        const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+        if (cancelled) return;
+        setEditGw(gw);
+        const curViewing = window.VIEWING_GW || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+        if (gw !== curViewing) {
+          const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
+          if (cancelled) return;
+          if (lu && Array.isArray(lu.starting) && lu.starting.length) {
+            setLineup({
+              starting: lu.starting.map(String),
+              bench: (lu.bench || []).map(String),
+              formation: lu.formation || [1, 4, 4, 2],
+              autoSubs: lu.autoSubsMade || [],
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("edit-gw resolve failed; editing current GW", e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   React.useEffect(() => {
     if (toast) {
@@ -602,17 +638,17 @@ function PickTeamScreen({ onTab, squadLoading }) {
   const handleSaveLineup = async () => {
     try {
       const lid = LEAGUE.id;
-      const gw = TOURNAMENT.currentGw;
+      const gw = editGw;
       const parseId = id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id);
-      
+
       const payload = {
         starting: lineup.starting.map(parseId),
         bench: lineup.bench.map(parseId),
         formation: lineup.formation,
       };
-      
+
       await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
-      setToast({ type: "success", message: "Lineup saved successfully!" });
+      setToast({ type: "success", message: `Lineup saved for GW${gw}!` });
     } catch(err) {
       setToast({
         type: "error",
@@ -717,7 +753,7 @@ function PickTeamScreen({ onTab, squadLoading }) {
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <h2 className="h-display" style={{ fontSize: 26, margin: 0, display: "flex", alignItems: "center", gap: 12 }}><ManagerFlag uid={window.ME} size="xl" /> My Team</h2>
+      <h2 className="h-display" style={{ fontSize: 26, margin: 0, display: "flex", alignItems: "center", gap: 12 }}><ManagerFlag uid={window.ME} size="xl" /> My Team <span className="muted" style={{ fontSize: 15, fontWeight: 500 }}>· Setting GW{editGw}</span></h2>
 
       {elimStarting.length > 0 && (
         <div className="alert alert--danger">
@@ -747,7 +783,7 @@ function PickTeamScreen({ onTab, squadLoading }) {
 
         <div className="pickteam-savebar" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
           <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
-          <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: isMobile ? 0 : 200, flex: isMobile ? 1 : undefined }}>Save Lineup for GW{TOURNAMENT.currentGw}</button>
+          <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: isMobile ? 0 : 200, flex: isMobile ? 1 : undefined }}>Save Lineup for GW{editGw}</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
           Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining

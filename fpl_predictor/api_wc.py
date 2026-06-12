@@ -1469,6 +1469,27 @@ def get_opponent_lineup(lid: str, target_uid: str, gw: int):
     return _ok({"leagueId": lid, "uid": target_uid, "gw": gw, "locked": True, **lineup})
 
 
+@wc_bp.route("/leagues/<lid>/edit-gw", methods=["GET"])
+def get_edit_gw(lid: str):
+    """The GW whose lineup a manager can currently edit = the earliest GW at or
+    after the league's currentGw whose lineup is NOT yet locked. While GW1 is
+    live (locked) this returns GW2, so Pick Team edits the upcoming GW without
+    touching the frozen, already-scored current GW."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    from fpl_predictor.game.wc_windows import is_lineup_locked
+    league = _db.collection("leagues").document(lid).get()
+    cur = (league.to_dict() or {}).get("currentGw", 1) if league.exists else 1
+    gw = int(cur)
+    # walk forward over locked GWs (cap the search so a misconfig can't loop)
+    for _ in range(8):
+        if not is_lineup_locked(_db, gw):
+            break
+        gw += 1
+    return _ok({"editGw": gw, "currentGw": int(cur), "currentLocked": gw != int(cur)})
+
+
 @wc_bp.route("/leagues/<lid>/lineup/<int:gw>", methods=["PUT"])
 def set_lineup(lid: str, gw: int):
     uid, err = _require_auth()
@@ -2987,3 +3008,32 @@ def admin_process_live_fixtures():
             return _err(err_msg, 500)
 
     return _ok(res)
+
+
+@wc_bp.route("/admin/ingest-live-scores", methods=["POST"])
+def admin_ingest_live_scores():
+    """Free live-scoring pass: FIFA fantasy round points + ESPN stat lines ->
+    playerScores + live per-manager totals. Body: {gw, date} (date=YYYYMMDD).
+    gw defaults to the current GW of lg_mock_draft; date defaults to today UTC.
+    Safe to call every ~10 min during matches and ~1h after (the writes are
+    idempotent and never set processedForFantasy, so finalize still runs)."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    gw = body.get("gw")
+    date = body.get("date")
+    if gw is None:
+        lg = _db.collection("leagues").document("lg_mock_draft").get()
+        gw = (lg.to_dict() or {}).get("currentGw", 1) if lg.exists else 1
+    if not date:
+        from datetime import datetime, timezone
+        date = datetime.now(timezone.utc).strftime("%Y%m%d")
+    try:
+        from fpl_predictor.data.wc_live_ingest import ingest_live
+        res = ingest_live(_db, int(gw), str(date))
+        return _ok(res)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return _err(f"ingest failed: {exc}", 500)
