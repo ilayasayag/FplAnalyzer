@@ -798,7 +798,10 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
         try:
             r = None
             if ws_id:
-                r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw)
+                try:
+                    r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw)
+                except Exception:
+                    r = None  # raise (e.g. 403 from datacenter IP) -> fallback
             # WhoScored unreachable (e.g. blocks datacenter IPs from cloud) or no
             # id yet -> fall back to FIFA points + ESPN stats (no DefCon bonus) so
             # scoring still flows. Full DefCon comes from a residential-IP run.
@@ -856,8 +859,15 @@ def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
 
             ws_id = ws_map.get(str(ref.id))
             try:
-                r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw) if ws_id else None
-                if not ws_id or not r or r.get("error") or not r.get("playerScoresWritten"):
+                r = None
+                if ws_id:
+                    try:
+                        r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw)
+                    except Exception:
+                        # WhoScored RAISES from datacenter IPs (403) — a raise
+                        # must mean fallback, never a dropped fixture.
+                        r = None
+                if not r or r.get("error") or not r.get("playerScoresWritten"):
                     ingest_live(db, gw, d)  # FIFA+ESPN fallback
                     via = "fifa-espn"
                 else:
