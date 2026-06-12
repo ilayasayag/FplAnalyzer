@@ -458,14 +458,16 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
             mins = minutes_for(pid, starter)
             if mins == 0 and pid not in sub_on and not starter:
                 continue  # unused sub
-            saves = int((p.get("stats", {}).get("totalSaves") or {}) and
-                        sum((p["stats"]["totalSaves"]).values()) or 0)
+            pst = p.get("stats", {}) or {}
+            saves = int((pst.get("totalSaves") or {}) and sum((pst["totalSaves"]).values()) or 0)
+            sot = int(sum((pst.get("shotsOnTarget") or {}).values())) if pst.get("shotsOnTarget") else 0
             rows.append({
                 "name": idname.get(str(pid)) or p.get("name"),
                 "side": side,
                 "isStarter": starter,
                 "stats": {
-                    "minutes": mins,
+                    "minutes": min(mins, 90),
+                    "shotsOnTarget": sot,
                     "goals": ev_goals.get(pid, 0),
                     "assists": ev_assists.get(pid, 0),
                     "yellowCards": ev_yellow.get(pid, 0),
@@ -526,6 +528,11 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         if pid:
             fifa_pts[pid] = rp
 
+    sr = rules.get("scoring", {})
+    defcon_pts = sr.get("defConPoints", 2)
+    thr_def = sr.get("defConThresholdDef", 10)
+    thr_mid = sr.get("defConThresholdMid", 12)
+
     written = 0
     for row in rows:
         iso = side_iso.get(row["side"])
@@ -534,21 +541,42 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
             continue
         position = pos_map.get(pid, 3)
         stats = row["stats"]
-        base, _ = compute_player_points(stats, position, rules)
-        breakdown = compute_breakdown(stats, position, rules)
+
+        # SCORING MODEL = FIFA official total + our DefCon bonus.
+        fifa = fifa_pts.get(pid)
+        defcon = stats.get("defCon", 0) or 0
+        thr = thr_def if position == 2 else (thr_mid if position == 3 else None)
+        defcon_bonus = defcon_pts if (thr is not None and defcon >= thr) else 0
+
+        if fifa is not None:
+            base = fifa
+            # itemized FIFA-rules breakdown reconstructed from our stats, with a
+            # reconciling line so it sums to FIFA's authoritative total
+            breakdown = fifa_breakdown(stats, position, fifa)
+        else:
+            # player not in FIFA's scored list (rare) -> fall back to our engine
+            base, _ = compute_player_points(stats, position, rules)
+            breakdown = compute_breakdown(stats, position, rules)
+        if thr is not None:
+            breakdown.append({"label": f"Defensive contribution ({defcon}/{thr})",
+                              "value": defcon, "pts": defcon_bonus})
+        total = base + defcon_bonus
+
         fref.collection("playerScores").document(str(pid)).set({
             "playerId": pid, "gw": gw,
-            "fantasyPoints": base,            # OUR league points (incl. DefCon)
+            "fantasyPoints": total,           # FIFA total + our DefCon
             "bonusPoints": 0,
-            "fifaPoints": fifa_pts.get(pid),  # reference
+            "fifaPoints": fifa,               # FIFA base (reference)
+            "defConActions": defcon,
+            "defConBonus": defcon_bonus,
             "stats": stats,
             "breakdown": breakdown,
-            "source": "whoscored",
+            "source": "whoscored+fifa",
             "live": not meta.get("finished"),
             "updatedAt": _fs.SERVER_TIMESTAMP,
         }, merge=True)
         db.collection("wc_players").document(str(pid)).set(
-            {f"gwPoints.{gw}": base}, merge=True)
+            {f"gwPoints.{gw}": total}, merge=True)
         written += 1
 
     fref.set({
@@ -560,3 +588,64 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
     leagues = _recompute_live_scores(db, gw, _gw_points_map(db, gw))
     return {"fixture": our_fixture_id, "wsMatchId": ws_match_id, "playerScoresWritten": written,
             "leaguesUpdated": leagues, "meta": meta}
+
+
+# --------------------------------------------------------------------------
+# Reconstruct FIFA's itemized scoring from our stats (FIFA's published rules),
+# with a reconciling "FIFA bonus" line so the panel always sums to FIFA's
+# authoritative total (scouting bonus / long-range / chances-created etc. that
+# FIFA computes internally land in that line).
+# https://sports.yahoo.com/articles/fifa-world-cup-fantasy-2026-054141309.html
+# --------------------------------------------------------------------------
+def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> list:
+    if fifa_total is None:
+        return []
+    mins = stats.get("minutes") or 0
+    lines = []
+    known = 0
+
+    def add(label, value, pts):
+        nonlocal known
+        if pts or value:
+            lines.append({"label": label, "value": value, "pts": pts})
+            known += pts
+
+    if mins > 0:
+        p = 2 if mins >= 60 else 1
+        add("Minutes played", mins, p)
+    goals = stats.get("goals", 0) or 0
+    if goals:
+        gp = {1: 6, 2: 6, 3: 5, 4: 4}.get(position, 4)
+        add("Goal scored", goals, goals * gp)
+    assists = stats.get("assists", 0) or 0
+    if assists:
+        add("Assist", assists, assists * 3)
+    if position in (1, 2) and mins >= 60 and stats.get("cleanSheet"):
+        add("Clean sheet", 1, 5)
+    gc = stats.get("goalsConceded", 0) or 0
+    if position in (1, 2) and not stats.get("cleanSheet") and gc >= 2:
+        add("Goals conceded", gc, -(gc - 1))
+    sot = stats.get("shotsOnTarget", 0) or 0
+    if sot >= 2:
+        add("Shots on target", sot, sot // 2)
+    if position == 1:
+        saves = stats.get("saves", 0) or 0
+        if saves >= 3:
+            add("Saves", saves, saves // 3)
+    yc = stats.get("yellowCards", 0) or 0
+    if yc:
+        add("Yellow card", yc, -yc)
+    rc = stats.get("redCards", 0) or 0
+    if rc:
+        add("Red card", rc, -2 * rc)
+    og = stats.get("ownGoals", 0) or stats.get("ownGoal", 0) or 0
+    if og:
+        add("Own goal", og, -2 * og)
+
+    # Reconcile to FIFA's authoritative total. The remainder is FIFA's internal
+    # extras (scouting bonus, long-range goal bonus, chances created, ball
+    # recoveries) we can't itemize from this feed.
+    remainder = fifa_total - known
+    if remainder:
+        lines.append({"label": "FIFA bonus (scouting / extras)", "value": None, "pts": remainder})
+    return lines
