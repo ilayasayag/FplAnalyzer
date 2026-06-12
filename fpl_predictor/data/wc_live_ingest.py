@@ -37,11 +37,27 @@ ESPN_SUMMARY = "https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/
 _UA = ("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
        "AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36")
 
-# FIFA squad abbr can differ from our iso; normalize the known divergences.
+# Feed abbr (FIFA + ESPN both use FIFA-style codes) can differ from our
+# isoCode (api-sports style). Verified against ALL 48 teams on 2026-06-12 by
+# diffing both feeds' team lists vs wc_teams — these are the only divergences.
+# An unmapped code (e.g. BIH) silently drops the whole match from fixture
+# matching AND every player of that nation from points matching, so keep this
+# table complete.
 ISO_ALIASES = {
-    "POR": "POR", "MEX": "MEX", "RSA": "RSA", "KOR": "KOR", "CZE": "CZE",
-    # add as discovered; identity by default
+    "BIH": "BOS",   # Bosnia & Herzegovina
+    "ESP": "SPA",   # Spain
+    "IRN": "IRA",   # Iran
+    "JPN": "JAP",   # Japan
+    "KSA": "SAU",   # Saudi Arabia
+    "MAR": "MOR",   # Morocco
+    "SUI": "SWI",   # Switzerland
 }
+
+
+def _norm_iso(abbr: str) -> str:
+    """Normalize a feed team code to our isoCode (identity when not aliased)."""
+    code = (abbr or "").upper()
+    return ISO_ALIASES.get(code, code)
 
 
 def _get_json(url: str, timeout: int = 25) -> dict:
@@ -64,7 +80,7 @@ def fetch_fifa_points() -> Dict[int, Dict]:
 
     out = []
     for p in players:
-        iso = ISO_ALIASES.get(sq_iso.get(p.get("squadId"), ""), sq_iso.get(p.get("squadId"), ""))
+        iso = _norm_iso(sq_iso.get(p.get("squadId"), ""))
         name = p.get("knownName") or " ".join(
             x for x in (p.get("firstName"), p.get("lastName")) if x).strip()
         st = p.get("stats") or {}
@@ -118,7 +134,7 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
 
         def _iso(c):
             t = c.get("team", {})
-            return (t.get("abbreviation") or t.get("name") or "").upper()
+            return _norm_iso(t.get("abbreviation") or t.get("name") or "")
 
         hg = int(home.get("score") or 0)
         ag = int(away.get("score") or 0)
@@ -129,10 +145,14 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
             "awayName": away.get("team", {}).get("displayName"),
             "homeScore": hg, "awayScore": ag,
             "statusShort": status.get("name"),
+            # ESPN soccer uses granular names (STATUS_FIRST_HALF, _SECOND_HALF,
+            # overtime/shootout variants in knockouts) — `state` is the stable
+            # signal: "pre" | "in" | "post". Match liveness on it, not on names.
+            "state": status.get("state"),
             "finished": finished,
         })
 
-        if not finished and status.get("name") not in ("STATUS_IN_PROGRESS", "STATUS_HALFTIME"):
+        if not finished and status.get("state") != "in":
             continue  # not started; no player stats yet
 
         try:
@@ -140,8 +160,8 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
         except Exception:
             continue
         for roster in summary.get("rosters", []) or []:
-            iso = (roster.get("team", {}).get("abbreviation")
-                   or roster.get("team", {}).get("name") or "").upper()
+            iso = _norm_iso(roster.get("team", {}).get("abbreviation")
+                            or roster.get("team", {}).get("name") or "")
             conceded = ag if roster.get("homeAway") == "home" else hg
             for entry in roster.get("roster", []) or []:
                 ath = entry.get("athlete", {})
@@ -258,8 +278,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
         ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
         if ref is None:
             continue
-        started = fx["finished"] or fx["statusShort"] in (
-            "STATUS_IN_PROGRESS", "STATUS_HALFTIME", "STATUS_FULL_TIME")
+        started = fx["finished"] or fx.get("state") == "in"
         ref.set({
             "status": "FT" if fx["finished"] else ("LIVE" if started else "NS"),
             "score": {"home": fx["homeScore"], "away": fx["awayScore"]},
@@ -769,7 +788,7 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
 
     done, skipped = [], []
     for fx in espn_fixtures:
-        if fx["statusShort"] not in ("STATUS_IN_PROGRESS", "STATUS_HALFTIME", "STATUS_FULL_TIME"):
+        if not (fx["finished"] or fx.get("state") == "in"):
             skipped.append(f"{fx['homeIso']}-{fx['awayIso']}:{fx['statusShort']}")
             continue
         ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
@@ -828,7 +847,7 @@ def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
             seen.add(ref.id)
             fdoc = ref.get().to_dict() or {}
             finished = fx["finished"]
-            in_play = fx["statusShort"] in ("STATUS_IN_PROGRESS", "STATUS_HALFTIME")
+            in_play = fx.get("state") == "in"
             if not finished and not in_play:
                 continue
             if finished and fdoc.get("scoredFinal"):
