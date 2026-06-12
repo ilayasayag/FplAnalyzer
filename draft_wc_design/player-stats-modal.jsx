@@ -54,6 +54,11 @@ function PlayerStatsModal() {
             s: s.saves || 0,
             b: row.bonusPoints != null ? row.bonusPoints : (s.bonusPoints || 0),
             pts: row.fantasyPoints != null ? row.fantasyPoints : 0,
+            // Defensive contribution actions (tackles+int+clear+blocks) + the
+            // itemized scoring breakdown for the "every point explained" panel.
+            defc: (s.defCon != null) ? s.defCon : (((s.tackles || {}).total || 0) + ((s.tackles || {}).interceptions || 0) + ((s.tackles || {}).blocks || 0) + (s.clearances || 0)),
+            breakdown: Array.isArray(row.breakdown) ? row.breakdown : [],
+            fifaPoints: row.fifaPoints,
           };
         }).sort((x, y) => x.gw - y.gw);
         setHistory(mapped);
@@ -234,7 +239,7 @@ function HistoryTab({ history, error }) {
             <th style={{ padding: "8px 8px", textAlign: "right" }}>GC</th>
             <th style={{ padding: "8px 8px", textAlign: "right" }}>YC</th>
             <th style={{ padding: "8px 8px", textAlign: "right" }}>S</th>
-            <th style={{ padding: "8px 8px", textAlign: "right" }}>B</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }} title="Defensive contribution: tackles + interceptions + clearances + blocks">DEF</th>
             <th style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800 }}>PTS</th>
           </tr>
         </thead>
@@ -251,15 +256,32 @@ function HistoryTab({ history, error }) {
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.gc > 0 ? "var(--red-500)" : undefined }}>{h.gc || "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.yc ? "var(--gold-500)" : undefined }}>{h.yc ? "1" : "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right" }}>{h.s || "—"}</td>
-              <td className="num" style={{ padding: "10px 8px", textAlign: "right", color: h.b > 0 ? "var(--green-500)" : undefined }}>{h.b || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{h.defc || "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: h.pts > 0 ? "var(--navy-900)" : "var(--ink-300)", fontSize: 15 }}>{h.pts}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-        Per-match breakdown. PTS includes bonus and reflects the official scoring engine.
+        DEF = defensive contribution (tackles + interceptions + clearances + blocks). PTS = FIFA match points + your league's DefCon bonus.
       </div>
+      {history.filter(h => (h.breakdown || []).length).map(h => (
+        <div key={`bd${h.gw}`} style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
+          <div style={{ background: "var(--navy-900)", color: "white", padding: "10px 14px", fontWeight: 700, fontSize: 13, display: "flex", justifyContent: "space-between" }}>
+            <span>GW{h.gw} · how the {h.pts} points were scored</span>
+            <span>vs {h.opp}</span>
+          </div>
+          {h.breakdown.map((ln, i) => (
+            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 14px", borderTop: i ? "1px solid var(--border)" : "none", fontSize: 13 }}>
+              <span style={{ color: "var(--ink-700)" }}>{ln.label}{ln.value != null ? <span className="muted" style={{ marginLeft: 6 }}>({ln.value})</span> : null}</span>
+              <span className="num" style={{ fontWeight: 800, color: ln.pts > 0 ? "var(--green-600, #1a9d5a)" : (ln.pts < 0 ? "var(--red-500)" : "var(--ink-300)") }}>{ln.pts > 0 ? `+${ln.pts}` : ln.pts}</span>
+            </div>
+          ))}
+          <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderTop: "2px solid var(--navy-900)", fontWeight: 800, background: "var(--cream)" }}>
+            <span>Total</span><span className="num">{h.pts}</span>
+          </div>
+        </div>
+      ))}
     </div>
   );
 }
