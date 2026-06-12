@@ -437,7 +437,11 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
         return {}, []
     idname = data.get("playerIdNameDictionary", {})
     max_min = data.get("maxMinute") or 90
-    ft = (data.get("ftScore") or "0 : 0").replace(" ", "").split(":")
+    # Mid-match the matchCentre carries the RUNNING score in `score` and an
+    # EMPTY-STRING `ftScore`; ftScore only fills at full time. Prefer it when
+    # set, else the live score — never default a live match to 0:0.
+    ft = ((data.get("ftScore") or "").strip() or (data.get("score") or "0 : 0")) \
+        .replace(" ", "").split(":")
     home_goals, away_goals = (int(ft[0]), int(ft[1])) if len(ft) == 2 else (0, 0)
     home, away = data.get("home", {}), data.get("away", {})
 
@@ -524,7 +528,11 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
     meta = {
         "homeName": home.get("name"), "awayName": away.get("name"),
         "homeScore": home_goals, "awayScore": away_goals,
-        "finished": (data.get("ftScore") is not None),
+        # ftScore exists as '' DURING the match (so `is not None` called every
+        # live game finished, stamping FT/0-0 at minute 35). Finished = elapsed
+        # says FT, or a real full-time score string is present.
+        "finished": (str(data.get("elapsed") or "").strip().upper() == "FT"
+                     or bool((data.get("ftScore") or "").strip())),
     }
     return meta, rows
 
