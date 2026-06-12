@@ -319,6 +319,17 @@ def ingest_live(db, gw: int, date: str) -> dict:
     }
 
 
+def _gw_points_map(db, gw: int) -> Dict[int, int]:
+    """Build {pool_id -> OUR fantasyPoints} for a GW by reading each GW fixture's
+    playerScores subcollection directly (avoids a collection-group index)."""
+    out: Dict[int, int] = {}
+    for fx in db.collection("wc_fixtures").where("gw", "==", gw).stream():
+        for d in fx.reference.collection("playerScores").stream():
+            r = d.to_dict() or {}
+            out[int(d.id)] = r.get("fantasyPoints", 0) or 0
+    return out
+
+
 def _recompute_live_scores(db, gw: int, pts_by_pid: Dict[int, int]) -> List[str]:
     """Write leagues/{lid}/scores/{gw}.results.{uid}.points = live Σ starters
     (+captain x2) from the locked lineup. Marked live=True; the post-FT finalize
@@ -349,3 +360,203 @@ def _recompute_live_scores(db, gw: int, pts_by_pid: Dict[int, int]) -> List[str]
                 merge=True)
             updated.append(ldoc.id)
     return updated
+
+
+# --------------------------------------------------------------------------
+# WhoScored: full Opta stat line incl. DEFENSIVE actions (the DefCon source)
+# --------------------------------------------------------------------------
+import gzip as _gzip
+import re as _re
+
+WS_BASE = "https://www.whoscored.com"
+
+
+def _ws_fetch(url: str) -> str:
+    req = urllib.request.Request(url, headers={
+        "User-Agent": _UA, "Accept-Language": "en-US,en;q=0.9",
+        "Referer": "https://www.whoscored.com/"})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        body = r.read()
+        if r.headers.get("Content-Encoding") == "gzip":
+            body = _gzip.decompress(body)
+        return body.decode("utf-8", "ignore")
+
+
+def _ws_match_centre(ws_match_id: int) -> Optional[dict]:
+    """Pull the matchCentreData JSON embedded in WhoScored's /live/ page."""
+    html = _ws_fetch(f"{WS_BASE}/matches/{ws_match_id}/live")
+    m = _re.search(r"matchCentreData\s*[:=]\s*(\{.*?\})\s*[,;]\s*matchCentreEventTypeJSON", html, _re.S)
+    if not m:
+        m = _re.search(r"matchCentreData\s*[:=]\s*(\{.*?\})\s*,\s*\n", html, _re.S)
+    if not m:
+        return None
+    return json.loads(m.group(1))
+
+
+def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
+    """Return (meta, player_rows). meta has home/away iso+name+score; each row is
+    {name, side, isStarter, stats:{...}} with goals/assists/minutes/cards/saves
+    plus tackles{total,interceptions,blocks}+clearances (DefCon inputs)."""
+    data = _ws_match_centre(ws_match_id)
+    if not data:
+        return {}, []
+    idname = data.get("playerIdNameDictionary", {})
+    max_min = data.get("maxMinute") or 90
+    ft = (data.get("ftScore") or "0 : 0").replace(" ", "").split(":")
+    home_goals, away_goals = (int(ft[0]), int(ft[1])) if len(ft) == 2 else (0, 0)
+    home, away = data.get("home", {}), data.get("away", {})
+
+    # per-player event aggregation
+    from collections import Counter, defaultdict
+    ev_goals, ev_assists = Counter(), Counter()
+    ev_yellow, ev_red, ev_og, ev_pen_miss = Counter(), Counter(), Counter(), Counter()
+    tk, interc, clear, blocks = Counter(), Counter(), Counter(), Counter()
+    sub_off, sub_on = {}, {}
+    for e in data.get("events", []):
+        pid = e.get("playerId")
+        if pid is None:
+            continue
+        tn = e.get("type", {}).get("displayName")
+        ok = e.get("outcomeType", {}).get("displayName") == "Successful"
+        quals = {q.get("type", {}).get("displayName") for q in e.get("qualifiers", [])}
+        if tn == "Goal" and ok:
+            (ev_og if "OwnGoal" in quals else ev_goals)[pid] += 1
+        elif tn == "Pass" and "IntentionalGoalAssist" in quals:
+            ev_assists[pid] += 1
+        elif tn == "Card":
+            if "Red" in quals or "SecondYellow" in quals:
+                ev_red[pid] += 1
+            elif "Yellow" in quals:
+                ev_yellow[pid] += 1
+        elif tn == "MissedShots" and "Penalty" in quals:
+            ev_pen_miss[pid] += 1
+        elif tn == "Tackle" and ok:
+            tk[pid] += 1
+        elif tn == "Interception":
+            interc[pid] += 1
+        elif tn == "Clearance":
+            clear[pid] += 1
+        elif tn in ("BlockedPass", "Save") and tn == "BlockedPass":
+            blocks[pid] += 1
+        if tn == "SubstitutionOff":
+            sub_off[pid] = e.get("minute")
+        elif tn == "SubstitutionOn":
+            sub_on[pid] = e.get("minute")
+
+    def minutes_for(pid, is_starter):
+        if pid in sub_off:
+            return sub_off[pid]
+        if pid in sub_on:
+            return max(0, max_min - sub_on[pid])
+        return max_min if is_starter else 0
+
+    rows = []
+    for side, team, conceded in (("home", home, away_goals), ("away", away, home_goals)):
+        for p in team.get("players", []):
+            pid = p.get("playerId")
+            starter = bool(p.get("isFirstEleven"))
+            mins = minutes_for(pid, starter)
+            if mins == 0 and pid not in sub_on and not starter:
+                continue  # unused sub
+            saves = int((p.get("stats", {}).get("totalSaves") or {}) and
+                        sum((p["stats"]["totalSaves"]).values()) or 0)
+            rows.append({
+                "name": idname.get(str(pid)) or p.get("name"),
+                "side": side,
+                "isStarter": starter,
+                "stats": {
+                    "minutes": mins,
+                    "goals": ev_goals.get(pid, 0),
+                    "assists": ev_assists.get(pid, 0),
+                    "yellowCards": ev_yellow.get(pid, 0),
+                    "redCards": ev_red.get(pid, 0),
+                    "ownGoal": ev_og.get(pid, 0),
+                    "penaltyMissed": ev_pen_miss.get(pid, 0),
+                    "saves": saves,
+                    "goalsConceded": conceded,
+                    "cleanSheet": conceded == 0 and mins >= 60,
+                    "tackles": {
+                        "total": tk.get(pid, 0),
+                        "interceptions": interc.get(pid, 0),
+                        "blocks": blocks.get(pid, 0),
+                    },
+                    "clearances": clear.get(pid, 0),
+                    "defCon": tk.get(pid, 0) + interc.get(pid, 0) + clear.get(pid, 0) + blocks.get(pid, 0),
+                },
+            })
+    meta = {
+        "homeName": home.get("name"), "awayName": away.get("name"),
+        "homeScore": home_goals, "awayScore": away_goals,
+        "finished": (data.get("ftScore") is not None),
+    }
+    return meta, rows
+
+
+def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int) -> dict:
+    """Score ONE fixture from WhoScored: parse full stat lines, map to our pool,
+    compute OUR league points + itemized breakdown (incl. DefCon), and write
+    wc_fixtures/{fid}/playerScores/{pid}. FIFA points are stored as a reference.
+    Non-destructive: never sets processedForFantasy."""
+    from google.cloud import firestore as _fs
+    from fpl_predictor.game.wc_scoring import compute_player_points, compute_breakdown
+
+    meta, rows = parse_whoscored_match(ws_match_id)
+    if not rows:
+        return {"error": "no WhoScored data", "ws_match_id": ws_match_id}
+
+    fref = db.collection("wc_fixtures").document(str(our_fixture_id))
+    fdoc = fref.get().to_dict() or {}
+    h_iso = (fdoc.get("homeTeam", {}).get("isoCode") or "").upper()
+    a_iso = (fdoc.get("awayTeam", {}).get("isoCode") or "").upper()
+    side_iso = {"home": h_iso, "away": a_iso}
+
+    pool = build_pool_index(db)
+    pos_map = {int(d.id): (d.to_dict() or {}).get("position", 3)
+               for d in db.collection("wc_players").stream()}
+    rules = (db.collection("wc_config").document("tournament").get().to_dict() or {}).get("rules", {})
+
+    # FIFA reference points for this GW (by pool id)
+    fifa = fetch_fifa_points()
+    fifa_pts = {}
+    for p in fifa:
+        rp = p["roundPoints"].get(str(gw))
+        if rp is None:
+            continue
+        pid = match_to_pool(p["name"], p["iso"], pool)
+        if pid:
+            fifa_pts[pid] = rp
+
+    written = 0
+    for row in rows:
+        iso = side_iso.get(row["side"])
+        pid = match_to_pool(row["name"], iso, pool)
+        if pid is None:
+            continue
+        position = pos_map.get(pid, 3)
+        stats = row["stats"]
+        base, _ = compute_player_points(stats, position, rules)
+        breakdown = compute_breakdown(stats, position, rules)
+        fref.collection("playerScores").document(str(pid)).set({
+            "playerId": pid, "gw": gw,
+            "fantasyPoints": base,            # OUR league points (incl. DefCon)
+            "bonusPoints": 0,
+            "fifaPoints": fifa_pts.get(pid),  # reference
+            "stats": stats,
+            "breakdown": breakdown,
+            "source": "whoscored",
+            "live": not meta.get("finished"),
+            "updatedAt": _fs.SERVER_TIMESTAMP,
+        }, merge=True)
+        db.collection("wc_players").document(str(pid)).set(
+            {f"gwPoints.{gw}": base}, merge=True)
+        written += 1
+
+    fref.set({
+        "status": "FT" if meta.get("finished") else "LIVE",
+        "score": {"home": meta.get("homeScore"), "away": meta.get("awayScore")},
+        "liveUpdatedAt": _fs.SERVER_TIMESTAMP,
+    }, merge=True)
+
+    leagues = _recompute_live_scores(db, gw, _gw_points_map(db, gw))
+    return {"fixture": our_fixture_id, "wsMatchId": ws_match_id, "playerScoresWritten": written,
+            "leaguesUpdated": leagues, "meta": meta}

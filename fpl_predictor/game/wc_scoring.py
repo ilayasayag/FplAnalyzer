@@ -52,6 +52,92 @@ VALID_FORMATIONS = [
 # Per-player point calculation
 # ---------------------------------------------------------------------------
 
+def compute_breakdown(stats: Dict, position: int, rules: Optional[Dict] = None) -> list:
+    """Itemized scoring lines for the player pop-up, e.g.
+    [{"label": "Minutes played", "value": 90, "pts": 2},
+     {"label": "Goal scored", "value": 1, "pts": 4}, ...].
+
+    Mirrors compute_player_points EXACTLY (same rule reads) so the line sum
+    equals the engine's base points — the pop-up can show "every point
+    explained" and it reconciles to the stored total.
+    """
+    rules = rules or {}
+    sr = rules.get("scoring", {})
+    lines = []
+    minutes = stats.get("minutes") or 0
+    if minutes == 0:
+        return lines
+
+    appear_u60 = sr.get("appearUnder60", APPEAR_UNDER_60)
+    appear_60 = sr.get("appear60Plus", APPEAR_60_PLUS)
+    lines.append({"label": "Minutes played", "value": minutes,
+                  "pts": appear_60 if minutes >= 60 else appear_u60})
+
+    gp_raw = sr.get("goalPoints", GOAL_POINTS)
+    gp = {int(k): v for k, v in gp_raw.items()} if isinstance(gp_raw, dict) else GOAL_POINTS
+    goals = stats.get("goals", 0) or 0
+    if goals:
+        lines.append({"label": "Goal scored", "value": goals, "pts": goals * gp.get(position, 4)})
+
+    assists = stats.get("assists", 0) or 0
+    if assists:
+        lines.append({"label": "Assist", "value": assists,
+                      "pts": assists * sr.get("assistPoints", ASSIST_POINTS)})
+
+    cs_raw = sr.get("csPoints", CS_POINTS)
+    cs = {int(k): v for k, v in cs_raw.items()} if isinstance(cs_raw, dict) else CS_POINTS
+    if minutes >= 60 and stats.get("cleanSheet", False) and cs.get(position, 0):
+        lines.append({"label": "Clean sheet", "value": 1, "pts": cs.get(position, 0)})
+
+    if not stats.get("cleanSheet", False):
+        gc = stats.get("goalsConceded", 0) or 0
+        gcr = sr.get("gcPointsPer2", GC_POINTS_PER_2)
+        gcp = {int(k): v for k, v in gcr.items()} if isinstance(gcr, dict) else GC_POINTS_PER_2
+        pen = gcp.get(position, 0)
+        if pen < 0 and gc >= 2:
+            lines.append({"label": "Goals conceded", "value": gc, "pts": (gc // 2) * pen})
+
+    yellow = stats.get("yellowCards", 0) or 0
+    if yellow:
+        lines.append({"label": "Yellow card", "value": yellow,
+                      "pts": yellow * sr.get("yellowCardPoints", YELLOW_CARD_POINTS)})
+    red = stats.get("redCards", 0) or 0
+    if red:
+        lines.append({"label": "Red card", "value": red,
+                      "pts": red * sr.get("redCardPoints", RED_CARD_POINTS)})
+    og = stats.get("ownGoal", 0) or 0
+    if og:
+        lines.append({"label": "Own goal", "value": og,
+                      "pts": og * sr.get("ownGoalPoints", OWN_GOAL_POINTS)})
+    pm = stats.get("penaltyMissed", 0) or 0
+    if pm:
+        lines.append({"label": "Penalty missed", "value": pm,
+                      "pts": pm * sr.get("penaltyMissPoints", PENALTY_MISS_POINTS)})
+
+    if position == 1:
+        saves = stats.get("saves", 0) or 0
+        spp = sr.get("savesPerPointGk", SAVES_PER_POINT_GK)
+        if saves // spp:
+            lines.append({"label": "Saves", "value": saves, "pts": saves // spp})
+        ps = stats.get("penaltySaved", 0) or 0
+        if ps:
+            lines.append({"label": "Penalty saved", "value": ps,
+                          "pts": ps * sr.get("penaltySavePoints", PENALTY_SAVE_POINTS)})
+
+    # Defensive Contribution: tackles + interceptions + clearances + blocks,
+    # threshold by position (DEF 10 / MID 12).
+    if position in (2, 3):
+        tk = stats.get("tackles") or {}
+        def_con = ((tk.get("total") or 0) + (tk.get("interceptions") or 0)
+                   + (tk.get("blocks") or 0) + (stats.get("clearances") or 0))
+        thr = sr.get("defConThresholdDef", DEFCON_THRESHOLD_DEF) if position == 2 \
+            else sr.get("defConThresholdMid", DEFCON_THRESHOLD_MID)
+        got = def_con >= thr
+        lines.append({"label": f"Defensive contribution ({def_con}/{thr})", "value": def_con,
+                      "pts": sr.get("defConPoints", DEFCON_POINTS) if got else 0})
+    return lines
+
+
 def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = None) -> Tuple[int, int]:
     """
     Compute fantasy points for one player in one fixture.
@@ -151,7 +237,8 @@ def compute_player_points(stats: Dict, position: int, rules: Optional[Dict] = No
         tackles = stats.get("tackles") or {}
         def_con = ((tackles.get("total") or 0)
                    + (tackles.get("interceptions") or 0)
-                   + (tackles.get("blocks") or 0))
+                   + (tackles.get("blocks") or 0)
+                   + (stats.get("clearances") or 0))
         threshold = defcon_threshold_def if position == 2 else defcon_threshold_mid
         if def_con >= threshold:
             pts += defcon_points
