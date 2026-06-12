@@ -161,6 +161,11 @@ function StatusScreen({ onTab }) {
 
   return (
     <div className="col" style={{ gap: 20 }}>
+      {/* Any user can pull fresh live scores on demand */}
+      <div style={{ display: "flex", justifyContent: "flex-end" }}>
+        <SyncDataButton />
+      </div>
+
       {/* Phase transition banner */}
       {LEAGUE.status === "knockout" && myMatch && (
         <div className="card-dark" style={{ padding: 0, position: "relative", overflow: "hidden" }}>
