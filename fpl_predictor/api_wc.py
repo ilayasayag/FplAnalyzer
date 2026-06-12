@@ -3206,6 +3206,39 @@ def admin_ingest_live_scores():
         return _err(f"ingest failed: {exc}", 500)
 
 
+@wc_bp.route("/sync-live-scores", methods=["POST"])
+def sync_live_scores_user():
+    """The 'Sync data' button: ANY signed-in league member can pull fresh
+    scores on demand (same self-healing catch_up_scan the cron runs — scores
+    live matches, retro-scores missed finished ones, sets bookmarks).
+
+    Debounced via wc_config/scan_state.lastScanAt: if a scan ran in the last
+    60s the call returns {skipped: true} immediately, so a click-happy league
+    can't hammer FIFA/ESPN. From cloud hosting WhoScored is unreachable, so
+    this delivers FIFA points + ESPN stats; DefCon layers on from the
+    residential-IP scheduled runs."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    from datetime import datetime, timezone, timedelta
+    st = _db.collection("wc_config").document("scan_state").get().to_dict() or {}
+    last = st.get("lastScanAt")
+    if last is not None and (datetime.now(timezone.utc) - last) < timedelta(seconds=60):
+        return _ok({"skipped": True, "reason": "synced less than 60s ago"})
+    try:
+        days = max(0, min(int(request.args.get("daysBack", 1)), 7))
+    except (TypeError, ValueError):
+        days = 1
+    try:
+        from fpl_predictor.data.wc_live_ingest import catch_up_scan
+        res = catch_up_scan(_db, days_back=days)
+        return _ok({"skipped": False, "requestedBy": uid, **res})
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return _err(f"sync failed: {exc}", 500)
+
+
 @wc_bp.route("/cron/ingest-live-scores", methods=["POST", "GET"])
 def cron_ingest_live_scores():
     """Secret-gated scheduled scorer for Cloud Scheduler (no Firebase login).

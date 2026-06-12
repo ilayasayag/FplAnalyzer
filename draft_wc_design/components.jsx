@@ -467,5 +467,31 @@ function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
   );
 }
 
+// ---------- Sync data (any user) ----------
+// Pulls fresh live scores on demand (POST /sync-live-scores — the same
+// self-healing scan the schedulers run, debounced 60s server-side), then
+// reloads so every panel rerenders from the synced data. The scan walks
+// multiple feeds, so allow it well past apiCall's 12s default.
+function SyncDataButton({ style }) {
+  const [busy, setBusy] = React.useState(false);
+  const run = async () => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      await apiCall("POST", "/sync-live-scores?daysBack=1", null, { timeoutMs: 120000 });
+      window.location.reload();
+    } catch (e) {
+      alert("Sync failed: " + ((e && (e.error || e.message)) || JSON.stringify(e)));
+      setBusy(false);
+    }
+  };
+  return (
+    <button className="btn btn--ghost" disabled={busy} onClick={run}
+      style={{ whiteSpace: "nowrap", ...style }}>
+      {busy ? "Syncing…" : "⟳ Sync data"}
+    </button>
+  );
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton });

@@ -394,6 +394,8 @@ function TransfersScreen() {
           <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Transfers</h2>
           <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>Manage your squad between gameweeks</div>
         </div>
+        {/* Any user can pull fresh live scores on demand */}
+        <SyncDataButton />
       </div>
 
       {/* Big window banner */}
