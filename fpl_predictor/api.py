@@ -112,7 +112,8 @@ def _no_cache(response):
     return response
 
 
-AUTH_EXEMPT = {"/api/health", "/api/v1/wc/admin/seed-test-leagues"}
+AUTH_EXEMPT = {"/api/health", "/api/v1/wc/admin/seed-test-leagues",
+               "/api/v1/wc/cron/ingest-live-scores"}  # secret-gated cron (Cloud Scheduler)
 
 
 @app.before_request

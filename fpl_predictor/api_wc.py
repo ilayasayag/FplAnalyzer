@@ -3037,3 +3037,41 @@ def admin_ingest_live_scores():
         import traceback
         traceback.print_exc()
         return _err(f"ingest failed: {exc}", 500)
+
+
+@wc_bp.route("/cron/ingest-live-scores", methods=["POST", "GET"])
+def cron_ingest_live_scores():
+    """Secret-gated scheduled scorer for Cloud Scheduler (no Firebase login).
+    One pass: refresh the WhoScored id map + score every live/finished WC match
+    from WhoScored (DefCon + FIFA points), ESPN fallback. Idempotent + never
+    finalizes. Auth: ?key=<cron secret stored at wc_config/cron.secret>.
+
+    The response reports whoscoredOk so we can see if WhoScored is reachable from
+    this host (it may block datacenter IPs)."""
+    key = request.args.get("key") or (request.get_json(silent=True) or {}).get("key")
+    cfg = _db.collection("wc_config").document("cron").get()
+    secret = (cfg.to_dict() or {}).get("secret") if cfg.exists else None
+    if not secret or key != secret:
+        return _err("Unauthorized", 401)
+    try:
+        from fpl_predictor.data.wc_live_ingest import (
+            run_scheduled_ingest, discover_whoscored_ids, _ws_match_centre)
+        # quick reachability probe (one known match) so the run is observable
+        ws_ok = False
+        try:
+            ws_ok = bool(_ws_match_centre(1953853))
+        except Exception:
+            ws_ok = False
+        disc = {}
+        try:
+            disc = discover_whoscored_ids(_db)
+        except Exception as exc:
+            disc = {"error": str(exc)}
+        res = run_scheduled_ingest(_db)
+        res["whoscoredOk"] = ws_ok
+        res["mapMatched"] = disc.get("matched")
+        return _ok(res)
+    except Exception as exc:
+        import traceback
+        traceback.print_exc()
+        return _err(f"cron ingest failed: {exc}", 500)

@@ -174,7 +174,8 @@ def build_pool_index(db) -> Dict[str, List[Dict]]:
     for d in db.collection("wc_players").stream():
         p = d.to_dict() or {}
         iso = (p.get("teamIso") or "").upper()
-        idx.setdefault(iso, []).append({"id": int(d.id), "name": p.get("name", "")})
+        idx.setdefault(iso, []).append({"id": int(d.id), "name": p.get("name", ""),
+                                        "pos": p.get("position", 3)})
     return idx
 
 
@@ -283,12 +284,27 @@ def ingest_live(db, gw: int, date: str) -> dict:
             if piso not in fixture_isos:
                 continue
             stats = espn_stats.get(pid, {})
+            pos = next((c.get("pos") for c in pool.get(piso, []) if c["id"] == pid), 3) or 3
+            # Preserve any DefCon bonus a residential WhoScored run already
+            # computed (cloud can't reach WhoScored), so this FIFA pass never
+            # clobbers it. Total = FIFA + preserved DefCon; breakdown stays itemized.
+            existing = scores_coll.document(str(pid)).get().to_dict() or {}
+            dcb = existing.get("defConBonus", 0) or 0
+            dca = existing.get("defConActions")
+            bd = fifa_breakdown(stats, pos, pts)
+            if dca is not None:
+                thr = 10 if pos == 2 else (12 if pos == 3 else None)
+                if thr is not None:
+                    bd.append({"label": f"Defensive contribution ({dca}/{thr})",
+                               "value": dca, "pts": dcb})
             scores_coll.document(str(pid)).set({
                 "playerId": pid,
                 "gw": gw,
-                "fantasyPoints": pts,          # FIFA authoritative
+                "fantasyPoints": pts + dcb,     # FIFA + preserved DefCon
+                "fifaPoints": pts,
                 "bonusPoints": 0,
                 "stats": stats,
+                "breakdown": bd,
                 "source": "fifa+espn",
                 "live": not fx["finished"],
                 "updatedAt": _fs.SERVER_TIMESTAMP,
@@ -761,13 +777,18 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
             continue
         ws_id = ws_map.get(str(ref.id))
         try:
+            r = None
             if ws_id:
                 r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw)
-                done.append({"fixture": ref.id, "via": "whoscored", "n": r.get("playerScoresWritten")})
+            # WhoScored unreachable (e.g. blocks datacenter IPs from cloud) or no
+            # id yet -> fall back to FIFA points + ESPN stats (no DefCon bonus) so
+            # scoring still flows. Full DefCon comes from a residential-IP run.
+            if not ws_id or not r or r.get("error") or not r.get("playerScoresWritten"):
+                ingest_live(db, gw, date)
+                done.append({"fixture": ref.id, "via": "fifa-espn-fallback"})
             else:
-                # no WhoScored id yet -> ESPN-only (FIFA points, no DefCon) so points still flow
-                r = ingest_live(db, gw, date)
-                done.append({"fixture": ref.id, "via": "espn-fallback"})
+                done.append({"fixture": ref.id, "via": "whoscored",
+                             "n": r.get("playerScoresWritten")})
         except Exception as exc:
             done.append({"fixture": ref.id, "error": str(exc)})
     return {"date": date, "gw": gw, "scored": done, "skipped": skipped}
