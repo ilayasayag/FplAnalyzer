@@ -1366,3 +1366,11 @@ a { color: inherit; text-decoration: none; }
     background: var(--gold-500);
   }
 }
+
+/* Squad Breakdown modal: at the modal's ~564px pitch width the default 16/11
+   landscape is ~390px tall but four formation rows of full-size cards need
+   ~500px — the FWD row clipped under overflow:hidden. Square it up on desktop;
+   below 768px the mobile layer's own 3/4 portrait override applies instead. */
+@media (min-width: 769px) {
+  .squad-modal-pitch .pitch { aspect-ratio: 1 / 1; }
+}

@@ -923,7 +923,7 @@ function ManagerSquadModal({ uid, gw, onClose }) {
         {hasSnap && pitchLineup ? (
           /* Finalized or live-locked GW → pitch view with per-player GW points
              (same renderer as the Points screen; bench rendered below). */
-          <div style={{ padding: isMobile ? "12px 10px 20px" : "16px 20px 24px" }}>
+          <div className="squad-modal-pitch" style={{ padding: isMobile ? "12px 10px 20px" : "16px 20px 24px" }}>
             <Pitch lineup={pitchLineup} mode="points" pointsById={pointsMap} />
           </div>
         ) : lineupsHidden ? (
