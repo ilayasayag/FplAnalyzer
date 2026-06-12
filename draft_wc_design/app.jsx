@@ -24,6 +24,42 @@ function setDataSource(v) {
   try { window.dispatchEvent(new CustomEvent("wc-datasource", { detail: v })); } catch (e) {}
 }
 
+// Per-GW cache of team→opponent maps built from GET /fixtures?gw=N, keyed by
+// the same isoCode the players use: { [gw]: { ISO: { opp, home } } }. Screens
+// that need a GW other than the viewed one (Pick Team edits the NEXT gw) call
+// fetchFixturesByTeamForGw on demand; in-flight requests are deduped and only
+// non-empty rounds are cached, so a not-yet-scheduled GW is retried next time
+// instead of latching an empty map.
+window.WC_FIXTURES_BY_GW = window.WC_FIXTURES_BY_GW || {};
+const _fixturesByGwInflight = {};
+function buildFixturesByTeam(fixtures) {
+  const byTeam = {};
+  (fixtures || []).forEach(fx => {
+    const h = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
+    const a = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
+    if (h && a) {
+      byTeam[h] = { opp: a, home: true };
+      byTeam[a] = { opp: h, home: false };
+    }
+  });
+  return byTeam;
+}
+function fetchFixturesByTeamForGw(gw) {
+  const cached = window.WC_FIXTURES_BY_GW[gw];
+  if (cached && Object.keys(cached).length > 0) return Promise.resolve(cached);
+  if (_fixturesByGwInflight[gw]) return _fixturesByGwInflight[gw];
+  const p = apiCall("GET", `/fixtures?gw=${gw}`)
+    .then(fixtures => {
+      const byTeam = buildFixturesByTeam(fixtures);
+      if (Object.keys(byTeam).length > 0) window.WC_FIXTURES_BY_GW[gw] = byTeam;
+      return byTeam;
+    })
+    .finally(() => { delete _fixturesByGwInflight[gw]; });
+  _fixturesByGwInflight[gw] = p;
+  return p;
+}
+window.fetchFixturesByTeamForGw = fetchFixturesByTeamForGw;
+
 // =====================================================================
 // Platform-selector LOBBY — the home page after sign-in.
 // The user explicitly chooses which league/platform to enter; no league is
@@ -810,22 +846,11 @@ function App() {
           // scheduled), walk back to the most recent GW that DOES have fixtures
           // so every active player still shows a real opponent instead of "—".
           // There is no static fallback any more — an empty map just yields "—".
-          const buildByTeam = (fixtures) => {
-            const byTeam = {};
-            (fixtures || []).forEach(fx => {
-              const h = ((fx.homeTeam || {}).isoCode || "").toUpperCase();
-              const a = ((fx.awayTeam || {}).isoCode || "").toUpperCase();
-              if (h && a) {
-                byTeam[h] = { opp: a, home: true };
-                byTeam[a] = { opp: h, home: false };
-              }
-            });
-            return byTeam;
-          };
+          // Each fetched round also lands in the per-GW cache
+          // (window.WC_FIXTURES_BY_GW) that Pick Team uses for its edit GW.
           let byTeam = {};
           for (let g = viewingGw; g >= 1; g--) {
-            const fixtures = await apiCall("GET", `/fixtures?gw=${g}`);
-            byTeam = buildByTeam(fixtures);
+            byTeam = await fetchFixturesByTeamForGw(g);
             if (Object.keys(byTeam).length > 0) break;
           }
           window.WC_FIXTURES_BY_TEAM = byTeam;

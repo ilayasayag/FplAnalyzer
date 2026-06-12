@@ -214,19 +214,31 @@ function isSwapLegal(lineup, idA, idB) {
   return VALID_FORMATIONS.includes(formationKey);
 }
 
-function getNextFixtureOpponent(teamIso) {
-  // Team-vs-team fixtures for the relevant GW. Sole source is the live
-  // window.WC_FIXTURES_BY_TEAM map (built in app.jsx from GET /fixtures, keyed
-  // by the same iso the players use; backend resolves isoCode from the team
-  // map). A team with no entry — genuinely not playing the resolved round —
-  // shows "—". We deliberately do NOT fall back to the static WC_FIXTURES_GW4
-  // round: that prototype set contains placeholder teams (e.g. POR2=Türkiye,
-  // MEX2=Peru) that don't exist in the backend, so it fabricated wrong
-  // opponents whenever the live map was empty. window.SCHEDULE is the H2H
-  // *manager* schedule, not team fixtures, so it is never used here.
+// Which GW's fixtures a pitch shows on its player cards. Pick Team provides
+// the EDIT gw (the one in "Save Lineup for GWX") so cards show that round's
+// opponents; with no provider (Points/Status pitches) the value is null and
+// the viewed-GW map built by app.jsx is used — the pre-existing behavior.
+const FixtureGwContext = React.createContext(null);
+window.FixtureGwContext = FixtureGwContext;
+
+function getNextFixtureOpponent(teamIso, gw = null) {
+  // Team-vs-team fixtures for the relevant GW. With an explicit `gw` the
+  // source is the per-GW cache window.WC_FIXTURES_BY_GW[gw] (filled on demand
+  // by window.fetchFixturesByTeamForGw in app.jsx) — "—" until that round's
+  // fetch lands. Otherwise it is the live window.WC_FIXTURES_BY_TEAM map
+  // (built in app.jsx from GET /fixtures for the VIEWED gw, keyed by the same
+  // iso the players use; backend resolves isoCode from the team map). A team
+  // with no entry — genuinely not playing the resolved round — shows "—". We
+  // deliberately do NOT fall back to the static WC_FIXTURES_GW4 round: that
+  // prototype set contains placeholder teams (e.g. POR2=Türkiye, MEX2=Peru)
+  // that don't exist in the backend, so it fabricated wrong opponents
+  // whenever the live map was empty. window.SCHEDULE is the H2H *manager*
+  // schedule, not team fixtures, so it is never used here.
   if (!teamIso) return "—";
   const iso = String(teamIso).toUpperCase();
-  const byTeam = window.WC_FIXTURES_BY_TEAM;
+  const byTeam = (gw != null)
+    ? (window.WC_FIXTURES_BY_GW || {})[gw]
+    : window.WC_FIXTURES_BY_TEAM;
   if (byTeam && typeof byTeam === "object") {
     const entry = byTeam[iso];
     if (entry && entry.opp) return `v ${entry.opp}`;
@@ -236,6 +248,9 @@ function getNextFixtureOpponent(teamIso) {
 
 // ---------- Player Slot (used on pitch) ----------
 function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick }) {
+  // null outside a FixtureGwContext provider → viewed-GW map (legacy behavior).
+  // Read before the empty-slot return so the hook runs on every render.
+  const fixtureGw = React.useContext(FixtureGwContext);
   const p = playerById(playerId);
   if (!p) {
     return (
@@ -253,7 +268,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
     window.dispatchEvent(new CustomEvent('show-player-stats', { detail: { id: playerId } }));
   };
 
-  const opp = getNextFixtureOpponent(p.team);
+  const opp = getNextFixtureOpponent(p.team, fixtureGw);
   // For a points view the per-GW points come from the gw_history snapshot map
   // (passed down via Pitch.pointsById). A player who didn't feature that GW has
   // NO snapshot entry — show 0, never the season-total fallback (VT-PointsNoStats
