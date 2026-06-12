@@ -1,61 +1,66 @@
 #!/usr/bin/env python3
-"""Standalone live-scoring cron — no server needed.
+"""Scheduled live-scoring runner — NO LLM, just Python + free public data.
 
-Fetches FIFA fantasy round points + ESPN stat lines and writes them to prod
-Firestore (gamedb). Schedule on match days, e.g. every 10 min during the match
-window and a final pass ~1h after the last kickoff:
+One pass: refresh the WhoScored match-id map (cheap, daily-ish), then score
+every live / recently-finished WC fixture from WhoScored (DefCon + FIFA points)
+or ESPN as fallback. Idempotent + non-finalizing, so running it every ~10 min
+during matches and for an hour after is safe and free.
 
-    */10 14-23 * * *  cd /path/to/fpl_analyzer && \
-        GOOGLE_APPLICATION_CREDENTIALS=secrets.json .venv/bin/python \
-        scripts/ingest_live_scores.py >> /tmp/wc_ingest.log 2>&1
-
-Usage:
-    python scripts/ingest_live_scores.py            # current GW, today (UTC)
-    python scripts/ingest_live_scores.py --gw 1 --date 20260611
+Cron (every 10 min, 13:00–02:00 UTC covers all WC kickoff windows + 1h after):
+    */10 13-23,0-2 * * *  cd /path/to/fpl_analyzer && \
+      GOOGLE_APPLICATION_CREDENTIALS=secrets.json .venv/bin/python \
+      scripts/ingest_live_scores.py >> /tmp/wc_ingest.log 2>&1
 """
-import argparse
-import os
-import sys
+import os, sys
 from datetime import datetime, timezone
-
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-import firebase_admin
-from firebase_admin import credentials, firestore
-from fpl_predictor.data.wc_live_ingest import ingest_live
+import json as _json
+from google.cloud import firestore
 
 PROJECT = "fpl-analyzer-792eb"
+from fpl_predictor.data.wc_live_ingest import run_scheduled_ingest, discover_whoscored_ids
 
 
 def _db():
-    if not firebase_admin._apps:
-        sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "secrets.json")
-        if os.path.exists(sa):
-            firebase_admin.initialize_app(credentials.Certificate(sa))
-        else:
-            firebase_admin.initialize_app(options={"projectId": PROJECT})
-    return firestore.client(database_id="gamedb")
+    """Firestore (gamedb) via a real service-account JSON if one is configured,
+    else Application Default Credentials (`gcloud auth application-default
+    login`). Never the API-keys secrets.json (that is not an SA cert)."""
+    sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS", "")
+    if sa and os.path.exists(sa):
+        try:
+            if _json.load(open(sa)).get("type") == "service_account":
+                from google.oauth2 import service_account
+                creds = service_account.Credentials.from_service_account_file(sa)
+                return firestore.Client(project=PROJECT, credentials=creds, database="gamedb")
+        except Exception:
+            pass
+    # Otherwise use the gcloud CLI's active-account access token (the same
+    # identity used interactively). Refreshed each run, so a 10-min cron always
+    # has a valid ~1h token. Requires `gcloud auth login` once on the host.
+    import subprocess
+    try:
+        tok = subprocess.check_output(
+            ["gcloud", "auth", "print-access-token"], text=True).strip()
+        from google.oauth2.credentials import Credentials
+        return firestore.Client(project=PROJECT,
+                                credentials=Credentials(token=tok), database="gamedb")
+    except Exception:
+        return firestore.Client(project=PROJECT, database="gamedb")  # last resort: ADC
 
 
 def main():
-    ap = argparse.ArgumentParser()
-    ap.add_argument("--gw", type=int, default=None)
-    ap.add_argument("--date", default=None, help="YYYYMMDD (UTC); default today")
-    args = ap.parse_args()
-
     db = _db()
-    gw = args.gw
-    if gw is None:
-        lg = db.collection("leagues").document("lg_mock_draft").get()
-        gw = (lg.to_dict() or {}).get("currentGw", 1) if lg.exists else 1
-    date = args.date or datetime.now(timezone.utc).strftime("%Y%m%d")
-
     stamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
-    res = ingest_live(db, int(gw), str(date))
-    print(f"[{stamp}] gw={gw} date={date} -> "
-          f"fixtures={res['fixturesTouched']} "
-          f"scores={res['playerScoresWritten']} "
-          f"leagues={res['leaguesUpdated']}")
+    # refresh the WhoScored id map (new matches appear as the calendar advances)
+    try:
+        disc = discover_whoscored_ids(db)
+    except Exception as e:
+        disc = {"error": str(e)}
+    res = run_scheduled_ingest(db)
+    scored = [s for s in res.get("scored", []) if s.get("n") or s.get("via")]
+    print(f"[{stamp}] gw={res['gw']} map={disc.get('matched','?')} "
+          f"scored={scored} skipped={len(res.get('skipped',[]))}")
 
 
 if __name__ == "__main__":

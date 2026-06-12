@@ -649,3 +649,125 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
     if remainder:
         lines.append({"label": "FIFA bonus (scouting / extras)", "value": None, "pts": remainder})
     return lines
+
+
+# --------------------------------------------------------------------------
+# Automation: discover WhoScored match ids for our fixtures, then a single
+# scheduled pass that scores every live / recently-finished match.
+# --------------------------------------------------------------------------
+WS_TOURNAMENT_URL = "https://www.whoscored.com/regions/247/tournaments/36/fifa-world-cup"
+
+
+# WhoScored slug spellings that differ from our team names.
+_SLUG_ALIASES = {
+    "republic": "", "of": "", "korea": "korea", "turkiye": "turkey",
+    "czechia": "czech", "republic-of-korea": "korea",
+}
+
+def _slug_tokens(slug: str) -> set:
+    from fpl_predictor.fuzzy import translit
+    raw = translit(slug.replace("-", " "))
+    out = set()
+    for t in raw.split():
+        a = _SLUG_ALIASES.get(t, t)
+        if a:
+            out.add(a)
+    return out
+
+
+def _name_tokens(name: str) -> set:
+    from fpl_predictor.fuzzy import translit
+    out = set()
+    for t in translit(name or "").split():
+        a = _SLUG_ALIASES.get(t, t)
+        if a:
+            out.add(a)
+    return out
+
+
+def discover_whoscored_ids(db) -> dict:
+    """Scrape WhoScored's WC2026 fixtures page, map each (home,away) slug pair to
+    one of our fixture docs by team-name tokens, and persist
+    wc_config/whoscored_map = {our_fixture_id: ws_match_id}. Idempotent; safe to
+    run daily as the calendar fills in."""
+    html = _ws_fetch(WS_TOURNAMENT_URL)
+    pairs = _re.findall(
+        r'/matches/(\d+)/[a-z]+/international-fifa-world-cup-2026-([a-z0-9-]+)', html)
+    seen = {}
+    for mid, slug in pairs:
+        seen.setdefault(slug, mid)  # first id per slug
+
+    # our fixtures: build token sets from team names/isos
+    teams = {}  # iso -> name tokens
+    for d in db.collection("wc_teams").stream():
+        t = d.to_dict() or {}
+        iso = (t.get("isoCode") or d.id or "").upper()
+        teams[iso] = _name_tokens(t.get("name") or "")
+
+    fixtures = []
+    for d in db.collection("wc_fixtures").stream():
+        f = d.to_dict() or {}
+        fixtures.append((d.id, (f.get("homeTeam", {}).get("isoCode") or "").upper(),
+                         (f.get("awayTeam", {}).get("isoCode") or "").upper()))
+
+    mapping = {}
+    unmatched = []
+    for slug, mid in seen.items():
+        toks = _slug_tokens(slug)
+        # split the combined slug into home/away by finding the best fixture whose
+        # two team token-sets together cover the slug tokens
+        best = None
+        for fid, hiso, aiso in fixtures:
+            ht, at = teams.get(hiso, set()), teams.get(aiso, set())
+            if not ht or not at:
+                continue
+            # both teams must have >=1 token in the slug; rank by total covered
+            if (ht & toks) and (at & toks):
+                covered = len((ht | at) & toks)
+                if best is None or covered > best[1]:
+                    best = (fid, covered)
+        if best:
+            mapping[best[0]] = int(mid)
+        else:
+            unmatched.append(slug)
+
+    db.collection("wc_config").document("whoscored_map").set(
+        {"map": {str(k): v for k, v in mapping.items()}, "unmatched": unmatched}, merge=True)
+    return {"matched": len(mapping), "unmatched": unmatched, "wsMatchesSeen": len(seen)}
+
+
+def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
+    """ONE scheduled pass (call from cron every ~10 min during match windows):
+    ESPN says which of today's fixtures are live/finished; for each we score from
+    WhoScored (DefCon + FIFA points) using the discovered id, else ESPN-only.
+    Free, no LLM. Idempotent + non-finalizing, so the 'while live' + '1h after'
+    cadence is just the cron firing repeatedly."""
+    from datetime import datetime, timezone
+    date = date or datetime.now(timezone.utc).strftime("%Y%m%d")
+    lg = db.collection("leagues").document("lg_mock_draft").get()
+    gw = (lg.to_dict() or {}).get("currentGw", 1) if lg.exists else 1
+
+    espn_fixtures, _ = fetch_espn_match_stats(date)
+    ws_map = (db.collection("wc_config").document("whoscored_map").get().to_dict() or {}).get("map", {})
+    fx_index = _fixture_index(db, None)  # (homeIso,awayIso)->ref across all gws
+
+    done, skipped = [], []
+    for fx in espn_fixtures:
+        if fx["statusShort"] not in ("STATUS_IN_PROGRESS", "STATUS_HALFTIME", "STATUS_FULL_TIME"):
+            skipped.append(f"{fx['homeIso']}-{fx['awayIso']}:{fx['statusShort']}")
+            continue
+        ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
+        if ref is None:
+            continue
+        ws_id = ws_map.get(str(ref.id))
+        try:
+            if ws_id:
+                r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw)
+                done.append({"fixture": ref.id, "via": "whoscored", "n": r.get("playerScoresWritten")})
+            else:
+                # no WhoScored id yet -> ESPN-only (FIFA points, no DefCon) so points still flow
+                r = ingest_live(db, gw, date)
+                done.append({"fixture": ref.id, "via": "espn-fallback"})
+        except Exception as exc:
+            done.append({"fixture": ref.id, "error": str(exc)})
+    return {"date": date, "gw": gw, "scored": done, "skipped": skipped}
