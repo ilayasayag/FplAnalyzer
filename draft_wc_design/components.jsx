@@ -486,7 +486,7 @@ function SyncDataButton({ style }) {
     }
   };
   return (
-    <button className="btn btn--ghost" disabled={busy} onClick={run}
+    <button className="btn btn--ghost-dark" disabled={busy} onClick={run}
       style={{ whiteSpace: "nowrap", ...style }}>
       {busy ? "Syncing…" : "⟳ Sync data"}
     </button>
