@@ -792,3 +792,71 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
         except Exception as exc:
             done.append({"fixture": ref.id, "error": str(exc)})
     return {"date": date, "gw": gw, "scored": done, "skipped": skipped}
+
+
+# --------------------------------------------------------------------------
+# Catch-up watermark: heal any matches missed while nothing was scanning.
+# Each fixture carries a `scoredFinal` bookmark once its FINISHED result is
+# locked in; catch_up_scan walks recent dates and scores every FT fixture that
+# isn't bookmarked yet (then sets the bookmark), so a redeploy / downtime never
+# loses a game. In-progress fixtures are scored too but NOT bookmarked.
+# --------------------------------------------------------------------------
+def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
+    from datetime import datetime, timezone, timedelta
+    from google.cloud import firestore as _fs
+
+    today = datetime.strptime(date, "%Y%m%d").replace(tzinfo=timezone.utc) \
+        if date else datetime.now(timezone.utc)
+    dates = [(today - timedelta(days=i)).strftime("%Y%m%d") for i in range(days_back + 1)]
+
+    lg = db.collection("leagues").document("lg_mock_draft").get()
+    gw = (lg.to_dict() or {}).get("currentGw", 1) if lg.exists else 1
+    ws_map = (db.collection("wc_config").document("whoscored_map").get().to_dict() or {}).get("map", {})
+    fx_index = _fixture_index(db, None)
+
+    scored_final, scored_live, already = [], [], 0
+    seen = set()
+    for d in dates:
+        try:
+            espn_fixtures, _ = fetch_espn_match_stats(d)
+        except Exception:
+            continue
+        for fx in espn_fixtures:
+            ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
+            if ref is None or ref.id in seen:
+                continue
+            seen.add(ref.id)
+            fdoc = ref.get().to_dict() or {}
+            finished = fx["finished"]
+            in_play = fx["statusShort"] in ("STATUS_IN_PROGRESS", "STATUS_HALFTIME")
+            if not finished and not in_play:
+                continue
+            if finished and fdoc.get("scoredFinal"):
+                already += 1
+                continue  # bookmarked — skip (idempotent optimization)
+
+            ws_id = ws_map.get(str(ref.id))
+            try:
+                r = ingest_whoscored_fixture(db, int(ws_id), ref.id, gw) if ws_id else None
+                if not ws_id or not r or r.get("error") or not r.get("playerScoresWritten"):
+                    ingest_live(db, gw, d)  # FIFA+ESPN fallback
+                    via = "fifa-espn"
+                else:
+                    via = "whoscored"
+            except Exception as exc:
+                (scored_final if finished else scored_live).append(
+                    {"fixture": ref.id, "error": str(exc)})
+                continue
+
+            if finished:
+                ref.set({"scoredFinal": True, "scoredAt": _fs.SERVER_TIMESTAMP,
+                         "status": "FT"}, merge=True)
+                scored_final.append({"fixture": ref.id, "date": d, "via": via})
+            else:
+                scored_live.append({"fixture": ref.id, "date": d, "via": via})
+
+    db.collection("wc_config").document("scan_state").set(
+        {"lastScanAt": _fs.SERVER_TIMESTAMP, "datesScanned": dates,
+         "lastFinalScored": [s["fixture"] for s in scored_final]}, merge=True)
+    return {"gw": gw, "datesScanned": dates, "newlyFinalized": scored_final,
+            "liveUpdated": scored_live, "alreadyBookmarked": already}

@@ -19,7 +19,7 @@ import json as _json
 from google.cloud import firestore
 
 PROJECT = "fpl-analyzer-792eb"
-from fpl_predictor.data.wc_live_ingest import run_scheduled_ingest, discover_whoscored_ids
+from fpl_predictor.data.wc_live_ingest import catch_up_scan, discover_whoscored_ids
 
 
 def _db():
@@ -57,10 +57,11 @@ def main():
         disc = discover_whoscored_ids(db)
     except Exception as e:
         disc = {"error": str(e)}
-    res = run_scheduled_ingest(db)
-    scored = [s for s in res.get("scored", []) if s.get("n") or s.get("via")]
+    res = catch_up_scan(db, days_back=3)
     print(f"[{stamp}] gw={res['gw']} map={disc.get('matched','?')} "
-          f"scored={scored} skipped={len(res.get('skipped',[]))}")
+          f"final={[s.get('fixture') for s in res.get('newlyFinalized',[])]} "
+          f"live={[s.get('fixture') for s in res.get('liveUpdated',[])]} "
+          f"bookmarked={res.get('alreadyBookmarked')}")
 
 
 if __name__ == "__main__":

@@ -3055,21 +3055,23 @@ def cron_ingest_live_scores():
         return _err("Unauthorized", 401)
     try:
         from fpl_predictor.data.wc_live_ingest import (
-            run_scheduled_ingest, discover_whoscored_ids, _ws_match_centre)
+            catch_up_scan, discover_whoscored_ids, _ws_match_centre)
         # quick reachability probe (one known match) so the run is observable
         ws_ok = False
         try:
             ws_ok = bool(_ws_match_centre(1953853))
         except Exception:
             ws_ok = False
-        disc = {}
         try:
-            disc = discover_whoscored_ids(_db)
-        except Exception as exc:
-            disc = {"error": str(exc)}
-        res = run_scheduled_ingest(_db)
+            discover_whoscored_ids(_db)
+        except Exception:
+            pass
+        # catch_up_scan is self-healing: it scores live matches AND retroactively
+        # any FINISHED match not yet bookmarked (scoredFinal), so a redeploy or
+        # downtime never loses a game. Every cron tick is also a catch-up pass.
+        days = int(request.args.get("daysBack", 3))
+        res = catch_up_scan(_db, days_back=days)
         res["whoscoredOk"] = ws_ok
-        res["mapMatched"] = disc.get("matched")
         return _ok(res)
     except Exception as exc:
         import traceback
