@@ -27,6 +27,7 @@ from .game.wc_gameweeks import (
     all_gws_as_dict, get_current_gw, is_locked, get_gw_config,
     compute_knockout_start_gw,
 )
+from .game.wc_windows import is_lineup_locked
 from .seed.seed_league import seed_everything, seed_mock_league
 
 
@@ -1548,9 +1549,79 @@ def get_gw_history(lid: str, uid: str):
         return _err("gw must be an integer")
     doc = (_db.collection("leagues").document(lid)
            .collection("gw_history").document(f"{uid}_{gw}").get())
-    if not doc.exists:
+    if doc.exists:
+        return _ok({"leagueId": lid, **doc.to_dict()})
+    # No finalized snapshot yet. Pre-lock, lineups are private: a manager may
+    # always see their own, but never an opponent's (mirrors get_opponent_lineup).
+    if not is_lineup_locked(_db, gw):
+        if uid != caller:
+            return _err("lineups hidden until they lock", 403)
         return _err("gw_history not found", 404)
-    return _ok({"leagueId": lid, **doc.to_dict()})
+    # Locked but not finalized (GW in progress) → compose a LIVE snapshot from
+    # the frozen lineup + live per-player points, same shape as the real one.
+    live = _compose_live_gw_history(lid, uid, gw)
+    if live is None:
+        return _err("gw_history not found", 404)
+    return _ok({"leagueId": lid, **live})
+
+
+def _live_gw_player_scores(gw: int) -> dict:
+    """{pool_id -> {"points", "stats"}} for a GW, read from each GW fixture's
+    playerScores subcollection — the same per-fixture join the live ingest's
+    ``_gw_points_map`` does (kept local so the API never imports the ingest's
+    private helpers)."""
+    out = {}
+    for fx in _db.collection("wc_fixtures").where("gw", "==", gw).get():
+        for pdoc in fx.reference.collection("playerScores").get():
+            pdata = pdoc.to_dict() or {}
+            out[int(pdoc.id)] = {
+                "points": pdata.get("fantasyPoints", 0) or 0,
+                "stats": pdata.get("stats", {}) or {},
+            }
+    return out
+
+
+def _compose_live_gw_history(lid: str, uid: str, gw: int):
+    """LIVE stand-in for a gw_history snapshot while a locked GW is in progress.
+
+    Joins the frozen lineup (``leagues/{lid}/lineups/{uid}_{gw}``) to the GW's
+    live playerScores. Captain doubles (mirroring the live ingest's running
+    totals); auto-subs/H2H result only exist after finalize_gw, so ``autoSubs``
+    is empty and ``opponent``/``result`` stay null. Marked ``live: True``.
+    """
+    lineup_doc = (_db.collection("leagues").document(lid)
+                  .collection("lineups").document(f"{uid}_{gw}").get())
+    if not lineup_doc.exists:
+        return None
+    lineup = lineup_doc.to_dict() or {}
+    starting = list(lineup.get("starting", []) or [])
+    bench = list(lineup.get("bench", []) or [])
+    scores = _live_gw_player_scores(gw)
+
+    def _pts(pid):
+        return scores.get(int(pid), {}).get("points", 0)
+
+    players = [{"id": pid,
+                "points": _pts(pid),
+                "stats": scores.get(int(pid), {}).get("stats", {})}
+               for pid in starting + bench]
+    total = sum(_pts(pid) for pid in starting)
+    captain = lineup.get("captain")
+    if captain is not None and int(captain) in [int(p) for p in starting]:
+        total += _pts(captain)  # captain doubles
+    return {
+        "uid": uid,
+        "gw": gw,
+        "players": players,
+        "starting": starting,
+        "bench": bench,
+        "autoSubs": [],
+        "totalPoints": total,
+        "opponent": None,
+        "opponentPoints": None,
+        "result": None,
+        "live": True,
+    }
 
 
 @wc_bp.route("/leagues/<lid>/standings", methods=["GET"])
@@ -1559,12 +1630,108 @@ def get_standings(lid: str):
     if err:
         return err
     gw = request.args.get("gw")
-    doc_id = str(gw) if gw else "current"
-    doc = (_db.collection("leagues").document(lid)
-           .collection("standings").document(doc_id).get())
-    if not doc.exists:
-        return _ok({"leagueId": lid, "managers": []})
-    return _ok({"leagueId": lid, **doc.to_dict()})
+    league_ref = _db.collection("leagues").document(lid)
+    league_snap = league_ref.get()
+    league = league_snap.to_dict() if league_snap.exists else {}
+    current_gw = int(league.get("currentGw", 1) or 1)
+    active = league.get("status") in ("group_phase", "knockout")
+
+    # A finalized snapshot for the requested/current GW always wins (unchanged
+    # behaviour). For no-?gw requests we look for the CURRENT GW's snapshot —
+    # finalize_gw advances currentGw right after writing it, so mid-GW this
+    # doesn't exist and an active league falls through to the live overlay.
+    doc_id = str(gw) if gw else str(current_gw)
+    doc = league_ref.collection("standings").document(doc_id).get()
+    if doc.exists:
+        return _ok({"leagueId": lid, **doc.to_dict()})
+
+    # No finalized doc for this view → compose a LIVE overlay so an active
+    # league's standings are never empty mid-GW.
+    if active and (not gw or str(gw) == str(current_gw)):
+        live = _compose_live_standings(league_ref, league, current_gw)
+        if live is not None:
+            return _ok({"leagueId": lid, **live})
+
+    # Inactive league / past GW with no snapshot: legacy behaviour ("current"
+    # doc for the no-?gw case, else empty).
+    if not gw:
+        cur_doc = league_ref.collection("standings").document("current").get()
+        if cur_doc.exists:
+            return _ok({"leagueId": lid, **cur_doc.to_dict()})
+    return _ok({"leagueId": lid, "managers": []})
+
+
+def _compose_live_standings(league_ref, league: dict, current_gw: int):
+    """LIVE standings for an active league mid-GW (no finalized snapshot yet).
+
+    Baseline = every member with zeros, overlaid with the last finalized
+    ``standings/current`` (H2H record/points stay FROZEN — no provisional W/D/L
+    for the live GW), plus the in-progress GW's live points from
+    ``scores/{currentGw}`` added to each manager's total fantasy points.
+    Ranked exactly like ``_update_standings`` (H2H pts, then fantasy pts).
+    """
+    members = list(league_ref.collection("members").get())
+    if not members:
+        return None
+    rows = {}
+    for m in members:
+        mdata = m.to_dict() or {}
+        rows[m.id] = {
+            "uid": m.id,
+            "displayName": mdata.get("displayName", ""),
+            "teamName": mdata.get("teamName", ""),
+            "hw": 0, "hd": 0, "hl": 0, "hpts": 0, "fpts": 0,
+            "bonusPoints": 0,
+            "gwPoints": {},
+        }
+
+    # Overlay the last finalized standings (frozen H2H + season totals so far).
+    final_doc = league_ref.collection("standings").document("current").get()
+    if final_doc.exists:
+        for m in (final_doc.to_dict() or {}).get("managers", []) or []:
+            row = rows.get(m.get("uid"))
+            if row is None:
+                continue
+            for key in ("displayName", "teamName", "hw", "hd", "hl",
+                        "hpts", "fpts", "bonusPoints"):
+                if m.get(key) is not None:
+                    row[key] = m[key]
+            row["gwPoints"] = dict(m.get("gwPoints") or {})
+
+    # Add the live in-progress GW's points on top of the fantasy totals.
+    updated_at = None
+    scores_doc = league_ref.collection("scores").document(str(current_gw)).get()
+    if scores_doc.exists:
+        sdata = scores_doc.to_dict() or {}
+        updated_at = sdata.get("updatedAt")
+        for muid, res in (sdata.get("results", {}) or {}).items():
+            row = rows.get(muid)
+            if row is None:
+                continue
+            pts = (res or {}).get("points", 0) or 0
+            row["fpts"] += pts
+            row["gwPoints"][str(current_gw)] = pts
+
+    qualifiers = int(league.get("knockoutQualifiers", 8) or 8)
+    ranked = sorted(
+        rows.values(),
+        key=lambda s: (s.get("hpts", 0), s.get("fpts", 0)),
+        reverse=True,
+    )
+    for idx, s in enumerate(ranked, start=1):
+        s["rank"] = idx
+        s["qualified"] = idx <= qualifiers
+        s["knockedOut"] = idx > qualifiers
+
+    if updated_at is None:
+        updated_at = datetime.now(timezone.utc)
+    return {
+        "managers": ranked,
+        "qualifiers": qualifiers,
+        "gw": current_gw,
+        "live": True,
+        "updatedAt": updated_at,
+    }
 
 
 @wc_bp.route("/leagues/<lid>/schedule", methods=["GET"])

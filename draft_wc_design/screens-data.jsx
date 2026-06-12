@@ -372,12 +372,17 @@ function FixturesScreen() {
 function LeagueScreen({ onTab }) {
   const [tab, setTab] = React.useState("standings");
   const isMobile = useIsMobile();
+  // Phase pill derives from the league config, not a hardcoded "Knockout
+  // Phase" (same derivation as the shell identity card).
+  const league = window.LEAGUE || LEAGUE;
+  const curGw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+  const inKnockout = league.knockoutStartGw != null && league.knockoutStartGw <= curGw;
   return (
     <div className="col" style={{ gap: 16 }}>
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: isMobile ? 10 : 16, flexWrap: isMobile ? "wrap" : undefined }}>
         <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{LEAGUE.name}</h2>
         <div className="row" style={{ gap: 8, flexShrink: 0 }}>
-          <span className="pill pill--gold">Knockout Phase</span>
+          <span className="pill pill--gold">{inKnockout ? "Knockout Phase" : "Group Phase"}</span>
           <span className="pill pill--dark" style={{ background: "var(--navy-900)", color: "white" }}>{LEAGUE.size} managers</span>
         </div>
       </div>
@@ -405,8 +410,44 @@ function LeagueScreen({ onTab }) {
 }
 
 function StandingsTable({ onTab }) {
-  const rows = (window.STANDINGS || STANDINGS);
+  // Live standings: the backend composes a LIVE overlay mid-GW (live:true +
+  // updatedAt) so the table is never empty for an active league. Poll every
+  // 60s while the tab is mounted; window.STANDINGS (app.jsx's one-shot fetch)
+  // remains the instant first paint until our own fetch lands.
+  const [liveData, setLiveData] = React.useState(null);
+  const [sortBy, setSortBy] = React.useState("fpts"); // "fpts" (default) | "hpts" — client-side only
   const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
+  // Read the league id at render time so the effect (re)starts once app.jsx's
+  // league fetch lands (it force-updates the tree; [] deps would never rerun).
+  const lid = window.LEAGUE && window.LEAGUE.id;
+  React.useEffect(() => {
+    if (!lid) return;
+    let cancelled = false;
+    const load = () => {
+      apiCall("GET", `/leagues/${lid}/standings`)
+        .then(d => { if (!cancelled && d && Array.isArray(d.managers)) setLiveData(d); })
+        .catch(() => { /* keep the last good table on a transient blip */ });
+    };
+    load();
+    const timer = setInterval(load, 60000);
+    return () => { cancelled = true; clearInterval(timer); };
+  }, [lid]);
+  const baseRows = (liveData && liveData.managers && liveData.managers.length)
+    ? liveData.managers
+    : (window.STANDINGS || STANDINGS);
+  const isLive = !!(liveData && liveData.live);
+  let updatedLabel = null;
+  if (isLive && liveData.updatedAt) {
+    const d = new Date(liveData.updatedAt);
+    if (!isNaN(d)) updatedLabel = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+  }
+  const rows = React.useMemo(() => {
+    const arr = [...baseRows];
+    arr.sort(sortBy === "hpts"
+      ? (a, b) => ((b.hpts || 0) - (a.hpts || 0)) || ((b.fpts || 0) - (a.fpts || 0))
+      : (a, b) => ((b.fpts || 0) - (a.fpts || 0)) || ((b.hpts || 0) - (a.hpts || 0)));
+    return arr;
+  }, [baseRows, sortBy]);
   // "This GW" = the league's current gameweek. The modal shows real per-player
   // points if that GW is finalised, otherwise the manager's current squad with
   // dashes (mid-GW / not yet played).
@@ -419,6 +460,27 @@ function StandingsTable({ onTab }) {
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
+      <div style={{ padding: "10px 18px", borderBottom: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <div className="row" style={{ gap: 8, minHeight: 26 }}>
+          {isLive && (
+            <span className="pill" style={{ background: "var(--hot-500)", color: "white", fontWeight: 800, letterSpacing: "0.06em" }}>● LIVE</span>
+          )}
+          {isLive && updatedLabel && (
+            <span className="muted" style={{ fontSize: 11 }}>GW{liveData.gw || viewGw} points update live · {updatedLabel}</span>
+          )}
+        </div>
+        <div className="row" style={{ gap: 4 }}>
+          <span className="muted" style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>Sort</span>
+          {[["fpts", "Total FPts"], ["hpts", "H2H Pts"]].map(([id, label]) => (
+            <button key={id}
+              className={"btn " + (sortBy === id ? "btn--solid-dark" : "btn--ghost-dark")}
+              style={{ padding: "6px 12px", fontSize: 11 }}
+              onClick={() => setSortBy(id)}>
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
       <div className="table-scroll">
       <table className="table-clean">
         <thead>
@@ -440,8 +502,10 @@ function StandingsTable({ onTab }) {
             const isMe = s.uid === window.ME;
             const qualified = !s.knockedOut;
             // Draw the cut line right below the last qualifying place (only if
-            // some teams actually miss out).
-            const showQualLine = i === qualifiers - 1 && qualifiers < rows.length;
+            // some teams actually miss out, and only when the displayed order
+            // is the seeding order — the H2H sort; an FPts sort interleaves
+            // qualified/eliminated rows so a positional line would mislead).
+            const showQualLine = sortBy === "hpts" && i === qualifiers - 1 && qualifiers < rows.length;
             return (
               <React.Fragment key={s.uid}>
                 <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "")}>
@@ -748,11 +812,13 @@ function ManagerSquadModal({ uid, gw, onClose }) {
   // season total (#52-class), and never the post-transfer squad (#50-class).
   const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot
   const [fallbackIds, setFallbackIds] = React.useState(null);
+  const [lineupsHidden, setLineupsHidden] = React.useState(false); // 403: pre-lock, not my squad
 
   React.useEffect(() => {
     let cancelled = false;
     setSnap(undefined);
     setFallbackIds(null);
+    setLineupsHidden(false);
     const lid = window.LEAGUE && window.LEAGUE.id;
     if (!lid) { setSnap(null); return; }
     const loadCurrentSquad = () => {
@@ -766,7 +832,14 @@ function ManagerSquadModal({ uid, gw, onClose }) {
         if (s && Array.isArray(s.players) && s.players.length) { setSnap(s); }
         else { setSnap(null); loadCurrentSquad(); }   // GW not finalized yet → show current squad, dashes
       })
-      .catch(() => { if (!cancelled) { setSnap(null); loadCurrentSquad(); } });
+      .catch(err => {
+        if (cancelled) return;
+        setSnap(null);
+        // Pre-lock privacy: another manager's lineup is hidden until it locks
+        // (backend 403) — show the notice instead of falling back to a list.
+        if (err && err.status === 403) { setLineupsHidden(true); return; }
+        loadCurrentSquad();
+      });
     return () => { cancelled = true; };
   }, [uid, gw]);
 
@@ -788,8 +861,28 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     if (!players.length) players = snap.players.map(pl => String(pl.id));
     managerTotal = snap.totalPoints != null ? snap.totalPoints : "—";
   } else if (snap === null) {
-    players = fallbackIds; // null while the fallback squad loads
+    players = lineupsHidden ? [] : fallbackIds; // null while the fallback squad loads
   }
+
+  // Pitch lineup for a snapshot (finalized or live-locked GW): order the
+  // starting XI GK→DEF→MID→FWD and derive the formation from the players' real
+  // positions — the same transform PointsScreen applies to its snapshot.
+  const pitchLineup = React.useMemo(() => {
+    if (!snap) return null;
+    const ids = (snap.players || []).map(pl => pl.id);
+    const starting = (Array.isArray(snap.starting) && snap.starting.length) ? snap.starting : ids.slice(0, 11);
+    const bench = Array.isArray(snap.bench) ? snap.bench : ids.slice(11);
+    const posOf = (rawId) => {
+      const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+      const p = playerById(id);
+      return p ? p.pos : 3;
+    };
+    const byPosRow = { 1: [], 2: [], 3: [], 4: [] };
+    starting.forEach(id => { (byPosRow[posOf(id)] || byPosRow[3]).push(id); });
+    const ordered = [...byPosRow[1], ...byPosRow[2], ...byPosRow[3], ...byPosRow[4]];
+    const formation = [Math.max(1, byPosRow[1].length), byPosRow[2].length, byPosRow[3].length, byPosRow[4].length];
+    return { starting: ordered, bench, formation };
+  }, [snap]);
 
   // Group by position
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
@@ -807,22 +900,37 @@ function ManagerSquadModal({ uid, gw, onClose }) {
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
-      <div className="modal" style={{ maxWidth: 520, maxHeight: isMobile ? undefined : "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
+      <div className="modal" style={{ maxWidth: 640, maxHeight: isMobile ? undefined : "88vh", overflowY: "auto" }} onClick={e => e.stopPropagation()}>
         <button className="modal__close" onClick={onClose}>×</button>
         <div style={{ padding: isMobile ? "20px 16px 12px" : "24px 24px 12px", borderBottom: "1px solid var(--border)", position: "relative" }}>
           <ManagerFlag uid={uid} size="hero"
             style={{ position: "absolute", top: isMobile ? 16 : 20, right: isMobile ? 48 : 56, width: isMobile ? 96 : 144, height: isMobile ? 64 : 96 }} />
-          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Squad Breakdown · GW{gw}</div>
+          <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+            Squad Breakdown · GW{gw}
+            {hasSnap && snap.live && (
+              <span className="pill" style={{ marginLeft: 8, background: "var(--hot-500)", color: "white", fontWeight: 800 }}>● LIVE</span>
+            )}
+          </div>
           <div className="h-display" style={{ fontSize: 24, marginTop: 4, paddingRight: isMobile ? 110 : 170 }}>{m?.team || "Squad"}</div>
           <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>{m?.name}</div>
           <div style={{ marginTop: 12, display: "inline-flex", alignItems: "center", gap: 10, background: "var(--navy-900)", color: "white", padding: "10px 16px", borderRadius: 10 }}>
-            <span style={{ fontSize: 12, opacity: 0.7 }}>GW{gw} Total</span>
+            <span style={{ fontSize: 12, opacity: 0.7 }}>GW{gw} {hasSnap && snap.live ? "Live" : "Total"}</span>
             <span className="mono" style={{ fontSize: 26, fontWeight: 800, color: "var(--gold-500)" }}>{managerTotal}</span>
             <span style={{ fontSize: 12, opacity: 0.5 }}>pts</span>
           </div>
         </div>
 
-        {players === null ? (
+        {hasSnap && pitchLineup ? (
+          /* Finalized or live-locked GW → pitch view with per-player GW points
+             (same renderer as the Points screen; bench rendered below). */
+          <div style={{ padding: isMobile ? "12px 10px 20px" : "16px 20px 24px" }}>
+            <Pitch lineup={pitchLineup} mode="points" pointsById={pointsMap} />
+          </div>
+        ) : lineupsHidden ? (
+          <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>
+            Lineups are hidden until they lock for GW{gw}. Check back at kickoff.
+          </div>
+        ) : players === null ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>Loading squad…</div>
         ) : players.length === 0 ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>No squad data available.</div>
