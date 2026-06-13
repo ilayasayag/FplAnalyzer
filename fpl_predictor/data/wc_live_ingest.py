@@ -800,7 +800,10 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
         add("Minutes played", mins, p)
     goals = stats.get("goals", 0) or 0
     if goals:
-        gp = {1: 6, 2: 6, 3: 5, 4: 4}.get(position, 4)
+        # FIFA WC 2026 goal points by position. Forwards are 5 (verified against
+        # FIFA's own per-match breakdown: 2 goals = +10), NOT the FPL-style 4 —
+        # using 4 inflated the reconciling "FIFA bonus" line by the difference.
+        gp = {1: 6, 2: 6, 3: 5, 4: 5}.get(position, 5)
         add("Goal scored", goals, goals * gp)
     assists = stats.get("assists", 0) or 0
     if assists:
