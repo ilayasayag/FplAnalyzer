@@ -506,6 +506,40 @@ function StatBlock({ label, value, accent }) {
   );
 }
 
+// Free-agents / pool sort options (Segment 6). [key, label]; "pts" is default.
+// Season-stat keys read p.season.<key>; pts/dr/selPct read top-level fields.
+const FA_SORT_OPTIONS = [
+  ["pts", "Total points"],
+  ["goals", "Goals"],
+  ["assists", "Assists"],
+  ["shotsOnTarget", "Shots on target"],
+  ["cleanSheets", "Clean sheets"],
+  ["minutes", "Minutes"],
+  ["defconActions", "DefCon actions"],
+  ["dr", "FIFA draft rank"],
+  ["selPct", "% Selected"],
+];
+// Only FIFA draft rank sorts ascending (lower = better).
+const SORT_ASC = new Set(["dr"]);
+function faSortVal(p, key) {
+  if (key === "pts") return p.pts || 0;
+  if (key === "dr") return p.dr || 9999;
+  if (key === "selPct") return p.selPct || 0;
+  return (p.season && p.season[key]) || 0;  // season aggregates
+}
+// Short header + cell renderer for the DYNAMIC sorted-stat column. Keys already
+// shown as fixed columns (pts, selPct) map to null → no extra column. Everything
+// else surfaces the value you sorted by so it's visible in the table.
+const FA_DYNAMIC_COL = {
+  goals:         ["Goals",  p => (p.season && p.season.goals) || 0],
+  assists:       ["Asts",   p => (p.season && p.season.assists) || 0],
+  shotsOnTarget: ["SoT",    p => (p.season && p.season.shotsOnTarget) || 0],
+  cleanSheets:   ["CS",     p => (p.season && p.season.cleanSheets) || 0],
+  minutes:       ["Mins",   p => (p.season && p.season.minutes) || 0],
+  defconActions: ["DefCon", p => (p.season && p.season.defconActions) || 0],
+  dr:            ["Draft",  p => `#${p.dr || "—"}`],
+};
+
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
@@ -514,6 +548,18 @@ function FreeAgentsTab() {
   const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
+  const [sortBy, setSortBy] = React.useState("pts"); // default: total points
+  // Sort direction. Each key has a sensible default (FIFA draft rank ascends,
+  // everything else descends); clicking the active column header flips it.
+  const [sortDir, setSortDir] = React.useState("desc");
+  const defaultDirFor = key => (SORT_ASC.has(key) ? "asc" : "desc");
+  // Pick a sort column (dropdown or header click). Re-selecting the active
+  // column toggles asc<->desc; a new column resets to its default direction.
+  const applySort = key => {
+    if (key === sortBy) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortDir(defaultDirFor(key)); }
+  };
+  const sortCaret = key => (sortBy === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
 
   // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
   // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
@@ -544,11 +590,20 @@ function FreeAgentsTab() {
       return ownerFilter === "__free" ? !o : o === ownerFilter;
     })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
-    // Points first; while everyone is on 0 pts (pre-GW1) fall back to draft
-    // rank so the list is still best-player-first instead of pool order.
-    .sort((a, b) => (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999));
+    // Primary sort = chosen key in the chosen direction (header click toggles
+    // asc/desc). SECONDARY is ALWAYS total points (desc), then draft rank — so
+    // ties, and any column that's still all-zero pre-data, stay best-first.
+    .sort((a, b) => {
+      const av = faSortVal(a, sortBy), bv = faSortVal(b, sortBy);
+      const primary = sortDir === "asc" ? av - bv : bv - av;
+      return primary || (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999);
+    });
   const CAP = 120;
   const shown = filtered.slice(0, CAP);
+  // Dynamic column reflecting the active sort (null when sorting by an
+  // already-shown column like Pts / % Sel). Lets the user SEE the stat they
+  // sorted by — e.g. Sort: Goals adds a Goals column.
+  const dynCol = FA_DYNAMIC_COL[sortBy] || null;
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
   const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
 
@@ -636,6 +691,9 @@ function FreeAgentsTab() {
             <option value="all">All nations</option>
             {nations.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
+          <select value={sortBy} onChange={e => { setSortBy(e.target.value); setSortDir(defaultDirFor(e.target.value)); }} style={selStyle} title="Sort players by (or click a column header)">
+            {FA_SORT_OPTIONS.map(([k, label]) => <option key={k} value={k}>Sort: {label}</option>)}
+          </select>
           {mode === "all" && (
             <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
               <option value="all">Any owner</option>
@@ -667,14 +725,16 @@ function FreeAgentsTab() {
             <th>Team</th>
             <th>Pos</th>
             <th>Owner</th>
-            <th style={{ textAlign: "right" }}>Pts</th>
+            {dynCol && <th onClick={() => applySort(sortBy)} style={{ textAlign: "right", color: "var(--navy-900)", cursor: "pointer", userSelect: "none" }} title="Click to flip sort direction">{dynCol[0]}{sortCaret(sortBy)}</th>}
+            <th onClick={() => applySort("pts")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "pts" ? "var(--navy-900)" : undefined }} title="Sort by total points">Pts{sortCaret("pts")}</th>
+            <th onClick={() => applySort("selPct")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "selPct" ? "var(--navy-900)" : undefined }} title="Sort by FIFA fantasy ownership %">% Sel{sortCaret("selPct")}</th>
             <th style={{ textAlign: "right" }}>Form</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {shown.length === 0 && (
-            <tr><td colSpan="7" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+            <tr><td colSpan={dynCol ? "9" : "8"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
           )}
           {shown.map(p => {
             const t = teamById(p.team);
@@ -701,7 +761,11 @@ function FreeAgentsTab() {
                     ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
                     : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
+                {dynCol && <td className="num" style={{ textAlign: "right", fontWeight: 800, color: "var(--navy-900)" }}>{dynCol[1](p)}</td>}
                 <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
+                <td className="num" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
+                  {p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"}
+                </td>
                 <td style={{ textAlign: "right" }}>
                   <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: p.pts > 30 ? "rgba(0,217,107,0.18)" : p.pts > 20 ? "rgba(255,200,68,0.18)" : "rgba(0,0,0,0.06)", color: p.pts > 30 ? "#006b35" : p.pts > 20 ? "#7a5a00" : "var(--ink-500)" }}>
                     {p.pts > 30 ? "Hot" : p.pts > 20 ? "Form" : "Cold"}

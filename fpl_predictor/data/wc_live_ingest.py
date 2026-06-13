@@ -70,8 +70,15 @@ def _get_json(url: str, timeout: int = 25) -> dict:
 # FIFA: per-player round points, keyed by (nation_iso, name)
 # --------------------------------------------------------------------------
 def fetch_fifa_points() -> Dict[int, Dict]:
-    """Return {squadId: {abbr, players: [{name, position, roundPoints}]}} merged
-    into a flat list of {name, iso, position, roundPoints} entries."""
+    """Return a flat list of FIFA player entries:
+    ``{name, iso, position, roundPoints, seasonTotal, percentSelected,
+    fifaPrice, fifaForm}``.
+
+    ``percentSelected`` / ``fifaPrice`` / ``fifaForm`` come straight from the
+    FIFA fantasy feed (verified live 2026-06-12: top-level ``percentSelected`` +
+    ``price``, ``stats.form``) and are surfaced for the Transfers sort/columns +
+    Compare tab. Absent fields stay ``None`` so a feed-shape change degrades
+    gracefully rather than crashing the ingest."""
     players = _get_json(FIFA_PLAYERS_URL)
     players = players if isinstance(players, list) else players.get("players", [])
     squads = _get_json(FIFA_SQUADS_URL)
@@ -90,6 +97,9 @@ def fetch_fifa_points() -> Dict[int, Dict]:
             "position": p.get("position"),
             "roundPoints": {str(k): v for k, v in (st.get("roundPoints") or {}).items()},
             "seasonTotal": st.get("totalPoints") or 0,
+            "percentSelected": p.get("percentSelected"),
+            "fifaPrice": p.get("price"),
+            "fifaForm": st.get("form"),
         })
     return out
 
@@ -273,6 +283,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
 
     written = 0
     fixtures_touched = []
+    our_gw_pts: Dict[int, int] = {}   # pid -> OUR total (excl FIFA bonus, incl DefCon)
     # Map ESPN fixtures to our fixture docs and write playerScores
     for fx in fixtures:
         ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
@@ -316,11 +327,16 @@ def ingest_live(db, gw: int, date: str) -> dict:
                 if thr is not None:
                     bd.append({"label": f"Defensive contribution ({dca}/{thr})",
                                "value": dca, "pts": dcb})
+            # OUR total excludes FIFA's scouting/extras bonus, keeps DefCon.
+            fifa_bonus = _excluded_pts(bd)
+            total = pts + dcb - fifa_bonus
+            our_gw_pts[pid] = total
             scores_coll.document(str(pid)).set({
                 "playerId": pid,
                 "gw": gw,
-                "fantasyPoints": pts + dcb,     # FIFA + preserved DefCon
-                "fifaPoints": pts,
+                "fantasyPoints": total,        # FIFA itemized + DefCon, minus FIFA bonus
+                "fifaPoints": pts,             # FIFA authoritative total (reference)
+                "fifaBonus": fifa_bonus,       # FIFA scouting/extras we DON'T count
                 "bonusPoints": 0,
                 "stats": stats,
                 "breakdown": bd,
@@ -330,19 +346,17 @@ def ingest_live(db, gw: int, date: str) -> dict:
             }, merge=True)
             written += 1
 
-    # season totals on the pool (for Players tab / popup "Total"); season total
-    # is FIFA's own all-rounds figure so re-running a single GW never clobbers it.
-    for pid in set(fifa_pts) | set(fifa_season):
-        upd = {}
-        if pid in fifa_season:
-            upd["totalPoints"] = fifa_season[pid]
-        if pid in fifa_pts:
-            upd[f"gwPoints.{gw}"] = fifa_pts[pid]
-        if upd:
-            db.collection("wc_players").document(str(pid)).set(upd, merge=True)
+    # Per-player GW cache = OUR bonus-excluded total (not the raw FIFA figure).
+    # totalPoints (season) is owned by recompute_season_stats in
+    # refresh_pool_aggregates (run once per scan), so it's not written here.
+    for pid, total in our_gw_pts.items():
+        db.collection("wc_players").document(str(pid)).set(
+            {f"gwPoints.{gw}": total}, merge=True)
 
-    # per-manager LIVE totals for every active league (no finalize, no lock flip)
-    leagues_updated = _recompute_live_scores(db, gw, fifa_pts)
+    # per-manager LIVE totals for every active league (no finalize, no lock flip).
+    # Read back OUR fantasyPoints (bonus-excluded, DefCon-included) so the manager
+    # totals match the per-player scores — same path the WhoScored scorer uses.
+    leagues_updated = _recompute_live_scores(db, gw, _gw_points_map(db, gw))
 
     return {
         "gw": gw, "date": date,
@@ -351,6 +365,129 @@ def ingest_live(db, gw: int, date: str) -> dict:
         "fifaScorers": len(fifa_pts),
         "espnStatRows": len(espn_stats),
         "leaguesUpdated": leagues_updated,
+    }
+
+
+def _batch_set_players(db, updates: Dict[int, dict]) -> int:
+    """Merge-write ``{pid: data}`` to wc_players in batched commits.
+
+    The whole-pool refreshers touch 100s–1000s of docs each scan; one ``.set()``
+    per doc is ~1 RPC each (the 281s prod backfill was almost entirely write
+    latency). Batching to Firestore's 500-op limit collapses that to a handful of
+    commits. Returns the number of docs written."""
+    items = list(updates.items())
+    coll = db.collection("wc_players")
+    for i in range(0, len(items), 450):
+        batch = db.batch()
+        for pid, data in items[i:i + 450]:
+            batch.set(coll.document(str(pid)), data, merge=True)
+        batch.commit()
+    return len(items)
+
+
+# Stat-line keys (from the ESPN mapping in playerScores.stats) that the season
+# aggregate sums. cleanSheets/appearances are derived, not summed directly.
+def recompute_season_stats(db) -> int:
+    """Recompute ``wc_players/{pid}.seasonStats`` from EVERY playerScore doc.
+
+    Idempotent by construction: it always does a full recompute from the durable
+    per-fixture ``playerScores`` (never an increment), so re-running an ingest
+    tick — or the same GW twice — leaves the figures unchanged. Aggregates the
+    ESPN stat line (goals/assists/shots-on-target/shots/minutes), counts
+    clean-sheet matches + appearances, and sums the WhoScored DefCon fields.
+
+    Mirrors ``_gw_points_map``'s fixture→playerScores walk (no collection-group
+    index needed). Returns the number of players written.
+    """
+    agg: Dict[int, Dict[str, float]] = {}
+    for fx in db.collection("wc_fixtures").stream():
+        for d in fx.reference.collection("playerScores").stream():
+            r = d.to_dict() or {}
+            try:
+                pid = int(d.id)
+            except (TypeError, ValueError):
+                continue
+            a = agg.setdefault(pid, {
+                "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
+                "cleanSheets": 0, "minutes": 0, "appearances": 0,
+                "defconActions": 0, "defconBonus": 0, "points": 0,
+            })
+            st = r.get("stats") or {}
+            a["goals"] += st.get("goals", 0) or 0
+            a["assists"] += st.get("assists", 0) or 0
+            a["shotsOnTarget"] += st.get("shotsOnTarget", 0) or 0
+            a["shots"] += st.get("shots", 0) or 0
+            mins = st.get("minutes", 0) or 0
+            a["minutes"] += mins
+            if st.get("cleanSheet"):
+                a["cleanSheets"] += 1
+            if mins > 0:
+                a["appearances"] += 1
+            a["defconActions"] += r.get("defConActions", 0) or 0
+            a["defconBonus"] += r.get("defConBonus", 0) or 0
+            # OUR fantasy total = FIFA match points + league DefCon bonus (the
+            # per-fixture fantasyPoints already bakes DefCon in, see ingest_live).
+            a["points"] += r.get("fantasyPoints", 0) or 0
+
+    # Write seasonStats AND the league total. totalPoints is OUR sum (incl.
+    # DefCon), NOT the FIFA-only seasonTotal — so the Players/Transfers "Pts" and
+    # the modal Total match the per-GW breakdown (which includes DefCon).
+    return _batch_set_players(
+        db, {pid: {"seasonStats": a, "totalPoints": a["points"]} for pid, a in agg.items()})
+
+
+def stamp_fifa_meta(db) -> int:
+    """Stamp FIFA ownership / price / form onto wc_players for every resolvable
+    player.
+
+    Independent of fixtures — it's a snapshot of the live FIFA fantasy feed — so
+    it must run once per scan REGARDLESS of which scoring path each fixture used
+    (WhoScored or the FIFA/ESPN fallback). Returns the count of players stamped;
+    0 if the feed is unreachable (a feed blip must never break a scan).
+
+    Deliberately does NOT touch totalPoints: that's OUR league total (FIFA +
+    DefCon), owned by recompute_season_stats. The FIFA seasonTotal excludes our
+    DefCon bonus, so stamping it here would clobber the correct figure."""
+    try:
+        fifa = fetch_fifa_points()
+    except Exception as exc:
+        print(f"[wc_ingest] stamp_fifa_meta: FIFA feed unavailable: {exc!r}")
+        return 0
+    pool = build_pool_index(db)
+    cache: Dict[Tuple[str, str], Optional[int]] = {}
+
+    def resolve(name, iso):
+        key = (iso, (name or "").lower())
+        if key not in cache:
+            cache[key] = match_to_pool(name, iso, pool)
+        return cache[key]
+
+    updates: Dict[int, dict] = {}
+    for p in fifa:
+        pid = resolve(p["name"], p["iso"])
+        if pid is None:
+            continue
+        meta = {}
+        if p.get("percentSelected") is not None:
+            meta["percentSelected"] = p["percentSelected"]
+        if p.get("fifaPrice") is not None:
+            meta["fifaPrice"] = p["fifaPrice"]
+        if p.get("fifaForm") is not None:
+            meta["fifaForm"] = p["fifaForm"]
+        if meta:
+            updates[pid] = meta  # one entry per pid (last feed row wins)
+    return _batch_set_players(db, updates)
+
+
+def refresh_pool_aggregates(db) -> dict:
+    """Recompute season stats + stamp FIFA ownership/price/form for the whole
+    pool. Called at the END of every scan (``catch_up_scan`` /
+    ``run_scheduled_ingest``) so the Transfers sort/columns + Compare tab are
+    populated no matter which scoring path ran — both operations are full,
+    idempotent recomputes/snapshots, safe to repeat."""
+    return {
+        "seasonStatsPlayers": recompute_season_stats(db),
+        "fifaMetaPlayers": stamp_fifa_meta(db),
     }
 
 
@@ -603,13 +740,18 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         if thr is not None:
             breakdown.append({"label": f"Defensive contribution ({defcon}/{thr})",
                               "value": defcon, "pts": defcon_bonus})
-        total = base + defcon_bonus
+        # OUR league total = FIFA itemized points (EXCLUDING FIFA's scouting/extras
+        # bonus) + our DefCon bonus. fifaPoints keeps FIFA's authoritative figure
+        # for reference; fifaBonus records what we left out.
+        fifa_bonus = _excluded_pts(breakdown)
+        total = base + defcon_bonus - fifa_bonus
 
         fref.collection("playerScores").document(str(pid)).set({
             "playerId": pid, "gw": gw,
-            "fantasyPoints": total,           # FIFA total + our DefCon
+            "fantasyPoints": total,           # FIFA itemized + DefCon, minus FIFA bonus
             "bonusPoints": 0,
-            "fifaPoints": fifa,               # FIFA base (reference)
+            "fifaPoints": fifa,               # FIFA authoritative total (reference)
+            "fifaBonus": fifa_bonus,          # FIFA scouting/extras we DON'T count
             "defConActions": defcon,
             "defConBonus": defcon_bonus,
             "stats": stats,
@@ -687,11 +829,21 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
 
     # Reconcile to FIFA's authoritative total. The remainder is FIFA's internal
     # extras (scouting bonus, long-range goal bonus, chances created, ball
-    # recoveries) we can't itemize from this feed.
+    # recoveries) we can't itemize from this feed. Our LEAGUE does NOT count this
+    # bonus, so the line is flagged ``excluded`` — it's shown (in red) on the
+    # breakdown for transparency but subtracted out of fantasyPoints. See
+    # _excluded_pts + the scorers.
     remainder = fifa_total - known
     if remainder:
-        lines.append({"label": "FIFA bonus (scouting / extras)", "value": None, "pts": remainder})
+        lines.append({"label": "FIFA bonus (scouting / extras)", "value": None,
+                      "pts": remainder, "excluded": True})
     return lines
+
+
+def _excluded_pts(breakdown) -> int:
+    """Sum the pts of any breakdown lines flagged ``excluded`` (the FIFA
+    scouting/extras bonus our league doesn't count). 0 when there are none."""
+    return sum((ln.get("pts") or 0) for ln in (breakdown or []) if ln.get("excluded"))
 
 
 # --------------------------------------------------------------------------
@@ -821,7 +973,10 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
                              "n": r.get("playerScoresWritten")})
         except Exception as exc:
             done.append({"fixture": ref.id, "error": str(exc)})
-    return {"date": date, "gw": gw, "scored": done, "skipped": skipped}
+    # Whole-pool aggregates once per pass (see catch_up_scan).
+    aggregates = refresh_pool_aggregates(db)
+    return {"date": date, "gw": gw, "scored": done, "skipped": skipped,
+            **aggregates}
 
 
 # --------------------------------------------------------------------------
@@ -892,8 +1047,14 @@ def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
             else:
                 scored_live.append({"fixture": ref.id, "date": d, "via": via})
 
+    # Refresh whole-pool aggregates (season stats + FIFA ownership/price/form)
+    # once, after all fixtures — path-independent, so the new Transfers/Compare
+    # fields populate whether scoring went via WhoScored or the FIFA fallback.
+    aggregates = refresh_pool_aggregates(db)
+
     db.collection("wc_config").document("scan_state").set(
         {"lastScanAt": _fs.SERVER_TIMESTAMP, "datesScanned": dates,
          "lastFinalScored": [s["fixture"] for s in scored_final]}, merge=True)
     return {"gw": gw, "datesScanned": dates, "newlyFinalized": scored_final,
-            "liveUpdated": scored_live, "alreadyBookmarked": already}
+            "liveUpdated": scored_live, "alreadyBookmarked": already,
+            **aggregates}
