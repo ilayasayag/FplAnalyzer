@@ -367,6 +367,23 @@ def ingest_live(db, gw: int, date: str) -> dict:
     }
 
 
+def _batch_set_players(db, updates: Dict[int, dict]) -> int:
+    """Merge-write ``{pid: data}`` to wc_players in batched commits.
+
+    The whole-pool refreshers touch 100s–1000s of docs each scan; one ``.set()``
+    per doc is ~1 RPC each (the 281s prod backfill was almost entirely write
+    latency). Batching to Firestore's 500-op limit collapses that to a handful of
+    commits. Returns the number of docs written."""
+    items = list(updates.items())
+    coll = db.collection("wc_players")
+    for i in range(0, len(items), 450):
+        batch = db.batch()
+        for pid, data in items[i:i + 450]:
+            batch.set(coll.document(str(pid)), data, merge=True)
+        batch.commit()
+    return len(items)
+
+
 # Stat-line keys (from the ESPN mapping in playerScores.stats) that the season
 # aggregate sums. cleanSheets/appearances are derived, not summed directly.
 def recompute_season_stats(db) -> int:
@@ -408,10 +425,7 @@ def recompute_season_stats(db) -> int:
             a["defconActions"] += r.get("defConActions", 0) or 0
             a["defconBonus"] += r.get("defConBonus", 0) or 0
 
-    for pid, a in agg.items():
-        db.collection("wc_players").document(str(pid)).set(
-            {"seasonStats": a}, merge=True)
-    return len(agg)
+    return _batch_set_players(db, {pid: {"seasonStats": a} for pid, a in agg.items()})
 
 
 def stamp_fifa_meta(db) -> int:
@@ -436,7 +450,7 @@ def stamp_fifa_meta(db) -> int:
             cache[key] = match_to_pool(name, iso, pool)
         return cache[key]
 
-    stamped = 0
+    updates: Dict[int, dict] = {}
     for p in fifa:
         pid = resolve(p["name"], p["iso"])
         if pid is None:
@@ -451,9 +465,8 @@ def stamp_fifa_meta(db) -> int:
         if p.get("seasonTotal"):
             meta["totalPoints"] = p["seasonTotal"]
         if meta:
-            db.collection("wc_players").document(str(pid)).set(meta, merge=True)
-            stamped += 1
-    return stamped
+            updates[pid] = meta  # one entry per pid (last feed row wins)
+    return _batch_set_players(db, updates)
 
 
 def refresh_pool_aggregates(db) -> dict:
