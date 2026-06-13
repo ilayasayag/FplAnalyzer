@@ -549,6 +549,17 @@ function FreeAgentsTab() {
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
   const [sortBy, setSortBy] = React.useState("pts"); // default: total points
+  // Sort direction. Each key has a sensible default (FIFA draft rank ascends,
+  // everything else descends); clicking the active column header flips it.
+  const [sortDir, setSortDir] = React.useState("desc");
+  const defaultDirFor = key => (SORT_ASC.has(key) ? "asc" : "desc");
+  // Pick a sort column (dropdown or header click). Re-selecting the active
+  // column toggles asc<->desc; a new column resets to its default direction.
+  const applySort = key => {
+    if (key === sortBy) setSortDir(d => (d === "asc" ? "desc" : "asc"));
+    else { setSortBy(key); setSortDir(defaultDirFor(key)); }
+  };
+  const sortCaret = key => (sortBy === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
 
   // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
   // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
@@ -579,14 +590,12 @@ function FreeAgentsTab() {
       return ownerFilter === "__free" ? !o : o === ownerFilter;
     })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
-    // Sort by the chosen key (Segment 6). FIFA draft rank is ascending
-    // (lower = better); everything else is descending. Ties — and any column
-    // that's still all-zero pre-data — fall back to pts then draft rank so the
-    // list stays best-player-first instead of pool order.
+    // Primary sort = chosen key in the chosen direction (header click toggles
+    // asc/desc). SECONDARY is ALWAYS total points (desc), then draft rank — so
+    // ties, and any column that's still all-zero pre-data, stay best-first.
     .sort((a, b) => {
-      const primary = SORT_ASC.has(sortBy)
-        ? faSortVal(a, sortBy) - faSortVal(b, sortBy)
-        : faSortVal(b, sortBy) - faSortVal(a, sortBy);
+      const av = faSortVal(a, sortBy), bv = faSortVal(b, sortBy);
+      const primary = sortDir === "asc" ? av - bv : bv - av;
       return primary || (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999);
     });
   const CAP = 120;
@@ -682,7 +691,7 @@ function FreeAgentsTab() {
             <option value="all">All nations</option>
             {nations.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
-          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={selStyle} title="Sort players by">
+          <select value={sortBy} onChange={e => { setSortBy(e.target.value); setSortDir(defaultDirFor(e.target.value)); }} style={selStyle} title="Sort players by (or click a column header)">
             {FA_SORT_OPTIONS.map(([k, label]) => <option key={k} value={k}>Sort: {label}</option>)}
           </select>
           {mode === "all" && (
@@ -716,9 +725,9 @@ function FreeAgentsTab() {
             <th>Team</th>
             <th>Pos</th>
             <th>Owner</th>
-            {dynCol && <th style={{ textAlign: "right", color: "var(--navy-900)" }}>{dynCol[0]}</th>}
-            <th style={{ textAlign: "right" }}>Pts</th>
-            <th style={{ textAlign: "right" }} title="FIFA fantasy ownership %">% Sel</th>
+            {dynCol && <th onClick={() => applySort(sortBy)} style={{ textAlign: "right", color: "var(--navy-900)", cursor: "pointer", userSelect: "none" }} title="Click to flip sort direction">{dynCol[0]}{sortCaret(sortBy)}</th>}
+            <th onClick={() => applySort("pts")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "pts" ? "var(--navy-900)" : undefined }} title="Sort by total points">Pts{sortCaret("pts")}</th>
+            <th onClick={() => applySort("selPct")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "selPct" ? "var(--navy-900)" : undefined }} title="Sort by FIFA fantasy ownership %">% Sel{sortCaret("selPct")}</th>
             <th style={{ textAlign: "right" }}>Form</th>
             <th></th>
           </tr>
