@@ -13,6 +13,7 @@ const TABS = [
   { id: "draft",      label: "Draft Room" },
   { id: "players",    label: "Players" },
   { id: "trades",     label: "Trades" },
+  { id: "audit",      label: "Scoring Audit" },
   { id: "create",     label: "Leagues" },
   { id: "config",     label: "Rules Config" },
 ];

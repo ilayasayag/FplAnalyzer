@@ -436,7 +436,7 @@ def recompute_season_stats(db) -> int:
         db, {pid: {"seasonStats": a, "totalPoints": a["points"]} for pid, a in agg.items()})
 
 
-def stamp_fifa_meta(db) -> int:
+def stamp_fifa_meta(db, meta_by_pid: Optional[Dict[int, dict]] = None) -> int:
     """Stamp FIFA ownership / price / form onto wc_players for every resolvable
     player.
 
@@ -444,15 +444,28 @@ def stamp_fifa_meta(db) -> int:
     it must run once per scan REGARDLESS of which scoring path each fixture used
     (WhoScored or the FIFA/ESPN fallback). Returns the count of players stamped;
     0 if the feed is unreachable (a feed blip must never break a scan).
+    ``meta_by_pid`` may be supplied to reuse a shared FIFA fetch.
 
     Deliberately does NOT touch totalPoints: that's OUR league total (FIFA +
     DefCon), owned by recompute_season_stats. The FIFA seasonTotal excludes our
     DefCon bonus, so stamping it here would clobber the correct figure."""
+    if meta_by_pid is None:
+        _, meta_by_pid = _fetch_fifa_by_pid(db)
+    return _batch_set_players(db, meta_by_pid)
+
+
+def _fetch_fifa_by_pid(db) -> Tuple[Dict[int, Dict[str, int]], Dict[int, dict]]:
+    """One FIFA fetch + pool resolution → ``(roundpoints_by_pid, meta_by_pid)``.
+
+    The fetch + fuzzy-resolving 1487 players against the pool is the expensive
+    part of a scan, so both the score refresh (round points) and the ownership
+    stamp (percentSelected/price/form) share a single pass. Empty maps on feed
+    failure (a blip must never break a scan)."""
     try:
         fifa = fetch_fifa_points()
     except Exception as exc:
-        print(f"[wc_ingest] stamp_fifa_meta: FIFA feed unavailable: {exc!r}")
-        return 0
+        print(f"[wc_ingest] _fetch_fifa_by_pid: FIFA feed unavailable: {exc!r}")
+        return {}, {}
     pool = build_pool_index(db)
     cache: Dict[Tuple[str, str], Optional[int]] = {}
 
@@ -462,32 +475,114 @@ def stamp_fifa_meta(db) -> int:
             cache[key] = match_to_pool(name, iso, pool)
         return cache[key]
 
-    updates: Dict[int, dict] = {}
+    rp: Dict[int, Dict[str, int]] = {}
+    meta: Dict[int, dict] = {}
     for p in fifa:
         pid = resolve(p["name"], p["iso"])
         if pid is None:
             continue
-        meta = {}
+        if p.get("roundPoints"):
+            rp[pid] = {str(k): v for k, v in p["roundPoints"].items()}
+        m = {}
         if p.get("percentSelected") is not None:
-            meta["percentSelected"] = p["percentSelected"]
+            m["percentSelected"] = p["percentSelected"]
         if p.get("fifaPrice") is not None:
-            meta["fifaPrice"] = p["fifaPrice"]
+            m["fifaPrice"] = p["fifaPrice"]
         if p.get("fifaForm") is not None:
-            meta["fifaForm"] = p["fifaForm"]
-        if meta:
-            updates[pid] = meta  # one entry per pid (last feed row wins)
-    return _batch_set_players(db, updates)
+            m["fifaForm"] = p["fifaForm"]
+        if m:
+            meta[pid] = m
+    return rp, meta
+
+
+def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = None) -> dict:
+    """Re-derive EVERY playerScore's FIFA breakdown + fantasyPoints, refreshing
+    ``fifaPoints`` from the live FIFA feed, using the CURRENT scoring rules.
+
+    This is the self-healing core of the Sync button: ``catch_up_scan`` skips
+    already-bookmarked fixtures, so without this a scoring-rule change (or a FIFA
+    post-FT correction) never reaches them. Here we (1) pull fresh FIFA round
+    points, (2) for every stored playerScore refresh ``fifaPoints`` to the live
+    value and rebuild its breakdown from stored stats + preserved DefCon via
+    ``fifa_breakdown`` (no WhoScored/ESPN refetch — DefCon and the stat line are
+    kept), and (3) recompute ``fantasyPoints = FIFA − scouting + DefCon``.
+
+    Returns ``{rescored, gws}`` (count rewritten + the affected GW numbers, for
+    the caller to refresh live manager totals). ``fifa_by_pid`` may be supplied
+    to reuse a shared FIFA fetch; otherwise it's fetched here."""
+    if fifa_by_pid is None:
+        fifa_by_pid, _ = _fetch_fifa_by_pid(db)
+    pos_map = {int(d.id): (d.to_dict() or {}).get("position", 3)
+               for d in db.collection("wc_players").stream()}
+
+    score_writes: Dict[object, dict] = {}   # ref -> patch
+    gw_points: Dict[int, Tuple[int, int]] = {}  # pid -> (gw, new fantasyPoints)
+    affected_gws = set()
+    for fx in db.collection("wc_fixtures").stream():
+        for d in fx.reference.collection("playerScores").stream():
+            r = d.to_dict() or {}
+            try:
+                pid = int(d.id)
+            except (TypeError, ValueError):
+                continue
+            gw = r.get("gw")
+            # Live FIFA points for this GW if available, else the stored value.
+            fifa = (fifa_by_pid.get(pid) or {}).get(str(gw))
+            if fifa is None:
+                fifa = r.get("fifaPoints")
+            if fifa is None:
+                continue
+            pos = pos_map.get(pid, 3)
+            st = r.get("stats") or {}
+            dcb = r.get("defConBonus", 0) or 0
+            nbd = fifa_breakdown(st, pos, fifa)
+            # Preserve the existing DefCon line (computed from WhoScored).
+            dl = next((l for l in (r.get("breakdown") or [])
+                       if str(l.get("label", "")).startswith("Defensive contribution")), None)
+            if dl:
+                nbd.append(dl)
+            nb = _excluded_pts(nbd)
+            nfp = fifa + dcb - nb
+            if (nfp != r.get("fantasyPoints") or nb != r.get("fifaBonus")
+                    or fifa != r.get("fifaPoints") or nbd != r.get("breakdown")):
+                score_writes[d.reference] = {
+                    "fifaPoints": fifa, "fifaBonus": nb,
+                    "fantasyPoints": nfp, "breakdown": nbd,
+                }
+                if gw is not None:
+                    gw_points[pid] = (gw, nfp)
+                    affected_gws.add(gw)
+
+    # Batched writes (playerScores live in subcollections; batch by ref).
+    items = list(score_writes.items())
+    for i in range(0, len(items), 450):
+        batch = db.batch()
+        for ref, patch in items[i:i + 450]:
+            batch.set(ref, patch, merge=True)
+        batch.commit()
+    # Per-player GW cache on wc_players.
+    if gw_points:
+        _batch_set_players(db, {pid: {f"gwPoints.{gw}": fp}
+                                for pid, (gw, fp) in gw_points.items()})
+
+    return {"rescored": len(score_writes), "gws": sorted(g for g in affected_gws if g)}
 
 
 def refresh_pool_aggregates(db) -> dict:
-    """Recompute season stats + stamp FIFA ownership/price/form for the whole
-    pool. Called at the END of every scan (``catch_up_scan`` /
-    ``run_scheduled_ingest``) so the Transfers sort/columns + Compare tab are
-    populated no matter which scoring path ran — both operations are full,
-    idempotent recomputes/snapshots, safe to repeat."""
+    """One self-healing refresh pass, called at the END of every scan
+    (``catch_up_scan`` / ``run_scheduled_ingest``): re-derive all scores from the
+    live FIFA feed + current rules, recompute live manager totals for affected
+    GWs, recompute season stats, and stamp FIFA ownership/price/form. Every step
+    is a full idempotent recompute/snapshot, safe to repeat each tick."""
+    fifa_rp, fifa_meta = _fetch_fifa_by_pid(db)   # one shared FIFA fetch
+    rescore = recompute_all_scores(db, fifa_by_pid=fifa_rp)
+    for gw in rescore["gws"]:
+        _recompute_live_scores(db, gw, _gw_points_map(db, gw))
     return {
+        "rescoredPlayers": rescore["rescored"],
+        "rescoredGws": rescore["gws"],
         "seasonStatsPlayers": recompute_season_stats(db),
-        "fifaMetaPlayers": stamp_fifa_meta(db),
+        "fifaMetaPlayers": stamp_fifa_meta(db, meta_by_pid=fifa_meta),
     }
 
 

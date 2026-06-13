@@ -512,6 +512,22 @@ def test_submit_bids_persists_and_reads_back(mgr, db):
     assert doc["bids"] == [{"playerIn": 900, "playerOut": 7, "position": "MID"}]
 
 
+def test_submit_empty_bids_clears_the_wishlist(mgr, db):
+    # The UI "X" removes a bid by re-submitting the shorter list; removing the
+    # LAST one sends an empty list, which must DELETE the doc (persist the
+    # removal) rather than raise NO_BIDS.
+    _seed_member(db, "lg", "u1", 1, 1)
+    _seed_squad(db, "lg", "u1", _legal_squad(0))
+    mgr.submit_bids("lg", "u1", 4, [{"playerIn": 900, "playerOut": 7}])
+    assert mgr.get_my_bids("lg", "u1", 4)["bids"]  # present
+
+    res = mgr.submit_bids("lg", "u1", 4, [])
+    assert res.get("cleared") is True
+    assert res["bids"] == []
+    # gone from the DB — a refresh won't bring it back
+    assert mgr.get_my_bids("lg", "u1", 4)["bids"] == []
+
+
 if __name__ == "__main__":
     raise SystemExit(pytest.main([__file__, "-v"]))
 
