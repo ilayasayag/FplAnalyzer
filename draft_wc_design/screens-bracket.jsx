@@ -406,13 +406,20 @@ function TransfersScreen() {
         }}>
           <div className="transfers-banner__grid" style={{ display: "grid", gridTemplateColumns: "1fr auto", alignItems: "center", gap: 20 }}>
             <div>
-              <div className="pill pill--gold" style={{ marginBottom: 8 }}>⏳ WINDOW {activeWindow.number || activeWindow.windowNumber || "—"}</div>
+              <div className="pill pill--gold" style={{ marginBottom: 8 }}>⏳ {windowPhaseMeta(activeWindow.phase).label.toUpperCase()}</div>
               <div className="h-display" style={{ fontSize: 22, color: "white", marginBottom: 4 }}>
-                {activeWindow.state === "open" ? "Rebuild window is active." : "Rebuild window is closed."}
+                {activeWindow.state === "open" ? `${windowPhaseMeta(activeWindow.phase).label} is active.` : "Transfer window is closed."}
               </div>
               <div style={{ color: "rgba(255,255,255,0.85)", fontSize: 13 }}>
-                Window closes <strong>{activeWindow.closesAt || "—"}</strong> · {activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining
+                {activeWindow.phaseEndsAt
+                  ? <>Closes <strong>{fmtWindowTime(activeWindow.phaseEndsAt)}</strong> · <Countdown to={activeWindow.phaseEndsAt} suffix=" remaining" /></>
+                  : windowPhaseMeta(activeWindow.phase).hint}
               </div>
+              {activeWindow.nextPhase && activeWindow.nextPhaseStartsAt && (
+                <div style={{ color: "rgba(255,255,255,0.7)", fontSize: 12, marginTop: 6 }}>
+                  Next: <strong>{windowPhaseMeta(activeWindow.nextPhase).label}</strong> opens {fmtWindowTime(activeWindow.nextPhaseStartsAt)} · <Countdown to={activeWindow.nextPhaseStartsAt} />
+                </div>
+              )}
             </div>
             <div className="transfers-banner__stats" style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value="∞" />

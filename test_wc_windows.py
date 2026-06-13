@@ -246,3 +246,64 @@ def test_is_lineup_locked_unlocked_when_no_kickoff():
     from fpl_predictor.game.wc_windows import is_lineup_locked
     db = H.FakeDB()  # no fixtures for the GW at all
     assert is_lineup_locked(db, 5, now=T0) is False
+
+
+# ---------------------------------------------------------------------------
+# Schedule timeline (build_window_schedule / locate_in_schedule)
+# ---------------------------------------------------------------------------
+
+# A two-GW fixture map: GW2 = the upcoming GW (T0 17 Jun 12:00, last 18:00),
+# GW1 = previous (last kickoff 16 Jun 12:00), GW3 = next (T0 21 Jun 12:00).
+_SCHED_FIXTURES = {
+    1: [_fx(PREV_KO, gw=1), _fx(_utc(2026, 6, 16, 9, 0), gw=1)],
+    2: [_fx(T0, gw=2), _fx(UP_LAST, gw=2)],
+    3: [_fx(_utc(2026, 6, 21, 12, 0), gw=3), _fx(_utc(2026, 6, 21, 18, 0), gw=3)],
+}
+
+
+def test_schedule_orders_and_stitches_two_gws():
+    from fpl_predictor.game.wc_windows import build_window_schedule
+    segs = build_window_schedule(2, _SCHED_FIXTURES, CONFIG)
+    phases = [(s["gw"], s["phase"]) for s in segs]
+    assert phases == [
+        (2, "trade"), (2, "free_agents"), (2, "none"), (2, "next_gw_bid"),
+        (3, "trade"), (3, "free_agents"), (3, "none"), (3, "next_gw_bid"),
+    ]
+    # NEXT_GW_BID(2) ends exactly where TRADE(3) begins (contiguous timeline).
+    bid2 = next(s for s in segs if s["gw"] == 2 and s["phase"] == "next_gw_bid")
+    trade3 = next(s for s in segs if s["gw"] == 3 and s["phase"] == "trade")
+    assert bid2["endsAt"] == trade3["startsAt"]
+
+
+def test_schedule_gw1_trade_has_open_ended_start():
+    from fpl_predictor.game.wc_windows import build_window_schedule
+    segs = build_window_schedule(1, _SCHED_FIXTURES, CONFIG)
+    trade1 = next(s for s in segs if s["gw"] == 1 and s["phase"] == "trade")
+    assert trade1["startsAt"] is None  # no previous GW to reopen from
+
+
+def test_locate_in_live_gw_reports_next_phase():
+    from fpl_predictor.game.wc_windows import build_window_schedule, locate_in_schedule
+    segs = build_window_schedule(2, _SCHED_FIXTURES, CONFIG)
+    # 17 Jun 13:00 — GW2 live (NEXT_GW_BID); ends at offer_close 21:30, next is
+    # GW3's TRADE starting at the same instant.
+    ends, nxt, nxt_start = locate_in_schedule(segs, _utc(2026, 6, 17, 13, 0))
+    assert ends == UP_LAST + timedelta(minutes=150) + timedelta(hours=1)
+    assert nxt == "trade"
+    assert nxt_start == ends
+
+
+def test_locate_in_free_agents_window():
+    from fpl_predictor.game.wc_windows import build_window_schedule, locate_in_schedule
+    segs = build_window_schedule(2, _SCHED_FIXTURES, CONFIG)
+    # 17 Jun 09:00 — inside FREE_AGENTS (07:00..11:00); next is NONE at 11:00.
+    ends, nxt, nxt_start = locate_in_schedule(segs, _utc(2026, 6, 17, 9, 0))
+    assert ends == T0 - timedelta(hours=1)
+    assert nxt == "none"
+    assert nxt_start == ends
+
+
+def test_locate_past_end_is_all_none():
+    from fpl_predictor.game.wc_windows import build_window_schedule, locate_in_schedule
+    segs = build_window_schedule(2, _SCHED_FIXTURES, CONFIG)
+    assert locate_in_schedule(segs, _utc(2026, 7, 1, 0, 0)) == (None, None, None)

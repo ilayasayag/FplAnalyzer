@@ -356,3 +356,166 @@ def is_lineup_locked(db, gw: int, now: Optional[datetime] = None) -> bool:
     if now.tzinfo is None:
         now = now.replace(tzinfo=timezone.utc)
     return now >= lock
+
+
+# ---------------------------------------------------------------------------
+# Schedule timeline (current + next GW) — for the windows/timers UX
+# ---------------------------------------------------------------------------
+
+# What a manager may DO in each phase, surfaced to the timeline UI so server and
+# client agree. The frontend may render its own copy, but these tokens are the
+# contract.
+PHASE_ALLOWED: Dict[TransferWindow, List[str]] = {
+    TransferWindow.TRADE: ["trade", "wishlist"],
+    TransferWindow.FREE_AGENTS: ["free_agent", "wishlist"],
+    TransferWindow.NONE: [],
+    TransferWindow.NEXT_GW_BID: ["offer_trade", "wishlist"],
+}
+
+
+def _gw_segments(
+    prev_fixtures: Optional[Iterable[Dict]],
+    upcoming_fixtures: Iterable[Dict],
+    config: Optional[Dict],
+) -> List[Tuple[TransferWindow, Optional[datetime], datetime]]:
+    """Ordered phase segments for ONE upcoming GW's runup + live window.
+
+    Returns ``[(phase, starts_at|None, ends_at), ...]`` chronologically:
+    TRADE → FREE_AGENTS → NONE(locked) → NEXT_GW_BID, mirroring the boundaries
+    in :func:`current_window`. ``starts_at`` is ``None`` only for GW1's TRADE
+    (no previous GW to reopen from — open-ended start). Zero/negative-length
+    segments (possible after the short-turnaround clamp) are dropped. Empty list
+    if the GW has no kickoff yet.
+    """
+    bounds = compute_window_boundaries(prev_fixtures, upcoming_fixtures, config)
+    if bounds is None:
+        return []
+    raw = [
+        (TransferWindow.TRADE, bounds["trade_open"], bounds["fa_open"]),
+        (TransferWindow.FREE_AGENTS, bounds["fa_open"], bounds["squad_lock"]),
+        (TransferWindow.NONE, bounds["squad_lock"], bounds["t0"]),
+        (TransferWindow.NEXT_GW_BID, bounds["t0"], bounds["offer_close"]),
+    ]
+    out = []
+    for phase, start, end in raw:
+        # Drop collapsed segments (start clamped onto/past end). A None start
+        # (GW1 TRADE) is open-ended and always kept.
+        if start is not None and start >= end:
+            continue
+        out.append((phase, start, end))
+    return out
+
+
+def build_window_schedule(
+    upcoming_gw: Optional[int],
+    fixtures_by_gw: Dict[int, List[Dict]],
+    config: Optional[Dict],
+) -> List[Dict]:
+    """Contiguous phase segments spanning ``upcoming_gw`` and ``upcoming_gw + 1``.
+
+    ``fixtures_by_gw`` maps a GW number to its fixtures list; each GW's segments
+    need its own fixtures (for T0) plus the previous GW's (for ``trade_open``).
+    The NEXT_GW_BID segment of GW n ends exactly where GW n+1's TRADE begins
+    (both ``= offer_close_n``), so the two GWs stitch into one timeline.
+
+    Each entry: ``{phase: str, startsAt: datetime|None, endsAt: datetime,
+    gw: int, allowed: [str]}``. Returns ``[]`` when no fixtures are known.
+    """
+    if not upcoming_gw:
+        return []
+    segments: List[Dict] = []
+    for n in (upcoming_gw, upcoming_gw + 1):
+        upcoming = fixtures_by_gw.get(n)
+        if not upcoming:
+            continue
+        prev = fixtures_by_gw.get(n - 1)
+        for phase, start, end in _gw_segments(prev, upcoming, config):
+            segments.append({
+                "phase": phase.value,
+                "startsAt": start,
+                "endsAt": end,
+                "gw": n,
+                "allowed": PHASE_ALLOWED.get(phase, []),
+            })
+    return segments
+
+
+def locate_in_schedule(
+    segments: List[Dict], now: datetime,
+) -> Tuple[Optional[datetime], Optional[str], Optional[datetime]]:
+    """Given the real-clock ``segments`` and ``now``, return
+    ``(phase_ends_at, next_phase, next_phase_starts_at)``.
+
+    ``phase_ends_at`` is the end of the segment containing ``now`` (a ``None``
+    start means open-ended, i.e. matches any earlier ``now``); the next two
+    fields describe the following segment. All ``None`` when ``now`` is past the
+    final known segment. When ``now`` precedes the whole timeline, the first
+    segment is reported as the upcoming one with no current end.
+    """
+    for idx, seg in enumerate(segments):
+        start, end = seg["startsAt"], seg["endsAt"]
+        if now >= end:
+            continue
+        # First segment whose end is still ahead of us.
+        if start is not None and now < start:
+            # now sits in a gap before this segment starts → it's "next".
+            return None, seg["phase"], start
+        nxt = segments[idx + 1] if idx + 1 < len(segments) else None
+        return (end,
+                nxt["phase"] if nxt else None,
+                nxt["startsAt"] if nxt else None)
+    return None, None, None
+
+
+def transfer_window_state(
+    lid: str, db, now: Optional[datetime] = None,
+) -> Dict:
+    """One-shot transfer-window view for the API: the current phase
+    (override-aware) plus the real-clock schedule + next-phase boundaries.
+
+    Reads the league, ``wc_config/tournament`` durations, and fixtures for the
+    previous / current / next GW in a single pass (no double-fetch with
+    :func:`current_window`). The *current phase* honours ``windowOverride``; the
+    *schedule and next-phase timestamps* are always the real fixture clock, so
+    an admin override flips the banner while the timeline keeps showing reality.
+    """
+    now = now or datetime.now(timezone.utc)
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=timezone.utc)
+
+    league_snap = db.collection("leagues").document(lid).get()
+    league_doc = league_snap.to_dict() if league_snap.exists else {}
+    upcoming_gw = league_doc.get("currentGw", 1)
+
+    config_snap = db.collection("wc_config").document("tournament").get()
+    config = config_snap.to_dict() if config_snap.exists else {}
+
+    fixtures_by_gw: Dict[int, List[Dict]] = {}
+    for n in (upcoming_gw - 1, upcoming_gw, upcoming_gw + 1):
+        if n and n >= 1:
+            fixtures_by_gw[n] = [
+                d.to_dict() for d in
+                db.collection("wc_fixtures").where("gw", "==", n).get()
+            ]
+
+    window, win_gw = current_window(
+        league_doc=league_doc,
+        fixtures_for_gw=fixtures_by_gw.get(upcoming_gw, []),
+        config=config,
+        now=now,
+        prev_fixtures=fixtures_by_gw.get(upcoming_gw - 1),
+        upcoming_gw=upcoming_gw,
+    )
+
+    segments = build_window_schedule(upcoming_gw, fixtures_by_gw, config)
+    phase_ends_at, next_phase, next_phase_starts_at = locate_in_schedule(segments, now)
+
+    return {
+        "phase": window.value,
+        "gw": win_gw,
+        "overridden": bool((league_doc or {}).get("windowOverride")),
+        "phaseEndsAt": phase_ends_at,
+        "nextPhase": next_phase,
+        "nextPhaseStartsAt": next_phase_starts_at,
+        "schedule": segments,
+    }
