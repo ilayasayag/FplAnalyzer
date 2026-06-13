@@ -283,6 +283,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
 
     written = 0
     fixtures_touched = []
+    our_gw_pts: Dict[int, int] = {}   # pid -> OUR total (excl FIFA bonus, incl DefCon)
     # Map ESPN fixtures to our fixture docs and write playerScores
     for fx in fixtures:
         ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
@@ -326,11 +327,16 @@ def ingest_live(db, gw: int, date: str) -> dict:
                 if thr is not None:
                     bd.append({"label": f"Defensive contribution ({dca}/{thr})",
                                "value": dca, "pts": dcb})
+            # OUR total excludes FIFA's scouting/extras bonus, keeps DefCon.
+            fifa_bonus = _excluded_pts(bd)
+            total = pts + dcb - fifa_bonus
+            our_gw_pts[pid] = total
             scores_coll.document(str(pid)).set({
                 "playerId": pid,
                 "gw": gw,
-                "fantasyPoints": pts + dcb,     # FIFA + preserved DefCon
-                "fifaPoints": pts,
+                "fantasyPoints": total,        # FIFA itemized + DefCon, minus FIFA bonus
+                "fifaPoints": pts,             # FIFA authoritative total (reference)
+                "fifaBonus": fifa_bonus,       # FIFA scouting/extras we DON'T count
                 "bonusPoints": 0,
                 "stats": stats,
                 "breakdown": bd,
@@ -340,22 +346,17 @@ def ingest_live(db, gw: int, date: str) -> dict:
             }, merge=True)
             written += 1
 
-    # season totals on the pool (for Players tab / popup "Total"); season total
-    # is FIFA's own all-rounds figure so re-running a single GW never clobbers it.
-    # (FIFA ownership/price/form + the season-stat aggregates are stamped once
-    # per scan by refresh_pool_aggregates, not here, so every scoring path —
-    # WhoScored or this fallback — gets them.)
-    for pid in set(fifa_pts) | set(fifa_season):
-        upd = {}
-        if pid in fifa_season:
-            upd["totalPoints"] = fifa_season[pid]
-        if pid in fifa_pts:
-            upd[f"gwPoints.{gw}"] = fifa_pts[pid]
-        if upd:
-            db.collection("wc_players").document(str(pid)).set(upd, merge=True)
+    # Per-player GW cache = OUR bonus-excluded total (not the raw FIFA figure).
+    # totalPoints (season) is owned by recompute_season_stats in
+    # refresh_pool_aggregates (run once per scan), so it's not written here.
+    for pid, total in our_gw_pts.items():
+        db.collection("wc_players").document(str(pid)).set(
+            {f"gwPoints.{gw}": total}, merge=True)
 
-    # per-manager LIVE totals for every active league (no finalize, no lock flip)
-    leagues_updated = _recompute_live_scores(db, gw, fifa_pts)
+    # per-manager LIVE totals for every active league (no finalize, no lock flip).
+    # Read back OUR fantasyPoints (bonus-excluded, DefCon-included) so the manager
+    # totals match the per-player scores — same path the WhoScored scorer uses.
+    leagues_updated = _recompute_live_scores(db, gw, _gw_points_map(db, gw))
 
     return {
         "gw": gw, "date": date,
@@ -739,13 +740,18 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         if thr is not None:
             breakdown.append({"label": f"Defensive contribution ({defcon}/{thr})",
                               "value": defcon, "pts": defcon_bonus})
-        total = base + defcon_bonus
+        # OUR league total = FIFA itemized points (EXCLUDING FIFA's scouting/extras
+        # bonus) + our DefCon bonus. fifaPoints keeps FIFA's authoritative figure
+        # for reference; fifaBonus records what we left out.
+        fifa_bonus = _excluded_pts(breakdown)
+        total = base + defcon_bonus - fifa_bonus
 
         fref.collection("playerScores").document(str(pid)).set({
             "playerId": pid, "gw": gw,
-            "fantasyPoints": total,           # FIFA total + our DefCon
+            "fantasyPoints": total,           # FIFA itemized + DefCon, minus FIFA bonus
             "bonusPoints": 0,
-            "fifaPoints": fifa,               # FIFA base (reference)
+            "fifaPoints": fifa,               # FIFA authoritative total (reference)
+            "fifaBonus": fifa_bonus,          # FIFA scouting/extras we DON'T count
             "defConActions": defcon,
             "defConBonus": defcon_bonus,
             "stats": stats,
@@ -823,11 +829,21 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
 
     # Reconcile to FIFA's authoritative total. The remainder is FIFA's internal
     # extras (scouting bonus, long-range goal bonus, chances created, ball
-    # recoveries) we can't itemize from this feed.
+    # recoveries) we can't itemize from this feed. Our LEAGUE does NOT count this
+    # bonus, so the line is flagged ``excluded`` — it's shown (in red) on the
+    # breakdown for transparency but subtracted out of fantasyPoints. See
+    # _excluded_pts + the scorers.
     remainder = fifa_total - known
     if remainder:
-        lines.append({"label": "FIFA bonus (scouting / extras)", "value": None, "pts": remainder})
+        lines.append({"label": "FIFA bonus (scouting / extras)", "value": None,
+                      "pts": remainder, "excluded": True})
     return lines
+
+
+def _excluded_pts(breakdown) -> int:
+    """Sum the pts of any breakdown lines flagged ``excluded`` (the FIFA
+    scouting/extras bonus our league doesn't count). 0 when there are none."""
+    return sum((ln.get("pts") or 0) for ln in (breakdown or []) if ln.get("excluded"))
 
 
 # --------------------------------------------------------------------------

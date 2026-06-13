@@ -272,14 +272,22 @@ function HistoryTab({ history, error }) {
             <span>GW{h.gw} · how the {h.pts} points were scored</span>
             <span>vs {h.opp}</span>
           </div>
-          {h.breakdown.map((ln, i) => (
-            <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 14px", borderTop: i ? "1px solid var(--border)" : "none", fontSize: 13 }}>
-              <span style={{ color: "var(--ink-700)" }}>{ln.label}{ln.value != null ? <span className="muted" style={{ marginLeft: 6 }}>({ln.value})</span> : null}</span>
-              <span className="num" style={{ fontWeight: 800, color: ln.pts > 0 ? "var(--green-600, #1a9d5a)" : (ln.pts < 0 ? "var(--red-500)" : "var(--ink-300)") }}>{ln.pts > 0 ? `+${ln.pts}` : ln.pts}</span>
-            </div>
-          ))}
+          {h.breakdown.map((ln, i) => {
+            // FIFA's scouting/extras bonus is shown for transparency but NOT
+            // counted in our league — render it red + struck-through + marked.
+            const excluded = ln.excluded || (ln.label || "").startsWith("FIFA bonus");
+            return (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "9px 14px", borderTop: i ? "1px solid var(--border)" : "none", fontSize: 13, background: excluded ? "rgba(231,76,60,0.06)" : undefined }}>
+                <span style={{ color: excluded ? "var(--red-500)" : "var(--ink-700)" }}>
+                  {ln.label}{ln.value != null ? <span className="muted" style={{ marginLeft: 6 }}>({ln.value})</span> : null}
+                  {excluded && <span style={{ marginLeft: 6, fontSize: 10, fontWeight: 800, color: "var(--red-500)", border: "1px solid var(--red-500)", borderRadius: 4, padding: "1px 5px", textTransform: "uppercase", letterSpacing: "0.04em" }}>Not counted</span>}
+                </span>
+                <span className="num" style={{ fontWeight: 800, textDecoration: excluded ? "line-through" : undefined, color: excluded ? "var(--red-500)" : (ln.pts > 0 ? "var(--green-600, #1a9d5a)" : (ln.pts < 0 ? "var(--red-500)" : "var(--ink-300)")) }}>{ln.pts > 0 ? `+${ln.pts}` : ln.pts}</span>
+              </div>
+            );
+          })}
           <div style={{ display: "flex", justifyContent: "space-between", padding: "10px 14px", borderTop: "2px solid var(--navy-900)", fontWeight: 800, background: "var(--cream)" }}>
-            <span>Total</span><span className="num">{h.pts}</span>
+            <span>League total <span className="muted" style={{ fontWeight: 500, fontSize: 11 }}>(excl. FIFA bonus)</span></span><span className="num">{h.pts}</span>
           </div>
         </div>
       ))}
