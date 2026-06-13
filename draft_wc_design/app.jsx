@@ -762,6 +762,14 @@ function App() {
               club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
+              // Season aggregates + FIFA ownership/price/form (Segment 6). The
+              // backend recomputes seasonStats from playerScores each ingest; the
+              // FIFA fields are stamped from the fantasy feed. All optional —
+              // absent until the next ingest tick, so every read is guarded.
+              season: p.seasonStats || null,
+              selPct: p.percentSelected != null ? p.percentSelected : null,
+              fifaPrice: p.fifaPrice != null ? p.fifaPrice : null,
+              fifaForm: p.fifaForm != null ? p.fifaForm : null,
             }));
             window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
 

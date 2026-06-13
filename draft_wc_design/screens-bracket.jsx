@@ -506,6 +506,28 @@ function StatBlock({ label, value, accent }) {
   );
 }
 
+// Free-agents / pool sort options (Segment 6). [key, label]; "pts" is default.
+// Season-stat keys read p.season.<key>; pts/dr/selPct read top-level fields.
+const FA_SORT_OPTIONS = [
+  ["pts", "Total points"],
+  ["goals", "Goals"],
+  ["assists", "Assists"],
+  ["shotsOnTarget", "Shots on target"],
+  ["cleanSheets", "Clean sheets"],
+  ["minutes", "Minutes"],
+  ["defconActions", "DefCon actions"],
+  ["dr", "FIFA draft rank"],
+  ["selPct", "% Selected"],
+];
+// Only FIFA draft rank sorts ascending (lower = better).
+const SORT_ASC = new Set(["dr"]);
+function faSortVal(p, key) {
+  if (key === "pts") return p.pts || 0;
+  if (key === "dr") return p.dr || 9999;
+  if (key === "selPct") return p.selPct || 0;
+  return (p.season && p.season[key]) || 0;  // season aggregates
+}
+
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
@@ -514,6 +536,7 @@ function FreeAgentsTab() {
   const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
+  const [sortBy, setSortBy] = React.useState("pts"); // default: total points
 
   // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
   // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
@@ -544,9 +567,16 @@ function FreeAgentsTab() {
       return ownerFilter === "__free" ? !o : o === ownerFilter;
     })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
-    // Points first; while everyone is on 0 pts (pre-GW1) fall back to draft
-    // rank so the list is still best-player-first instead of pool order.
-    .sort((a, b) => (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999));
+    // Sort by the chosen key (Segment 6). FIFA draft rank is ascending
+    // (lower = better); everything else is descending. Ties — and any column
+    // that's still all-zero pre-data — fall back to pts then draft rank so the
+    // list stays best-player-first instead of pool order.
+    .sort((a, b) => {
+      const primary = SORT_ASC.has(sortBy)
+        ? faSortVal(a, sortBy) - faSortVal(b, sortBy)
+        : faSortVal(b, sortBy) - faSortVal(a, sortBy);
+      return primary || (b.pts || 0) - (a.pts || 0) || (a.dr || 9999) - (b.dr || 9999);
+    });
   const CAP = 120;
   const shown = filtered.slice(0, CAP);
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
@@ -636,6 +666,9 @@ function FreeAgentsTab() {
             <option value="all">All nations</option>
             {nations.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
+          <select value={sortBy} onChange={e => setSortBy(e.target.value)} style={selStyle} title="Sort players by">
+            {FA_SORT_OPTIONS.map(([k, label]) => <option key={k} value={k}>Sort: {label}</option>)}
+          </select>
           {mode === "all" && (
             <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
               <option value="all">Any owner</option>
@@ -668,13 +701,14 @@ function FreeAgentsTab() {
             <th>Pos</th>
             <th>Owner</th>
             <th style={{ textAlign: "right" }}>Pts</th>
+            <th style={{ textAlign: "right" }} title="FIFA fantasy ownership %">% Sel</th>
             <th style={{ textAlign: "right" }}>Form</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {shown.length === 0 && (
-            <tr><td colSpan="7" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+            <tr><td colSpan="8" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
           )}
           {shown.map(p => {
             const t = teamById(p.team);
@@ -702,6 +736,9 @@ function FreeAgentsTab() {
                     : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
                 <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
+                <td className="num" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
+                  {p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"}
+                </td>
                 <td style={{ textAlign: "right" }}>
                   <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: p.pts > 30 ? "rgba(0,217,107,0.18)" : p.pts > 20 ? "rgba(255,200,68,0.18)" : "rgba(0,0,0,0.06)", color: p.pts > 30 ? "#006b35" : p.pts > 20 ? "#7a5a00" : "var(--ink-500)" }}>
                     {p.pts > 30 ? "Hot" : p.pts > 20 ? "Form" : "Cold"}

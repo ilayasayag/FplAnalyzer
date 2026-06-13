@@ -70,8 +70,15 @@ def _get_json(url: str, timeout: int = 25) -> dict:
 # FIFA: per-player round points, keyed by (nation_iso, name)
 # --------------------------------------------------------------------------
 def fetch_fifa_points() -> Dict[int, Dict]:
-    """Return {squadId: {abbr, players: [{name, position, roundPoints}]}} merged
-    into a flat list of {name, iso, position, roundPoints} entries."""
+    """Return a flat list of FIFA player entries:
+    ``{name, iso, position, roundPoints, seasonTotal, percentSelected,
+    fifaPrice, fifaForm}``.
+
+    ``percentSelected`` / ``fifaPrice`` / ``fifaForm`` come straight from the
+    FIFA fantasy feed (verified live 2026-06-12: top-level ``percentSelected`` +
+    ``price``, ``stats.form``) and are surfaced for the Transfers sort/columns +
+    Compare tab. Absent fields stay ``None`` so a feed-shape change degrades
+    gracefully rather than crashing the ingest."""
     players = _get_json(FIFA_PLAYERS_URL)
     players = players if isinstance(players, list) else players.get("players", [])
     squads = _get_json(FIFA_SQUADS_URL)
@@ -90,6 +97,9 @@ def fetch_fifa_points() -> Dict[int, Dict]:
             "position": p.get("position"),
             "roundPoints": {str(k): v for k, v in (st.get("roundPoints") or {}).items()},
             "seasonTotal": st.get("totalPoints") or 0,
+            "percentSelected": p.get("percentSelected"),
+            "fifaPrice": p.get("price"),
+            "fifaForm": st.get("form"),
         })
     return out
 
@@ -254,6 +264,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
     # FIFA points indexed by pool id (authoritative fantasyPoints)
     fifa_pts: Dict[int, int] = {}        # this GW's round points
     fifa_season: Dict[int, int] = {}     # season total (all rounds)
+    fifa_meta: Dict[int, dict] = {}      # percentSelected / fifaPrice / fifaForm
     for p in fifa:
         rp = p["roundPoints"].get(str(gw))
         pid = resolve(p["name"], p["iso"])
@@ -263,6 +274,17 @@ def ingest_live(db, gw: int, date: str) -> dict:
             fifa_pts[pid] = rp
         if p.get("seasonTotal"):
             fifa_season[pid] = p["seasonTotal"]
+        # FIFA ownership/price/form — stamped for every resolved player, not just
+        # this GW's scorers, so the Transfers sort + Compare tab always have them.
+        meta = {}
+        if p.get("percentSelected") is not None:
+            meta["percentSelected"] = p["percentSelected"]
+        if p.get("fifaPrice") is not None:
+            meta["fifaPrice"] = p["fifaPrice"]
+        if p.get("fifaForm") is not None:
+            meta["fifaForm"] = p["fifaForm"]
+        if meta:
+            fifa_meta[pid] = meta
 
     # ESPN stat line indexed by pool id
     espn_stats: Dict[int, dict] = {}
@@ -330,16 +352,23 @@ def ingest_live(db, gw: int, date: str) -> dict:
             }, merge=True)
             written += 1
 
-    # season totals on the pool (for Players tab / popup "Total"); season total
-    # is FIFA's own all-rounds figure so re-running a single GW never clobbers it.
-    for pid in set(fifa_pts) | set(fifa_season):
+    # season totals + FIFA ownership/price/form on the pool (for Players tab /
+    # popup "Total" + Transfers sort/columns). Season total is FIFA's own
+    # all-rounds figure so re-running a single GW never clobbers it; the FIFA
+    # meta is a snapshot of the current feed and is safe to overwrite each pass.
+    for pid in set(fifa_pts) | set(fifa_season) | set(fifa_meta):
         upd = {}
         if pid in fifa_season:
             upd["totalPoints"] = fifa_season[pid]
         if pid in fifa_pts:
             upd[f"gwPoints.{gw}"] = fifa_pts[pid]
+        if pid in fifa_meta:
+            upd.update(fifa_meta[pid])
         if upd:
             db.collection("wc_players").document(str(pid)).set(upd, merge=True)
+
+    # Per-player season aggregates (goals/assists/…) recomputed from playerScores.
+    season_players = recompute_season_stats(db)
 
     # per-manager LIVE totals for every active league (no finalize, no lock flip)
     leagues_updated = _recompute_live_scores(db, gw, fifa_pts)
@@ -350,8 +379,56 @@ def ingest_live(db, gw: int, date: str) -> dict:
         "playerScoresWritten": written,
         "fifaScorers": len(fifa_pts),
         "espnStatRows": len(espn_stats),
+        "seasonStatsPlayers": season_players,
         "leaguesUpdated": leagues_updated,
     }
+
+
+# Stat-line keys (from the ESPN mapping in playerScores.stats) that the season
+# aggregate sums. cleanSheets/appearances are derived, not summed directly.
+def recompute_season_stats(db) -> int:
+    """Recompute ``wc_players/{pid}.seasonStats`` from EVERY playerScore doc.
+
+    Idempotent by construction: it always does a full recompute from the durable
+    per-fixture ``playerScores`` (never an increment), so re-running an ingest
+    tick — or the same GW twice — leaves the figures unchanged. Aggregates the
+    ESPN stat line (goals/assists/shots-on-target/shots/minutes), counts
+    clean-sheet matches + appearances, and sums the WhoScored DefCon fields.
+
+    Mirrors ``_gw_points_map``'s fixture→playerScores walk (no collection-group
+    index needed). Returns the number of players written.
+    """
+    agg: Dict[int, Dict[str, float]] = {}
+    for fx in db.collection("wc_fixtures").stream():
+        for d in fx.reference.collection("playerScores").stream():
+            r = d.to_dict() or {}
+            try:
+                pid = int(d.id)
+            except (TypeError, ValueError):
+                continue
+            a = agg.setdefault(pid, {
+                "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
+                "cleanSheets": 0, "minutes": 0, "appearances": 0,
+                "defconActions": 0, "defconBonus": 0,
+            })
+            st = r.get("stats") or {}
+            a["goals"] += st.get("goals", 0) or 0
+            a["assists"] += st.get("assists", 0) or 0
+            a["shotsOnTarget"] += st.get("shotsOnTarget", 0) or 0
+            a["shots"] += st.get("shots", 0) or 0
+            mins = st.get("minutes", 0) or 0
+            a["minutes"] += mins
+            if st.get("cleanSheet"):
+                a["cleanSheets"] += 1
+            if mins > 0:
+                a["appearances"] += 1
+            a["defconActions"] += r.get("defConActions", 0) or 0
+            a["defconBonus"] += r.get("defConBonus", 0) or 0
+
+    for pid, a in agg.items():
+        db.collection("wc_players").document(str(pid)).set(
+            {"seasonStats": a}, merge=True)
+    return len(agg)
 
 
 def _gw_points_map(db, gw: int) -> Dict[int, int]:

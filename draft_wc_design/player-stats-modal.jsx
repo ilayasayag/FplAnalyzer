@@ -146,6 +146,7 @@ function PlayerStatsModal() {
           <StatCard label={lastRow ? `GW${lastRow.gw}` : "Latest"} value={lastRow ? `${lastRow.pts}pts` : "0pts"} sub={lastRow ? lastRow.opp : "—"} />
           <StatCard label="Total" value={`${p.pts}pts`} sub="all season" />
           <StatCard label="Draft rank" value={`#${p.dr}`} sub={`of ${(window.PLAYERS || PLAYERS).length}`} />
+          <StatCard label="% Selected" value={p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"} sub="FIFA fantasy" />
           <StatCard label="Status" value={owner ? "Owned" : "Free agent"} sub={owner ? "in this league" : "available"} />
         </div>
 
@@ -326,12 +327,198 @@ function FixturesTab({ fixtures }) {
   );
 }
 
+// ---------- Compare-tab helpers (Segment 5) ----------
+// Map /players/{id}/scores rows to a compact per-GW points/minutes series.
+function cmpMapRows(rows) {
+  return (rows || [])
+    .map(r => ({ gw: r.gw, pts: r.fantasyPoints != null ? r.fantasyPoints : 0, mp: (r.stats || {}).minutes || 0 }))
+    .sort((a, b) => a.gw - b.gw);
+}
+// 2-GW form (avg pts over the last two appearances), mirroring the modal header.
+function cmpForm(hist) {
+  const scored = (hist || []).filter(h => h.mp > 0 || h.pts !== 0);
+  const last2 = scored.slice(-2);
+  return last2.length ? last2.reduce((s, h) => s + (h.pts || 0), 0) / last2.length : 0;
+}
+// A comparison metric value: pts/selPct from the top level, the rest from the
+// recomputed season aggregates. Missing data reads 0 so a row still renders.
+function cmpVal(pl, key) {
+  if (!pl) return 0;
+  if (key === "pts") return pl.pts || 0;
+  if (key === "selPct") return pl.selPct || 0;
+  return (pl.season && pl.season[key]) || 0;
+}
+
 function CompareTab({ player }) {
+  const [query, setQuery] = React.useState("");
+  const [otherId, setOtherId] = React.useState(null);
+  const [aHist, setAHist] = React.useState(null);  // this player's per-GW series
+  const [bHist, setBHist] = React.useState(null);  // the compared player's series
+
+  const pool = window.PLAYERS || PLAYERS || [];
+  const other = otherId ? (window.PLAYER_MAP || {})[String(otherId)] : null;
+  const tA = teamById(player.team);
+  const tB = other ? teamById(other.team) : null;
+
+  // Fetch this player's per-GW points once (for the form + per-GW rows).
+  React.useEffect(() => {
+    let cancelled = false;
+    setAHist(null);
+    apiCall("GET", `/players/${player.id}/scores`)
+      .then(rows => { if (!cancelled) setAHist(cmpMapRows(rows)); })
+      .catch(() => { if (!cancelled) setAHist([]); });
+    return () => { cancelled = true; };
+  }, [player.id]);
+
+  // Fetch the compared player's per-GW points when one is picked.
+  React.useEffect(() => {
+    if (!otherId) { setBHist(null); return; }
+    let cancelled = false;
+    setBHist(null);
+    apiCall("GET", `/players/${otherId}/scores`)
+      .then(rows => { if (!cancelled) setBHist(cmpMapRows(rows)); })
+      .catch(() => { if (!cancelled) setBHist([]); });
+    return () => { cancelled = true; };
+  }, [otherId]);
+
+  // Player picker — reuse the free-agents search pattern (name/club, exclude self).
+  const q = query.trim().toLowerCase();
+  const matches = !q ? [] : pool
+    .filter(x => String(x.id) !== String(player.id))
+    .filter(x => (x.name || "").toLowerCase().includes(q) || (x.club || "").toLowerCase().includes(q))
+    .slice(0, 8);
+
+  if (!other) {
+    return (
+      <div style={{ padding: "20px 16px", background: "var(--cream)", borderRadius: 8 }}>
+        <div style={{ fontWeight: 700, color: "var(--navy-900)", marginBottom: 4 }}>Compare {player.name} with…</div>
+        <div className="muted" style={{ fontSize: 12, marginBottom: 12 }}>Search any player in the pool to see them side by side.</div>
+        <input value={query} onChange={e => setQuery(e.target.value)} placeholder="Search name or club…" autoFocus
+          style={{ width: "100%", padding: "10px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" }} />
+        {matches.length > 0 && (
+          <div style={{ marginTop: 8, border: "1px solid var(--border)", borderRadius: 8, overflow: "hidden", background: "white" }}>
+            {matches.map(x => {
+              const xt = teamById(x.team);
+              return (
+                <div key={x.id} onClick={() => { setOtherId(x.id); setQuery(""); }}
+                  style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", cursor: "pointer", borderTop: "1px solid var(--border)" }}>
+                  <div style={{ width: 28, height: 28, flexShrink: 0 }}><Jersey team={xt} pos={x.pos} /></div>
+                  <div style={{ minWidth: 0, flex: 1 }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{x.name}</div>
+                    <div className="muted" style={{ fontSize: 11 }}>{x.teamName || (xt && xt.name) || x.team} · {POS_NAMES[x.pos]}</div>
+                  </div>
+                  <div className="num" style={{ fontWeight: 700, fontSize: 13 }}>{x.pts}pts</div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+        {q && matches.length === 0 && (
+          <div className="muted" style={{ fontSize: 12, marginTop: 10 }}>No players match "{query}".</div>
+        )}
+      </div>
+    );
+  }
+
+  const metrics = [
+    ["Total points", "pts", 0],
+    ["Form (2 GW avg)", "form", 1],
+    ["Minutes", "minutes", 0],
+    ["Goals", "goals", 0],
+    ["Assists", "assists", 0],
+    ["Shots on target", "shotsOnTarget", 0],
+    ["Clean sheets", "cleanSheets", 0],
+    ["DefCon actions", "defconActions", 0],
+    ["% Selected", "selPct", 1],
+  ];
+  const valOf = (pl, hist, key) => key === "form" ? cmpForm(hist) : cmpVal(pl, key);
+
+  // Per-GW union of both players' rows.
+  const gws = [...new Set([...(aHist || []).map(h => h.gw), ...(bHist || []).map(h => h.gw)])].sort((a, b) => a - b);
+  const ptsAt = (hist, gw) => { const r = (hist || []).find(h => h.gw === gw); return r ? r.pts : null; };
+
+  const fxA = fixturesFor(player, tA).slice(0, 3);
+  const fxB = fixturesFor(other, tB).slice(0, 3);
+
+  const Head = ({ pl, tm }) => (
+    <div style={{ flex: 1, textAlign: "center" }}>
+      <div style={{ width: 44, height: 44, margin: "0 auto 6px" }}><Jersey team={tm} pos={pl.pos} /></div>
+      <div style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.15 }}>{pl.name}</div>
+      <div className="muted" style={{ fontSize: 11 }}>{pl.teamName || (tm && tm.name) || pl.team} · {POS_NAMES[pl.pos]}</div>
+    </div>
+  );
+
   return (
-    <div style={{ padding: "30px 16px", textAlign: "center", background: "var(--cream)", borderRadius: 8 }}>
-      <div style={{ fontSize: 28, marginBottom: 8 }}>⚔️</div>
-      <div style={{ fontWeight: 700, color: "var(--navy-900)" }}>Comparison Coming Soon</div>
-      <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Player comparison tool will be activated when live scoring starts.</div>
+    <div style={{ background: "var(--cream)", borderRadius: 8, padding: 14 }}>
+      {/* Heads */}
+      <div style={{ display: "flex", alignItems: "flex-start", gap: 8, marginBottom: 12 }}>
+        <Head pl={player} tm={tA} />
+        <div style={{ alignSelf: "center", fontWeight: 800, color: "var(--ink-500)", fontSize: 12 }}>vs</div>
+        <div style={{ flex: 1, textAlign: "center" }}>
+          <div style={{ width: 44, height: 44, margin: "0 auto 6px" }}><Jersey team={tB} pos={other.pos} /></div>
+          <div style={{ fontWeight: 800, fontSize: 13, lineHeight: 1.15 }}>{other.name}</div>
+          <div className="muted" style={{ fontSize: 11 }}>{other.teamName || (tB && tB.name) || other.team} · {POS_NAMES[other.pos]}</div>
+          <button className="btn btn--ghost-dark" style={{ marginTop: 4, padding: "3px 8px", fontSize: 10 }} onClick={() => setOtherId(null)}>Change</button>
+        </div>
+      </div>
+
+      {/* Metric rows — better value per row highlighted green/bold */}
+      <div style={{ background: "white", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+        {metrics.map(([label, key, dp], i) => {
+          const av = valOf(player, aHist, key);
+          const bv = valOf(other, bHist, key);
+          const aWin = av > bv, bWin = bv > av;
+          const show = v => key === "selPct" ? `${Number(v).toFixed(1)}%` : (dp ? Number(v).toFixed(dp) : v);
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", borderTop: i ? "1px solid var(--border)" : "none" }}>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "9px 8px", fontWeight: aWin ? 800 : 600, color: aWin ? "var(--green-600, #1a9d5a)" : "var(--ink-700)" }}>{show(av)}</div>
+              <div style={{ width: 130, textAlign: "center", fontSize: 11, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "9px 8px", fontWeight: bWin ? 800 : 600, color: bWin ? "var(--green-600, #1a9d5a)" : "var(--ink-700)" }}>{show(bv)}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Per-GW points */}
+      {gws.length > 0 && (
+        <div style={{ marginTop: 12, background: "white", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+          <div style={{ display: "flex", background: "var(--navy-900)", color: "white", fontSize: 11, fontWeight: 700, padding: "7px 8px" }}>
+            <div style={{ flex: 1, textAlign: "center" }}>{player.name.split(" ").slice(-1)[0]}</div>
+            <div style={{ width: 70, textAlign: "center" }}>Gameweek</div>
+            <div style={{ flex: 1, textAlign: "center" }}>{other.name.split(" ").slice(-1)[0]}</div>
+          </div>
+          {gws.map(gw => {
+            const ap = ptsAt(aHist, gw), bp = ptsAt(bHist, gw);
+            const aWin = ap != null && bp != null && ap > bp;
+            const bWin = ap != null && bp != null && bp > ap;
+            return (
+              <div key={gw} style={{ display: "flex", alignItems: "center", borderTop: "1px solid var(--border)", fontSize: 13 }}>
+                <div className="num" style={{ flex: 1, textAlign: "center", padding: "8px", fontWeight: aWin ? 800 : 600, color: aWin ? "var(--green-600, #1a9d5a)" : "var(--ink-700)" }}>{ap != null ? ap : "—"}</div>
+                <div style={{ width: 70, textAlign: "center", fontWeight: 700, fontSize: 12 }}>GW{gw}</div>
+                <div className="num" style={{ flex: 1, textAlign: "center", padding: "8px", fontWeight: bWin ? 800 : 600, color: bWin ? "var(--green-600, #1a9d5a)" : "var(--ink-700)" }}>{bp != null ? bp : "—"}</div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Next 3 fixtures + FDR, side by side */}
+      <div style={{ display: "flex", gap: 8, marginTop: 12 }}>
+        {[[player, fxA], [other, fxB]].map(([pl, fx], idx) => (
+          <div key={idx} style={{ flex: 1, background: "white", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+            <div style={{ background: "var(--cream)", padding: "6px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-500)" }}>Next 3</div>
+            {fx.map((f, i) => (
+              <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "7px 10px", borderTop: "1px solid var(--border)", fontSize: 12 }}>
+                <span style={{ fontWeight: 600 }}>{f.gw !== "—" ? `GW${f.gw} ` : ""}{f.opp}</span>
+                <span style={{ display: "inline-block", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: (f.diff >= 5 ? "var(--red-500)" : f.diff >= 4 ? "var(--hot-500)" : f.diff >= 3 ? "var(--gold-500)" : "var(--green-500)") + "22", color: f.diff >= 5 ? "var(--red-500)" : f.diff >= 4 ? "var(--hot-500)" : f.diff >= 3 ? "var(--gold-500)" : "var(--green-500)" }}>{f.diff}</span>
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+      <div className="muted" style={{ fontSize: 11, marginTop: 10, textAlign: "center" }}>
+        Greener / bolder = the better value. FDR 1 easy → 5 very hard.
+      </div>
     </div>
   );
 }
