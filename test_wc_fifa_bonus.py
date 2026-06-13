@@ -41,6 +41,21 @@ def test_bonus_line_is_the_real_scouting_bonus():
     assert bonus[0]["pts"] == 2
 
 
+def test_missed_clean_sheet_is_kept_not_excluded_as_bonus():
+    # Ricardo Rodríguez: FIFA gave him a clean sheet (subbed off before a late
+    # equaliser) so FIFA total is 9, but our final-score data shows no clean
+    # sheet -> we only itemize minutes (+2). The 7-point remainder must NOT all
+    # be treated as scouting: only 2 is the scouting bonus (excluded); the other
+    # 5 (the clean sheet FIFA awarded) is KEPT. League total = 7.
+    stats = {"minutes": 90, "goals": 0, "cleanSheet": False, "goalsConceded": 1}
+    bd = fifa_breakdown(stats, position=2, fifa_total=9)
+    excluded = sum(ln["pts"] for ln in bd if ln.get("excluded"))
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert excluded == 2          # capped scouting bonus
+    assert counted == 7           # minutes 2 + kept "FIFA match points" 5
+    assert any(ln["label"] == "FIFA match points" and ln["pts"] == 5 for ln in bd)
+
+
 def test_excluded_pts_extracts_the_bonus():
     bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
     assert _excluded_pts(bd) == 2
