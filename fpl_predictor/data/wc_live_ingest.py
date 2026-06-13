@@ -409,7 +409,7 @@ def recompute_season_stats(db) -> int:
             a = agg.setdefault(pid, {
                 "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
                 "cleanSheets": 0, "minutes": 0, "appearances": 0,
-                "defconActions": 0, "defconBonus": 0,
+                "defconActions": 0, "defconBonus": 0, "points": 0,
             })
             st = r.get("stats") or {}
             a["goals"] += st.get("goals", 0) or 0
@@ -424,18 +424,29 @@ def recompute_season_stats(db) -> int:
                 a["appearances"] += 1
             a["defconActions"] += r.get("defConActions", 0) or 0
             a["defconBonus"] += r.get("defConBonus", 0) or 0
+            # OUR fantasy total = FIFA match points + league DefCon bonus (the
+            # per-fixture fantasyPoints already bakes DefCon in, see ingest_live).
+            a["points"] += r.get("fantasyPoints", 0) or 0
 
-    return _batch_set_players(db, {pid: {"seasonStats": a} for pid, a in agg.items()})
+    # Write seasonStats AND the league total. totalPoints is OUR sum (incl.
+    # DefCon), NOT the FIFA-only seasonTotal — so the Players/Transfers "Pts" and
+    # the modal Total match the per-GW breakdown (which includes DefCon).
+    return _batch_set_players(
+        db, {pid: {"seasonStats": a, "totalPoints": a["points"]} for pid, a in agg.items()})
 
 
 def stamp_fifa_meta(db) -> int:
-    """Stamp FIFA ownership / price / form (+ season total) onto wc_players for
-    every resolvable player.
+    """Stamp FIFA ownership / price / form onto wc_players for every resolvable
+    player.
 
     Independent of fixtures — it's a snapshot of the live FIFA fantasy feed — so
     it must run once per scan REGARDLESS of which scoring path each fixture used
     (WhoScored or the FIFA/ESPN fallback). Returns the count of players stamped;
-    0 if the feed is unreachable (a feed blip must never break a scan)."""
+    0 if the feed is unreachable (a feed blip must never break a scan).
+
+    Deliberately does NOT touch totalPoints: that's OUR league total (FIFA +
+    DefCon), owned by recompute_season_stats. The FIFA seasonTotal excludes our
+    DefCon bonus, so stamping it here would clobber the correct figure."""
     try:
         fifa = fetch_fifa_points()
     except Exception as exc:
@@ -462,8 +473,6 @@ def stamp_fifa_meta(db) -> int:
             meta["fifaPrice"] = p["fifaPrice"]
         if p.get("fifaForm") is not None:
             meta["fifaForm"] = p["fifaForm"]
-        if p.get("seasonTotal"):
-            meta["totalPoints"] = p["seasonTotal"]
         if meta:
             updates[pid] = meta  # one entry per pid (last feed row wins)
     return _batch_set_players(db, updates)

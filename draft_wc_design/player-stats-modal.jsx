@@ -175,7 +175,7 @@ function PlayerStatsModal() {
 
         <div className="player-modal__body">
           {tab === "history" && <HistoryTab history={history} error={historyErr} />}
-          {tab === "fixtures" && <FixturesTab fixtures={fixturesFor(p, t)} />}
+          {tab === "fixtures" && <FixturesTab fixtures={upcomingFixturesFor(p, t, history)} />}
           {tab === "compare" && <CompareTab player={p} />}
         </div>
       </div>
@@ -309,7 +309,14 @@ function FixturesTab({ fixtures }) {
               <td style={{ padding: "10px 10px", fontWeight: 700 }}>{f.gw !== "—" ? `GW${f.gw}` : "—"}</td>
               <td style={{ padding: "10px 10px", color: "var(--ink-500)", fontSize: 12 }}>{f.date}</td>
               <td style={{ padding: "10px 10px" }}><span className="pill pill--dark" style={{ fontSize: 10 }}>{f.round}</span></td>
-              <td style={{ padding: "10px 10px", fontWeight: 600 }}>{f.opp}</td>
+              <td style={{ padding: "10px 10px", fontWeight: 600 }}>
+                {(() => {
+                  const ot = (f.opp && f.opp !== "TBD" && f.opp !== "—") ? teamById(f.opp) : null;
+                  return ot
+                    ? <span style={{ display: "inline-flex", alignItems: "center", gap: 8 }}><Flag team={ot} /> {ot.name}</span>
+                    : <span className="muted">{f.opp}</span>;
+                })()}
+              </td>
               <td style={{ padding: "10px 10px", fontSize: 12, color: "var(--ink-500)" }}>{f.venue}</td>
               <td style={{ padding: "10px 10px", textAlign: "right" }}>
                 <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: diffColor(f.diff) + "22", color: diffColor(f.diff) }}>
@@ -437,8 +444,8 @@ function CompareTab({ player }) {
   const gws = [...new Set([...(aHist || []).map(h => h.gw), ...(bHist || []).map(h => h.gw)])].sort((a, b) => a - b);
   const ptsAt = (hist, gw) => { const r = (hist || []).find(h => h.gw === gw); return r ? r.pts : null; };
 
-  const fxA = fixturesFor(player, tA).slice(0, 3);
-  const fxB = fixturesFor(other, tB).slice(0, 3);
+  const fxA = upcomingFixturesFor(player, tA, aHist).slice(0, 3);
+  const fxB = upcomingFixturesFor(other, tB, bHist).slice(0, 3);
 
   const Head = ({ pl, tm }) => (
     <div style={{ flex: 1, textAlign: "center" }}>
@@ -556,6 +563,14 @@ function fixturesFor(p, t) {
     { gw: 8, date: "Sun 19 Jul",     round: "FINAL", opp: "TBD", home: true,  venue: "NJ/NYC", diff: 5 },
   );
   return rows;
+}
+
+// fixturesFor, minus any GW the player has already played (a history row exists
+// for it) — a played match isn't in the future anymore, so it belongs in the
+// History tab, not Fixtures. `history` may be null (still loading) → show all.
+function upcomingFixturesFor(p, t, history) {
+  const playedGws = new Set((history || []).map(h => h.gw));
+  return fixturesFor(p, t).filter(f => f.gw === "—" || !playedGws.has(f.gw));
 }
 
 // Position/overall RANK derived from REAL season points (p.pts). This computes

@@ -527,6 +527,18 @@ function faSortVal(p, key) {
   if (key === "selPct") return p.selPct || 0;
   return (p.season && p.season[key]) || 0;  // season aggregates
 }
+// Short header + cell renderer for the DYNAMIC sorted-stat column. Keys already
+// shown as fixed columns (pts, selPct) map to null → no extra column. Everything
+// else surfaces the value you sorted by so it's visible in the table.
+const FA_DYNAMIC_COL = {
+  goals:         ["Goals",  p => (p.season && p.season.goals) || 0],
+  assists:       ["Asts",   p => (p.season && p.season.assists) || 0],
+  shotsOnTarget: ["SoT",    p => (p.season && p.season.shotsOnTarget) || 0],
+  cleanSheets:   ["CS",     p => (p.season && p.season.cleanSheets) || 0],
+  minutes:       ["Mins",   p => (p.season && p.season.minutes) || 0],
+  defconActions: ["DefCon", p => (p.season && p.season.defconActions) || 0],
+  dr:            ["Draft",  p => `#${p.dr || "—"}`],
+};
 
 function FreeAgentsTab() {
   const [posFilter, setPosFilter] = React.useState("all");
@@ -579,6 +591,10 @@ function FreeAgentsTab() {
     });
   const CAP = 120;
   const shown = filtered.slice(0, CAP);
+  // Dynamic column reflecting the active sort (null when sorting by an
+  // already-shown column like Pts / % Sel). Lets the user SEE the stat they
+  // sorted by — e.g. Sort: Goals adds a Goals column.
+  const dynCol = FA_DYNAMIC_COL[sortBy] || null;
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
   const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
 
@@ -700,6 +716,7 @@ function FreeAgentsTab() {
             <th>Team</th>
             <th>Pos</th>
             <th>Owner</th>
+            {dynCol && <th style={{ textAlign: "right", color: "var(--navy-900)" }}>{dynCol[0]}</th>}
             <th style={{ textAlign: "right" }}>Pts</th>
             <th style={{ textAlign: "right" }} title="FIFA fantasy ownership %">% Sel</th>
             <th style={{ textAlign: "right" }}>Form</th>
@@ -708,7 +725,7 @@ function FreeAgentsTab() {
         </thead>
         <tbody>
           {shown.length === 0 && (
-            <tr><td colSpan="8" style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+            <tr><td colSpan={dynCol ? "9" : "8"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
           )}
           {shown.map(p => {
             const t = teamById(p.team);
@@ -735,6 +752,7 @@ function FreeAgentsTab() {
                     ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
                     : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
+                {dynCol && <td className="num" style={{ textAlign: "right", fontWeight: 800, color: "var(--navy-900)" }}>{dynCol[1](p)}</td>}
                 <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
                 <td className="num" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
                   {p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"}
