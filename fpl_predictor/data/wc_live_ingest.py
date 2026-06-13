@@ -264,7 +264,6 @@ def ingest_live(db, gw: int, date: str) -> dict:
     # FIFA points indexed by pool id (authoritative fantasyPoints)
     fifa_pts: Dict[int, int] = {}        # this GW's round points
     fifa_season: Dict[int, int] = {}     # season total (all rounds)
-    fifa_meta: Dict[int, dict] = {}      # percentSelected / fifaPrice / fifaForm
     for p in fifa:
         rp = p["roundPoints"].get(str(gw))
         pid = resolve(p["name"], p["iso"])
@@ -274,17 +273,6 @@ def ingest_live(db, gw: int, date: str) -> dict:
             fifa_pts[pid] = rp
         if p.get("seasonTotal"):
             fifa_season[pid] = p["seasonTotal"]
-        # FIFA ownership/price/form — stamped for every resolved player, not just
-        # this GW's scorers, so the Transfers sort + Compare tab always have them.
-        meta = {}
-        if p.get("percentSelected") is not None:
-            meta["percentSelected"] = p["percentSelected"]
-        if p.get("fifaPrice") is not None:
-            meta["fifaPrice"] = p["fifaPrice"]
-        if p.get("fifaForm") is not None:
-            meta["fifaForm"] = p["fifaForm"]
-        if meta:
-            fifa_meta[pid] = meta
 
     # ESPN stat line indexed by pool id
     espn_stats: Dict[int, dict] = {}
@@ -352,23 +340,19 @@ def ingest_live(db, gw: int, date: str) -> dict:
             }, merge=True)
             written += 1
 
-    # season totals + FIFA ownership/price/form on the pool (for Players tab /
-    # popup "Total" + Transfers sort/columns). Season total is FIFA's own
-    # all-rounds figure so re-running a single GW never clobbers it; the FIFA
-    # meta is a snapshot of the current feed and is safe to overwrite each pass.
-    for pid in set(fifa_pts) | set(fifa_season) | set(fifa_meta):
+    # season totals on the pool (for Players tab / popup "Total"); season total
+    # is FIFA's own all-rounds figure so re-running a single GW never clobbers it.
+    # (FIFA ownership/price/form + the season-stat aggregates are stamped once
+    # per scan by refresh_pool_aggregates, not here, so every scoring path —
+    # WhoScored or this fallback — gets them.)
+    for pid in set(fifa_pts) | set(fifa_season):
         upd = {}
         if pid in fifa_season:
             upd["totalPoints"] = fifa_season[pid]
         if pid in fifa_pts:
             upd[f"gwPoints.{gw}"] = fifa_pts[pid]
-        if pid in fifa_meta:
-            upd.update(fifa_meta[pid])
         if upd:
             db.collection("wc_players").document(str(pid)).set(upd, merge=True)
-
-    # Per-player season aggregates (goals/assists/…) recomputed from playerScores.
-    season_players = recompute_season_stats(db)
 
     # per-manager LIVE totals for every active league (no finalize, no lock flip)
     leagues_updated = _recompute_live_scores(db, gw, fifa_pts)
@@ -379,7 +363,6 @@ def ingest_live(db, gw: int, date: str) -> dict:
         "playerScoresWritten": written,
         "fifaScorers": len(fifa_pts),
         "espnStatRows": len(espn_stats),
-        "seasonStatsPlayers": season_players,
         "leaguesUpdated": leagues_updated,
     }
 
@@ -429,6 +412,60 @@ def recompute_season_stats(db) -> int:
         db.collection("wc_players").document(str(pid)).set(
             {"seasonStats": a}, merge=True)
     return len(agg)
+
+
+def stamp_fifa_meta(db) -> int:
+    """Stamp FIFA ownership / price / form (+ season total) onto wc_players for
+    every resolvable player.
+
+    Independent of fixtures — it's a snapshot of the live FIFA fantasy feed — so
+    it must run once per scan REGARDLESS of which scoring path each fixture used
+    (WhoScored or the FIFA/ESPN fallback). Returns the count of players stamped;
+    0 if the feed is unreachable (a feed blip must never break a scan)."""
+    try:
+        fifa = fetch_fifa_points()
+    except Exception as exc:
+        print(f"[wc_ingest] stamp_fifa_meta: FIFA feed unavailable: {exc!r}")
+        return 0
+    pool = build_pool_index(db)
+    cache: Dict[Tuple[str, str], Optional[int]] = {}
+
+    def resolve(name, iso):
+        key = (iso, (name or "").lower())
+        if key not in cache:
+            cache[key] = match_to_pool(name, iso, pool)
+        return cache[key]
+
+    stamped = 0
+    for p in fifa:
+        pid = resolve(p["name"], p["iso"])
+        if pid is None:
+            continue
+        meta = {}
+        if p.get("percentSelected") is not None:
+            meta["percentSelected"] = p["percentSelected"]
+        if p.get("fifaPrice") is not None:
+            meta["fifaPrice"] = p["fifaPrice"]
+        if p.get("fifaForm") is not None:
+            meta["fifaForm"] = p["fifaForm"]
+        if p.get("seasonTotal"):
+            meta["totalPoints"] = p["seasonTotal"]
+        if meta:
+            db.collection("wc_players").document(str(pid)).set(meta, merge=True)
+            stamped += 1
+    return stamped
+
+
+def refresh_pool_aggregates(db) -> dict:
+    """Recompute season stats + stamp FIFA ownership/price/form for the whole
+    pool. Called at the END of every scan (``catch_up_scan`` /
+    ``run_scheduled_ingest``) so the Transfers sort/columns + Compare tab are
+    populated no matter which scoring path ran — both operations are full,
+    idempotent recomputes/snapshots, safe to repeat."""
+    return {
+        "seasonStatsPlayers": recompute_season_stats(db),
+        "fifaMetaPlayers": stamp_fifa_meta(db),
+    }
 
 
 def _gw_points_map(db, gw: int) -> Dict[int, int]:
@@ -898,7 +935,10 @@ def run_scheduled_ingest(db, date: Optional[str] = None) -> dict:
                              "n": r.get("playerScoresWritten")})
         except Exception as exc:
             done.append({"fixture": ref.id, "error": str(exc)})
-    return {"date": date, "gw": gw, "scored": done, "skipped": skipped}
+    # Whole-pool aggregates once per pass (see catch_up_scan).
+    aggregates = refresh_pool_aggregates(db)
+    return {"date": date, "gw": gw, "scored": done, "skipped": skipped,
+            **aggregates}
 
 
 # --------------------------------------------------------------------------
@@ -969,8 +1009,14 @@ def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
             else:
                 scored_live.append({"fixture": ref.id, "date": d, "via": via})
 
+    # Refresh whole-pool aggregates (season stats + FIFA ownership/price/form)
+    # once, after all fixtures — path-independent, so the new Transfers/Compare
+    # fields populate whether scoring went via WhoScored or the FIFA fallback.
+    aggregates = refresh_pool_aggregates(db)
+
     db.collection("wc_config").document("scan_state").set(
         {"lastScanAt": _fs.SERVER_TIMESTAMP, "datesScanned": dates,
          "lastFinalScored": [s["fixture"] for s in scored_final]}, merge=True)
     return {"gw": gw, "datesScanned": dates, "newlyFinalized": scored_final,
-            "liveUpdated": scored_live, "alreadyBookmarked": already}
+            "liveUpdated": scored_live, "alreadyBookmarked": already,
+            **aggregates}
