@@ -711,6 +711,27 @@ function PickTeamScreen({ onTab, squadLoading }) {
     <div className="col" style={{ gap: 16 }}>
       <h2 className="h-display" style={{ fontSize: 26, margin: 0, display: "flex", alignItems: "center", gap: 12 }}><ManagerFlag uid={window.ME} size="xl" /> My Team <span className="muted" style={{ fontSize: 15, fontWeight: 500 }}>· Setting GW{editGw}</span></h2>
 
+      {/* Prominent lineup-deadline countdown (lock = T0 - 1h of the EDIT GW). */}
+      {(() => {
+        const lockAt = lineupLockForGw(editGw);
+        const locked = lockAt && Date.parse(lockAt) <= Date.now();
+        return (
+          <div className="card" style={{ padding: "14px 18px", display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 12, borderLeft: `4px solid ${locked ? "var(--red-500)" : "var(--green-500)"}` }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-500)" }}>GW{editGw} lineup deadline</div>
+              <div style={{ fontSize: 14, marginTop: 2 }}>
+                {lockAt ? <>Locks {fmtWindowTime(lockAt)}</> : "Deadline not set yet"}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              {locked
+                ? <span style={{ fontWeight: 800, color: "var(--red-500)", fontSize: 18 }}>Locked</span>
+                : <span style={{ fontFamily: "var(--font-num)", fontWeight: 800, fontSize: 24, color: "var(--navy-900)" }}><Countdown to={lockAt} placeholder="—" /></span>}
+            </div>
+          </div>
+        );
+      })()}
+
       {elimStarting.length > 0 && (
         <div className="alert alert--danger">
           <div className="alert__icon" style={{ background: "var(--red-500)", color: "white" }}>!</div>
@@ -745,7 +766,13 @@ function PickTeamScreen({ onTab, squadLoading }) {
           <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: isMobile ? 0 : 200, flex: isMobile ? 1 : undefined }}>Save Lineup for GW{editGw}</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>
-          Locks {TOURNAMENT.gwDates[4].lockAt} · {WINDOW.hoursLeft}h remaining
+          {(() => {
+            const lockAt = lineupLockForGw(editGw);
+            if (!lockAt) return "Deadline set once GW fixtures are scheduled";
+            return Date.parse(lockAt) <= Date.now()
+              ? <>GW{editGw} lineup is locked</>
+              : <>Locks {fmtWindowTime(lockAt)} · <Countdown to={lockAt} suffix=" remaining" /></>;
+          })()}
         </div>
       </div>
 

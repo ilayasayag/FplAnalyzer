@@ -950,19 +950,34 @@ function App() {
         // "no squad" result). Reveal the Pick Team squad area.
         setSquadLoaded(true);
 
-        // Fetch transfer window
+        // Fetch transfer window. The endpoint now returns the real-clock
+        // boundaries (phaseEndsAt / nextPhase / schedule) so we derive a live
+        // countdown instead of the old hardcoded "36h". `closesAt` / `hoursLeft`
+        // stay populated for the existing banner copy; the ticking countdowns
+        // (sidebar, Transfers, Pick Team) read `phaseEndsAt` via <Countdown>.
         try {
           const winData = await apiCall("GET", `/leagues/${lid}/transfer-window`);
           if (winData) {
+            const endsAt = winData.phaseEndsAt || null;
+            const endMs = endsAt ? Date.parse(endsAt) : NaN;
+            const hoursLeft = isNaN(endMs)
+              ? (winData.status === "open" ? null : 0)
+              : Math.max(0, Math.round((endMs - Date.now()) / 3600000));
             window.WINDOW = {
-              hoursLeft: winData.status === "open" ? 36 : 0,
+              hoursLeft,
+              closesAt: endsAt ? fmtWindowTime(endsAt) : null,
               freeTransfers: 2,
               used: 0,
               state: winData.status,
               phase: winData.window ? winData.window.phase : "none",
               gw: winData.window ? winData.window.gw : null,
               overridden: !!winData.overridden,
-              windowNumber: winData.window ? winData.window.windowNumber : 1
+              windowNumber: winData.window ? winData.window.windowNumber : 1,
+              // Real-clock timeline for live countdowns + the Fixtures bands.
+              phaseEndsAt: endsAt,
+              nextPhase: winData.nextPhase || null,
+              nextPhaseStartsAt: winData.nextPhaseStartsAt || null,
+              schedule: winData.schedule || [],
             };
           }
         } catch (e) {

@@ -1764,17 +1764,22 @@ def get_transfer_window(lid: str):
     # Live gate: derive from wc_windows.current_window (the single source of
     # truth) instead of the legacy transfer_windows status flag, which is now
     # an audit-only record (see WC2026_WINDOWS_DESIGN.md §2.3).
-    from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
-    window, upcoming_gw = current_window_from_db(lid, _db)
-    league_snap = _db.collection("leagues").document(lid).get()
-    league_doc = league_snap.to_dict() if league_snap.exists else {}
-    overridden = bool((league_doc or {}).get("windowOverride"))
-    if window == TransferWindow.NONE:
-        return _ok({"status": "closed", "window": None, "overridden": overridden})
+    #
+    # transfer_window_state bundles the override-aware current phase with the
+    # real-clock schedule + next-phase boundaries (current + next GW) so the UI
+    # can render live countdowns and a window timeline. `status`/`window` keep
+    # their legacy shape so existing callers don't break.
+    from fpl_predictor.game.wc_windows import TransferWindow, transfer_window_state
+    state = transfer_window_state(lid, _db)
+    is_none = state["phase"] == TransferWindow.NONE.value
     return _ok({
-        "status": "open",
-        "window": {"phase": window.value, "gw": upcoming_gw},
-        "overridden": overridden,
+        "status": "closed" if is_none else "open",
+        "window": None if is_none else {"phase": state["phase"], "gw": state["gw"]},
+        "overridden": state["overridden"],
+        "phaseEndsAt": state["phaseEndsAt"],
+        "nextPhase": state["nextPhase"],
+        "nextPhaseStartsAt": state["nextPhaseStartsAt"],
+        "schedule": state["schedule"],
     })
 
 

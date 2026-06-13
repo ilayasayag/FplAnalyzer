@@ -310,11 +310,22 @@ function Sidebar({ onTab }) {
         <div className="card-dark__title">Transfer Window</div>
         <div className="card-section">
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-            <span className="pill pill--gold">W{activeWindow.number || activeWindow.windowNumber || "—"} · The Big One</span>
+            <span className="pill pill--gold">{windowPhaseMeta(activeWindow.phase).label}</span>
           </div>
-          <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.4 }}>
-            Closes {activeWindow.closesAt || "—"}<br />
-            <strong>{activeWindow.hoursLeft !== undefined ? activeWindow.hoursLeft : "—"}h remaining</strong>
+          <div style={{ fontSize: 12, opacity: 0.85, lineHeight: 1.5 }}>
+            {activeWindow.phaseEndsAt ? (
+              <>
+                Closes {fmtWindowTime(activeWindow.phaseEndsAt)}<br />
+                <strong><Countdown to={activeWindow.phaseEndsAt} suffix=" remaining" /></strong>
+              </>
+            ) : (
+              <>{windowPhaseMeta(activeWindow.phase).hint}</>
+            )}
+            {activeWindow.nextPhase && activeWindow.nextPhaseStartsAt && (
+              <div style={{ marginTop: 6, opacity: 0.75 }}>
+                Next: {windowPhaseMeta(activeWindow.nextPhase).label} · {fmtWindowTime(activeWindow.nextPhaseStartsAt)}
+              </div>
+            )}
           </div>
           <div style={{ marginTop: 10 }}>
             <Stat label="Free transfers" value="∞" accent="var(--green-400)" />

@@ -352,6 +352,10 @@ function FixturesScreen() {
         </div>
       </div>
 
+      {/* Transfer-window timeline for this GW (what's open when, local times).
+          Renders only for GWs the WINDOW schedule covers (current + next). */}
+      <WindowTimeline gw={gw} title="Transfer windows" />
+
       {/* GW bar (jump) */}
       <div className="card" style={{ padding: "12px 16px", display: "flex", gap: 6, flexWrap: isMobile ? "wrap" : undefined }}>
         {[1,2,3,4,5,6,7,8].map(n => (

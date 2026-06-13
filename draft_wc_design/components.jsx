@@ -438,6 +438,128 @@ function useIsMobile() {
   return isMobile;
 }
 
+// ---------- Transfer-window timers (Segment 3 — windows & timers UX) ----------
+// Shared helpers for the windows/timers UX. The backend's /transfer-window now
+// returns the real fixture-clock boundaries (phaseEndsAt / nextPhase /
+// nextPhaseStartsAt / schedule); these render them. components.jsx loads before
+// shell/screens/app, so every consumer sees these globals.
+
+// Display label + one-line hint + accent per transfer-window phase. Vocabulary
+// kept aligned with the admin "Switch window" buttons (screens-bracket.jsx).
+const WINDOW_PHASE_META = {
+  trade:       { label: "Trade window",  hint: "Manager trades + wishlist bids", accent: "var(--green-400)" },
+  free_agents: { label: "Free agents",   hint: "Instant pickups + wishlist",     accent: "var(--gold-500)" },
+  next_gw_bid: { label: "Gameweek live", hint: "Offer trades · squads frozen",    accent: "var(--red-500)" },
+  none:        { label: "Locked",        hint: "Squads + lineups frozen",         accent: "var(--ink-500)" },
+};
+function windowPhaseMeta(phase) {
+  return WINDOW_PHASE_META[phase] || { label: phase || "—", hint: "", accent: "var(--ink-500)" };
+}
+
+// "Wed 18 Jun, 15:00" in the viewer's local timezone. "—" for missing/bad input.
+function fmtWindowTime(iso) {
+  if (!iso) return "—";
+  const d = new Date(iso);
+  if (isNaN(d)) return "—";
+  return d.toLocaleString(undefined, {
+    weekday: "short", day: "numeric", month: "short",
+    hour: "2-digit", minute: "2-digit",
+  });
+}
+
+// Milliseconds → compact "1d 4h 12m" / "4h 12m" / "12m 30s" / "Now". Seconds
+// show only under an hour so multi-day waits stay calm; "Now" once elapsed.
+function fmtCountdown(ms) {
+  if (ms == null || isNaN(ms) || ms <= 0) return "Now";
+  const s = Math.floor(ms / 1000);
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  if (d > 0) return `${d}d ${h}h ${m}m`;
+  if (h > 0) return `${h}h ${m}m`;
+  return `${m}m ${String(sec).padStart(2, "0")}s`;
+}
+
+// Ticking "now" hook — re-renders only the calling component every `intervalMs`
+// (default 1s) so countdowns stay live without re-rendering the whole app.
+function useNow(intervalMs = 1000) {
+  const [now, setNow] = React.useState(() => Date.now());
+  React.useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), intervalMs);
+    return () => clearInterval(id);
+  }, [intervalMs]);
+  return now;
+}
+
+// Live countdown to an ISO instant. `to` null → renders `placeholder`. Shows
+// "Now" once elapsed. `prefix`/`suffix` wrap the value.
+function Countdown({ to, prefix = "", suffix = "", placeholder = "—", style, className }) {
+  const now = useNow(1000);
+  if (!to) return <span style={style} className={className}>{placeholder}</span>;
+  const ms = Date.parse(to) - now;
+  return <span style={style} className={className}>{prefix}{fmtCountdown(ms)}{suffix}</span>;
+}
+
+// The lineup-lock instant for a given GW (= T0 - squad_lock_before_h), pulled
+// from the WINDOW schedule the backend returns. The locked ("none") band starts
+// exactly at the lock; if the short-turnaround clamp dropped that band we fall
+// back to the end of free-agents, then to T0 (the live band's start). Returns an
+// ISO string, or null when the GW isn't in the two-GW schedule window yet.
+function lineupLockForGw(gw) {
+  const sched = (window.WINDOW && window.WINDOW.schedule) || [];
+  const locked = sched.find(s => s.gw === gw && s.phase === "none");
+  if (locked && locked.startsAt) return locked.startsAt;
+  const fa = sched.find(s => s.gw === gw && s.phase === "free_agents");
+  if (fa && fa.endsAt) return fa.endsAt;
+  const bid = sched.find(s => s.gw === gw && s.phase === "next_gw_bid");
+  return bid ? bid.startsAt : null;
+}
+
+// Window-timeline bands: the ordered transfer-window phases (with local start/
+// end times + what each one allows) for the WINDOW schedule. `gw` filters to a
+// single GW; null shows the whole two-GW window. The live band is flagged NOW
+// and past bands dim. Renders nothing when no schedule covers the request — so
+// it's safe to drop into any screen unconditionally.
+function WindowTimeline({ gw = null, title = "Transfer windows" }) {
+  const now = useNow(30000);  // bands turn over slowly; a 30s tick is ample
+  const sched = (window.WINDOW && window.WINDOW.schedule) || [];
+  const rows = gw == null ? sched : sched.filter(s => s.gw === gw);
+  if (!rows.length) return null;
+  return (
+    <div className="card" style={{ padding: "14px 16px" }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 10 }}>
+        {title}{gw != null ? ` · GW${gw}` : ""}
+      </div>
+      <div className="col" style={{ gap: 8 }}>
+        {rows.map((s, i) => {
+          const meta = windowPhaseMeta(s.phase);
+          const startMs = s.startsAt ? Date.parse(s.startsAt) : -Infinity;
+          const endMs = Date.parse(s.endsAt);
+          const active = now >= startMs && now < endMs;
+          const past = now >= endMs;
+          return (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 12, opacity: past ? 0.45 : 1 }}>
+              <div style={{ width: 4, alignSelf: "stretch", borderRadius: 2, background: meta.accent }} />
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontWeight: 700, fontSize: 13 }}>{meta.label}</span>
+                  {active && <span className="pill" style={{ background: meta.accent, color: "var(--navy-900)", fontSize: 10, fontWeight: 800, padding: "1px 8px" }}>NOW</span>}
+                </div>
+                <div style={{ fontSize: 12, color: "var(--ink-500)" }}>{meta.hint}</div>
+              </div>
+              <div style={{ textAlign: "right", fontSize: 12, color: "var(--ink-700)", whiteSpace: "nowrap" }}>
+                <div>{s.startsAt ? fmtWindowTime(s.startsAt) : "open now"}</div>
+                <div style={{ color: "var(--ink-300)" }}>→ {fmtWindowTime(s.endsAt)}</div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ---------- Custom per-manager team flags (fun league flags) ----------
 // 600x400 normalized PNGs in /flags. Falls back to the member's nation flag
 // for any uid without a custom one (future joiners).
