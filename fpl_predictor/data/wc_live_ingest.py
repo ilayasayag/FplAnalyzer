@@ -598,6 +598,13 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
         pd = d.to_dict() or {}
         pos_map[int(d.id)] = pd.get("position", 3)
         own_map[int(d.id)] = pd.get("percentSelected")
+    # DefCon rules (mirror ingest_whoscored_fixture) so the Sync self-heals the
+    # bonus + line from STORED stat components by position — no WhoScored refetch.
+    sr = ((db.collection("wc_config").document("tournament").get().to_dict()
+           or {}).get("rules", {}) or {}).get("scoring", {})
+    defcon_pts = sr.get("defConPoints", 2)
+    thr_def = sr.get("defConThresholdDef", 10)
+    thr_mid = sr.get("defConThresholdMid", 12)
 
     score_writes: Dict[object, dict] = {}   # ref -> patch
     gw_points: Dict[int, Tuple[int, int]] = {}  # pid -> (gw, new fantasyPoints)
@@ -619,30 +626,52 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
                 continue
             pos = pos_map.get(pid, 3)
             st = r.get("stats") or {}
-            dcb = r.get("defConBonus", 0) or 0
             # FIFA's position (stored when the score was first written) drives the
             # itemization only; pool `pos` still owns DefCon. Re-using the stored
             # value keeps the corrected per-stat lines across a re-sync.
             nbd = fifa_breakdown(st, pos, fifa, own_map.get(pid),
                                  fifa_position=r.get("fifaPos"))
-            # Preserve the existing DefCon line (computed from WhoScored).
-            dl = next((l for l in (r.get("breakdown") or [])
-                       if str(l.get("label", "")).startswith("Defensive contribution")), None)
-            if dl:
-                nbd.append(dl)
+            # DefCon: RE-DERIVE from STORED stat components by position when the
+            # line carries WhoScored defensive data (the self-heal — a DEF whose
+            # old bonus was based on CBITR is re-scored to CBIT). When there are
+            # NO components (ESPN-sourced docs), PRESERVE the stored line + bonus
+            # exactly so a re-sync never zeroes a preserved DefCon.
+            dca_old = r.get("defConActions")
+            dcb_old = r.get("defConBonus", 0) or 0
+            if _has_defensive_components(st):
+                actions = _defcon_actions(st, pos)
+                thr = thr_def if pos == 2 else (thr_mid if pos == 3 else None)
+                if thr is not None and actions is not None:
+                    dcb = defcon_pts if actions >= thr else 0
+                    dca = actions
+                    nbd.append({"label": f"Defensive contribution ({actions}/{thr})",
+                                "value": actions, "pts": dcb})
+                else:
+                    dcb, dca = 0, None  # GK/FWD: no DefCon
+            else:
+                dcb, dca = dcb_old, dca_old
+                dl = next((l for l in (r.get("breakdown") or [])
+                           if str(l.get("label", "")).startswith("Defensive contribution")), None)
+                if dl:
+                    nbd.append(dl)
             nb = _excluded_pts(nbd)
             nfp = fifa + dcb - nb
             if (nfp != r.get("fantasyPoints") or nb != r.get("fifaBonus")
-                    or fifa != r.get("fifaPoints") or nbd != r.get("breakdown")):
-                score_writes[d.reference] = {
+                    or fifa != r.get("fifaPoints") or nbd != r.get("breakdown")
+                    or dcb != dcb_old or dca != dca_old):
+                patch = {
                     "fifaPoints": fifa, "fifaBonus": nb,
                     "fantasyPoints": nfp, "breakdown": nbd,
                 }
+                if dcb != dcb_old:
+                    patch["defConBonus"] = dcb
+                if dca != dca_old:
+                    patch["defConActions"] = dca
+                score_writes[d.reference] = patch
                 if gw is not None:
                     gw_points[pid] = (gw, nfp)
                     affected_gws.add(gw)
-            _season_accumulate(season, pid, st, nfp,
-                               r.get("defConActions", 0) or 0, dcb)
+            _season_accumulate(season, pid, st, nfp, dca or 0, dcb)
 
     # Batched score writes (playerScores live in subcollections; batch by ref).
     items = list(score_writes.items())
@@ -1005,7 +1034,9 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 
         # SCORING MODEL = FIFA official total + our DefCon bonus.
         fifa = fifa_pts.get(pid)
-        defcon = stats.get("defCon", 0) or 0
+        # Position-correct DefCon actions: CBIT for DEF, CBITR for MID (ball
+        # recoveries count for MID only); None (→0) for GK/FWD.
+        defcon = _defcon_actions(stats, position) or 0
         thr = thr_def if position == 2 else (thr_mid if position == 3 else None)
         defcon_bonus = defcon_pts if (thr is not None and defcon >= thr) else 0
 
@@ -1094,6 +1125,35 @@ def _tackle_count(stats: dict) -> int:
     if isinstance(tk, dict):
         return tk.get("total", 0) or 0
     return int(tk or 0)
+
+
+def _has_defensive_components(stats: dict) -> bool:
+    """True when a stored stat line carries WhoScored defensive data we can
+    recompute DefCon from. ESPN-sourced lines have none of these, so they must
+    keep any DefCon bonus preserved from a prior WhoScored run rather than being
+    re-derived (and zeroed)."""
+    st = stats or {}
+    return (isinstance(st.get("tackles"), dict)
+            or "defCon" in st or "ballRecoveries" in st)
+
+
+def _defcon_actions(stats: dict, position: int) -> Optional[int]:
+    """CBIT for DEF (pos 2), CBITR for MID (pos 3) — ball recoveries count for
+    MID only (FPL/our league rule). None for GK/FWD (no DefCon).
+
+    Components are read defensively from stored stats:
+      CBIT  = tackles.total + interceptions + clearances + blocks
+      CBITR = CBIT + ballRecoveries
+    """
+    if position not in (2, 3):
+        return None
+    st = stats or {}
+    tk = st.get("tackles") or {}
+    cbi = ((tk.get("total", 0) or 0) + (tk.get("interceptions", 0) or 0)
+           + (st.get("clearances", 0) or 0) + (tk.get("blocks", 0) or 0))
+    if position == 2:
+        return cbi
+    return cbi + (st.get("ballRecoveries", 0) or 0)
 
 
 # --------------------------------------------------------------------------

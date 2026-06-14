@@ -54,14 +54,17 @@ function PlayerStatsModal() {
             s: s.saves || 0,
             b: row.bonusPoints != null ? row.bonusPoints : (s.bonusPoints || 0),
             pts: row.fantasyPoints != null ? row.fantasyPoints : 0,
-            // DefCon (CBITR) components: tackles, interceptions, clearances,
-            // blocks, ball recoveries — shown per-GW + summed into defc.
+            // DefCon components: tackles, interceptions, clearances, blocks,
+            // ball recoveries — shown per-GW. The displayed DEF sum is computed
+            // position-aware at render (CBIT for DEF, CBITR for MID); ball
+            // recoveries count for MID only. `cbit` is the recovery-free sum so
+            // render can add `rec` back for MIDs without re-reading the raw stats.
             tkl: (s.tackles || {}).total || 0,
             intc: (s.tackles || {}).interceptions || 0,
             clr: s.clearances || 0,
             blk: (s.tackles || {}).blocks || 0,
             rec: s.ballRecoveries || 0,
-            defc: (s.defCon != null) ? s.defCon : (((s.tackles || {}).total || 0) + ((s.tackles || {}).interceptions || 0) + ((s.tackles || {}).blocks || 0) + (s.clearances || 0) + (s.ballRecoveries || 0)),
+            cbit: ((s.tackles || {}).total || 0) + ((s.tackles || {}).interceptions || 0) + ((s.tackles || {}).blocks || 0) + (s.clearances || 0),
             breakdown: Array.isArray(row.breakdown) ? row.breakdown : [],
             fifaPoints: row.fifaPoints,
           };
@@ -250,7 +253,7 @@ function HistoryTab({ history, error }) {
             <th style={{ padding: "8px 6px", textAlign: "right", color: "var(--ink-500)" }} title="Clearances">Clr</th>
             <th style={{ padding: "8px 6px", textAlign: "right", color: "var(--ink-500)" }} title="Blocks">Blk</th>
             <th style={{ padding: "8px 6px", textAlign: "right", color: "var(--ink-500)" }} title="Ball recoveries">Rec</th>
-            <th style={{ padding: "8px 8px", textAlign: "right" }} title="Defensive Contribution sum (CBITR): tackles + interceptions + clearances + blocks + ball recoveries">DEF</th>
+            <th style={{ padding: "8px 8px", textAlign: "right" }} title="Defensive Contribution sum: tackles + interceptions + clearances + blocks (CBIT) for defenders; + ball recoveries (CBITR) for midfielders. Ball recoveries count for MID only.">DEF</th>
             <th style={{ padding: "8px 8px", textAlign: "right", fontWeight: 800 }}>PTS</th>
           </tr>
         </thead>
@@ -272,14 +275,14 @@ function HistoryTab({ history, error }) {
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.clr || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.blk || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.rec || "—"}</td>
-              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{h.defc || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{(p.pos === 2 ? h.cbit : h.cbit + h.rec) || "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: h.pts > 0 ? "var(--navy-900)" : "var(--ink-300)", fontSize: 15 }}>{h.pts}</td>
             </tr>
           ))}
         </tbody>
       </table>
       <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-        Tkl/Int/Clr/Blk/Rec = tackles · interceptions · clearances · blocks · ball recoveries. DEF = their sum (Defensive Contribution); ≥10 (DEF) / ≥12 (MID) earns +2. PTS = FIFA match points + your league's DefCon bonus.
+        Tkl/Int/Clr/Blk/Rec = tackles · interceptions · clearances · blocks · ball recoveries. DEF = Defensive Contribution sum — tackles + interceptions + clearances + blocks for defenders, plus ball recoveries for midfielders (ball recoveries count for MID only); ≥10 (DEF) / ≥12 (MID) earns +2. PTS = FIFA match points + your league's DefCon bonus.
       </div>
       {history.filter(h => (h.breakdown || []).length).map(h => (
         <div key={`bd${h.gw}`} style={{ marginTop: 14, border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>

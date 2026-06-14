@@ -18,6 +18,7 @@ if PROJECT_ROOT not in sys.path:
 
 from fpl_predictor.data.wc_live_ingest import (  # noqa: E402
     fifa_breakdown, _excluded_pts, fetch_espn_match_stats, parse_whoscored_match,
+    _defcon_actions, _has_defensive_components,
 )
 
 
@@ -362,3 +363,95 @@ def test_espn_live_minutes_not_stamped_90(monkeypatch):
     assert by_name["Early Off"] == 30
     # Sub on at 30' has played 50 − 30 = 20 minutes so far.
     assert by_name["Sub On"] == 20
+
+
+# ----- DefCon by position (Phase 5): ball recoveries count for MID only -----
+
+# A stat line with CBIT=8 (tk3 + int2 + clr2 + blk1) and 4 ball recoveries.
+# CBITR = 12. DEF must see 8 (no recoveries); MID must see 12.
+_DEFCON_STATS = {
+    "minutes": 90,
+    "tackles": {"total": 3, "interceptions": 2, "blocks": 1},
+    "clearances": 2,
+    "ballRecoveries": 4,
+    "defCon": 12,  # stale precomputed CBITR — must NOT be used by the helper
+}
+
+
+def test_defcon_actions_def_excludes_ball_recoveries():
+    # DEF: CBIT only = 3+2+2+1 = 8 (ball recoveries NOT counted).
+    assert _defcon_actions(_DEFCON_STATS, 2) == 8
+
+
+def test_defcon_actions_mid_includes_ball_recoveries():
+    # MID: CBITR = 8 + 4 = 12 (ball recoveries counted).
+    assert _defcon_actions(_DEFCON_STATS, 3) == 12
+
+
+def test_defcon_actions_none_for_gk_fwd():
+    assert _defcon_actions(_DEFCON_STATS, 1) is None
+    assert _defcon_actions(_DEFCON_STATS, 4) is None
+
+
+def test_def_at_threshold_10_no_bonus_mid_at_12_earns():
+    # DEF threshold 10: CBIT=8 < 10 -> NO bonus.
+    actions_def = _defcon_actions(_DEFCON_STATS, 2)
+    assert actions_def == 8 and (2 if actions_def >= 10 else 0) == 0
+    # MID threshold 12: CBITR=12 >= 12 -> +2.
+    actions_mid = _defcon_actions(_DEFCON_STATS, 3)
+    assert actions_mid == 12 and (2 if actions_mid >= 12 else 0) == 2
+
+
+def test_has_defensive_components():
+    # WhoScored line carries a tackles dict -> True.
+    assert _has_defensive_components(_DEFCON_STATS) is True
+    assert _has_defensive_components({"ballRecoveries": 0}) is True
+    assert _has_defensive_components({"defCon": 0}) is True
+    # ESPN-style line (goals/assists/minutes only) -> False, so DefCon is preserved.
+    assert _has_defensive_components({"minutes": 90, "goals": 1, "assists": 0}) is False
+    assert _has_defensive_components({}) is False
+
+
+def _rebuild_defcon(stats, pos, fifa_total, own, fifa_pos,
+                    thr_def=10, thr_mid=12, defcon_pts=2):
+    """Mirror recompute_all_scores's per-doc re-derive: FIFA breakdown + a
+    position-correct DefCon line rebuilt from STORED components. Returns
+    (breakdown, defcon_bonus, defcon_actions, fantasy_points)."""
+    nbd = fifa_breakdown(stats, pos, fifa_total, own, fifa_position=fifa_pos)
+    actions = _defcon_actions(stats, pos)
+    thr = thr_def if pos == 2 else (thr_mid if pos == 3 else None)
+    if thr is not None and actions is not None:
+        dcb = defcon_pts if actions >= thr else 0
+        nbd.append({"label": f"Defensive contribution ({actions}/{thr})",
+                    "value": actions, "pts": dcb})
+    else:
+        dcb, actions = 0, None
+    nb = _excluded_pts(nbd)
+    nfp = fifa_total + dcb - nb
+    return nbd, dcb, actions, nfp
+
+
+def test_recompute_rederives_def_from_cbitr_to_cbit():
+    # A stored DEF doc whose OLD bonus was based on CBITR (12 >= 10 -> +2). On
+    # re-sync, DefCon is re-derived from stored components as CBIT (8 < 10 -> 0):
+    # the bonus is REMOVED. FIFA total 5 (90' +2, the rest reconciled), 20% owned
+    # (no scouting). New total must equal FIFA + DefCon − scouting = 5 + 0 − 0 = 5.
+    bd, dcb, actions, nfp = _rebuild_defcon(
+        _DEFCON_STATS, pos=2, fifa_total=5, own=20.0, fifa_pos=2)
+    assert actions == 8           # CBIT, not the stale CBITR 12
+    assert dcb == 0               # bonus removed (8 < 10)
+    dl = _line(bd, "Defensive contribution (8/10)")
+    assert dl is not None and dl["pts"] == 0
+    # HARD INVARIANT: total == FIFA + DefCon − scouting.
+    assert nfp == 5 + dcb - _excluded_pts(bd)
+    assert nfp == 5
+
+
+def test_recompute_mid_keeps_cbitr_bonus():
+    # Same stats as a MID: CBITR=12 >= 12 -> +2 retained. FIFA 5, 20% owned.
+    # total = 5 + 2 − 0 = 7.
+    bd, dcb, actions, nfp = _rebuild_defcon(
+        _DEFCON_STATS, pos=3, fifa_total=5, own=20.0, fifa_pos=3)
+    assert actions == 12 and dcb == 2
+    assert nfp == 5 + 2 - _excluded_pts(bd)
+    assert nfp == 7
