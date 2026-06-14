@@ -182,7 +182,7 @@ function PlayerStatsModal() {
         </div>
 
         <div className="player-modal__body">
-          {tab === "history" && <HistoryTab history={history} error={historyErr} />}
+          {tab === "history" && <HistoryTab history={history} error={historyErr} pos={p.pos} />}
           {tab === "fixtures" && <FixturesTab fixtures={upcomingFixturesFor(p, t, history)} />}
           {tab === "compare" && <CompareTab player={p} />}
         </div>
@@ -212,7 +212,7 @@ function ICTCell({ label, rank, total, large }) {
   );
 }
 
-function HistoryTab({ history, error }) {
+function HistoryTab({ history, error, pos }) {
   // Loading: fetch in flight (history === null).
   if (history == null) {
     return (
@@ -275,7 +275,7 @@ function HistoryTab({ history, error }) {
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.clr || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.blk || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.rec || "—"}</td>
-              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{(p.pos === 2 ? h.cbit : h.cbit + h.rec) || "—"}</td>
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{(pos === 2 ? h.cbit : h.cbit + h.rec) || "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: h.pts > 0 ? "var(--navy-900)" : "var(--ink-300)", fontSize: 15 }}>{h.pts}</td>
             </tr>
           ))}
