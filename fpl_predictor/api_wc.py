@@ -362,20 +362,33 @@ def score_audit():
         pos = pdoc.get("position", 3)
         gw = r.get("gw")
         fifa_live = (fifa_rp.get(pid) or {}).get(str(gw), fifa_stored)
-        scouting = _excluded_pts(fifa_breakdown(r.get("stats") or {}, pos, fifa_live,
-                                                pdoc.get("percentSelected")))
+        # Recompute the breakdown with FIFA's OWN position (stored as ``fifaPos``
+        # by P1) so the position-dependent itemization is right; otherwise the
+        # mis-attributed points would leak into the reconciliation line and look
+        # "unexplained". Scouting is position-independent so the existing total
+        # reconciliation is unaffected.
+        bd = fifa_breakdown(r.get("stats") or {}, pos, fifa_live,
+                            pdoc.get("percentSelected"), fifa_position=r.get("fifaPos"))
+        scouting = _excluded_pts(bd)
+        # Residual FIFA-awarded points we still can't itemize from our feed: the
+        # signed pts on the balancing reconciliation line. Track signed (so it
+        # can net out across GWs) AND absolute (so +5/−5 in two GWs ≠ clean).
+        unexplained_pts = sum((ln.get("pts") or 0) for ln in bd
+                              if ln.get("label") in ("FIFA match points", "FIFA adjustment"))
         a = agg.setdefault(pid, {
             "pid": pid, "name": pdoc.get("name", f"#{pid}"),
             "iso": (pdoc.get("teamIso") or "").upper(),
             "team": pdoc.get("teamName") or pdoc.get("teamIso") or "",
             "pos": pos, "fifaLive": 0, "fifaStored": 0, "scouting": 0,
-            "defcon": 0, "stored": 0,
+            "defcon": 0, "stored": 0, "unexplained": 0, "unexplainedAbs": 0,
         })
         a["fifaLive"] += fifa_live
         a["fifaStored"] += fifa_stored
         a["scouting"] += scouting
         a["defcon"] += r.get("defConBonus", 0) or 0
         a["stored"] += r.get("fantasyPoints", 0) or 0
+        a["unexplained"] += unexplained_pts
+        a["unexplainedAbs"] += abs(unexplained_pts)
 
     players = []
     for a in agg.values():
@@ -389,8 +402,10 @@ def score_audit():
         n = nations.setdefault(a["iso"] or "—", {
             "iso": a["iso"], "team": a["team"], "players": 0,
             "fifaLive": 0, "scouting": 0, "defcon": 0, "expected": 0, "stored": 0,
+            "unexplained": 0, "unexplainedAbs": 0,
         })
-        for k in ("fifaLive", "scouting", "defcon", "expected", "stored"):
+        for k in ("fifaLive", "scouting", "defcon", "expected", "stored",
+                  "unexplained", "unexplainedAbs"):
             n[k] += a[k]
         n["players"] += 1
     by_nation = sorted(nations.values(), key=lambda x: -x["stored"])
@@ -402,6 +417,7 @@ def score_audit():
         "players": players,
         "byNation": by_nation,
         "mismatches": sum(1 for a in players if not a["match"]),
+        "unexplainedPlayers": sum(1 for a in players if a["unexplainedAbs"] != 0),
         "fifaLive": bool(fifa_rp),
         "updatedAt": _time.time(),
     })
