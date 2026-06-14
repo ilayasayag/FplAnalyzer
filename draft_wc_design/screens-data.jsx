@@ -1317,6 +1317,15 @@ function ScoreAuditScreen() {
               {data.mismatches ? `${data.mismatches} mismatch${data.mismatches === 1 ? "" : "es"}` : "All matched ✓"}
             </span>
           )}
+          {/* Softer, separate condition: totals reconcile but some points still
+              aren't itemized to a reason. Amber, not red — nothing's WRONG. */}
+          {data && data.unexplainedPlayers > 0 && (
+            <span className="pill" style={{ fontSize: 12, fontWeight: 800, padding: "5px 12px",
+              background: "var(--amber-500, #f5a623)", color: "white" }}
+              title="Totals match, but these players have FIFA points we couldn't itemize to a specific reason yet.">
+              {data.unexplainedPlayers} with un-itemized points
+            </span>
+          )}
         </div>
       </div>
 
@@ -1349,12 +1358,13 @@ function ScoreAuditScreen() {
                   <th style={{ ...th, textAlign: "right" }} title="Our DefCon bonus (added)">+ DefCon</th>
                   <th style={{ ...th, textAlign: "right" }}>Expected</th>
                   <th style={{ ...th, textAlign: "right" }}>Ours</th>
+                  <th style={{ ...th, textAlign: "right" }} title="FIFA points we still can't itemize to a specific reason (0 = every point is explained)">Unexpl.</th>
                   <th style={{ ...th, textAlign: "center" }}>✓</th>
                 </tr>
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan="8" style={{ padding: 24, textAlign: "center", color: "var(--ink-500)" }}>No scored players in this scope yet.</td></tr>
+                  <tr><td colSpan="9" style={{ padding: 24, textAlign: "center", color: "var(--ink-500)" }}>No scored players in this scope yet.</td></tr>
                 )}
                 {rows.map((a, i) => {
                   const clickable = view === "players";
@@ -1369,6 +1379,10 @@ function ScoreAuditScreen() {
                       <Cell style={{ ...num, color: a.defcon ? "var(--green-600, #1a9d5a)" : "var(--ink-300)" }}>{a.defcon ? `+${a.defcon}` : "0"}</Cell>
                       <Cell style={{ ...num, fontWeight: 700 }}>{a.expected}</Cell>
                       <Cell style={{ ...num, fontWeight: 800, color: a.match ? "var(--navy-900)" : "var(--red-500)" }}>{a.stored}</Cell>
+                      <Cell style={{ ...num, fontWeight: a.unexplainedAbs ? 800 : 400,
+                        color: a.unexplainedAbs ? "var(--amber-600, #c77700)" : "var(--ink-300)" }}
+                        title={a.unexplainedAbs ? "FIFA awarded points here we can't yet itemize to a specific reason" : "Every point is itemized with a reason"}>
+                        {a.unexplainedAbs || "0"}</Cell>
                       <Cell style={{ textAlign: "center", fontWeight: 800, color: a.match ? "var(--green-600, #1a9d5a)" : "var(--red-500)" }}>{a.match ? "✓" : "✗"}</Cell>
                     </tr>
                   );
@@ -1377,7 +1391,7 @@ function ScoreAuditScreen() {
             </table>
           </div>
           <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-            Expected = FIFA live total − scouting bonus (the part FIFA gives that we don't count) + your league's DefCon bonus. {view === "players" ? "Click a player to open their card. " : ""}A ✗ means our stored points are out of sync — a "Sync data" run heals it.
+            Expected = FIFA live total − scouting bonus (the part FIFA gives that we don't count) + your league's DefCon bonus. {view === "players" ? "Click a player to open their card. " : ""}A ✗ means our stored points are out of sync — a "Sync data" run heals it. <strong>Unexpl.</strong> is FIFA-awarded points we couldn't itemize to a specific reason yet; 0 means every point is explained — the total still reconciles either way.
           </div>
         </div>
       )}
