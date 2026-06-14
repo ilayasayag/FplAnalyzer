@@ -776,11 +776,17 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 
 
 # --------------------------------------------------------------------------
-# Reconstruct FIFA's itemized scoring from our stats (FIFA's published rules),
-# with a reconciling "FIFA bonus" line so the panel always sums to FIFA's
-# authoritative total (scouting bonus / long-range / chances-created etc. that
-# FIFA computes internally land in that line).
+# Reconstruct FIFA's itemized scoring from our stats (FIFA's published rules) and
+# reconcile to FIFA's authoritative round total, splitting the unexplained
+# remainder into the not-counted scouting bonus vs real FIFA points we couldn't
+# itemize (see fifa_breakdown).
 # https://sports.yahoo.com/articles/fifa-world-cup-fantasy-2026-054141309.html
+#
+# The most FIFA's discretionary "scouting bonus" is ever worth. It sits BELOW the
+# smallest real stat award (an assist is 3), so when FIFA's total exceeds our
+# itemization by more than this, the excess must be a real stat our feed missed
+# (e.g. a clean sheet for a subbed-off player), NOT scouting — so we keep it.
+MAX_SCOUTING_BONUS = 2
 # --------------------------------------------------------------------------
 def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> list:
     if fifa_total is None:
@@ -800,7 +806,10 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
         add("Minutes played", mins, p)
     goals = stats.get("goals", 0) or 0
     if goals:
-        gp = {1: 6, 2: 6, 3: 5, 4: 4}.get(position, 4)
+        # FIFA WC 2026 goal points by position. Forwards are 5 (verified against
+        # FIFA's own per-match breakdown: 2 goals = +10), NOT the FPL-style 4 —
+        # using 4 inflated the reconciling "FIFA bonus" line by the difference.
+        gp = {1: 6, 2: 6, 3: 5, 4: 5}.get(position, 5)
         add("Goal scored", goals, goals * gp)
     assists = stats.get("assists", 0) or 0
     if assists:
@@ -827,16 +836,26 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
     if og:
         add("Own goal", og, -2 * og)
 
-    # Reconcile to FIFA's authoritative total. The remainder is FIFA's internal
-    # extras (scouting bonus, long-range goal bonus, chances created, ball
-    # recoveries) we can't itemize from this feed. Our LEAGUE does NOT count this
-    # bonus, so the line is flagged ``excluded`` — it's shown (in red) on the
-    # breakdown for transparency but subtracted out of fantasyPoints. See
-    # _excluded_pts + the scorers.
+    # Reconcile to FIFA's AUTHORITATIVE total (the trusted base). The remainder is
+    # whatever FIFA's number exceeds the stats we could itemize from our feed. It
+    # is two different things and must be split:
+    #   * the genuine SCOUTING BONUS — FIFA's discretionary extra, which our
+    #     league does NOT count. Empirically it never exceeds MAX_SCOUTING_BONUS.
+    #   * a real FIFA stat we couldn't itemize because our match data differs from
+    #     FIFA's (e.g. FIFA awards a clean sheet to a defender subbed off before a
+    #     late goal — our final-score data misses it). That is real, FIFA-awarded
+    #     performance and we KEEP it.
+    # Anything above MAX_SCOUTING_BONUS (set below the smallest real stat award —
+    # an assist is 3) must therefore be a missed real stat, not scouting.
     remainder = fifa_total - known
-    if remainder:
+    scouting = min(remainder, MAX_SCOUTING_BONUS) if remainder > 0 else 0
+    kept = remainder - scouting  # counted; reconciles the breakdown to FIFA total
+    if kept:
+        lines.append({"label": "FIFA match points" if kept > 0 else "FIFA adjustment",
+                      "value": None, "pts": kept})
+    if scouting:
         lines.append({"label": "FIFA bonus (scouting / extras)", "value": None,
-                      "pts": remainder, "excluded": True})
+                      "pts": scouting, "excluded": True})
     return lines
 
 
