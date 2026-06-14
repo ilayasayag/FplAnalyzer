@@ -277,58 +277,105 @@ def list_players():
     return _ok(players[:limit])
 
 
-_AUDIT_CACHE = {"data": None, "at": 0.0}
+_AUDIT_FIFA = {"rp": None, "at": 0.0}   # cached resolved FIFA round-points map
+
+
+def _audit_fifa_rp():
+    """The FIFA round-points map {pid: {gw: pts}}, cached 60s. This (HTTP fetch +
+    fuzzy-resolving 1487 players) is the heavy part of the audit, so we don't
+    redo it on every player/nation lookup."""
+    import time as _time
+    if _AUDIT_FIFA["rp"] is not None and (_time.time() - _AUDIT_FIFA["at"]) < 60:
+        return _AUDIT_FIFA["rp"]
+    from fpl_predictor.data.wc_live_ingest import _fetch_fifa_by_pid
+    rp, _ = _fetch_fifa_by_pid(_db)
+    _AUDIT_FIFA["rp"], _AUDIT_FIFA["at"] = rp, _time.time()
+    return rp
 
 
 @wc_bp.route("/score-audit", methods=["GET"])
 def score_audit():
-    """Read-only live reconciliation: for every scored player, compare what our
-    league SHOULD have (live FIFA round points − the capped scouting bonus + our
-    DefCon) against the total we actually stored. Surfaces any drift (a pending
-    sync, a FIFA correction, a model change not yet healed). Per-player +
-    per-nation rollup. Nobody can change anything here — pure transparency.
+    """Read-only live reconciliation: compare what our league SHOULD have (live
+    FIFA round points − scouting + DefCon) against the total we stored. Surfaces
+    any drift. Nobody can change anything — pure transparency.
 
-    Cached 60s so the public tab can't hammer the FIFA feed."""
+    Scoped to keep it light — pass ONE of:
+      * ``?player=<pid>``  — just that player (one collection-group query)
+      * ``?nation=<iso>``  — that nation's players
+      * (nothing / ``?scope=all``) — the whole pool (heavy; on demand only)
+    """
     import time as _time
-    if _AUDIT_CACHE["data"] is not None and (_time.time() - _AUDIT_CACHE["at"]) < 60:
-        return _ok(_AUDIT_CACHE["data"])
+    from fpl_predictor.data.wc_live_ingest import fifa_breakdown, _excluded_pts
 
-    from fpl_predictor.data.wc_live_ingest import (
-        _fetch_fifa_by_pid, fifa_breakdown, _excluded_pts)
-    fifa_rp, _ = _fetch_fifa_by_pid(_db)   # {pid: {gw_str: live roundPoints}}
+    player_id = request.args.get("player", type=int)
+    nation = (request.args.get("nation") or "").strip().upper()
+    scope = "player" if player_id else ("nation" if nation else "all")
 
-    pool = {int(d.id): (d.to_dict() or {}) for d in _db.collection("wc_players").get()}
-    # Aggregate each player's stored scores + the live-FIFA-based expectation.
-    agg = {}
-    for fx in _db.collection("wc_fixtures").get():
-        for d in fx.reference.collection("playerScores").get():
-            r = d.to_dict() or {}
-            fifa_stored = r.get("fifaPoints")
-            if fifa_stored is None:
-                continue
+    fifa_rp = _audit_fifa_rp()
+
+    # Resolve the target player docs + their playerScores, scanning as narrowly as
+    # the scope allows.
+    def _scores_for(pid):
+        try:
+            return list(_db.collection_group("playerScores")
+                        .where("playerId", "==", pid).get())
+        except Exception:
+            return []
+
+    if scope == "player":
+        pool = {player_id: (_db.collection("wc_players").document(str(player_id)).get().to_dict() or {})}
+        score_docs = _scores_for(player_id)
+    elif scope == "nation":
+        pool = {int(d.id): (d.to_dict() or {})
+                for d in _db.collection("wc_players").where("teamIso", "==", nation).get()}
+        pids = list(pool)
+        score_docs = []
+        # One collection-group `in` query per 30 ids (a 26-player squad = 1 query)
+        # instead of 26 serial `==` queries; per-id fallback if `in` isn't indexed.
+        for i in range(0, len(pids), 30):
+            chunk = pids[i:i + 30]
             try:
-                pid = int(d.id)
-            except (TypeError, ValueError):
-                continue
-            pdoc = pool.get(pid, {})
-            pos = pdoc.get("position", 3)
-            gw = r.get("gw")
-            stats = r.get("stats") or {}
-            defcon = r.get("defConBonus", 0) or 0
-            fifa_live = (fifa_rp.get(pid) or {}).get(str(gw), fifa_stored)
-            scouting = _excluded_pts(fifa_breakdown(stats, pos, fifa_live, pdoc.get("percentSelected")))
-            a = agg.setdefault(pid, {
-                "pid": pid, "name": pdoc.get("name", f"#{pid}"),
-                "iso": (pdoc.get("teamIso") or "").upper(),
-                "team": pdoc.get("teamName") or pdoc.get("teamIso") or "",
-                "pos": pos, "fifaLive": 0, "fifaStored": 0, "scouting": 0,
-                "defcon": 0, "stored": 0,
-            })
-            a["fifaLive"] += fifa_live
-            a["fifaStored"] += fifa_stored
-            a["scouting"] += scouting
-            a["defcon"] += defcon
-            a["stored"] += r.get("fantasyPoints", 0) or 0
+                score_docs += list(_db.collection_group("playerScores")
+                                   .where("playerId", "in", chunk).get())
+            except Exception:
+                for pid in chunk:
+                    score_docs += _scores_for(pid)
+    else:
+        pool = {int(d.id): (d.to_dict() or {}) for d in _db.collection("wc_players").get()}
+        score_docs = []
+        for fx in _db.collection("wc_fixtures").get():
+            score_docs += list(fx.reference.collection("playerScores").get())
+
+    agg = {}
+    for d in score_docs:
+        r = d.to_dict() or {}
+        fifa_stored = r.get("fifaPoints")
+        if fifa_stored is None:
+            continue
+        try:
+            pid = int(d.id)
+        except (TypeError, ValueError):
+            continue
+        if pid not in pool:
+            continue
+        pdoc = pool[pid]
+        pos = pdoc.get("position", 3)
+        gw = r.get("gw")
+        fifa_live = (fifa_rp.get(pid) or {}).get(str(gw), fifa_stored)
+        scouting = _excluded_pts(fifa_breakdown(r.get("stats") or {}, pos, fifa_live,
+                                                pdoc.get("percentSelected")))
+        a = agg.setdefault(pid, {
+            "pid": pid, "name": pdoc.get("name", f"#{pid}"),
+            "iso": (pdoc.get("teamIso") or "").upper(),
+            "team": pdoc.get("teamName") or pdoc.get("teamIso") or "",
+            "pos": pos, "fifaLive": 0, "fifaStored": 0, "scouting": 0,
+            "defcon": 0, "stored": 0,
+        })
+        a["fifaLive"] += fifa_live
+        a["fifaStored"] += fifa_stored
+        a["scouting"] += scouting
+        a["defcon"] += r.get("defConBonus", 0) or 0
+        a["stored"] += r.get("fantasyPoints", 0) or 0
 
     players = []
     for a in agg.values():
@@ -350,15 +397,14 @@ def score_audit():
     for n in by_nation:
         n["match"] = n["expected"] == n["stored"]
 
-    out = {
+    return _ok({
+        "scope": scope,
         "players": players,
         "byNation": by_nation,
         "mismatches": sum(1 for a in players if not a["match"]),
         "fifaLive": bool(fifa_rp),
         "updatedAt": _time.time(),
-    }
-    _AUDIT_CACHE["data"], _AUDIT_CACHE["at"] = out, _time.time()
-    return _ok(out)
+    })
 
 
 @wc_bp.route("/players/<int:player_id>", methods=["GET"])

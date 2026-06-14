@@ -1222,63 +1222,119 @@ function ProposeTradeModal({ onClose }) {
 // compare FIFA's live round total − the (capped) scouting bonus + our DefCon to
 // the total we actually stored. Pure transparency — nothing here is editable.
 function ScoreAuditScreen() {
+  // Lazy: nothing is fetched until the user picks a scope and hits Run, so the
+  // heavy whole-pool scan only happens on demand.
+  const [mode, setMode] = React.useState("player");   // "player" | "nation" | "all"
+  const [view, setView] = React.useState("players");  // table tab (players|nations)
+  const [nationIso, setNationIso] = React.useState("");
+  const [pquery, setPquery] = React.useState("");
+  const [picked, setPicked] = React.useState(null);   // {id, name} for player mode
   const [data, setData] = React.useState(null);
-  const [loading, setLoading] = React.useState(true);
+  const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState(false);
-  const [view, setView] = React.useState("players"); // "players" | "nations"
-  const isMobile = useIsMobile();
 
-  const load = React.useCallback(() => {
+  // Nation list from the loaded teams (fallback: derive from the player pool).
+  const nations = React.useMemo(() => {
+    const teams = window.TEAMS || [];
+    if (teams.length) return [...teams].map(t => ({ iso: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
+    const seen = {};
+    (window.PLAYERS || []).forEach(p => { if (p.team) seen[p.team] = p.teamName || p.team; });
+    return Object.entries(seen).map(([iso, name]) => ({ iso, name })).sort((a, b) => a.name.localeCompare(b.name));
+  }, []);
+  const q = pquery.trim().toLowerCase();
+  const pmatches = !q ? [] : (window.PLAYERS || [])
+    .filter(p => (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
+    .slice(0, 8);
+
+  const run = React.useCallback((qs) => {
     setLoading(true); setErr(false);
-    apiCall("GET", "/score-audit")
-      .then(d => { setData(d); setLoading(false); })
+    apiCall("GET", "/score-audit" + qs)
+      .then(d => { setData(d); setView(d && d.scope === "nation" ? "players" : "players"); setLoading(false); })
       .catch(e => { console.warn("score-audit failed", e); setErr(true); setLoading(false); });
   }, []);
-  React.useEffect(() => { load(); }, [load]);
+
+  const canRun = mode === "all" || (mode === "nation" && nationIso) || (mode === "player" && picked);
+  const doRun = () => {
+    if (mode === "player" && picked) run(`?player=${picked.id}`);
+    else if (mode === "nation" && nationIso) run(`?nation=${encodeURIComponent(nationIso)}`);
+    else if (mode === "all") run("?scope=all");
+  };
+  const openPlayer = (pid) => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(pid) } }));
 
   const num = { textAlign: "right", fontFamily: "var(--font-num)" };
   const th = { padding: "8px 10px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-500)" };
-
+  const selStyle = { padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
   const Cell = ({ children, style }) => <td style={{ padding: "9px 10px", ...style }}>{children}</td>;
-
   const rows = data ? (view === "players" ? data.players : data.byNation) : [];
 
   return (
     <div className="col" style={{ gap: 16 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", flexWrap: "wrap", gap: 10 }}>
-        <div>
-          <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Scoring Audit</h2>
-          <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
-            Live check · <strong>FIFA total − scouting bonus + DefCon</strong> vs the points we store. Read-only.
-          </div>
+      <div>
+        <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>Scoring Audit</h2>
+        <div className="muted" style={{ fontSize: 13, marginTop: 2 }}>
+          Live check · <strong>FIFA total − scouting bonus + DefCon</strong> vs the points we store. Read-only.
         </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+      </div>
+
+      {/* Scope picker — pick what to check, then Run (no auto-scan). */}
+      <div className="card" style={{ padding: 14 }}>
+        <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999, marginBottom: 12 }}>
+          {[["player", "By player"], ["nation", "By nation"], ["all", "All players"]].map(([m, label]) => (
+            <button key={m} className="btn" style={{ padding: "6px 16px", fontSize: 12, borderRadius: 999, background: mode === m ? "var(--navy-900)" : "transparent", color: mode === m ? "white" : "var(--ink-700)" }}
+              onClick={() => { setMode(m); setData(null); }}>{label}</button>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+          {mode === "player" && (
+            <div style={{ position: "relative", flex: "1 1 280px", minWidth: 220 }}>
+              <input value={picked ? picked.name : pquery} onChange={e => { setPicked(null); setPquery(e.target.value); }}
+                placeholder="Search a player…" style={{ ...selStyle, width: "100%" }} />
+              {!picked && pmatches.length > 0 && (
+                <div style={{ position: "absolute", zIndex: 5, left: 0, right: 0, marginTop: 4, border: "1px solid var(--border)", borderRadius: 8, background: "white", overflow: "hidden", boxShadow: "var(--shadow, 0 4px 16px rgba(0,0,0,0.12))" }}>
+                  {pmatches.map(p => (
+                    <div key={p.id} onClick={() => { setPicked({ id: p.id, name: p.name }); setPquery(""); }}
+                      style={{ padding: "8px 12px", cursor: "pointer", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+                      <strong>{p.name}</strong> <span className="muted" style={{ fontSize: 11 }}>· {p.teamName || p.team} · {POS_NAMES[p.pos]}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+          {mode === "nation" && (
+            <select value={nationIso} onChange={e => setNationIso(e.target.value)} style={selStyle}>
+              <option value="">Pick a nation…</option>
+              {nations.map(n => <option key={n.iso} value={n.iso}>{n.name}</option>)}
+            </select>
+          )}
+          {mode === "all" && <span className="muted" style={{ fontSize: 12 }}>Scans the whole pool — heavier, runs only when you click.</span>}
+          <button className="btn btn--primary" style={{ padding: "8px 18px", fontSize: 13 }} onClick={doRun} disabled={!canRun || loading}>
+            {loading ? "Checking…" : "Run check"}
+          </button>
           {data && (
             <span className="pill" style={{ fontSize: 12, fontWeight: 800, padding: "5px 12px",
               background: data.mismatches ? "var(--red-500)" : "var(--green-500)", color: "white" }}>
               {data.mismatches ? `${data.mismatches} mismatch${data.mismatches === 1 ? "" : "es"}` : "All matched ✓"}
             </span>
           )}
-          <button className="btn btn--ghost-dark" style={{ padding: "7px 14px", fontSize: 12 }} onClick={load} disabled={loading}>
-            {loading ? "Refreshing…" : "↻ Refresh"}
-          </button>
         </div>
       </div>
 
-      <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999, alignSelf: "flex-start" }}>
-        {[["players", "By player"], ["nations", "By nation"]].map(([m, label]) => (
-          <button key={m} className="btn" style={{ padding: "6px 16px", fontSize: 12, borderRadius: 999, background: view === m ? "var(--navy-900)" : "transparent", color: view === m ? "white" : "var(--ink-700)" }} onClick={() => setView(m)}>{label}</button>
-        ))}
-      </div>
-
-      {err && <div className="card" style={{ padding: 20, color: "var(--red-500)" }}>Couldn't load the audit. Try Refresh.</div>}
-      {loading && !data && <div className="card" style={{ padding: 20, color: "var(--ink-500)" }}>Loading live FIFA comparison…</div>}
+      {err && <div className="card" style={{ padding: 20, color: "var(--red-500)" }}>Couldn't run the check. Try again.</div>}
 
       {data && (
         <div className="card" style={{ overflow: "hidden" }}>
           {!data.fifaLive && (
             <div style={{ padding: "8px 14px", background: "rgba(255,200,68,0.18)", fontSize: 12, color: "#7a5a00" }}>
               FIFA live feed unreachable right now — comparing against the last stored FIFA points.
+            </div>
+          )}
+          {/* Players/Nations table tabs only meaningful when there's >1 nation. */}
+          {data.byNation && data.byNation.length > 1 && (
+            <div style={{ display: "inline-flex", padding: 3, margin: 12, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
+              {[["players", "By player"], ["nations", "By nation"]].map(([m, label]) => (
+                <button key={m} className="btn" style={{ padding: "5px 14px", fontSize: 12, borderRadius: 999, background: view === m ? "var(--navy-900)" : "transparent", color: view === m ? "white" : "var(--ink-700)" }} onClick={() => setView(m)}>{label}</button>
+              ))}
             </div>
           )}
           <div className="table-scroll">
@@ -1298,26 +1354,30 @@ function ScoreAuditScreen() {
               </thead>
               <tbody>
                 {rows.length === 0 && (
-                  <tr><td colSpan="8" style={{ padding: 24, textAlign: "center", color: "var(--ink-500)" }}>No scored players yet.</td></tr>
+                  <tr><td colSpan="8" style={{ padding: 24, textAlign: "center", color: "var(--ink-500)" }}>No scored players in this scope yet.</td></tr>
                 )}
-                {rows.map((a, i) => (
-                  <tr key={i} style={{ borderTop: "1px solid var(--border)", background: a.match ? undefined : "rgba(231,76,60,0.07)" }}>
-                    <Cell style={{ fontWeight: 700 }}>{view === "players" ? a.name : (a.team || a.iso || "—")}</Cell>
-                    {view === "players" && <Cell style={{ color: "var(--ink-500)" }}>{a.team || a.iso}</Cell>}
-                    {view === "nations" && <Cell style={num}>{a.players}</Cell>}
-                    <Cell style={{ ...num, fontWeight: 700 }}>{a.fifaLive}</Cell>
-                    <Cell style={{ ...num, color: a.scouting ? "var(--red-500)" : "var(--ink-300)" }}>{a.scouting ? `−${a.scouting}` : "0"}</Cell>
-                    <Cell style={{ ...num, color: a.defcon ? "var(--green-600, #1a9d5a)" : "var(--ink-300)" }}>{a.defcon ? `+${a.defcon}` : "0"}</Cell>
-                    <Cell style={{ ...num, fontWeight: 700 }}>{a.expected}</Cell>
-                    <Cell style={{ ...num, fontWeight: 800, color: a.match ? "var(--navy-900)" : "var(--red-500)" }}>{a.stored}</Cell>
-                    <Cell style={{ textAlign: "center", fontWeight: 800, color: a.match ? "var(--green-600, #1a9d5a)" : "var(--red-500)" }}>{a.match ? "✓" : "✗"}</Cell>
-                  </tr>
-                ))}
+                {rows.map((a, i) => {
+                  const clickable = view === "players";
+                  return (
+                    <tr key={i} style={{ borderTop: "1px solid var(--border)", background: a.match ? undefined : "rgba(231,76,60,0.07)", cursor: clickable ? "pointer" : undefined }}
+                      onClick={clickable ? () => openPlayer(a.pid) : undefined}>
+                      <Cell style={{ fontWeight: 700, color: clickable ? "var(--navy-900)" : undefined, textDecoration: clickable ? "underline" : undefined, textDecorationStyle: "dotted" }}>{view === "players" ? a.name : (a.team || a.iso || "—")}</Cell>
+                      {view === "players" && <Cell style={{ color: "var(--ink-500)" }}>{a.team || a.iso}</Cell>}
+                      {view === "nations" && <Cell style={num}>{a.players}</Cell>}
+                      <Cell style={{ ...num, fontWeight: 700 }}>{a.fifaLive}</Cell>
+                      <Cell style={{ ...num, color: a.scouting ? "var(--red-500)" : "var(--ink-300)" }}>{a.scouting ? `−${a.scouting}` : "0"}</Cell>
+                      <Cell style={{ ...num, color: a.defcon ? "var(--green-600, #1a9d5a)" : "var(--ink-300)" }}>{a.defcon ? `+${a.defcon}` : "0"}</Cell>
+                      <Cell style={{ ...num, fontWeight: 700 }}>{a.expected}</Cell>
+                      <Cell style={{ ...num, fontWeight: 800, color: a.match ? "var(--navy-900)" : "var(--red-500)" }}>{a.stored}</Cell>
+                      <Cell style={{ textAlign: "center", fontWeight: 800, color: a.match ? "var(--green-600, #1a9d5a)" : "var(--red-500)" }}>{a.match ? "✓" : "✗"}</Cell>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>
           <div style={{ padding: "10px 14px", background: "var(--cream)", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--ink-500)" }}>
-            Expected = FIFA live total − scouting bonus (capped, the part FIFA gives that we don't count) + your league's DefCon bonus. A ✗ means our stored points are out of sync — a data refresh ("Sync data") will heal it.
+            Expected = FIFA live total − scouting bonus (the part FIFA gives that we don't count) + your league's DefCon bonus. {view === "players" ? "Click a player to open their card. " : ""}A ✗ means our stored points are out of sync — a "Sync data" run heals it.
           </div>
         </div>
       )}
