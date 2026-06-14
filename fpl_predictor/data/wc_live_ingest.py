@@ -148,12 +148,21 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
 
         hg = int(home.get("score") or 0)
         ag = int(away.get("score") or 0)
+        # Live elapsed minutes from the scoreboard status clock (seconds). For a
+        # LIVE match this is "where the ball is now"; we use it to cap a starter
+        # who's still on the pitch at the current minute (so minute-50 != 90).
+        # Capped at 90 (added time / overtime shouldn't inflate a stat-line that
+        # FIFA tops out at 90 anyway). None when the feed omits it.
+        ev_status = ev.get("status", {})
+        clk = ev_status.get("clock")
+        live_minute = min(90, int(round(clk / 60.0))) if clk else None
         fixtures.append({
             "eid": ev.get("id"),
             "homeIso": _iso(home), "awayIso": _iso(away),
             "homeName": home.get("team", {}).get("displayName"),
             "awayName": away.get("team", {}).get("displayName"),
             "homeScore": hg, "awayScore": ag,
+            "liveMinute": live_minute,
             "statusShort": status.get("name"),
             # ESPN soccer uses granular names (STATUS_FIRST_HALF, _SECOND_HALF,
             # overtime/shootout variants in knockouts) — `state` is the stable
@@ -169,12 +178,50 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
             summary = _get_json(ESPN_SUMMARY.format(eid=ev.get("id")))
         except Exception:
             continue
+
+        # ESPN minute reconstruction (investigated live 2026-06-14, WC2026 feed):
+        # `keyEvents` carries every substitution as type.type == "substitution"
+        # with a `clock.value` in SECONDS and `participants` ordered [on, off],
+        # each with an athlete id. The roster entry also carries an athlete id
+        # plus `starter`/`subbedIn`/`subbedOut` flags. So we join sub clocks to
+        # roster athletes by id and compute honest minutes:
+        #   - starter, not subbed off : current match clock (live) or 90 (FT)
+        #   - starter, subbed off      : the sub-off clock
+        #   - sub-on                   : (current clock or 90) − sub-on clock
+        # LIMIT: ESPN gives no per-player clock for a starter who plays the whole
+        # match, so a mid-match starter is approximated by the match clock (good
+        # enough to stop stamping 90 at minute 50). Red cards aren't reflected as
+        # an early exit. When `keyEvents`/clock are absent we fall back to the old
+        # appearance/subIns approximation, but still cap a LIVE match at the
+        # current minute so a starter is never stamped 90 mid-match.
+        finished_clock = 90
+        cur_minute = 90 if finished else (next(
+            (f["liveMinute"] for f in fixtures if f["eid"] == ev.get("id")), None) or 90)
+        sub_off_min, sub_on_min = {}, {}   # athlete_id -> minute
+        for kev in summary.get("keyEvents", []) or []:
+            if (kev.get("type") or {}).get("type") != "substitution":
+                continue
+            clk = (kev.get("clock") or {}).get("value")
+            if clk is None:
+                continue
+            minute = min(90, int(round(clk / 60.0)))
+            parts = kev.get("participants") or []
+            if len(parts) >= 1:
+                on_id = str((parts[0].get("athlete") or {}).get("id") or "")
+                if on_id:
+                    sub_on_min[on_id] = minute
+            if len(parts) >= 2:
+                off_id = str((parts[1].get("athlete") or {}).get("id") or "")
+                if off_id:
+                    sub_off_min[off_id] = minute
+
         for roster in summary.get("rosters", []) or []:
             iso = _norm_iso(roster.get("team", {}).get("abbreviation")
                             or roster.get("team", {}).get("name") or "")
             conceded = ag if roster.get("homeAway") == "home" else hg
             for entry in roster.get("roster", []) or []:
                 ath = entry.get("athlete", {})
+                aid = str(ath.get("id") or "")
                 raw = {s.get("name"): s.get("value") for s in (entry.get("stats") or [])}
                 if not raw:
                     continue
@@ -182,14 +229,31 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
                 for ek, ours in _ESPN_STAT_MAP.items():
                     if ek in raw and raw[ek] is not None:
                         mapped[ours] = int(raw[ek]) if float(raw[ek]).is_integer() else raw[ek]
-                # minutes: ESPN gives appearances/subIns, not minutes; approximate
-                appeared = (raw.get("appearances") or 0) > 0
-                mapped["minutes"] = 90 if appeared and not raw.get("subIns") else (30 if appeared else 0)
-                mapped["cleanSheet"] = bool(appeared and conceded == 0 and mapped.get("minutes", 0) >= 60)
+                starter = bool(entry.get("starter"))
+                subbed_in = bool(entry.get("subbedIn")) or (raw.get("subIns") or 0) > 0
+                appeared = starter or subbed_in or (raw.get("appearances") or 0) > 0
+                if not appeared:
+                    minutes = 0
+                elif starter:
+                    # full-match end = current clock (live) or 90 (FT)
+                    minutes = sub_off_min.get(aid, finished_clock if finished else cur_minute)
+                elif subbed_in:
+                    on = sub_on_min.get(aid)
+                    end = sub_off_min.get(aid, finished_clock if finished else cur_minute)
+                    if on is not None:
+                        minutes = max(0, end - on)
+                    else:
+                        # sub-on clock missing: approximate but never stamp 90 on a
+                        # live match (cap at remaining time from the current clock).
+                        minutes = 30 if finished else min(30, cur_minute)
+                else:
+                    minutes = 0
+                mapped["minutes"] = minutes
+                mapped["cleanSheet"] = bool(appeared and conceded == 0 and minutes >= 60)
                 stats.append({
                     "name": ath.get("displayName") or ath.get("fullName"),
                     "iso": iso,
-                    "starter": bool(entry.get("starter")),
+                    "starter": starter,
                     "stats": mapped,
                 })
     return fixtures, stats
@@ -265,6 +329,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
 
     # FIFA points indexed by pool id (authoritative fantasyPoints)
     fifa_pts: Dict[int, int] = {}        # this GW's round points
+    fifa_pos: Dict[int, int] = {}        # FIFA's position code (itemization only)
     fifa_season: Dict[int, int] = {}     # season total (all rounds)
     for p in fifa:
         rp = p["roundPoints"].get(str(gw))
@@ -273,6 +338,9 @@ def ingest_live(db, gw: int, date: str) -> dict:
             continue
         if rp is not None:
             fifa_pts[pid] = rp
+        fcode = FIFA_POSITION_CODE.get((p.get("position") or "").upper())
+        if fcode:
+            fifa_pos[pid] = fcode
         if p.get("seasonTotal"):
             fifa_season[pid] = p["seasonTotal"]
 
@@ -324,7 +392,10 @@ def ingest_live(db, gw: int, date: str) -> dict:
             existing = scores_coll.document(str(pid)).get().to_dict() or {}
             dcb = existing.get("defConBonus", 0) or 0
             dca = existing.get("defConActions")
-            bd = fifa_breakdown(stats, pos, pts, cand.get("own"))
+            # FIFA position drives the itemization (goal value etc.); our pool
+            # `pos` still owns the DefCon threshold below.
+            bd = fifa_breakdown(stats, pos, pts, cand.get("own"),
+                                fifa_position=fifa_pos.get(pid))
             if dca is not None:
                 thr = 10 if pos == 2 else (12 if pos == 3 else None)
                 if thr is not None:
@@ -340,6 +411,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
                 "fantasyPoints": total,        # FIFA itemized + DefCon, minus FIFA bonus
                 "fifaPoints": pts,             # FIFA authoritative total (reference)
                 "fifaBonus": fifa_bonus,       # FIFA scouting/extras we DON'T count
+                "fifaPos": fifa_pos.get(pid),  # FIFA's position code (itemization only)
                 "bonusPoints": 0,
                 "stats": stats,
                 "breakdown": bd,
@@ -543,7 +615,11 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
             pos = pos_map.get(pid, 3)
             st = r.get("stats") or {}
             dcb = r.get("defConBonus", 0) or 0
-            nbd = fifa_breakdown(st, pos, fifa, own_map.get(pid))
+            # FIFA's position (stored when the score was first written) drives the
+            # itemization only; pool `pos` still owns DefCon. Re-using the stored
+            # value keeps the corrected per-stat lines across a re-sync.
+            nbd = fifa_breakdown(st, pos, fifa, own_map.get(pid),
+                                 fifa_position=r.get("fifaPos"))
             # Preserve the existing DefCon line (computed from WhoScored).
             dl = next((l for l in (r.get("breakdown") or [])
                        if str(l.get("label", "")).startswith("Defensive contribution")), None)
@@ -818,9 +894,11 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         own_map[int(d.id)] = pd.get("percentSelected")
     rules = (db.collection("wc_config").document("tournament").get().to_dict() or {}).get("rules", {})
 
-    # FIFA reference points for this GW (by pool id)
+    # FIFA reference points for this GW (by pool id). We also carry FIFA's own
+    # position code (for fifa_breakdown's itemization only — NOT for DefCon).
     fifa = fetch_fifa_points()
     fifa_pts = {}
+    fifa_pos: Dict[int, int] = {}
     for p in fifa:
         rp = p["roundPoints"].get(str(gw))
         if rp is None:
@@ -828,6 +906,9 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         pid = match_to_pool(p["name"], p["iso"], pool)
         if pid:
             fifa_pts[pid] = rp
+            fcode = FIFA_POSITION_CODE.get((p.get("position") or "").upper())
+            if fcode:
+                fifa_pos[pid] = fcode
 
     sr = rules.get("scoring", {})
     defcon_pts = sr.get("defConPoints", 2)
@@ -852,8 +933,12 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         if fifa is not None:
             base = fifa
             # itemized FIFA-rules breakdown reconstructed from our stats, with a
-            # reconciling line so it sums to FIFA's authoritative total
-            breakdown = fifa_breakdown(stats, position, fifa, own_map.get(pid))
+            # reconciling line so it sums to FIFA's authoritative total. FIFA's
+            # own position drives the per-stat itemization (e.g. a FIFA DEF we
+            # drafted as MID gets the correct +7 goal); our pool `position` still
+            # owns the DefCon threshold below.
+            breakdown = fifa_breakdown(stats, position, fifa, own_map.get(pid),
+                                       fifa_position=fifa_pos.get(pid))
         else:
             # player not in FIFA's scored list (rare) -> fall back to our engine
             base, _ = compute_player_points(stats, position, rules)
@@ -873,6 +958,7 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
             "bonusPoints": 0,
             "fifaPoints": fifa,               # FIFA authoritative total (reference)
             "fifaBonus": fifa_bonus,          # FIFA scouting/extras we DON'T count
+            "fifaPos": fifa_pos.get(pid),     # FIFA's position code (itemization only)
             "defConActions": defcon,
             "defConBonus": defcon_bonus,
             "stats": stats,
@@ -906,6 +992,16 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 # FIFA WC 2026 GOAL points by position (1 GK, 2 DEF, 3 MID, 4 FWD), per the
 # official rulebook: GK 9, DEF 7, MID 6, FWD 5.
 FIFA_GOAL_POINTS = {1: 9, 2: 7, 3: 6, 4: 5}
+
+# FIFA's own position string (verified live 2026-06-14 from
+# play.fifa.com/json/fantasy/players.json: exactly "GK"/"DEF"/"MID"/"FWD")
+# -> our integer code. Used ONLY to itemize FIFA's position-dependent rules in
+# fifa_breakdown (goal value, clean-sheet-by-position, SoT-forwards-only, MID
+# tackles), because FIFA may classify a player differently than our draft pool
+# (e.g. a FIFA DEF whose goal is worth +7 that we drafted as a MID). It must
+# NEVER feed the DefCon threshold or anything roster-related — our pool
+# `position` is intentional (wingers were deliberately reclassified).
+FIFA_POSITION_CODE = {"GK": 1, "DEF": 2, "MID": 3, "FWD": 4}
 # FIFA's discretionary "scouting bonus": a flat +2 awarded to a player who
 # scored MORE THAN 4 match points AND is selected by fewer than 5% of teams. Our
 # league does NOT count it (shown in red, subtracted from the total).
@@ -923,13 +1019,24 @@ def _tackle_count(stats: dict) -> int:
 
 # --------------------------------------------------------------------------
 def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int],
-                   percent_selected: Optional[float] = None) -> list:
+                   percent_selected: Optional[float] = None,
+                   fifa_position: Optional[int] = None) -> list:
     """Itemize FIFA's published scoring from our stats and reconcile to FIFA's
     AUTHORITATIVE round total. ``percent_selected`` (FIFA ownership %) drives the
     scouting-bonus rule. Lines flagged ``excluded`` (the scouting bonus) are NOT
-    counted toward the league total."""
+    counted toward the league total.
+
+    ``fifa_position`` (our int code derived from the FIFA feed's position string)
+    is used for the POSITION-DEPENDENT itemization only — goal value, clean sheet,
+    SoT-forwards-only, MID tackles — so a player FIFA classifies as DEF but we
+    drafted as MID gets the correct +7 goal line instead of leaking the
+    difference into the reconciliation line. It falls back to our pool
+    ``position`` when FIFA's is missing. The DefCon threshold and everything
+    roster-related stay on our pool ``position`` (handled by the callers)."""
     if fifa_total is None:
         return []
+    # Position used purely for FIFA-rule itemization (see docstring).
+    pos = fifa_position or position
     mins = stats.get("minutes") or 0
     lines = []
     known = 0
@@ -944,31 +1051,31 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int],
         add("Minutes played", mins, 2 if mins >= 60 else 1)
     goals = stats.get("goals", 0) or 0
     if goals:
-        add("Goal scored", goals, goals * FIFA_GOAL_POINTS.get(position, 5))
+        add("Goal scored", goals, goals * FIFA_GOAL_POINTS.get(pos, 5))
     assists = stats.get("assists", 0) or 0
     if assists:
         add("Assist", assists, assists * 3)
     # Clean sheet: GK/DEF +5, MID +1 (60+ mins). Forwards get nothing.
     clean = bool(stats.get("cleanSheet"))
     if mins >= 60 and clean:
-        if position in (1, 2):
+        if pos in (1, 2):
             add("Clean sheet", 1, 5)
-        elif position == 3:
+        elif pos == 3:
             add("Clean sheet", 1, 1)
     gc = stats.get("goalsConceded", 0) or 0
-    if position in (1, 2) and not clean and gc >= 2:
+    if pos in (1, 2) and not clean and gc >= 2:
         add("Goals conceded", gc, -(gc - 1))  # first 0, each additional -1
     # Shots on target: every 2 = +1, FORWARDS ONLY.
     sot = stats.get("shotsOnTarget", 0) or 0
-    if position == 4 and sot >= 2:
+    if pos == 4 and sot >= 2:
         add("Shots on target", sot, sot // 2)
     # Saves: GK, every 3 = +1.
-    if position == 1:
+    if pos == 1:
         saves = stats.get("saves", 0) or 0
         if saves >= 3:
             add("Saves", saves, saves // 3)
     # Tackles: MID, every 3 = +1 (FIFA's MID-only bonus; distinct from DefCon).
-    if position == 3:
+    if pos == 3:
         tk = _tackle_count(stats)
         if tk >= 3:
             add("Tackles", tk, tk // 3)

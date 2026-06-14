@@ -16,7 +16,9 @@ PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
 if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
-from fpl_predictor.data.wc_live_ingest import fifa_breakdown, _excluded_pts  # noqa: E402
+from fpl_predictor.data.wc_live_ingest import (  # noqa: E402
+    fifa_breakdown, _excluded_pts, fetch_espn_match_stats,
+)
 
 
 def _line(bd, label):
@@ -101,3 +103,97 @@ def test_defcon_line_is_not_excluded():
                         position=4, fifa_total=15, percent_selected=1.0)
     bd.append({"label": "Defensive contribution (11/10)", "value": 11, "pts": 2})
     assert _excluded_pts(bd) == 2  # only the scouting bonus; DefCon counts
+
+
+# ----- FIFA position drives the itemization, not our draft position -----
+
+def test_fifa_position_used_for_goal_value():
+    # "Brown": FIFA classifies as DEF (goal +7) but we drafted him MID (goal +6).
+    # The itemized "Goal scored" line must follow FIFA (+7), and the total must
+    # still equal FIFA − scouting (no leak into the reconciliation line).
+    # 90' (+2) + DEF goal (+7) = 9; FIFA total 9; 20% owned -> no scouting.
+    bd = fifa_breakdown({"minutes": 90, "goals": 1}, position=3, fifa_total=9,
+                        percent_selected=20.0, fifa_position=2)
+    assert _line(bd, "Goal scored")["pts"] == 7          # DEF value, not MID's 6
+    # nothing leaked into a reconciliation line, and no scouting taken
+    assert _line(bd, "FIFA match points") is None
+    assert _line(bd, "FIFA adjustment") is None
+    assert _excluded_pts(bd) == 0
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 9  # == FIFA total (HARD INVARIANT: total = FIFA − scouting)
+
+
+def test_fifa_position_falls_back_to_pool_position():
+    # No FIFA position supplied -> itemize with our pool position (MID goal +6).
+    bd = fifa_breakdown({"minutes": 90, "goals": 1}, position=3, fifa_total=8,
+                        percent_selected=20.0)
+    assert _line(bd, "Goal scored")["pts"] == 6
+
+
+# ----- ESPN fallback minutes: never stamp 90 on a mid-match starter -----
+
+class _FakeFeed:
+    """Monkeypatch target for _get_json: serves a synthetic scoreboard + summary
+    for one LIVE match at minute 50, with one starter subbed off at 30'."""
+    def __init__(self):
+        self.scoreboard = {
+            "events": [{
+                "id": "999001",
+                "status": {
+                    "type": {"name": "STATUS_FIRST_HALF", "state": "in",
+                             "completed": False},
+                    # 50 minutes elapsed = 3000 seconds
+                    "clock": 3000.0, "displayClock": "50'", "period": 2,
+                },
+                "competitions": [{
+                    "competitors": [
+                        {"homeAway": "home", "score": "0",
+                         "team": {"abbreviation": "AAA", "displayName": "Team A"}},
+                        {"homeAway": "away", "score": "0",
+                         "team": {"abbreviation": "BBB", "displayName": "Team B"}},
+                    ],
+                }],
+            }],
+        }
+        self.summary = {
+            "keyEvents": [{
+                "type": {"type": "substitution"},
+                "clock": {"value": 1800.0, "displayValue": "30'"},  # 30 minutes
+                "participants": [
+                    {"athlete": {"id": "200", "displayName": "Sub On"}},
+                    {"athlete": {"id": "101", "displayName": "Early Off"}},
+                ],
+            }],
+            "rosters": [{
+                "homeAway": "home",
+                "team": {"abbreviation": "AAA"},
+                "roster": [
+                    {"athlete": {"id": "100", "displayName": "Full Starter"},
+                     "starter": True, "subbedIn": False, "subbedOut": False,
+                     "stats": [{"name": "appearances", "value": 1.0}]},
+                    {"athlete": {"id": "101", "displayName": "Early Off"},
+                     "starter": True, "subbedIn": False, "subbedOut": True,
+                     "stats": [{"name": "appearances", "value": 1.0}]},
+                    {"athlete": {"id": "200", "displayName": "Sub On"},
+                     "starter": False, "subbedIn": True, "subbedOut": False,
+                     "stats": [{"name": "appearances", "value": 1.0},
+                               {"name": "subIns", "value": 1.0}]},
+                ],
+            }],
+        }
+
+    def __call__(self, url, timeout=25):
+        return self.scoreboard if "scoreboard" in url else self.summary
+
+
+def test_espn_live_minutes_not_stamped_90(monkeypatch):
+    import fpl_predictor.data.wc_live_ingest as M
+    monkeypatch.setattr(M, "_get_json", _FakeFeed())
+    _, stats = M.fetch_espn_match_stats("20260614")
+    by_name = {s["name"]: s["stats"]["minutes"] for s in stats}
+    # The on-pitch starter is capped at the LIVE clock (50), NOT stamped 90.
+    assert by_name["Full Starter"] == 50
+    # Starter subbed off at 30' gets 30 (the sub-off clock).
+    assert by_name["Early Off"] == 30
+    # Sub on at 30' has played 50 − 30 = 20 minutes so far.
+    assert by_name["Sub On"] == 20
