@@ -199,13 +199,15 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
 # Map external rows onto our pool by (iso, fuzzy name)
 # --------------------------------------------------------------------------
 def build_pool_index(db) -> Dict[str, List[Dict]]:
-    """{iso -> [{id, name}]} for our 900xxx player pool."""
+    """{iso -> [{id, name, pos, own}]} for our 900xxx player pool. ``own`` is the
+    FIFA ownership % (for the scouting rule)."""
     idx: Dict[str, List[Dict]] = {}
     for d in db.collection("wc_players").stream():
         p = d.to_dict() or {}
         iso = (p.get("teamIso") or "").upper()
         idx.setdefault(iso, []).append({"id": int(d.id), "name": p.get("name", ""),
-                                        "pos": p.get("position", 3)})
+                                        "pos": p.get("position", 3),
+                                        "own": p.get("percentSelected")})
     return idx
 
 
@@ -314,14 +316,15 @@ def ingest_live(db, gw: int, date: str) -> dict:
             if piso not in fixture_isos:
                 continue
             stats = espn_stats.get(pid, {})
-            pos = next((c.get("pos") for c in pool.get(piso, []) if c["id"] == pid), 3) or 3
+            cand = next((c for c in pool.get(piso, []) if c["id"] == pid), {})
+            pos = cand.get("pos", 3) or 3
             # Preserve any DefCon bonus a residential WhoScored run already
             # computed (cloud can't reach WhoScored), so this FIFA pass never
             # clobbers it. Total = FIFA + preserved DefCon; breakdown stays itemized.
             existing = scores_coll.document(str(pid)).get().to_dict() or {}
             dcb = existing.get("defConBonus", 0) or 0
             dca = existing.get("defConActions")
-            bd = fifa_breakdown(stats, pos, pts)
+            bd = fifa_breakdown(stats, pos, pts, cand.get("own"))
             if dca is not None:
                 thr = 10 if pos == 2 else (12 if pos == 3 else None)
                 if thr is not None:
@@ -387,18 +390,36 @@ def _batch_set_players(db, updates: Dict[int, dict]) -> int:
 
 # Stat-line keys (from the ESPN mapping in playerScores.stats) that the season
 # aggregate sums. cleanSheets/appearances are derived, not summed directly.
+def _season_accumulate(agg: Dict[int, Dict[str, float]], pid: int, stats: dict,
+                       points: int, defcon_actions: int, defcon_bonus: int) -> None:
+    """Fold one playerScore into the per-player season aggregate ``agg`` (shared
+    by recompute_season_stats and recompute_all_scores's single pass)."""
+    a = agg.setdefault(pid, {
+        "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
+        "cleanSheets": 0, "minutes": 0, "appearances": 0,
+        "defconActions": 0, "defconBonus": 0, "points": 0,
+    })
+    st = stats or {}
+    a["goals"] += st.get("goals", 0) or 0
+    a["assists"] += st.get("assists", 0) or 0
+    a["shotsOnTarget"] += st.get("shotsOnTarget", 0) or 0
+    a["shots"] += st.get("shots", 0) or 0
+    mins = st.get("minutes", 0) or 0
+    a["minutes"] += mins
+    if st.get("cleanSheet"):
+        a["cleanSheets"] += 1
+    if mins > 0:
+        a["appearances"] += 1
+    a["defconActions"] += defcon_actions or 0
+    a["defconBonus"] += defcon_bonus or 0
+    a["points"] += points or 0
+
+
 def recompute_season_stats(db) -> int:
-    """Recompute ``wc_players/{pid}.seasonStats`` from EVERY playerScore doc.
-
-    Idempotent by construction: it always does a full recompute from the durable
-    per-fixture ``playerScores`` (never an increment), so re-running an ingest
-    tick — or the same GW twice — leaves the figures unchanged. Aggregates the
-    ESPN stat line (goals/assists/shots-on-target/shots/minutes), counts
-    clean-sheet matches + appearances, and sums the WhoScored DefCon fields.
-
-    Mirrors ``_gw_points_map``'s fixture→playerScores walk (no collection-group
-    index needed). Returns the number of players written.
-    """
+    """Recompute ``wc_players/{pid}.seasonStats`` + ``totalPoints`` from EVERY
+    playerScore doc. Idempotent (full recompute, never an increment). Kept as a
+    standalone for tests / direct use; the sync path folds this into
+    recompute_all_scores's single pass. Returns the number of players written."""
     agg: Dict[int, Dict[str, float]] = {}
     for fx in db.collection("wc_fixtures").stream():
         for d in fx.reference.collection("playerScores").stream():
@@ -407,31 +428,11 @@ def recompute_season_stats(db) -> int:
                 pid = int(d.id)
             except (TypeError, ValueError):
                 continue
-            a = agg.setdefault(pid, {
-                "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
-                "cleanSheets": 0, "minutes": 0, "appearances": 0,
-                "defconActions": 0, "defconBonus": 0, "points": 0,
-            })
-            st = r.get("stats") or {}
-            a["goals"] += st.get("goals", 0) or 0
-            a["assists"] += st.get("assists", 0) or 0
-            a["shotsOnTarget"] += st.get("shotsOnTarget", 0) or 0
-            a["shots"] += st.get("shots", 0) or 0
-            mins = st.get("minutes", 0) or 0
-            a["minutes"] += mins
-            if st.get("cleanSheet"):
-                a["cleanSheets"] += 1
-            if mins > 0:
-                a["appearances"] += 1
-            a["defconActions"] += r.get("defConActions", 0) or 0
-            a["defconBonus"] += r.get("defConBonus", 0) or 0
-            # OUR fantasy total = FIFA match points + league DefCon bonus (the
-            # per-fixture fantasyPoints already bakes DefCon in, see ingest_live).
-            a["points"] += r.get("fantasyPoints", 0) or 0
-
-    # Write seasonStats AND the league total. totalPoints is OUR sum (incl.
-    # DefCon), NOT the FIFA-only seasonTotal — so the Players/Transfers "Pts" and
-    # the modal Total match the per-GW breakdown (which includes DefCon).
+            _season_accumulate(agg, pid, r.get("stats") or {},
+                               r.get("fantasyPoints", 0) or 0,
+                               r.get("defConActions", 0) or 0,
+                               r.get("defConBonus", 0) or 0)
+    # totalPoints is OUR sum (incl. DefCon), NOT FIFA's seasonTotal.
     return _batch_set_players(
         db, {pid: {"seasonStats": a, "totalPoints": a["points"]} for pid, a in agg.items()})
 
@@ -507,16 +508,23 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
     ``fifa_breakdown`` (no WhoScored/ESPN refetch — DefCon and the stat line are
     kept), and (3) recompute ``fantasyPoints = FIFA − scouting + DefCon``.
 
-    Returns ``{rescored, gws}`` (count rewritten + the affected GW numbers, for
-    the caller to refresh live manager totals). ``fifa_by_pid`` may be supplied
-    to reuse a shared FIFA fetch; otherwise it's fetched here."""
+    Returns ``{rescored, gws, seasonPlayers}``. ``fifa_by_pid`` may be supplied to
+    reuse a shared FIFA fetch; otherwise it's fetched here.
+
+    Efficiency: this is a SINGLE pass over all playerScores that both re-derives
+    the per-fixture scores AND aggregates the season stats (goals/assists/… +
+    points) — so the sync doesn't scan the whole collection twice."""
     if fifa_by_pid is None:
         fifa_by_pid, _ = _fetch_fifa_by_pid(db)
-    pos_map = {int(d.id): (d.to_dict() or {}).get("position", 3)
-               for d in db.collection("wc_players").stream()}
+    pos_map, own_map = {}, {}
+    for d in db.collection("wc_players").stream():
+        pd = d.to_dict() or {}
+        pos_map[int(d.id)] = pd.get("position", 3)
+        own_map[int(d.id)] = pd.get("percentSelected")
 
     score_writes: Dict[object, dict] = {}   # ref -> patch
     gw_points: Dict[int, Tuple[int, int]] = {}  # pid -> (gw, new fantasyPoints)
+    season: Dict[int, Dict[str, float]] = {}    # pid -> season aggregate
     affected_gws = set()
     for fx in db.collection("wc_fixtures").stream():
         for d in fx.reference.collection("playerScores").stream():
@@ -535,7 +543,7 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
             pos = pos_map.get(pid, 3)
             st = r.get("stats") or {}
             dcb = r.get("defConBonus", 0) or 0
-            nbd = fifa_breakdown(st, pos, fifa)
+            nbd = fifa_breakdown(st, pos, fifa, own_map.get(pid))
             # Preserve the existing DefCon line (computed from WhoScored).
             dl = next((l for l in (r.get("breakdown") or [])
                        if str(l.get("label", "")).startswith("Defensive contribution")), None)
@@ -552,28 +560,36 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
                 if gw is not None:
                     gw_points[pid] = (gw, nfp)
                     affected_gws.add(gw)
+            _season_accumulate(season, pid, st, nfp,
+                               r.get("defConActions", 0) or 0, dcb)
 
-    # Batched writes (playerScores live in subcollections; batch by ref).
+    # Batched score writes (playerScores live in subcollections; batch by ref).
     items = list(score_writes.items())
     for i in range(0, len(items), 450):
         batch = db.batch()
         for ref, patch in items[i:i + 450]:
             batch.set(ref, patch, merge=True)
         batch.commit()
-    # Per-player GW cache on wc_players.
-    if gw_points:
-        _batch_set_players(db, {pid: {f"gwPoints.{gw}": fp}
-                                for pid, (gw, fp) in gw_points.items()})
+    # Per-player wc_players writes: gwPoints cache + season aggregates + total.
+    player_updates: Dict[int, dict] = {pid: dict(a) for pid, a in
+                                       ((p, {"seasonStats": s, "totalPoints": s["points"]})
+                                        for p, s in season.items())}
+    for pid, (gw, fp) in gw_points.items():
+        player_updates.setdefault(pid, {})[f"gwPoints.{gw}"] = fp
+    _batch_set_players(db, player_updates)
 
-    return {"rescored": len(score_writes), "gws": sorted(g for g in affected_gws if g)}
+    return {"rescored": len(score_writes),
+            "gws": sorted(g for g in affected_gws if g),
+            "seasonPlayers": len(season)}
 
 
 def refresh_pool_aggregates(db) -> dict:
     """One self-healing refresh pass, called at the END of every scan
-    (``catch_up_scan`` / ``run_scheduled_ingest``): re-derive all scores from the
-    live FIFA feed + current rules, recompute live manager totals for affected
-    GWs, recompute season stats, and stamp FIFA ownership/price/form. Every step
-    is a full idempotent recompute/snapshot, safe to repeat each tick."""
+    (``catch_up_scan`` / ``run_scheduled_ingest``): in a single playerScores pass
+    re-derive all scores from the live FIFA feed + current rules AND recompute
+    season stats, then recompute live manager totals for affected GWs and stamp
+    FIFA ownership/price/form. Every step is an idempotent recompute, safe to
+    repeat each tick."""
     fifa_rp, fifa_meta = _fetch_fifa_by_pid(db)   # one shared FIFA fetch
     rescore = recompute_all_scores(db, fifa_by_pid=fifa_rp)
     for gw in rescore["gws"]:
@@ -581,7 +597,7 @@ def refresh_pool_aggregates(db) -> dict:
     return {
         "rescoredPlayers": rescore["rescored"],
         "rescoredGws": rescore["gws"],
-        "seasonStatsPlayers": recompute_season_stats(db),
+        "seasonStatsPlayers": rescore["seasonPlayers"],
         "fifaMetaPlayers": stamp_fifa_meta(db, meta_by_pid=fifa_meta),
     }
 
@@ -788,8 +804,11 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
     side_iso = {"home": h_iso, "away": a_iso}
 
     pool = build_pool_index(db)
-    pos_map = {int(d.id): (d.to_dict() or {}).get("position", 3)
-               for d in db.collection("wc_players").stream()}
+    pos_map, own_map = {}, {}
+    for d in db.collection("wc_players").stream():
+        pd = d.to_dict() or {}
+        pos_map[int(d.id)] = pd.get("position", 3)
+        own_map[int(d.id)] = pd.get("percentSelected")
     rules = (db.collection("wc_config").document("tournament").get().to_dict() or {}).get("rules", {})
 
     # FIFA reference points for this GW (by pool id)
@@ -827,7 +846,7 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
             base = fifa
             # itemized FIFA-rules breakdown reconstructed from our stats, with a
             # reconciling line so it sums to FIFA's authoritative total
-            breakdown = fifa_breakdown(stats, position, fifa)
+            breakdown = fifa_breakdown(stats, position, fifa, own_map.get(pid))
         else:
             # player not in FIFA's scored list (rare) -> fall back to our engine
             base, _ = compute_player_points(stats, position, rules)
@@ -877,13 +896,31 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 # itemize (see fifa_breakdown).
 # https://sports.yahoo.com/articles/fifa-world-cup-fantasy-2026-054141309.html
 #
-# The most FIFA's discretionary "scouting bonus" is ever worth. It sits BELOW the
-# smallest real stat award (an assist is 3), so when FIFA's total exceeds our
-# itemization by more than this, the excess must be a real stat our feed missed
-# (e.g. a clean sheet for a subbed-off player), NOT scouting — so we keep it.
-MAX_SCOUTING_BONUS = 2
+# FIFA WC 2026 GOAL points by position (1 GK, 2 DEF, 3 MID, 4 FWD), per the
+# official rulebook: GK 9, DEF 7, MID 6, FWD 5.
+FIFA_GOAL_POINTS = {1: 9, 2: 7, 3: 6, 4: 5}
+# FIFA's discretionary "scouting bonus": a flat +2 awarded to a player who
+# scored MORE THAN 4 match points AND is selected by fewer than 5% of teams. Our
+# league does NOT count it (shown in red, subtracted from the total).
+SCOUTING_BONUS = 2
+SCOUTING_OWNERSHIP_MAX = 5    # percent
+SCOUTING_MIN_MATCH_POINTS = 4  # strictly more than this (i.e. >= 5)
+
+
+def _tackle_count(stats: dict) -> int:
+    tk = stats.get("tackles")
+    if isinstance(tk, dict):
+        return tk.get("total", 0) or 0
+    return int(tk or 0)
+
+
 # --------------------------------------------------------------------------
-def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> list:
+def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int],
+                   percent_selected: Optional[float] = None) -> list:
+    """Itemize FIFA's published scoring from our stats and reconcile to FIFA's
+    AUTHORITATIVE round total. ``percent_selected`` (FIFA ownership %) drives the
+    scouting-bonus rule. Lines flagged ``excluded`` (the scouting bonus) are NOT
+    counted toward the league total."""
     if fifa_total is None:
         return []
     mins = stats.get("minutes") or 0
@@ -897,30 +934,37 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
             known += pts
 
     if mins > 0:
-        p = 2 if mins >= 60 else 1
-        add("Minutes played", mins, p)
+        add("Minutes played", mins, 2 if mins >= 60 else 1)
     goals = stats.get("goals", 0) or 0
     if goals:
-        # FIFA WC 2026 goal points by position. Forwards are 5 (verified against
-        # FIFA's own per-match breakdown: 2 goals = +10), NOT the FPL-style 4 —
-        # using 4 inflated the reconciling "FIFA bonus" line by the difference.
-        gp = {1: 6, 2: 6, 3: 5, 4: 5}.get(position, 5)
-        add("Goal scored", goals, goals * gp)
+        add("Goal scored", goals, goals * FIFA_GOAL_POINTS.get(position, 5))
     assists = stats.get("assists", 0) or 0
     if assists:
         add("Assist", assists, assists * 3)
-    if position in (1, 2) and mins >= 60 and stats.get("cleanSheet"):
-        add("Clean sheet", 1, 5)
+    # Clean sheet: GK/DEF +5, MID +1 (60+ mins). Forwards get nothing.
+    clean = bool(stats.get("cleanSheet"))
+    if mins >= 60 and clean:
+        if position in (1, 2):
+            add("Clean sheet", 1, 5)
+        elif position == 3:
+            add("Clean sheet", 1, 1)
     gc = stats.get("goalsConceded", 0) or 0
-    if position in (1, 2) and not stats.get("cleanSheet") and gc >= 2:
-        add("Goals conceded", gc, -(gc - 1))
+    if position in (1, 2) and not clean and gc >= 2:
+        add("Goals conceded", gc, -(gc - 1))  # first 0, each additional -1
+    # Shots on target: every 2 = +1, FORWARDS ONLY.
     sot = stats.get("shotsOnTarget", 0) or 0
-    if sot >= 2:
+    if position == 4 and sot >= 2:
         add("Shots on target", sot, sot // 2)
+    # Saves: GK, every 3 = +1.
     if position == 1:
         saves = stats.get("saves", 0) or 0
         if saves >= 3:
             add("Saves", saves, saves // 3)
+    # Tackles: MID, every 3 = +1 (FIFA's MID-only bonus; distinct from DefCon).
+    if position == 3:
+        tk = _tackle_count(stats)
+        if tk >= 3:
+            add("Tackles", tk, tk // 3)
     yc = stats.get("yellowCards", 0) or 0
     if yc:
         add("Yellow card", yc, -yc)
@@ -931,20 +975,19 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int]) -> lis
     if og:
         add("Own goal", og, -2 * og)
 
-    # Reconcile to FIFA's AUTHORITATIVE total (the trusted base). The remainder is
-    # whatever FIFA's number exceeds the stats we could itemize from our feed. It
-    # is two different things and must be split:
-    #   * the genuine SCOUTING BONUS — FIFA's discretionary extra, which our
-    #     league does NOT count. Empirically it never exceeds MAX_SCOUTING_BONUS.
-    #   * a real FIFA stat we couldn't itemize because our match data differs from
-    #     FIFA's (e.g. FIFA awards a clean sheet to a defender subbed off before a
-    #     late goal — our final-score data misses it). That is real, FIFA-awarded
-    #     performance and we KEEP it.
-    # Anything above MAX_SCOUTING_BONUS (set below the smallest real stat award —
-    # an assist is 3) must therefore be a missed real stat, not scouting.
-    remainder = fifa_total - known
-    scouting = min(remainder, MAX_SCOUTING_BONUS) if remainder > 0 else 0
-    kept = remainder - scouting  # counted; reconciles the breakdown to FIFA total
+    # Scouting bonus (FIFA rule): flat +2 if the player scored >4 match points AND
+    # is <5% owned. We judge "match points" off FIFA's authoritative total (minus
+    # the bonus itself), NOT our itemization, so imperfect minutes data can't flip
+    # it. Our league excludes it.
+    scouting = (SCOUTING_BONUS
+                if (percent_selected is not None
+                    and percent_selected < SCOUTING_OWNERSHIP_MAX
+                    and (fifa_total - SCOUTING_BONUS) > SCOUTING_MIN_MATCH_POINTS)
+                else 0)
+    # Reconcile the itemized lines to FIFA's total. Whatever's left after the
+    # scouting bonus is real FIFA-awarded performance our feed couldn't itemize
+    # (different minutes/stats than FIFA, or rules we can't see) — KEEP it.
+    kept = (fifa_total - known) - scouting
     if kept:
         lines.append({"label": "FIFA match points" if kept > 0 else "FIFA adjustment",
                       "value": None, "pts": kept})

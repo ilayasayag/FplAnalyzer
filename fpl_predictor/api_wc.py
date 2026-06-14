@@ -316,7 +316,7 @@ def score_audit():
             stats = r.get("stats") or {}
             defcon = r.get("defConBonus", 0) or 0
             fifa_live = (fifa_rp.get(pid) or {}).get(str(gw), fifa_stored)
-            scouting = _excluded_pts(fifa_breakdown(stats, pos, fifa_live))
+            scouting = _excluded_pts(fifa_breakdown(stats, pos, fifa_live, pdoc.get("percentSelected")))
             a = agg.setdefault(pid, {
                 "pid": pid, "name": pdoc.get("name", f"#{pid}"),
                 "iso": (pdoc.get("teamIso") or "").upper(),
