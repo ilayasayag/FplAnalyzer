@@ -249,6 +249,11 @@ def fetch_espn_match_stats(date: str) -> Tuple[List[Dict], List[Dict]]:
                 else:
                     minutes = 0
                 mapped["minutes"] = minutes
+                # ESPN feed has no reliable per-side goal MINUTES, so clean sheet
+                # here is the match-level approximation (conceded==0 over the
+                # whole match). Per-player clean-sheet windows — crediting a
+                # defender subbed off before his side conceded — require the
+                # WhoScored path (parse_whoscored_match).
                 mapped["cleanSheet"] = bool(appeared and conceded == 0 and minutes >= 60)
                 stats.append({
                     "name": ath.get("displayName") or ath.get("fullName"),
@@ -769,6 +774,21 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
     home_goals, away_goals = (int(ft[0]), int(ft[1])) if len(ft) == 2 else (0, 0)
     home, away = data.get("home", {}), data.get("away", {})
 
+    # pid -> side ("home"/"away"), used to attribute goal minutes to the side
+    # that CONCEDED them (for per-player clean-sheet windows). Built from the
+    # team player lists — WhoScored Goal events carry only the scorer's playerId.
+    pid_side = {}
+    for _s, _team in (("home", home), ("away", away)):
+        for _p in _team.get("players", []):
+            _pid = _p.get("playerId")
+            if _pid is not None:
+                pid_side[_pid] = _s
+    # Per-side minutes at which that side CONCEDED a goal. A regular goal by the
+    # home scorer is an away concession (and vice-versa); an OWN goal by a home
+    # player counts as a home goal -> away concession (so it lands on the same
+    # side as a regular home goal). Filled in the event loop below.
+    conceded_min = {"home": [], "away": []}
+
     # per-player event aggregation
     from collections import Counter, defaultdict
     ev_goals, ev_assists = Counter(), Counter()
@@ -788,7 +808,19 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
         ok = e.get("outcomeType", {}).get("displayName") == "Successful"
         quals = {q.get("type", {}).get("displayName") for q in e.get("qualifiers", [])}
         if tn == "Goal" and ok:
-            (ev_og if "OwnGoal" in quals else ev_goals)[pid] += 1
+            is_og = "OwnGoal" in quals
+            (ev_og if is_og else ev_goals)[pid] += 1
+            # Attribute this goal to the side that CONCEDED it, for per-player
+            # clean-sheet windows. Regular goal: opponent of the scorer concedes.
+            # Own goal: the scorer's own side concedes. (Net effect: a home OG and
+            # a home regular goal both register as an away concession.)
+            scorer_side = pid_side.get(pid)
+            if scorer_side in ("home", "away"):
+                conceding = scorer_side if is_og else (
+                    "away" if scorer_side == "home" else "home")
+                gmin = e.get("minute")
+                if gmin is not None:
+                    conceded_min[conceding].append(gmin)
             # Direct free-kick goal: a Goal carrying the DirectFreekick qualifier
             # (verified: penalty goals carry `Penalty`, corner-built goals
             # `FromCorner`, open play `RegularPlay`; `DirectFreekick` is the
@@ -849,6 +881,27 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
             pst = p.get("stats", {}) or {}
             saves = int((pst.get("totalSaves") or {}) and sum((pst["totalSaves"]).values()) or 0)
             sot = int(sum((pst.get("shotsOnTarget") or {}).values())) if pst.get("shotsOnTarget") else 0
+            # Per-player clean-sheet window. A player earns the clean sheet if his
+            # SIDE conceded no goal WHILE HE WAS ON THE PITCH (and he played 60+).
+            # Window: [start, end]; start = sub-on minute (0 if starter),
+            # end = sub-off minute, or max_min if he was never subbed off.
+            # Boundary: a goal at the SUB-OFF minute is treated as AFTER he left
+            # (FIFA credits a player who was off before the goal), so for a
+            # subbed-off player we charge only goals with start <= m < sub_off.
+            # Ricardo Rodriguez: off at 88', goal at 90' -> 90 not in [0,88) ->
+            # clean sheet. A player who is NEVER subbed off is on through the end
+            # of the match, so a goal at max_min DOES count (start <= m <= max_min).
+            # A goal exactly at the sub-on minute counts (he was on for it).
+            win_start = sub_on.get(pid, 0) or 0
+            if pid in sub_off:
+                win_end = sub_off[pid]
+                conceded_while_on = sum(
+                    1 for gm in conceded_min[side] if win_start <= gm < win_end)
+            else:
+                win_end = max_min
+                conceded_while_on = sum(
+                    1 for gm in conceded_min[side] if win_start <= gm <= win_end)
+            clean_window = (min(mins, 90) >= 60 and conceded_while_on == 0)
             rows.append({
                 "name": idname.get(str(pid)) or p.get("name"),
                 "side": side,
@@ -867,7 +920,8 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
                     "freekickGoals": ev_fk_goals.get(pid, 0),
                     "saves": saves,
                     "goalsConceded": conceded,
-                    "cleanSheet": conceded == 0 and mins >= 60,
+                    "cleanSheet": clean_window,
+                    "concededWhileOn": conceded_while_on,
                     "tackles": {
                         "total": tk.get(pid, 0),
                         "interceptions": interc.get(pid, 0),

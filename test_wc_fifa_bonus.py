@@ -17,7 +17,7 @@ if PROJECT_ROOT not in sys.path:
     sys.path.insert(0, PROJECT_ROOT)
 
 from fpl_predictor.data.wc_live_ingest import (  # noqa: E402
-    fifa_breakdown, _excluded_pts, fetch_espn_match_stats,
+    fifa_breakdown, _excluded_pts, fetch_espn_match_stats, parse_whoscored_match,
 )
 
 
@@ -180,6 +180,119 @@ def test_freekick_goal_itemized_on_top_of_goal():
     assert counted == 9
     assert _line(bd, "FIFA match points") is None
     assert _line(bd, "FIFA adjustment") is None
+
+
+# ----- Per-player clean sheet (Phase 3): credited when no goal was conceded
+#       WHILE the player was on the pitch, even if his side conceded later -----
+
+def test_clean_sheet_credited_def_subbed_off_before_goal():
+    # Ricardo Rodriguez: DEF subbed off at 88', Switzerland conceded at 90'. FIFA
+    # awarded the +5 clean sheet. Our parser now sets cleanSheet=True, so the +5
+    # is ITEMIZED (not leaked into a reconciliation line). 88' (+2) + clean (+5)
+    # = 7; FIFA total 9; 1.5% owned -> scouting 2 (9>6 & <5%). League == 7.
+    bd = fifa_breakdown(
+        {"minutes": 88, "cleanSheet": True, "goalsConceded": 1},
+        position=2, fifa_total=9, percent_selected=1.5)
+    cs = _line(bd, "Clean sheet")
+    assert cs is not None and cs["pts"] == 5
+    # A clean-sheet-credited player is NOT also docked goals conceded.
+    assert _line(bd, "Goals conceded") is None
+    assert _excluded_pts(bd) == 2
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 7  # FIFA 9 − scouting 2; the +5 is itemized, not reconciled
+    # Nothing leaked into the catch-all (the clean sheet is now itemized).
+    assert _line(bd, "FIFA match points") is None
+    assert _line(bd, "FIFA adjustment") is None
+
+
+def test_no_clean_sheet_def_full_match_concedes_shows_goals_conceded():
+    # DEF on the full 90', side conceded 3 -> no clean sheet, "Goals conceded"
+    # line of -(3-1) = -2, and NO "Clean sheet" line (regression guard).
+    bd = fifa_breakdown(
+        {"minutes": 90, "cleanSheet": False, "goalsConceded": 3},
+        position=2, fifa_total=99)
+    assert _line(bd, "Clean sheet") is None
+    gc = _line(bd, "Goals conceded")
+    assert gc is not None and gc["pts"] == -2
+
+
+# ----- parse_whoscored_match: per-player on-pitch clean-sheet window -----
+
+def _ws_player(pid, name, starter=True):
+    return {"playerId": pid, "name": name, "isFirstEleven": starter, "stats": {}}
+
+
+def _make_matchcentre(events):
+    """Minimal synthetic WhoScored matchCentre: two home defenders + a token away
+    striker, final score 0-1 (away scored once)."""
+    return {
+        "playerIdNameDictionary": {
+            "1": "Off Early", "2": "Full Match", "9": "Away Striker"},
+        "maxMinute": 90,
+        "ftScore": "0 : 1",
+        "home": {"name": "Home", "players": [
+            _ws_player(1, "Off Early"), _ws_player(2, "Full Match")]},
+        "away": {"name": "Away", "players": [_ws_player(9, "Away Striker")]},
+        "events": events,
+    }
+
+
+def _goal_event(pid, minute):
+    return {"playerId": pid, "minute": minute,
+            "type": {"displayName": "Goal"},
+            "outcomeType": {"displayName": "Successful"}, "qualifiers": []}
+
+
+def _suboff_event(pid, minute):
+    return {"playerId": pid, "minute": minute,
+            "type": {"displayName": "SubstitutionOff"},
+            "outcomeType": {"displayName": "Successful"}, "qualifiers": []}
+
+
+def test_ws_clean_sheet_window(monkeypatch):
+    import fpl_predictor.data.wc_live_ingest as M
+    # Home defender #1 subbed off at 88'; away striker #9 scores at 90'. Defender
+    # #2 plays the full match. So #1 was OFF when the goal went in (clean sheet),
+    # #2 was ON (no clean sheet). Away striker concession lands on the HOME side.
+    events = [_suboff_event(1, 88), _goal_event(9, 90)]
+    monkeypatch.setattr(M, "_ws_match_centre", lambda mid: _make_matchcentre(events))
+    _, rows = M.parse_whoscored_match(123)
+    by_name = {r["name"]: r["stats"] for r in rows}
+    # Off at 88', goal at 90' -> clean sheet TRUE, charged 0 while on.
+    assert by_name["Off Early"]["cleanSheet"] is True
+    assert by_name["Off Early"]["concededWhileOn"] == 0
+    # Full match, goal at 90' while on -> clean sheet FALSE.
+    assert by_name["Full Match"]["cleanSheet"] is False
+    assert by_name["Full Match"]["concededWhileOn"] == 1
+
+
+def test_ws_clean_sheet_window_early_goal(monkeypatch):
+    import fpl_predictor.data.wc_live_ingest as M
+    # Goal at 70' (mid-match). Defender #1 off at 88' was ON at 70' (no clean
+    # sheet); defender #2 full match also ON at 70' (no clean sheet).
+    events = [_suboff_event(1, 88), _goal_event(9, 70)]
+    monkeypatch.setattr(M, "_ws_match_centre", lambda mid: _make_matchcentre(events))
+    _, rows = M.parse_whoscored_match(123)
+    by_name = {r["name"]: r["stats"] for r in rows}
+    assert by_name["Off Early"]["cleanSheet"] is False
+    assert by_name["Full Match"]["cleanSheet"] is False
+
+
+def test_ws_own_goal_counts_against_own_side(monkeypatch):
+    import fpl_predictor.data.wc_live_ingest as M
+    # Home defender #2 scores an OWN goal at 50' -> a HOME concession. Both home
+    # defenders are on the pitch at 50' (no clean sheet for either). The away
+    # striker, on the whole match, conceded nothing -> clean sheet.
+    og = {"playerId": 2, "minute": 50, "type": {"displayName": "Goal"},
+          "outcomeType": {"displayName": "Successful"},
+          "qualifiers": [{"type": {"displayName": "OwnGoal"}}]}
+    monkeypatch.setattr(M, "_ws_match_centre",
+                        lambda mid: _make_matchcentre([og]))
+    _, rows = M.parse_whoscored_match(123)
+    by_name = {r["name"]: r["stats"] for r in rows}
+    assert by_name["Off Early"]["cleanSheet"] is False      # home side conceded
+    assert by_name["Full Match"]["cleanSheet"] is False
+    assert by_name["Away Striker"]["cleanSheet"] is True     # away conceded nothing
 
 
 # ----- ESPN fallback minutes: never stamp 90 on a mid-match starter -----
