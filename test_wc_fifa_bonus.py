@@ -130,6 +130,58 @@ def test_fifa_position_falls_back_to_pool_position():
     assert _line(bd, "Goal scored")["pts"] == 6
 
 
+# ----- FIFA extras: penalty won (+2), penalty conceded (-1), FK goal (+1) -----
+
+def test_penalty_won_itemized_nmecha():
+    # Felix Nmecha (Germany): MID, 72' (+2), goal (+6), penalty won (+2),
+    # 3 tackles (+1) = 11 itemized; FIFA total 13; 0.1% owned -> scouting 2
+    # (13>6 & <5%). The "Penalty won" line is present and the reconciliation
+    # absorbs nothing extra: counted total == FIFA − scouting == 11.
+    bd = fifa_breakdown(
+        {"minutes": 72, "goals": 1, "penaltiesWon": 1, "tackles": 3},
+        position=3, fifa_total=13, percent_selected=0.1)
+    won = _line(bd, "Penalty won")
+    assert won is not None and won["pts"] == 2
+    assert _excluded_pts(bd) == 2
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 11  # FIFA 13 − scouting 2
+    # nothing leaked into the reconciliation line (everything itemized)
+    assert _line(bd, "FIFA match points") is None
+    assert _line(bd, "FIFA adjustment") is None
+
+
+def test_penalty_conceded_itemized_bazoer():
+    # Riechedly Bazoer (Curaçao): DEF, 87' (+2), 6 goals conceded (-5),
+    # penalty conceded (-1) = -4 itemized; FIFA total -4; 0% owned -> no scouting.
+    # This is the exact bug: the -1 must be ITEMIZED and counted, so the league
+    # total is -4, NOT -3 (which is what dropping the -1 into the catch-all gave).
+    bd = fifa_breakdown(
+        {"minutes": 87, "goalsConceded": 6, "penaltiesConceded": 1, "cleanSheet": False},
+        position=2, fifa_total=-4, percent_selected=0.0)
+    conc = _line(bd, "Penalty conceded")
+    assert conc is not None and conc["pts"] == -1
+    assert _excluded_pts(bd) == 0
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == -4  # the bug would have made this -3
+    # fully itemized: no reconciliation line needed
+    assert _line(bd, "FIFA match points") is None
+    assert _line(bd, "FIFA adjustment") is None
+
+
+def test_freekick_goal_itemized_on_top_of_goal():
+    # A direct free-kick goal is +1 ON TOP of the goal. MID 90' (+2) + goal (+6)
+    # + FK bonus (+1) = 9; FIFA total 9; 20% owned -> no scouting; fully itemized.
+    bd = fifa_breakdown({"minutes": 90, "goals": 1, "freekickGoals": 1},
+                        position=3, fifa_total=9, percent_selected=20.0)
+    assert _line(bd, "Goal scored")["pts"] == 6
+    assert _line(bd, "Free-kick goal")["pts"] == 1
+    assert _excluded_pts(bd) == 0
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 9
+    assert _line(bd, "FIFA match points") is None
+    assert _line(bd, "FIFA adjustment") is None
+
+
 # ----- ESPN fallback minutes: never stamp 90 on a mid-match starter -----
 
 class _FakeFeed:

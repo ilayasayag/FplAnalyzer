@@ -773,6 +773,10 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
     from collections import Counter, defaultdict
     ev_goals, ev_assists = Counter(), Counter()
     ev_yellow, ev_red, ev_og, ev_pen_miss = Counter(), Counter(), Counter(), Counter()
+    # FIFA-specific extras, verified against live WhoScored matchCentre events
+    # 2026-06-14 (match ids 1821686/1821695 had penalties; 1821686 had a direct
+    # free-kick goal). See the per-event handling below for the exact signals.
+    ev_pen_won, ev_pen_conceded, ev_fk_goals = Counter(), Counter(), Counter()
     tk, interc, clear, blocks, recov = (Counter(), Counter(), Counter(),
                                         Counter(), Counter())
     sub_off, sub_on = {}, {}
@@ -785,6 +789,24 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
         quals = {q.get("type", {}).get("displayName") for q in e.get("qualifiers", [])}
         if tn == "Goal" and ok:
             (ev_og if "OwnGoal" in quals else ev_goals)[pid] += 1
+            # Direct free-kick goal: a Goal carrying the DirectFreekick qualifier
+            # (verified: penalty goals carry `Penalty`, corner-built goals
+            # `FromCorner`, open play `RegularPlay`; `DirectFreekick` is the
+            # unambiguous direct-FK signal). +1 bonus on TOP of the goal — own
+            # goals never qualify (guarded by the OwnGoal branch above).
+            if "DirectFreekick" in quals and "OwnGoal" not in quals:
+                ev_fk_goals[pid] += 1
+        elif tn == "Foul" and "Penalty" in quals:
+            # A penalty foul is logged as an OppositeRelatedEvent PAIR:
+            #   Successful + Offensive  -> the attacker who WON the penalty (+2)
+            #   Unsuccessful + Defensive-> the defender who CONCEDED it     (-1)
+            # (verified live; the won side occasionally has playerId None, which
+            # is already filtered out at the top of the loop). The Foul is not
+            # otherwise scored, so there's no double-count with any other stat.
+            if ok and "Offensive" in quals:
+                ev_pen_won[pid] += 1
+            elif not ok and "Defensive" in quals:
+                ev_pen_conceded[pid] += 1
         elif tn == "Pass" and "IntentionalGoalAssist" in quals:
             ev_assists[pid] += 1
         elif tn == "Card":
@@ -840,6 +862,9 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
                     "redCards": ev_red.get(pid, 0),
                     "ownGoal": ev_og.get(pid, 0),
                     "penaltyMissed": ev_pen_miss.get(pid, 0),
+                    "penaltiesWon": ev_pen_won.get(pid, 0),
+                    "penaltiesConceded": ev_pen_conceded.get(pid, 0),
+                    "freekickGoals": ev_fk_goals.get(pid, 0),
                     "saves": saves,
                     "goalsConceded": conceded,
                     "cleanSheet": conceded == 0 and mins >= 60,
@@ -1052,9 +1077,20 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int],
     goals = stats.get("goals", 0) or 0
     if goals:
         add("Goal scored", goals, goals * FIFA_GOAL_POINTS.get(pos, 5))
+    # Direct free-kick goal: +1 bonus per goal, ON TOP of "Goal scored" (FIFA rule).
+    fk_goals = stats.get("freekickGoals", 0) or 0
+    if fk_goals:
+        add("Free-kick goal", fk_goals, fk_goals)
     assists = stats.get("assists", 0) or 0
     if assists:
         add("Assist", assists, assists * 3)
+    # Penalty won: +2 each (FIFA rule). Penalty conceded: -1 each.
+    pens_won = stats.get("penaltiesWon", 0) or 0
+    if pens_won:
+        add("Penalty won", pens_won, 2 * pens_won)
+    pens_conceded = stats.get("penaltiesConceded", 0) or 0
+    if pens_conceded:
+        add("Penalty conceded", pens_conceded, -pens_conceded)
     # Clean sheet: GK/DEF +5, MID +1 (60+ mins). Forwards get nothing.
     clean = bool(stats.get("cleanSheet"))
     if mins >= 60 and clean:
