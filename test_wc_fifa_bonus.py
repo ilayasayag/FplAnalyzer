@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
-"""The league does NOT count FIFA's scouting/extras bonus.
+"""fifa_breakdown — FIFA WC 2026 official rules + the scouting-bonus rule.
 
-fifa_breakdown reconciles our itemized lines to FIFA's authoritative total with a
-"FIFA bonus (scouting / extras)" remainder line. That line is flagged
-``excluded`` and subtracted from fantasyPoints (shown in red on the breakdown for
-transparency). e.g. Folarin Balogun: FIFA 15, bonus 4 -> our league 11.
+League total = FIFA round total − scouting + DefCon, where scouting is a FLAT +2
+awarded only when the player scored >4 match points AND is <5% owned. The
+breakdown itemizes FIFA's published per-stat rules (goal values by position,
+clean sheets, SoT for forwards, etc.) and reconciles to FIFA's authoritative
+total.
 
 Run:  .venv/bin/python -m pytest test_wc_fifa_bonus.py -q
 """
@@ -18,67 +19,85 @@ if PROJECT_ROOT not in sys.path:
 from fpl_predictor.data.wc_live_ingest import fifa_breakdown, _excluded_pts  # noqa: E402
 
 
-# Balogun: FWD, 90', 2 goals, 3 shots on target. FIFA's published total is 15,
-# itemized by FIFA as minutes +2, goal +10 (2 x 5 for a forward), SoT +1,
-# scouting bonus +2.
-BALOGUN_STATS = {"minutes": 90, "goals": 2, "shotsOnTarget": 3, "cleanSheet": False}
-BALOGUN_FIFA_TOTAL = 15
+def _line(bd, label):
+    return next((ln for ln in bd if ln["label"] == label), None)
 
 
-def test_forward_goal_is_five_each():
-    bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
-    goal = next(ln for ln in bd if ln["label"] == "Goal scored")
-    assert goal["pts"] == 10  # 2 forward goals x 5, matching FIFA's breakdown
+# ----- Goal values by position: GK 9, DEF 7, MID 6, FWD 5 -----
+
+def test_goal_value_by_position():
+    for pos, val in [(1, 9), (2, 7), (3, 6), (4, 5)]:
+        bd = fifa_breakdown({"minutes": 90, "goals": 1}, position=pos, fifa_total=99)
+        assert _line(bd, "Goal scored")["pts"] == val, pos
 
 
-def test_bonus_line_is_the_real_scouting_bonus():
-    bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
-    bonus = [ln for ln in bd if ln.get("excluded")]
-    assert len(bonus) == 1
-    assert bonus[0]["label"].startswith("FIFA bonus")
-    # known = 2 (mins) + 10 (2 goals x5) + 1 (3 SoT // 2) = 13; remainder = 2,
-    # the TRUE scouting bonus (FIFA app shows +2), not the old inflated 4.
-    assert bonus[0]["pts"] == 2
+# ----- Clean sheet: GK/DEF +5, MID +1, FWD none -----
 
+def test_clean_sheet_points_by_position():
+    cs = {"minutes": 90, "cleanSheet": True, "goalsConceded": 0}
+    assert _line(fifa_breakdown(cs, 1, 99), "Clean sheet")["pts"] == 5   # GK
+    assert _line(fifa_breakdown(cs, 2, 99), "Clean sheet")["pts"] == 5   # DEF
+    assert _line(fifa_breakdown(cs, 3, 99), "Clean sheet")["pts"] == 1   # MID
+    assert _line(fifa_breakdown(cs, 4, 99), "Clean sheet") is None       # FWD
+
+
+# ----- Shots on target: forwards only -----
+
+def test_shots_on_target_forwards_only():
+    sot = {"minutes": 90, "shotsOnTarget": 4}
+    assert _line(fifa_breakdown(sot, 4, 99), "Shots on target")["pts"] == 2  # FWD: 4//2
+    assert _line(fifa_breakdown(sot, 3, 99), "Shots on target") is None      # MID: none
+
+
+# ----- Scouting bonus: flat +2, only if >4 pts AND <5% owned -----
+
+def test_scouting_when_high_score_and_low_owned():
+    # Balogun: FWD, 2 goals (10) + 90' (2) + 3 SoT (1) = 13; FIFA total 15; 1% owned.
+    bd = fifa_breakdown({"minutes": 90, "goals": 2, "shotsOnTarget": 3},
+                        position=4, fifa_total=15, percent_selected=1.0)
+    assert _excluded_pts(bd) == 2
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 13  # league total = 15 − 2
+
+
+def test_no_scouting_when_low_score_even_if_low_owned():
+    # Brahim: MID, assist (+3) + 90' (+2); FIFA total 4; 2.1% owned (<5%) but only
+    # 4 match points -> NO scouting (the >4 condition spares him). League = 4.
+    bd = fifa_breakdown({"minutes": 90, "assists": 1},
+                        position=3, fifa_total=4, percent_selected=2.1)
+    assert _excluded_pts(bd) == 0
+    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
+    assert counted == 4
+
+
+def test_no_scouting_when_widely_owned():
+    # High scorer but 12% owned -> no scouting (ownership condition fails).
+    bd = fifa_breakdown({"minutes": 90, "goals": 2, "shotsOnTarget": 3},
+                        position=4, fifa_total=15, percent_selected=12.0)
+    assert _excluded_pts(bd) == 0
+    assert sum(ln["pts"] for ln in bd if not ln.get("excluded")) == 15
+
+
+def test_unknown_ownership_means_no_scouting():
+    bd = fifa_breakdown({"minutes": 90, "goals": 2}, position=4, fifa_total=15)
+    assert _excluded_pts(bd) == 0
+
+
+# ----- Reconciliation: a real FIFA stat our feed missed is KEPT, not dropped ---
 
 def test_missed_clean_sheet_is_kept_not_excluded_as_bonus():
-    # Ricardo Rodríguez: FIFA gave him a clean sheet (subbed off before a late
-    # equaliser) so FIFA total is 9, but our final-score data shows no clean
-    # sheet -> we only itemize minutes (+2). The 7-point remainder must NOT all
-    # be treated as scouting: only 2 is the scouting bonus (excluded); the other
-    # 5 (the clean sheet FIFA awarded) is KEPT. League total = 7.
-    stats = {"minutes": 90, "goals": 0, "cleanSheet": False, "goalsConceded": 1}
-    bd = fifa_breakdown(stats, position=2, fifa_total=9)
-    excluded = sum(ln["pts"] for ln in bd if ln.get("excluded"))
-    counted = sum(ln["pts"] for ln in bd if not ln.get("excluded"))
-    assert excluded == 2          # capped scouting bonus
-    assert counted == 7           # minutes 2 + kept "FIFA match points" 5
-    assert any(ln["label"] == "FIFA match points" and ln["pts"] == 5 for ln in bd)
-
-
-def test_excluded_pts_extracts_the_bonus():
-    bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
+    # Ricardo: FIFA gave a clean sheet (subbed off before a late goal); our data
+    # shows none, so we only itemize minutes (+2). FIFA total 9, 1.5% owned.
+    # scouting = 2 (9>6 & <5%); the other 5 (the clean sheet) is KEPT. League = 7.
+    bd = fifa_breakdown({"minutes": 90, "goals": 0, "cleanSheet": False},
+                        position=2, fifa_total=9, percent_selected=1.5)
     assert _excluded_pts(bd) == 2
-
-
-def test_our_total_excludes_bonus():
-    bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
-    defcon_bonus = 0
-    our_total = BALOGUN_FIFA_TOTAL + defcon_bonus - _excluded_pts(bd)
-    assert our_total == 13  # FIFA 15 minus the 2 scouting bonus
-
-
-def test_no_bonus_line_when_total_matches_known():
-    # A player whose FIFA total equals our itemized sum has no remainder.
-    stats = {"minutes": 90}  # known = 2, FIFA total 2
-    bd = fifa_breakdown(stats, position=3, fifa_total=2)
-    assert _excluded_pts(bd) == 0
-    assert not any(ln.get("excluded") for ln in bd)
+    assert sum(ln["pts"] for ln in bd if not ln.get("excluded")) == 7
+    assert _line(bd, "FIFA match points")["pts"] == 5
 
 
 def test_defcon_line_is_not_excluded():
-    # The DefCon line is appended by the scorer (not fifa_breakdown) and must be
-    # counted — only the FIFA bonus line carries the excluded flag.
-    bd = fifa_breakdown(BALOGUN_STATS, position=4, fifa_total=BALOGUN_FIFA_TOTAL)
+    bd = fifa_breakdown({"minutes": 90, "goals": 2, "shotsOnTarget": 3},
+                        position=4, fifa_total=15, percent_selected=1.0)
     bd.append({"label": "Defensive contribution (11/10)", "value": 11, "pts": 2})
-    assert _excluded_pts(bd) == 2  # only the FIFA bonus, DefCon stays counted
+    assert _excluded_pts(bd) == 2  # only the scouting bonus; DefCon counts
