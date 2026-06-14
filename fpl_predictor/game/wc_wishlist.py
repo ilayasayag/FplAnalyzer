@@ -40,9 +40,18 @@ class WCWishlistManager:
         swap: ``playerIn`` must be a free agent (not on any squad in the
         league), ``playerOut`` must currently be on the caller's squad, and
         their positions must match. Re-submission overwrites.
+
+        An EMPTY list clears the wishlist — it deletes the manager's bid doc so
+        the removal persists (the UI "X" removes a bid by re-submitting the
+        shorter list, which may be empty when the last one is removed).
         """
-        if not isinstance(bids, list) or not bids:
-            raise ValueError("NO_BIDS: provide at least one bid")
+        if not isinstance(bids, list):
+            raise ValueError("NO_BIDS: bids must be a list")
+        if not bids:
+            doc_ref = (self.db.collection("leagues").document(lid)
+                       .collection("wishlist_bids").document(f"{uid}_{gw}"))
+            doc_ref.delete()
+            return {"uid": uid, "gw": gw, "bids": [], "cleared": True}
 
         squad = self._get_squad(lid, uid)
         squad_map = {p["playerId"]: p for p in squad}

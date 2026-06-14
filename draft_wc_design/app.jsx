@@ -1165,6 +1165,7 @@ function App() {
       case "draft":     return <DraftRoomScreen onTab={setTab} />;
       case "players":   return <PlayerBrowserScreen onTab={setTab} />;
       case "trades":    return <TradesScreen onTab={setTab} />;
+      case "audit":     return <ScoreAuditScreen onTab={setTab} />;
       case "create":    return <CreateLeagueScreen onTab={setTab} />;
       case "config":    return <ConfigScreen onTab={setTab} />;
       default:          return <StatusScreen onTab={setTab} />;

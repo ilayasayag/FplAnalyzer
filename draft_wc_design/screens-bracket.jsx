@@ -830,14 +830,36 @@ function WishlistTab() {
     return p.pos === dropPlayer.pos;
   });
 
-  const move = (i, dir) => {
+  // Persist the given bids list to the backend NOW (an empty list clears the
+  // wishlist doc). Used so the "X" remove and reorder are durable immediately —
+  // not just local state that a refresh would revert.
+  const persistBids = async (nextBids) => {
+    if (!upcomingGw) return;
+    const lid = window.LEAGUE.id;
+    await apiCall("POST", `/leagues/${lid}/wishlist-bids`, {
+      gw: upcomingGw,
+      bids: nextBids.map(b => ({ playerIn: b.playerIn, playerOut: b.playerOut, position: b.position })),
+    });
+    window.MY_WISHLIST_BIDS = nextBids.slice();
+  };
+
+  const move = async (i, dir) => {
     const j = i + dir;
     if (j < 0 || j >= bids.length) return;
     const next = bids.slice();
     [next[i], next[j]] = [next[j], next[i]];
+    const prev = bids;
     setBids(next);
+    try { await persistBids(next); }
+    catch (err) { setBids(prev); alert("Failed to reorder: " + (err.error || err.detail || JSON.stringify(err))); }
   };
-  const removeBid = (i) => setBids(bids.filter((_, k) => k !== i));
+  const removeBid = async (i) => {
+    const next = bids.filter((_, k) => k !== i);
+    const prev = bids;
+    setBids(next);  // optimistic
+    try { await persistBids(next); }
+    catch (err) { setBids(prev); alert("Failed to remove bid: " + (err.error || err.detail || JSON.stringify(err))); }
+  };
 
   const addBid = () => {
     if (!dropId || !claimId) { alert("Pick a player to drop and a free agent to claim."); return; }
