@@ -697,7 +697,8 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
     from collections import Counter, defaultdict
     ev_goals, ev_assists = Counter(), Counter()
     ev_yellow, ev_red, ev_og, ev_pen_miss = Counter(), Counter(), Counter(), Counter()
-    tk, interc, clear, blocks = Counter(), Counter(), Counter(), Counter()
+    tk, interc, clear, blocks, recov = (Counter(), Counter(), Counter(),
+                                        Counter(), Counter())
     sub_off, sub_on = {}, {}
     for e in data.get("events", []):
         pid = e.get("playerId")
@@ -723,8 +724,10 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
             interc[pid] += 1
         elif tn == "Clearance":
             clear[pid] += 1
-        elif tn in ("BlockedPass", "Save") and tn == "BlockedPass":
+        elif tn == "BlockedPass":
             blocks[pid] += 1
+        elif tn == "BallRecovery":
+            recov[pid] += 1
         if tn == "SubstitutionOff":
             sub_off[pid] = e.get("minute")
         elif tn == "SubstitutionOn":
@@ -770,7 +773,11 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
                         "blocks": blocks.get(pid, 0),
                     },
                     "clearances": clear.get(pid, 0),
-                    "defCon": tk.get(pid, 0) + interc.get(pid, 0) + clear.get(pid, 0) + blocks.get(pid, 0),
+                    "ballRecoveries": recov.get(pid, 0),
+                    # Defensive Contribution (CBITR): clearances + blocks +
+                    # interceptions + tackles + ball recoveries (FPL DEFCON).
+                    "defCon": (tk.get(pid, 0) + interc.get(pid, 0) + clear.get(pid, 0)
+                               + blocks.get(pid, 0) + recov.get(pid, 0)),
                 },
             })
     meta = {
