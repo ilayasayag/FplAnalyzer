@@ -364,6 +364,8 @@ def ingest_live(db, gw: int, date: str) -> dict:
         ref = fx_index.get((fx["homeIso"], fx["awayIso"]))
         if ref is None:
             continue
+        if (ref.get().to_dict() or {}).get("dataLocked"):
+            continue
         started = fx["finished"] or fx.get("state") == "in"
         ref.set({
             "status": "FT" if fx["finished"] else ("LIVE" if started else "NS"),
@@ -611,6 +613,7 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
     season: Dict[int, Dict[str, float]] = {}    # pid -> season aggregate
     affected_gws = set()
     for fx in db.collection("wc_fixtures").stream():
+        locked = (fx.to_dict() or {}).get("dataLocked")
         for d in fx.reference.collection("playerScores").stream():
             r = d.to_dict() or {}
             try:
@@ -618,6 +621,14 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
             except (TypeError, ValueError):
                 continue
             gw = r.get("gw")
+            # Locked fixtures contribute to season aggregates from their STORED
+            # values only — never rewritten/recomputed (secures the data).
+            if locked:
+                _season_accumulate(season, pid, r.get("stats") or {},
+                                    r.get("fantasyPoints", 0) or 0,
+                                    r.get("defConActions") or 0,
+                                    r.get("defConBonus", 0) or 0)
+                continue
             # Live FIFA points for this GW if available, else the stored value.
             fifa = (fifa_by_pid.get(pid) or {}).get(str(gw))
             if fifa is None:
@@ -990,6 +1001,8 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 
     fref = db.collection("wc_fixtures").document(str(our_fixture_id))
     fdoc = fref.get().to_dict() or {}
+    if fdoc.get("dataLocked"):
+        return {"error": "fixture is dataLocked", "fixture": our_fixture_id}
     h_iso = (fdoc.get("homeTeam", {}).get("isoCode") or "").upper()
     a_iso = (fdoc.get("awayTeam", {}).get("isoCode") or "").upper()
     side_iso = {"home": h_iso, "away": a_iso}
@@ -1085,6 +1098,7 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
         "status": "FT" if meta.get("finished") else "LIVE",
         "score": {"home": meta.get("homeScore"), "away": meta.get("awayScore")},
         "liveUpdatedAt": _fs.SERVER_TIMESTAMP,
+        "whoscoredScored": True,
     }, merge=True)
 
     leagues = _recompute_live_scores(db, gw, _gw_points_map(db, gw))
@@ -1437,9 +1451,15 @@ def catch_up_scan(db, days_back: int = 3, date: Optional[str] = None) -> dict:
             in_play = fx.get("state") == "in"
             if not finished and not in_play:
                 continue
-            if finished and fdoc.get("scoredFinal"):
+            if fdoc.get("dataLocked"):
                 already += 1
-                continue  # bookmarked — skip (idempotent optimization)
+                continue  # locked — never re-touch, regardless of bookmark
+            if finished and fdoc.get("scoredFinal") and fdoc.get("whoscoredScored"):
+                already += 1
+                continue  # bookmarked AND already has full WhoScored data — skip
+            if finished and fdoc.get("scoredFinal") and not ws_map.get(str(ref.id)):
+                already += 1
+                continue  # bookmarked, no WhoScored id mapped — nothing more to try
 
             ws_id = ws_map.get(str(ref.id))
             try:
