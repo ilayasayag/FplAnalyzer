@@ -32,3 +32,11 @@ Point Netanel at `NETANEL_GUIDE.md` for setup / workflow / gotchas instead of re
 - Use `.venv/bin/python` (bare `python` lacks `firebase_admin`).
 - For the Firestore emulator, default `database_id` is `gamedb` (matches Flask + prod). The emulator's `(default)` store is a separate, divergent dataset — do not write to it.
 - Never commit `secrets.json` or any `*service-account*.json`.
+
+## Operations: deploy, DB access, scoring — see `OPS_RUNBOOK.md` (+ `KNOWN_ISSUES.md`)
+
+- **Prod DB** = Firestore `fpl-analyzer-792eb` / database `gamedb`. Connect with the firebase-adminsdk SA json (`GOOGLE_APPLICATION_CREDENTIALS=...`) or the gcloud SA token — **bare `firebase_admin.initialize_app()` / ADC gives `PermissionDenied 403`**. Writing prod (backfills/rescores) needs explicit user authorization; validation stays read-only.
+- **Deploy only after the PR is merged to `main`.** Backend: `firebase deploy --only functions:api`. Frontend (no build step — in-browser Babel; `dist/` is a separate gitignored copy of `draft_wc_design/`): `cp` changed `.jsx` to `dist/` (skip `firebase.jsx`) → bump `jsx?v=N` in `dist/index.html` → compile-check → `firebase deploy --only hosting`. `firebase login` + git email = `ilayasayag@gmail.com`.
+- **JSX: a compile-check is NOT enough.** Scope/runtime errors crash a component at render and pass Babel (this white-screened the player modal). SSR or load the touched component before deploying frontend.
+- **Scoring invariant:** `fantasyPoints = FIFA total + DefCon − scouting` in every write path; `breakdown` lines are display-only. DefCon: DEF = CBIT, MID = CBITR.
+- **Backfill / re-score** via the `/sync-gw-scores` skill (WhoScored only works from the residential Mac; cloud ticks are FIFA/ESPN). Always verify 0 audit mismatches afterward.
