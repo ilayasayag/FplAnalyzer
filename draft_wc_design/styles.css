@@ -924,14 +924,17 @@ a { color: inherit; text-decoration: none; }
   position: absolute; top: 14px; right: 14px;
   width: 32px; height: 32px;
   border-radius: 50%;
-  background: rgba(255,255,255,0.18);
+  /* Dark translucent circle + white glyph so the button stays visible on both
+     colored headers (player modal) and plain white headers (squad modal). */
+  background: rgba(12, 10, 62, 0.45);
   color: white;
   font-size: 24px; line-height: 1;
   display: flex; align-items: center; justify-content: center;
   z-index: 2;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.25);
   transition: background 0.12s;
 }
-.modal__close:hover { background: rgba(255,255,255,0.35); }
+.modal__close:hover { background: rgba(12, 10, 62, 0.65); }
 
 /* Player Stats Modal */
 .player-modal__head {
