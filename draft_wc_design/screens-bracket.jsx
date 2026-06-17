@@ -802,6 +802,7 @@ function FreeAgentsTab() {
 }
 
 function WishlistTab() {
+  const isMobile = useIsMobile();
   const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
     playerIn: Number(b.playerIn),
     playerOut: Number(b.playerOut),
@@ -906,6 +907,46 @@ function WishlistTab() {
       </div>
 
       <div className="card">
+        {isMobile ? (
+          <div className="col" style={{ gap: 10, padding: 12 }}>
+            {bids.length === 0 && (
+              <div className="muted" style={{ textAlign: "center", padding: 18 }}>No wishlist bids yet — add one below.</div>
+            )}
+            {bids.map((b, i) => {
+              const pIn = window.PLAYER_MAP[String(b.playerIn)] || { name: b.playerIn, team: "", pos: 1 };
+              const pOut = window.PLAYER_MAP[String(b.playerOut)] || { name: b.playerOut, team: "", pos: 1 };
+              const tIn = teamById(pIn.team);
+              const tOut = teamById(pOut.team);
+              return (
+                <div key={`${b.playerIn}_${b.playerOut}`} className="card-section" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>#{i + 1}</div>
+                  <div className="wishlist-swap" style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
+                      <Flag team={tIn} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{pIn.name}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>IN · {POS_NAMES[pIn.pos]}</div>
+                      </div>
+                    </div>
+                    <span className="h-display" style={{ color: "var(--ink-300)", textAlign: "center" }}>↔</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(230,57,70,0.08)", borderRadius: 6, border: "1px solid rgba(230,57,70,0.20)" }}>
+                      <Flag team={tOut} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, textDecoration: pOut.elim ? "line-through" : "none" }}>{pOut.name}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>OUT · {pOut.elim || tOut?.elim ? "ELIMINATED" : POS_NAMES[pOut.pos]}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13 }} disabled={i === 0} onClick={() => move(i, -1)}>↑ Up</button>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13 }} disabled={i === bids.length - 1} onClick={() => move(i, 1)}>↓ Down</button>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13, background: "var(--red-500)", color: "white" }} onClick={() => removeBid(i)}>✕ Remove</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="table-scroll">
         <table className="table-clean">
           <thead>
@@ -959,6 +1000,7 @@ function WishlistTab() {
           </tbody>
         </table>
         </div>
+        )}
 
         {adding ? (
           <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
