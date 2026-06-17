@@ -1030,10 +1030,14 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
   const [theirPlayers, setTheirPlayers] = React.useState(null);
   const [mySelected, setMySelected] = React.useState(new Set());
   // Pre-tick the player the user clicked "Trade" on (the one they want to
-  // receive). renderPlayerRow matches by id OR String(id), so seed both forms.
-  const [theirSelected, setTheirSelected] = React.useState(
-    () => initialReceiveId != null ? new Set([Number(initialReceiveId), String(initialReceiveId)]) : new Set()
-  );
+  // receive). Seed the player object's OWN id (single canonical form) — the same
+  // value toggleTheir/countByPos use. Seeding two forms double-counts the player
+  // in countByPos and breaks position validation.
+  const [theirSelected, setTheirSelected] = React.useState(() => {
+    if (initialReceiveId == null) return new Set();
+    const p = playerById(Number(initialReceiveId)) || playerById(String(initialReceiveId));
+    return new Set([p && p.id != null ? p.id : Number(initialReceiveId)]);
+  });
   const [submitting, setSubmitting] = React.useState(false);
   const isMobile = useIsMobile();
 
