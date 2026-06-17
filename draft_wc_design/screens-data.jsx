@@ -676,26 +676,33 @@ function TradesScreen() {
   const isMobile = useIsMobile();
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
-  // Manager↔manager trades are only open during the TRADE window. In the
-  // free-agents and gameweek windows the squad is otherwise managed (free-agent
-  // pickups / wishlist), so proposing a new trade is blocked.
+  // Manager↔manager trades open in the TRADE window AND the gameweek
+  // (NEXT_GW_BID) window. In the gameweek window a proposal is a BID — placed
+  // with no acceptance, auto-executing when the trade window opens.
   const phase = (window.WINDOW && window.WINDOW.phase) || "none";
-  const tradesOpen = phase === "trade";
-  const phaseLabel = { free_agents: "free-agents window", next_gw_bid: "gameweek (wishlist only)", none: "closed window" }[phase] || "this window";
+  const isBidWindow = phase === "next_gw_bid";
+  const tradesOpen = phase === "trade" || isBidWindow;
+  const phaseLabel = { free_agents: "free-agents window", none: "closed window" }[phase] || "this window";
   return (
     <div className="col" style={{ gap: 16 }}>
-      {showPropose && tradesOpen && <ProposeTradeModal onClose={() => setShowPropose(false)} />}
+      {showPropose && tradesOpen && <ProposeTradeModal isBid={isBidWindow} onClose={() => setShowPropose(false)} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: isMobile ? 10 : undefined, flexWrap: isMobile ? "wrap" : undefined }}>
         <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0 }}>Trades</h2>
         <button className="btn btn--primary" disabled={!tradesOpen}
           title={tradesOpen ? "" : `Manager trades are closed during the ${phaseLabel}`}
           style={{ opacity: tradesOpen ? 1 : 0.45, cursor: tradesOpen ? "pointer" : "not-allowed" }}
-          onClick={() => tradesOpen && setShowPropose(true)}>+ Propose Trade</button>
+          onClick={() => tradesOpen && setShowPropose(true)}>{isBidWindow ? "+ Place Bid" : "+ Propose Trade"}</button>
       </div>
+      {isBidWindow && (
+        <div className="alert alert--green">
+          <div className="alert__icon" style={{ background: "var(--green-500)" }}>⚡</div>
+          <div>It's the <strong>gameweek window</strong> — place a <strong>bid</strong> now and it executes automatically when the trade window opens. No acceptance needed; you or the other manager can cancel a bid any time before it runs.</div>
+        </div>
+      )}
       {!tradesOpen && (
         <div className="alert alert--gold">
           <div className="alert__icon" style={{ background: "var(--gold-500)" }}>⏳</div>
-          <div>Manager trades are open only during the <strong>trade window</strong>. You're in the <strong>{phaseLabel}</strong> — you can still respond to existing offers and build your wishlist.</div>
+          <div>Manager trades are open during the <strong>trade window</strong> and as bids during the <strong>gameweek window</strong>. You're in the <strong>{phaseLabel}</strong> — you can still respond to existing offers and build your wishlist.</div>
         </div>
       )}
 
@@ -807,17 +814,29 @@ function TradeCard({ trade, direction }) {
         </div>
       )}
       <div style={{ padding: isMobile ? "12px 14px" : "12px 20px", borderTop: "1px solid var(--border)", display: "flex", gap: 8, justifyContent: "space-between", alignItems: "center", flexWrap: isMobile ? "wrap" : undefined }}>
-        <span className="muted" style={{ fontSize: 12 }}>
-          {trade.status === "pending" && (isIncoming ? "Awaiting your decision" : "Awaiting their decision")}
-          {" · "}League approval: vote (3 vetoes needed)
-        </span>
-        {isIncoming ? (
-          <div className="row" style={{ gap: 8 }}>
-            <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("decline")}>Decline</button>
-            <button className="btn btn--primary" disabled={busy} onClick={() => act("accept")}>{busy ? "…" : "Accept"}</button>
-          </div>
+        {trade.status === "deferred_pending" ? (
+          <>
+            <span style={{ fontSize: 12, fontWeight: 700, color: "var(--green-600, #1a9d5a)" }}>
+              ⚡ Gameweek bid · executes automatically when the trade window opens
+            </span>
+            {/* No acceptance — either party may cancel before it runs. */}
+            <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : (isIncoming ? "Reject bid" : "Cancel bid")}</button>
+          </>
         ) : (
-          <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : "Cancel"}</button>
+          <>
+            <span className="muted" style={{ fontSize: 12 }}>
+              {trade.status === "pending" && (isIncoming ? "Awaiting your decision" : "Awaiting their decision")}
+              {" · "}League approval: vote (3 vetoes needed)
+            </span>
+            {isIncoming ? (
+              <div className="row" style={{ gap: 8 }}>
+                <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("decline")}>Decline</button>
+                <button className="btn btn--primary" disabled={busy} onClick={() => act("accept")}>{busy ? "…" : "Accept"}</button>
+              </div>
+            ) : (
+              <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : "Cancel"}</button>
+            )}
+          </>
         )}
       </div>
     </div>
@@ -998,7 +1017,7 @@ function ManagerSquadModal({ uid, gw, onClose }) {
 
 
 // ---------- PROPOSE TRADE MODAL ----------
-function ProposeTradeModal({ onClose }) {
+function ProposeTradeModal({ onClose, isBid }) {
   const [step, setStep] = React.useState(1);
   const [targetUid, setTargetUid] = React.useState(null);
   const [theirPlayers, setTheirPlayers] = React.useState(null);
@@ -1076,7 +1095,9 @@ function ProposeTradeModal({ onClose }) {
         proposerPlayerIds: Array.from(mySelected).map(id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id)),
         targetPlayerIds: Array.from(theirSelected).map(id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id)),
       });
-      alert("Trade proposal sent! Awaiting their response.");
+      alert(isBid
+        ? "Bid placed! It executes automatically when the trade window opens. You can cancel it any time before then."
+        : "Trade proposal sent! Awaiting their response.");
       onClose();
       // Refetch so the new trade appears in the proposer's outbox (and the
       // target's inbox). Mirrors TradeCard.act — there's no standalone
@@ -1135,7 +1156,7 @@ function ProposeTradeModal({ onClose }) {
         {/* Step 1 — pick manager */}
         {step === 1 && (
           <div style={{ padding: 24 }}>
-            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Propose Trade · Step 1 of 2</div>
+            <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{isBid ? "Place Bid" : "Propose Trade"} · Step 1 of 2</div>
             <div className="h-display" style={{ fontSize: 22, margin: "6px 0 16px" }}>Who do you want to trade with?</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 10 }}>
               {managers.map(m => {
@@ -1164,7 +1185,7 @@ function ProposeTradeModal({ onClose }) {
             <div style={{ padding: isMobile ? "14px 16px" : "18px 24px", borderBottom: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 12 }}>
               <button className="btn btn--ghost-dark" style={{ padding: "6px 12px", fontSize: 12, flexShrink: isMobile ? 0 : undefined }} onClick={() => { setStep(1); setMySelected(new Set()); setTheirSelected(new Set()); }}>← Back</button>
               <div className="m-min0">
-                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Propose Trade · Step 2 of 2</div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "var(--ink-500)", letterSpacing: "0.08em", textTransform: "uppercase" }}>{isBid ? "Place Bid" : "Propose Trade"} · Step 2 of 2</div>
                 <div className="h-display" style={{ fontSize: isMobile ? 15 : 18, marginTop: 2 }}>Select players to swap with {targetMgr?.team}</div>
               </div>
             </div>
@@ -1226,7 +1247,7 @@ function ProposeTradeModal({ onClose }) {
               <button className="btn btn--primary" style={{ flexShrink: 0 }}
                 disabled={!posValid || submitting}
                 onClick={handleSubmit}>
-                {submitting ? "Sending…" : "Send Trade Proposal →"}
+                {submitting ? "Sending…" : (isBid ? "Place Bid →" : "Send Trade Proposal →")}
               </button>
             </div>
           </div>

@@ -99,9 +99,13 @@ class FakeQuery:
         self._docs = docs
 
     def where(self, field, op, value):
-        assert op == "=="
+        assert op in ("==", "in")
+        if op == "in":
+            keep = lambda v: v in value
+        else:
+            keep = lambda v: v == value
         return FakeQuery(
-            [d for d in self._docs if (d.to_dict() or {}).get(field) == value]
+            [d for d in self._docs if keep((d.to_dict() or {}).get(field))]
         )
 
     def get(self):
@@ -636,7 +640,9 @@ def test_proposer_can_cancel_deferred_trade(mgr, db):
     assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
 
 
-def test_non_proposer_cannot_cancel_deferred_trade(mgr, db):
+def test_non_participant_cannot_cancel_deferred_bid(mgr, db):
+    # The proposer or the target may cancel a deferred bid; an unrelated manager
+    # cannot.
     _seed_league(db, "lg1", current_gw=4)
     _seed_squad(db, "lg1", "alice", ALICE)
     _seed_squad(db, "lg1", "bob", BOB)
@@ -644,7 +650,87 @@ def test_non_proposer_cannot_cancel_deferred_trade(mgr, db):
                 _make_trade("alice", "bob", [ALICE[2]], [BOB[2]], targetGw=4))
 
     with pytest.raises(ValueError, match="Only the proposer can cancel"):
-        mgr.cancel_trade("lg1", "t1", "bob")
+        mgr.cancel_trade("lg1", "t1", "carol")
+
+
+def test_target_can_cancel_deferred_bid(mgr, db):
+    # No-acceptance bid: the target can back out before it executes.
+    _seed_league(db, "lg1", current_gw=4)
+    _seed_squad(db, "lg1", "alice", ALICE)
+    _seed_squad(db, "lg1", "bob", BOB)
+    _seed_trade(db, "lg1", "t1",
+                _make_trade("alice", "bob", [ALICE[2]], [BOB[2]], targetGw=4))
+
+    assert mgr.cancel_trade("lg1", "t1", "bob")["status"] == "cancelled"
+    assert _trade_doc(db, "lg1", "t1")["status"] == "cancelled"
+
+
+# ---------------------------------------------------------------------------
+# Bid-only model (no acceptance): propose in NEXT_GW_BID is born deferred
+# ---------------------------------------------------------------------------
+
+def _seed_pair(db, lid, window="next_gw_bid"):
+    _seed_league(db, lid, window=window, gw=4, current_gw=4)
+    _seed_member(db, lid, "alice")
+    _seed_member(db, lid, "bob")
+    _seed_squad(db, lid, "alice", ALICE)
+    _seed_squad(db, lid, "bob", BOB)
+
+
+def test_propose_in_gameweek_is_a_bid_no_acceptance(mgr, db):
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])  # MID for MID
+    assert res["status"] == "deferred_pending"
+    assert res["isBid"] is True
+    assert res["targetGw"] == 4
+    # Born deferred — no pending state, squads untouched until window opens.
+    assert _trade_doc(db, "lg1", res["tradeId"])["status"] == "deferred_pending"
+    assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
+
+
+def test_propose_in_trade_window_is_normal_pending(mgr, db):
+    _seed_pair(db, "lg1", window="trade")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    assert res["status"] == "pending"
+    assert res["isBid"] is False
+    assert res.get("targetGw") is None
+
+
+def test_accept_on_a_bid_is_rejected(mgr, db):
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    with pytest.raises(ValueError, match="gameweek bid"):
+        mgr.respond_trade("lg1", res["tradeId"], "bob", "accept")
+
+
+def test_cancelled_bid_cannot_be_accepted_or_executed(mgr, db):
+    # The crux: cancel persists to the DB, and every execution path re-reads it.
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    tid = res["tradeId"]
+
+    mgr.cancel_trade("lg1", tid, "alice")
+    assert _trade_doc(db, "lg1", tid)["status"] == "cancelled"
+
+    # A stale cached "accept" by the other manager must NOT pass.
+    with pytest.raises(ValueError, match="cancelled and can no longer be accepted"):
+        mgr.respond_trade("lg1", tid, "bob", "accept")
+
+    # And it never executes when the trade window opens.
+    out = mgr.process_deferred_trades("lg1", 4)
+    assert out == {"executed": [], "cancelled": []}
+    assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
+    assert _squad_ids(db, "lg1", "bob") == {11, 12, 13, 14}
+
+
+def test_uncancelled_bid_executes_at_window_open(mgr, db):
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    out = mgr.process_deferred_trades("lg1", 4)
+    assert out["executed"] == [{"tradeId": res["tradeId"]}]
+    # Squads swapped: alice now holds Bob's MID (13), bob holds Alice's MID (3).
+    assert 13 in _squad_ids(db, "lg1", "alice")
+    assert 3 in _squad_ids(db, "lg1", "bob")
 
 
 if __name__ == "__main__":

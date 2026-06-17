@@ -1084,9 +1084,11 @@ function App() {
             createdAt: fmtAgo(t.createdAt),
             message: t.message || "",
           });
-          const pending = (trades || []).filter(t => t.status === "pending").map(mapTrade);
-          window.TRADES_INBOX = pending.filter(t => t.target === window.ME);
-          window.TRADES_OUTBOX = pending.filter(t => t.proposer === window.ME);
+          // Include live BIDS (deferred_pending) alongside pending offers so the
+          // gameweek-window bids are visible + cancellable in the Trades screen.
+          const open = (trades || []).filter(t => t.status === "pending" || t.status === "deferred_pending").map(mapTrade);
+          window.TRADES_INBOX = open.filter(t => t.target === window.ME);
+          window.TRADES_OUTBOX = open.filter(t => t.proposer === window.ME);
         } catch (e) {
           console.warn("Failed to fetch trades", e);
           window.TRADES_INBOX = [];

@@ -46,7 +46,14 @@ class WCTradeManager:
         if league.get("status") not in ("group_phase", "knockout"):
             raise ValueError("League is not active")
 
-        self._validate_window_open(lid, league)
+        # Window gate + bid-mode detection in one read. In NEXT_GW_BID (the live
+        # gameweek) a proposal is a "bid": it is parked directly as
+        # deferred_pending with NO acceptance step and auto-executes when the
+        # next trade window opens. In TRADE it's a normal pending offer.
+        window, upcoming_gw = self._window_phase(lid)
+        if window not in (TransferWindow.TRADE, TransferWindow.NEXT_GW_BID):
+            raise ValueError("TRADES_BLOCKED_WINDOW_CLOSED")
+        is_bid = window == TransferWindow.NEXT_GW_BID
 
         if proposer_uid == target_uid:
             raise ValueError("TRADE_TARGET_INVALID")
@@ -91,11 +98,13 @@ class WCTradeManager:
         all_player_ids = proposer_player_ids + target_player_ids
         self._check_mid_fixture(all_player_ids, prop_map, tgt_map)
 
-        # Check pending trade limits
+        # Check open-offer limits — count both pending offers AND live bids
+        # (deferred_pending) so bids can't be spammed during the gameweek.
+        OPEN = ["pending", "deferred_pending"]
         existing_prop = list(
             league_ref.collection("trades")
             .where("proposerUid", "==", proposer_uid)
-            .where("status", "==", "pending")
+            .where("status", "in", OPEN)
             .get()
         )
         if len(existing_prop) >= 5:
@@ -104,7 +113,7 @@ class WCTradeManager:
         existing_tgt_incoming = list(
             league_ref.collection("trades")
             .where("targetUid", "==", target_uid)
-            .where("status", "==", "pending")
+            .where("status", "in", OPEN)
             .get()
         )
         if len(existing_tgt_incoming) >= 10:
@@ -136,21 +145,28 @@ class WCTradeManager:
 
         expires_at = datetime.now(timezone.utc) + timedelta(hours=48)
 
-        trade_ref = league_ref.collection("trades").document()
-        trade_ref.set({
+        doc = {
             "proposerUid": proposer_uid,
             "targetUid": target_uid,
             "proposerPlayers": prop_players,
             "targetPlayers": tgt_players,
             "message": message[:280] if message else None,
-            "status": "pending",
+            # A gameweek bid skips acceptance: it is born deferred_pending and
+            # executes at the next trade-window open (process_deferred_trades).
+            "status": "deferred_pending" if is_bid else "pending",
+            "isBid": is_bid,
             "vetoVotes": [],
             "approveVotes": [],
             "vetoThreshold": veto_threshold,
             "createdAt": SERVER_TIMESTAMP,
             "resolvedAt": None,
             "expiresAt": expires_at,
-        })
+        }
+        if is_bid:
+            doc["targetGw"] = upcoming_gw
+
+        trade_ref = league_ref.collection("trades").document()
+        trade_ref.set(doc)
 
         return {
             "tradeId": trade_ref.id,
@@ -158,7 +174,9 @@ class WCTradeManager:
             "targetUid": target_uid,
             "proposerPlayers": prop_players,
             "targetPlayers": tgt_players,
-            "status": "pending",
+            "status": doc["status"],
+            "isBid": is_bid,
+            "targetGw": upcoming_gw if is_bid else None,
             "vetoThreshold": veto_threshold,
         }
 
@@ -171,7 +189,14 @@ class WCTradeManager:
             raise ValueError("Trade not found")
 
         trade = trade_doc.to_dict()
+        # Re-read gate (authoritative): a gameweek BID is deferred_pending, never
+        # pending, so it can't be accepted here at all; and a cancelled offer is
+        # dead even if a stale client still shows an Accept button.
         if trade["status"] != "pending":
+            if trade["status"] == "cancelled":
+                raise ValueError("This offer was cancelled and can no longer be accepted")
+            if trade.get("isBid") or trade["status"] == "deferred_pending":
+                raise ValueError("This is a gameweek bid — it executes automatically when the trade window opens, no acceptance needed")
             raise ValueError("Trade is no longer pending")
         if uid != trade["targetUid"]:
             raise ValueError("Only the trade target can accept or decline")
@@ -274,18 +299,32 @@ class WCTradeManager:
         return {"status": "awaiting_vote", "vetoCount": len(vetos), "threshold": threshold}
 
     def cancel_trade(self, lid: str, trade_id: str, uid: str) -> dict:
+        """Cancel an open offer / bid, persisting ``status = cancelled`` to the
+        DB. This is authoritative: every execution path re-reads the doc and
+        gates on status (``respond_trade`` requires ``pending``,
+        ``process_deferred_trades`` only runs ``deferred_pending``), so once a bid
+        is cancelled here a stale cached "accept" by the other manager can never
+        resurrect it.
+
+        The proposer can always cancel. For a gameweek BID (deferred_pending,
+        no-acceptance) the TARGET may also cancel — either side can back out
+        before it executes at the next trade-window open.
+        """
         trade_ref = (self.db.collection("leagues").document(lid)
                      .collection("trades").document(trade_id))
         trade_doc = trade_ref.get()
         if not trade_doc.exists:
             raise ValueError("Trade not found")
         trade = trade_doc.to_dict()
-        if trade["proposerUid"] != uid:
-            raise ValueError("Only the proposer can cancel")
         if trade["status"] not in (
             "pending", "awaiting_vote", "awaiting_admin", "deferred_pending"
         ):
             raise ValueError("Trade cannot be cancelled in its current state")
+        allowed = {trade["proposerUid"]}
+        if trade["status"] == "deferred_pending":
+            allowed.add(trade.get("targetUid"))
+        if uid not in allowed:
+            raise ValueError("Only the proposer can cancel this offer")
 
         trade_ref.update({"status": "cancelled", "resolvedAt": SERVER_TIMESTAMP})
         return {"status": "cancelled"}
