@@ -485,7 +485,7 @@ def test_process_executes_valid_deferred_trade(mgr, db):
 
     result = mgr.process_deferred_trades("lg1", 4)
 
-    assert result == {"executed": [{"tradeId": "t1"}], "cancelled": []}
+    assert result == {"executed": [{"tradeId": "t1"}], "cancelled": [], "promoted": []}
     # Squads swapped.
     assert 13 in _squad_ids(db, "lg1", "alice") and 3 not in _squad_ids(db, "lg1", "alice")
     assert 3 in _squad_ids(db, "lg1", "bob") and 13 not in _squad_ids(db, "lg1", "bob")
@@ -526,7 +526,7 @@ def test_process_skips_other_target_gw(mgr, db):
     result = mgr.process_deferred_trades("lg1", 4)
 
     # targetGw 5 != requested gw 4 → left alone.
-    assert result == {"executed": [], "cancelled": []}
+    assert result == {"executed": [], "cancelled": [], "promoted": []}
     assert _trade_doc(db, "lg1", "t1")["status"] == "deferred_pending"
     assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
 
@@ -636,7 +636,7 @@ def test_proposer_can_cancel_deferred_trade(mgr, db):
     assert _trade_doc(db, "lg1", "t1")["status"] == "cancelled"
     # Not executed: it won't be picked up by process_deferred_trades anymore.
     after = mgr.process_deferred_trades("lg1", 4)
-    assert after == {"executed": [], "cancelled": []}
+    assert after == {"executed": [], "cancelled": [], "promoted": []}
     assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
 
 
@@ -716,19 +716,48 @@ def test_cancelled_bid_cannot_be_accepted_or_executed(mgr, db):
     with pytest.raises(ValueError, match="cancelled and can no longer be accepted"):
         mgr.respond_trade("lg1", tid, "bob", "accept")
 
-    # And it never executes when the trade window opens.
+    # And it is neither executed nor promoted when the trade window opens —
+    # a cancelled doc is no longer deferred_pending, so it's skipped entirely.
     out = mgr.process_deferred_trades("lg1", 4)
-    assert out == {"executed": [], "cancelled": []}
+    assert out == {"executed": [], "cancelled": [], "promoted": []}
     assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
     assert _squad_ids(db, "lg1", "bob") == {11, 12, 13, 14}
 
 
-def test_uncancelled_bid_executes_at_window_open(mgr, db):
+def test_uncancelled_bid_becomes_pending_offer_at_window_open(mgr, db):
+    # The bid must NEVER auto-execute (that would take a player without consent).
+    # At window open it is PROMOTED to a normal pending offer; squads untouched.
     _seed_pair(db, "lg1", window="next_gw_bid")
     res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    tid = res["tradeId"]
+
     out = mgr.process_deferred_trades("lg1", 4)
-    assert out["executed"] == [{"tradeId": res["tradeId"]}]
-    # Squads swapped: alice now holds Bob's MID (13), bob holds Alice's MID (3).
+    assert out["promoted"] == [{"tradeId": tid}]
+    assert out["executed"] == []
+
+    doc = _trade_doc(db, "lg1", tid)
+    assert doc["status"] == "pending"        # now awaiting the target's acceptance
+    assert doc["isBid"] is False             # acceptable as a normal trade
+    assert doc["openedFromBid"] is True      # provenance preserved
+    # No theft: squads are exactly as before until the target accepts.
+    assert _squad_ids(db, "lg1", "alice") == {1, 2, 3, 4}
+    assert _squad_ids(db, "lg1", "bob") == {11, 12, 13, 14}
+
+
+def test_promoted_bid_executes_only_after_target_accepts(mgr, db):
+    # Full path: bid -> promoted to pending -> target accepts in the trade
+    # window -> squads swap. Consent is required for the swap to happen.
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    tid = res["tradeId"]
+    mgr.process_deferred_trades("lg1", 4)  # promote to pending
+
+    # Trade window is now open; the target (bob) accepts.
+    db.collection("leagues").document("lg1").update(
+        {"windowOverride": {"phase": "trade", "gw": 4}}
+    )
+    mgr.respond_trade("lg1", tid, "bob", "accept")
+
     assert 13 in _squad_ids(db, "lg1", "alice")
     assert 3 in _squad_ids(db, "lg1", "bob")
 

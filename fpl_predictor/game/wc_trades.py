@@ -47,9 +47,10 @@ class WCTradeManager:
             raise ValueError("League is not active")
 
         # Window gate + bid-mode detection in one read. In NEXT_GW_BID (the live
-        # gameweek) a proposal is a "bid": it is parked directly as
-        # deferred_pending with NO acceptance step and auto-executes when the
-        # next trade window opens. In TRADE it's a normal pending offer.
+        # gameweek) a proposal is a "bid": it is parked as deferred_pending and,
+        # when the next trade window opens, is PROMOTED to a normal pending offer
+        # the target must accept (it never auto-executes). In TRADE it's a normal
+        # pending offer straight away.
         window, upcoming_gw = self._window_phase(lid)
         if window not in (TransferWindow.TRADE, TransferWindow.NEXT_GW_BID):
             raise ValueError("TRADES_BLOCKED_WINDOW_CLOSED")
@@ -151,8 +152,9 @@ class WCTradeManager:
             "proposerPlayers": prop_players,
             "targetPlayers": tgt_players,
             "message": message[:280] if message else None,
-            # A gameweek bid skips acceptance: it is born deferred_pending and
-            # executes at the next trade-window open (process_deferred_trades).
+            # A gameweek bid is born deferred_pending; at the next trade-window
+            # open it is promoted to a pending offer the target must accept
+            # (process_deferred_trades) — it never auto-executes.
             "status": "deferred_pending" if is_bid else "pending",
             "isBid": is_bid,
             "vetoVotes": [],
@@ -189,14 +191,15 @@ class WCTradeManager:
             raise ValueError("Trade not found")
 
         trade = trade_doc.to_dict()
-        # Re-read gate (authoritative): a gameweek BID is deferred_pending, never
-        # pending, so it can't be accepted here at all; and a cancelled offer is
+        # Re-read gate (authoritative): a gameweek BID is deferred_pending while
+        # the gameweek is live — it can't be accepted yet (it only becomes a
+        # pending offer once the trade window opens); and a cancelled offer is
         # dead even if a stale client still shows an Accept button.
         if trade["status"] != "pending":
             if trade["status"] == "cancelled":
                 raise ValueError("This offer was cancelled and can no longer be accepted")
             if trade.get("isBid") or trade["status"] == "deferred_pending":
-                raise ValueError("This is a gameweek bid — it executes automatically when the trade window opens, no acceptance needed")
+                raise ValueError("This is a gameweek bid — it becomes a pending offer when the trade window opens, and must be accepted then")
             raise ValueError("Trade is no longer pending")
         if uid != trade["targetUid"]:
             raise ValueError("Only the trade target can accept or decline")
@@ -351,14 +354,21 @@ class WCTradeManager:
                 doc.reference.update({"status": "expired", "resolvedAt": SERVER_TIMESTAMP})
 
     def process_deferred_trades(self, lid: str, gw: int) -> dict:
-        """Execute every ``deferred_pending`` trade for ``gw``, atomically, FIRST.
+        """Resolve every ``deferred_pending`` trade for ``gw`` at window open.
 
         Called by the open-trade-window orchestrator BEFORE the wishlist auction
-        (WC2026_WINDOWS_DESIGN.md §6). Each deferred trade was auto-approved
-        during the previous GW's NEXT_GW_BID window; squads may have changed
-        since, so ``_execute_trade`` re-validates ownership + position counts
-        inside its transaction. A trade that no longer validates is marked
-        ``cancelled`` with a ``cancelReason`` and leaves both squads untouched.
+        (WC2026_WINDOWS_DESIGN.md §6). Two kinds of deferred docs exist and they
+        are handled DIFFERENTLY:
+
+        * **Gameweek bids** (``isBid``) have no acceptance from the target yet, so
+          they are NOT executed here — that would take a player without consent.
+          They are PROMOTED to a normal ``pending`` offer in the target's inbox
+          to accept/decline.
+        * **Already-accepted trades** parked by ``_finalize_trade`` (``isBid``
+          falsy) carry the target's consent and ARE executed. Squads may have
+          changed since, so ``_execute_trade`` re-validates ownership + position
+          counts inside its transaction; one that no longer validates is marked
+          ``cancelled`` with a ``cancelReason`` and leaves both squads untouched.
 
         ``targetGw`` filtering is done in Python (not a compound Firestore
         query) so docs that predate the field — or were written without it — are
@@ -374,11 +384,30 @@ class WCTradeManager:
 
         executed: List[dict] = []
         cancelled: List[dict] = []
+        promoted: List[dict] = []
         for doc in deferred:
             trade = doc.to_dict()
             target_gw = trade.get("targetGw")
             if target_gw is not None and target_gw != gw:
                 continue
+
+            # A gameweek BID has NO consent from the target yet — it must NEVER
+            # auto-execute (that would take their player without permission).
+            # When the trade window opens we surface it as a normal *pending*
+            # offer in the target's inbox; they accept/decline it like any trade.
+            # Only the OTHER kind of deferred doc — a trade the target already
+            # ACCEPTED during the gameweek (parked by _finalize_trade, isBid
+            # falsy) — carries consent and executes here.
+            if trade.get("isBid"):
+                doc.reference.update({
+                    "status": "pending",      # now a live offer awaiting acceptance
+                    "isBid": False,           # so respond_trade(accept) is allowed
+                    "openedFromBid": True,     # provenance: started life as a GW bid
+                    "targetGw": None,
+                })
+                promoted.append({"tradeId": doc.id})
+                continue
+
             try:
                 self._execute_trade(lid, trade)
             except ValueError as exc:
@@ -392,7 +421,7 @@ class WCTradeManager:
             doc.reference.update({"status": "accepted", "resolvedAt": SERVER_TIMESTAMP})
             executed.append({"tradeId": doc.id})
 
-        return {"executed": executed, "cancelled": cancelled}
+        return {"executed": executed, "cancelled": cancelled, "promoted": promoted}
 
     # ------------------------------------------------------------------
     # Private

@@ -684,8 +684,9 @@ function TradesScreen() {
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
   // Manager↔manager trades open in the TRADE window AND the gameweek
-  // (NEXT_GW_BID) window. In the gameweek window a proposal is a BID — placed
-  // with no acceptance, auto-executing when the trade window opens.
+  // (NEXT_GW_BID) window. In the gameweek window a proposal is a BID — it queues
+  // up and, when the trade window opens, becomes a pending offer the other
+  // manager must accept. It never executes on its own.
   const phase = (window.WINDOW && window.WINDOW.phase) || "none";
   const isBidWindow = phase === "next_gw_bid";
   const tradesOpen = phase === "trade" || isBidWindow;
@@ -703,7 +704,7 @@ function TradesScreen() {
       {isBidWindow && (
         <div className="alert alert--green">
           <div className="alert__icon" style={{ background: "var(--green-500)" }}>⚡</div>
-          <div>It's the <strong>gameweek window</strong> — place a <strong>bid</strong> now and it executes automatically when the trade window opens. No acceptance needed; you or the other manager can cancel a bid any time before it runs.</div>
+          <div>It's the <strong>gameweek window</strong> — place a <strong>bid</strong> now and it queues up. When the trade window opens it becomes a pending offer the other manager must <strong>accept</strong> (it never goes through on its own). You can cancel a bid any time before then.</div>
         </div>
       )}
       {!tradesOpen && (
@@ -824,9 +825,9 @@ function TradeCard({ trade, direction }) {
         {trade.status === "deferred_pending" ? (
           <>
             <span style={{ fontSize: 12, fontWeight: 700, color: "var(--green-600, #1a9d5a)" }}>
-              ⚡ Gameweek bid · executes automatically when the trade window opens
+              ⚡ Gameweek bid · becomes a pending offer to accept when the trade window opens
             </span>
-            {/* No acceptance — either party may cancel before it runs. */}
+            {/* Not yet consented — either party may cancel before the window opens. */}
             <button className="btn btn--ghost-dark" disabled={busy} onClick={() => act("cancel")}>{busy ? "…" : (isIncoming ? "Reject bid" : "Cancel bid")}</button>
           </>
         ) : (
@@ -1111,7 +1112,7 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
         targetPlayerIds: Array.from(theirSelected).map(id => isNaN(Number(id)) ? Number(String(id).replace("p_", "")) : Number(id)),
       });
       alert(isBid
-        ? "Bid placed! It executes automatically when the trade window opens. You can cancel it any time before then."
+        ? "Bid placed! When the trade window opens it becomes a pending offer the other manager must accept — it won't go through without their OK. You can cancel it any time before then."
         : "Trade proposal sent! Awaiting their response.");
       onClose();
       // Refetch so the new trade appears in the proposer's outbox (and the
