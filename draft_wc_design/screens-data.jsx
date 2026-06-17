@@ -252,10 +252,11 @@ function FixturesScreen() {
   // picks. Self-contained; no league data touched.
   const [picksOpen, setPicksOpen] = React.useState(false);
   const tapRef = React.useRef({ n: 0, t: 0 });
-  const secretTap = () => {
+  const secretTap = (e) => {
+    if (e) { e.stopPropagation(); }
     const now = Date.now();
     const r = tapRef.current;
-    r.n = (now - r.t < 1500) ? r.n + 1 : 1;
+    r.n = (now - r.t < 2500) ? r.n + 1 : 1;
     r.t = now;
     if (r.n >= 3) { r.n = 0; setPicksOpen(true); }
   };
@@ -379,8 +380,8 @@ function FixturesScreen() {
           </button>
         ))}
         {/* secret: triple-tap → score-pool EV picks */}
-        <span onClick={secretTap} aria-hidden="true"
-          style={{ flexShrink: 0, width: 14, height: 14, marginLeft: 2, borderRadius: "50%", opacity: 0.22, cursor: "default", userSelect: "none", color: "var(--ink-500)", fontSize: 16, lineHeight: "14px", textAlign: "center" }}>•</span>
+        <span onClick={secretTap} onTouchEnd={secretTap} aria-hidden="true"
+          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, marginLeft: 2, borderRadius: "50%", opacity: 0.3, cursor: "default", userSelect: "none", WebkitTapHighlightColor: "transparent", color: "var(--ink-500)", fontSize: 22 }}>•</span>
       </div>
 
       {window.BettingPicksModal
