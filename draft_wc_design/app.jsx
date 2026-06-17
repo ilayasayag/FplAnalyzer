@@ -274,6 +274,15 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
 
+  // "Trade" buttons in the Transfers player table dispatch wc:open-trade with
+  // { targetUid, receiveId }. Stash it for TradesScreen to consume on mount, then
+  // jump to the Trades tab where the proposal opens pre-seeded.
+  React.useEffect(() => {
+    const onOpenTrade = e => { window.__TRADE_SEED = e.detail; setTab("trades"); };
+    window.addEventListener("wc:open-trade", onOpenTrade);
+    return () => window.removeEventListener("wc:open-trade", onOpenTrade);
+  }, []);
+
   // Auth States
   const [user, setUser] = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);

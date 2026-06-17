@@ -673,6 +673,13 @@ function ResultsTable() {
 function TradesScreen() {
   const [tab, setTab] = React.useState("inbox");
   const [showPropose, setShowPropose] = React.useState(false);
+  // Seed set when the user clicks "Trade" on a player in the Transfers table:
+  // { targetUid, receiveId } pre-targets that manager + pre-ticks the player.
+  const [seed, setSeed] = React.useState(null);
+  React.useEffect(() => {
+    const s = window.__TRADE_SEED;
+    if (s) { window.__TRADE_SEED = null; setSeed(s); setShowPropose(true); }
+  }, []);
   const isMobile = useIsMobile();
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
@@ -685,7 +692,7 @@ function TradesScreen() {
   const phaseLabel = { free_agents: "free-agents window", none: "closed window" }[phase] || "this window";
   return (
     <div className="col" style={{ gap: 16 }}>
-      {showPropose && tradesOpen && <ProposeTradeModal isBid={isBidWindow} onClose={() => setShowPropose(false)} />}
+      {showPropose && tradesOpen && <ProposeTradeModal isBid={isBidWindow} initialTargetUid={seed?.targetUid} initialReceiveId={seed?.receiveId} onClose={() => { setShowPropose(false); setSeed(null); }} />}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: isMobile ? 10 : undefined, flexWrap: isMobile ? "wrap" : undefined }}>
         <h2 className="h-display" style={{ fontSize: isMobile ? 22 : 26, margin: 0 }}>Trades</h2>
         <button className="btn btn--primary" disabled={!tradesOpen}
@@ -1017,12 +1024,16 @@ function ManagerSquadModal({ uid, gw, onClose }) {
 
 
 // ---------- PROPOSE TRADE MODAL ----------
-function ProposeTradeModal({ onClose, isBid }) {
+function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId }) {
   const [step, setStep] = React.useState(1);
   const [targetUid, setTargetUid] = React.useState(null);
   const [theirPlayers, setTheirPlayers] = React.useState(null);
   const [mySelected, setMySelected] = React.useState(new Set());
-  const [theirSelected, setTheirSelected] = React.useState(new Set());
+  // Pre-tick the player the user clicked "Trade" on (the one they want to
+  // receive). renderPlayerRow matches by id OR String(id), so seed both forms.
+  const [theirSelected, setTheirSelected] = React.useState(
+    () => initialReceiveId != null ? new Set([Number(initialReceiveId), String(initialReceiveId)]) : new Set()
+  );
   const [submitting, setSubmitting] = React.useState(false);
   const isMobile = useIsMobile();
 
@@ -1114,6 +1125,12 @@ function ProposeTradeModal({ onClose, isBid }) {
     const k = e => { if (e.key === "Escape") onClose(); };
     window.addEventListener("keydown", k);
     return () => window.removeEventListener("keydown", k);
+  }, []);
+
+  // Seeded from the Transfers "Trade" button: jump straight to step 2 with the
+  // chosen manager's squad loaded (the player is already ticked via state init).
+  React.useEffect(() => {
+    if (initialTargetUid) handleSelectManager(initialTargetUid);
   }, []);
 
   const targetMgr = targetUid ? managerById(targetUid) : null;

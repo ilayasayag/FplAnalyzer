@@ -566,12 +566,23 @@ function FreeAgentsTab() {
   // a memo captured on mount could be empty if Transfers opens before that async
   // load resolves, which made every owned player look like a free agent.
   const ownerByPid = {};
+  const ownerUidByPid = {};
   {
     const sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
     const nameOf = uid => { const m = mgrs.find(x => x.uid === uid); return m ? (m.team || m.name || uid) : uid; };
-    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { ownerByPid[String(pid)] = nameOf(uid); }));
+    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => {
+      ownerByPid[String(pid)] = nameOf(uid);
+      ownerUidByPid[String(pid)] = uid;
+    }));
   }
   const ownerNames = [...new Set(Object.values(ownerByPid))].sort();
+
+  // Manager↔manager trades/bids are allowed in the TRADE and gameweek
+  // (NEXT_GW_BID) windows. When open, a player owned by ANOTHER manager shows a
+  // "Trade" button that jumps to the Trades tab with a proposal pre-seeded
+  // (their squad selected, that player already ticked as the one you receive).
+  const tradePhase = (window.WINDOW && window.WINDOW.phase) || "none";
+  const canTrade = tradePhase === "trade" || tradePhase === "next_gw_bid";
 
   // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
   // real points. "All players" = the whole pool (owned shown with their manager,
@@ -773,7 +784,17 @@ function FreeAgentsTab() {
                 </td>
                 <td style={{ textAlign: "right" }}>
                   {owner ? (
-                    <span className="muted" style={{ fontSize: 11 }}>Owned</span>
+                    (() => {
+                      const ownerUid = ownerUidByPid[String(p.id)];
+                      const tradable = canTrade && ownerUid && ownerUid !== window.ME;
+                      return tradable ? (
+                        <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11, background: "var(--violet-500)", color: "white" }}
+                          title={`Propose a trade with ${owner} for ${p.name}`}
+                          onClick={() => window.dispatchEvent(new CustomEvent("wc:open-trade", { detail: { targetUid: ownerUid, receiveId: Number(p.id) } }))}>Trade</button>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>Owned</span>
+                      );
+                    })()
                   ) : isPicking ? (
                     <div className="row fa-pickup" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
                       <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
