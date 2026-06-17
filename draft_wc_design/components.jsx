@@ -615,5 +615,109 @@ function SyncDataButton({ style }) {
   );
 }
 
+// ---------- Secret betting picks (EV = P(dir)·base + 4·P(exact)) ----------
+// Static snapshot of the score-prediction-pool EV model: Polymarket directions
+// blended 0.6/0.4 with FIFA Match Predictor crowd picks on the exact score.
+// Hand-computed (no live feed) — refresh by editing this table. Hidden behind a
+// triple-tap on the Fixtures GW bar; nothing here touches league data.
+const BETTING_PICKS = {
+  GW1: { label: "GW1 · Round 1 (closing tonight)", rows: [
+    ["Portugal – DR Congo", "Portugal 3-0", 2.10, false],
+    ["England – Croatia",   "England 2-1",  2.02, false],
+    ["Uzbekistan – Colombia","Colombia 2-0", 1.97, false],
+    ["Ghana – Panama",      "Draw 1-1 (toss-up)", 1.60, true],
+  ]},
+  GW2: { label: "GW2 · Round 2", rows: [
+    ["Canada – Qatar",        "Canada 2-0",      2.42, false],
+    ["Ecuador – Curaçao",     "Ecuador 2-0",     2.30, false],
+    ["Spain – Saudi Arabia",  "Spain 3-0",       2.19, false],
+    ["Brazil – Haiti",        "Brazil 3-0",      2.16, false],
+    ["France – Iraq",         "France 3-0",      2.16, false],
+    ["Tunisia – Japan",       "Japan 2-0",       2.15, true],
+    ["Portugal – Uzbekistan", "Portugal 3-0",    2.09, false],
+    ["Switzerland – Bosnia",  "Switzerland 2-1", 2.01, false],
+    ["Czech – South Africa",  "Czech 2-0",       1.94, false],
+    ["USA – Australia",       "USA 2-1",         1.94, false],
+    ["Netherlands – Sweden",  "Netherlands 2-1", 1.94, false],
+    ["Uruguay – Cape Verde",  "Uruguay 2-0",     1.94, false],
+    ["England – Ghana",       "England 2-0",     1.94, false],
+    ["Jordan – Algeria",      "Algeria 2-0",     1.93, true],
+    ["Turkey – Paraguay",     "Turkey 2-1",      1.92, false],
+    ["Argentina – Austria",   "Argentina 2-1",   1.91, false],
+    ["Colombia – DR Congo",   "Colombia 2-0",    1.91, false],
+    ["New Zealand – Egypt",   "Egypt 2-0",       1.91, true],
+    ["Belgium – Iran",        "Belgium 2-0",     1.86, false],
+    ["Mexico – S.Korea",      "Draw 1-1",        1.86, true],
+    ["Scotland – Morocco",    "Morocco 2-1",     1.84, true],
+    ["Panama – Croatia",      "Croatia 2-0",     1.84, false],
+    ["Norway – Senegal",      "Draw 1-1",        1.55, true],
+    ["Germany – Ivory Coast", "Germany 2-1",     1.54, false],
+  ]},
+  GW3: { label: "GW3 · Round 3", rows: [
+    ["South Africa – S.Korea","S.Korea 2-0",     2.28, true],
+    ["Curaçao – Ivory Coast", "Ivory Coast 2-0", 2.16, false],
+    ["Jordan – Argentina",    "Argentina 3-0",   2.12, false],
+    ["Czech – Mexico",        "Mexico 2-1",      2.11, true],
+    ["Senegal – Iraq",        "Senegal 2-0",     2.10, false],
+    ["Bosnia – Qatar",        "Draw 1-1",        2.08, true],
+    ["Morocco – Haiti",       "Morocco 3-0",     2.05, false],
+    ["New Zealand – Belgium", "Belgium 2-0",     2.03, false],
+    ["Croatia – Ghana",       "Croatia 2-1",     1.98, false],
+    ["Tunisia – Netherlands", "Netherlands 2-0", 1.93, false],
+    ["Panama – England",      "England 3-0",     1.91, false],
+    ["Algeria – Austria",     "Draw 1-1",        1.90, true],
+    ["Switzerland – Canada",  "Switzerland 2-1", 1.88, false],
+    ["Egypt – Iran",          "Egypt 2-1",       1.86, false],
+    ["DR Congo – Uzbekistan", "Draw 1-1",        1.84, true],
+    ["Cape Verde – Saudi Arabia","Saudi 1-0",    1.74, true],
+    ["Colombia – Portugal",   "Portugal 2-1",    1.74, false],
+    ["Norway – France",       "France 2-1",      1.73, false],
+    ["Paraguay – Australia",  "Paraguay 1-0",    1.70, false],
+    ["Scotland – Brazil",     "Brazil 2-1",      1.64, false],
+    ["Japan – Sweden",        "Japan 2-1",       1.63, false],
+    ["Uruguay – Spain",       "Spain 2-1",       1.58, false],
+    ["Ecuador – Germany",     "Germany 2-1",     1.56, false],
+    ["Turkey – USA",          "Turkey 2-1",      1.42, false],
+  ]},
+};
+function BettingPicksModal({ open, onClose }) {
+  const [tab, setTab] = React.useState("GW1");
+  if (!open) return null;
+  const data = BETTING_PICKS[tab] || BETTING_PICKS.GW1;
+  const maxEv = 2.42;
+  return (
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.62)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#0f1620", color: "#e8edf2", borderRadius: 14, maxWidth: 560, width: "100%", maxHeight: "86vh", overflow: "auto", boxShadow: "0 16px 56px rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.10)" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 12px", position: "sticky", top: 0, background: "#0f1620", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+          <div>
+            <div style={{ fontSize: 16, fontWeight: 800 }}>🎯 Score-pool EV picks</div>
+            <div style={{ fontSize: 11, color: "#8aa0b4", marginTop: 2 }}>Polymarket × FIFA crowd blend · static snapshot</div>
+          </div>
+          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#e8edf2", borderRadius: 8, width: 30, height: 30, fontSize: 16, cursor: "pointer" }}>✕</button>
+        </div>
+        <div style={{ display: "flex", gap: 6, padding: "10px 16px" }}>
+          {["GW1", "GW2", "GW3"].map(k => (
+            <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)", background: tab === k ? "#1be8d4" : "transparent", color: tab === k ? "#06222b" : "#cdd9e4" }}>{k}</button>
+          ))}
+        </div>
+        <div style={{ fontSize: 11, color: "#8aa0b4", padding: "0 18px 8px" }}>{data.label} — ranked by expected points. ★ = non-obvious (draw / underdog).</div>
+        <div style={{ padding: "0 12px 16px" }}>
+          {data.rows.map((r, i) => (
+            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 6px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
+              <span style={{ width: 18, fontSize: 11, color: "#6a8095", flexShrink: 0 }}>{i + 1}</span>
+              <span style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{r[0]}</span>
+              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap", background: r[3] ? "rgba(255,200,68,0.16)" : "rgba(27,232,212,0.14)", color: r[3] ? "#ffc844" : "#1be8d4" }}>{r[1]}{r[3] ? " ★" : ""}</span>
+              <span style={{ display: "flex", alignItems: "center", gap: 6, width: 92, flexShrink: 0 }}>
+                <span style={{ height: 7, borderRadius: 4, background: r[2] >= 2.0 ? "#1be8d4" : r[2] >= 1.7 ? "#7fd6c8" : "#9aa7b3", width: Math.max(2, Math.round((r[2] / maxEv) * 56)) }} />
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#e8edf2" }}>{r[2].toFixed(2)}</span>
+              </span>
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton, BettingPicksModal });
