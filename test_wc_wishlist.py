@@ -14,8 +14,8 @@ Run:
     .venv/bin/python -m pytest test_wc_wishlist.py -v
 
 Acceptance (WC2026_WINDOWS_DESIGN.md §4, §13 PR 4):
-  * ordering + deterministic tie-break (waiverPriority DESC, draftPosition DESC,
-    uid ASC) under duplicate waiverPriority;
+  * ordering + deterministic tie-break (waiverPriority ASC, draftPosition DESC,
+    uid ASC) under duplicate waiverPriority — last place picks first;
   * auto-skip an invalid first bid, take the next valid one;
   * no double-claim of a contested free agent (higher priority wins);
   * quota safety (2/5/5/3) — a quota-breaking swap is skipped;
@@ -323,14 +323,15 @@ def mgr(db):
 # ---------------------------------------------------------------------------
 
 def test_ordering_tiebreak_under_duplicate_priority(mgr, db):
-    # Three managers; A and B share waiverPriority=5 (dup). Last-pick-first is
-    # waiverPriority DESC, then draftPosition DESC, then uid ASC.
+    # Three managers; A and B share waiverPriority=5 (dup). Last-place-first is
+    # waiverPriority ASC (worst team = priority 1 picks first), then
+    # draftPosition DESC, then uid ASC.
     _seed_member(db, "lg", "u_b", 5, 2)
     _seed_member(db, "lg", "u_a", 5, 4)   # same priority, higher draftPos → first
-    _seed_member(db, "lg", "u_c", 7, 1)   # highest priority → very first
+    _seed_member(db, "lg", "u_c", 2, 1)   # lowest priority → very first
 
     order = mgr._ordered_managers("lg")
-    # u_c (7) first; then among the 5s, higher draftPosition first → u_a (4)
+    # u_c (2) first; then among the 5s, higher draftPosition first → u_a (4)
     # before u_b (2).
     assert order == ["u_c", "u_a", "u_b"]
 
@@ -340,6 +341,15 @@ def test_ordering_uid_breaks_full_tie(mgr, db):
     _seed_member(db, "lg", "u_a", 5, 3)   # identical priority+draftPos → uid ASC
     order = mgr._ordered_managers("lg")
     assert order == ["u_a", "u_z"]
+
+
+def test_last_place_picks_first_reverse_standings(mgr, db):
+    # reset_waiver_priority_to_standings gives the WORST team waiverPriority=1, so
+    # the auction must pick worst-first (last place, 5th, …, 1st) — NOT the
+    # inverted best-first the old DESC sort produced. Regression for that bug.
+    for uid, wp in [("best", 6), ("p2", 5), ("p3", 4), ("p4", 3), ("p5", 2), ("worst", 1)]:
+        _seed_member(db, "lg", uid, wp, wp)
+    assert mgr._ordered_managers("lg") == ["worst", "p5", "p4", "p3", "p2", "best"]
 
 
 # ---------------------------------------------------------------------------
@@ -368,10 +378,11 @@ def test_autoskip_invalid_first_bid(mgr, db):
 # ---------------------------------------------------------------------------
 
 def test_contested_free_agent_goes_to_higher_priority(mgr, db):
-    # u_low has higher waiverPriority (picks first, last-pick-first). Both bid
-    # for free MID 900. u_low wins; u_high falls through to MID 901.
-    _seed_member(db, "lg", "u_low", 9, 1)   # last pick → first dibs
-    _seed_member(db, "lg", "u_high", 1, 2)
+    # u_low has the STRONGER waiver priority = LOWEST number (worst team, picks
+    # first under last-place-first). Both bid for free MID 900. u_low wins;
+    # u_high falls through to MID 901.
+    _seed_member(db, "lg", "u_low", 1, 1)   # priority 1 (worst team) → first dibs
+    _seed_member(db, "lg", "u_high", 9, 2)
     _seed_squad(db, "lg", "u_low", _legal_squad(0))     # MIDs 7..11
     _seed_squad(db, "lg", "u_high", _legal_squad(100))  # MIDs 107..111
     _seed_bid_doc(db, "lg", "u_low", 4, [_bid(900, 7)])
@@ -577,8 +588,8 @@ def test_generate_mock_bids_skips_runner_and_auction_applies(mgr, db):
 
 def test_auction_persists_results_with_claimed_and_cancelled(mgr, db):
     lid = "L"
-    _seed_member(db, lid, "A", 5, 1)   # higher waiver priority → picks first
-    _seed_member(db, lid, "B", 3, 2)
+    _seed_member(db, lid, "A", 3, 1)   # stronger waiver priority (lower #) → picks first
+    _seed_member(db, lid, "B", 5, 2)
     _seed_squad(db, lid, "A", _legal_squad(100))
     _seed_squad(db, lid, "B", _legal_squad(200))
     gw = 3
@@ -608,8 +619,8 @@ def test_auction_events_are_ordered_and_name_the_winner(mgr, db):
     """The ordered event log interleaves claims + cancels in resolution order,
     and a contested cancel records WHICH manager won the player it wanted."""
     lid = "L"
-    _seed_member(db, lid, "A", 5, 1)   # higher waiver priority → wins 900
-    _seed_member(db, lid, "B", 3, 2)
+    _seed_member(db, lid, "A", 3, 1)   # stronger waiver priority (lower #) → wins 900
+    _seed_member(db, lid, "B", 5, 2)
     _seed_squad(db, lid, "A", _legal_squad(100))
     _seed_squad(db, lid, "B", _legal_squad(200))
     gw = 3
