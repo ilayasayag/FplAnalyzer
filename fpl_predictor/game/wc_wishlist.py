@@ -3,9 +3,11 @@ WC2026 wishlist auction (PR 4).
 
 At trade-window close, each manager has submitted an ORDERED list of
 same-position swap bids (``leagues/{lid}/wishlist_bids/{uid}_{gw}``). The
-auction resolves them last-pick-first (reversed ``waiverPriority``) so the
-weakest managers get first dibs on contested free agents, mirroring the normal
-waiver order in reverse.
+auction resolves them last-place-first (ascending ``waiverPriority``) so the
+weakest managers get first dibs on contested free agents. After a GW,
+``reset_waiver_priority_to_standings`` gives the worst team ``waiverPriority=1``,
+so the order is last place, 5th, 4th, …, 1st, then last place again next round —
+the same direction as the normal waiver order (``wc_waivers.get_waiver_order``).
 
 Design references: ``WC2026_WINDOWS_DESIGN.md`` §3.1 (schema), §4 (algorithm +
 the REQUIRED deterministic tie-break), §12 (live data model — squads store full
@@ -373,10 +375,15 @@ class WCWishlistManager:
     # ------------------------------------------------------------------
 
     def _ordered_managers(self, lid: str) -> List[str]:
-        """Last-pick-first: (waiverPriority DESC, draftPosition DESC, uid ASC).
+        """Last-place-first: (waiverPriority ASC, draftPosition DESC, uid ASC).
 
-        Deterministic under duplicate waiverPriority (live data has dupes).
-        Excludes kicked/left members.
+        ``reset_waiver_priority_to_standings`` assigns the WORST team
+        ``waiverPriority=1``, so the weakest manager (lowest priority number) gets
+        first dibs — i.e. last place picks first, then 5th, 4th, …, 1st, then last
+        place again next round. This matches the normal waiver order
+        (``wc_waivers.get_waiver_order``, also ascending); the previous DESC sort
+        inverted it so the BEST team picked first. Deterministic under duplicate
+        waiverPriority (live data has dupes). Excludes kicked/left members.
         """
         members = list(
             self.db.collection("leagues").document(lid).collection("members").get()
@@ -391,7 +398,7 @@ class WCWishlistManager:
                 "waiverPriority": md.get("waiverPriority", 0) or 0,
                 "draftPosition": md.get("draftPosition", 0) or 0,
             })
-        active.sort(key=lambda x: (-x["waiverPriority"], -x["draftPosition"], x["uid"]))
+        active.sort(key=lambda x: (x["waiverPriority"], -x["draftPosition"], x["uid"]))
         return [m["uid"] for m in active]
 
     # ------------------------------------------------------------------
