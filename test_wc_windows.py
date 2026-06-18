@@ -307,3 +307,82 @@ def test_locate_past_end_is_all_none():
     from fpl_predictor.game.wc_windows import build_window_schedule, locate_in_schedule
     segs = build_window_schedule(2, _SCHED_FIXTURES, CONFIG)
     assert locate_in_schedule(segs, _utc(2026, 7, 1, 0, 0)) == (None, None, None)
+
+
+# ---------------------------------------------------------------------------
+# Timed window schedule (windowSchedule) — lazy admin-authored overrides
+# ---------------------------------------------------------------------------
+from fpl_predictor.game.wc_windows import parse_window_schedule  # noqa: E402
+
+
+def _doc(schedule=None, override=None):
+    d = {"currentGw": 2}
+    if schedule is not None:
+        d["windowSchedule"] = schedule
+    if override is not None:
+        d["windowOverride"] = override
+    return d
+
+
+def _call(doc, now):
+    return current_window(league_doc=doc, fixtures_for_gw=UP_FX, config=CONFIG,
+                          now=now, prev_fixtures=PREV_FX, upcoming_gw=2)
+
+
+def test_schedule_passed_entry_forces_phase():
+    # FREE_AGENTS scheduled for 10:00; at 10:30 it is active even though the
+    # fixture clock (squad_lock=11:00) would also say FREE_AGENTS — assert the
+    # scheduled phase is honoured regardless of clock geometry.
+    doc = _doc(schedule=[{"phase": "free_agents", "effectiveAt": _utc(2026, 6, 17, 10, 0)}])
+    win, gw = _call(doc, _utc(2026, 6, 17, 10, 30))
+    assert win == TransferWindow.FREE_AGENTS
+    assert gw == 2
+
+
+def test_schedule_future_entry_not_yet_applied():
+    # Entry effective at 16:00; at 09:00 it has NOT passed, so the fixture clock
+    # applies (09:00 is in the FREE_AGENTS band 07:00..11:00 by default config).
+    doc = _doc(schedule=[{"phase": "next_gw_bid", "effectiveAt": _utc(2026, 6, 17, 16, 0)}])
+    win, _ = _call(doc, _utc(2026, 6, 17, 9, 0))
+    assert win == TransferWindow.FREE_AGENTS  # from the clock, not the future entry
+
+
+def test_schedule_latest_passed_entry_wins():
+    doc = _doc(schedule=[
+        {"phase": "trade", "effectiveAt": _utc(2026, 6, 17, 8, 0)},
+        {"phase": "free_agents", "effectiveAt": _utc(2026, 6, 17, 10, 0)},
+        {"phase": "next_gw_bid", "effectiveAt": _utc(2026, 6, 17, 12, 0)},
+    ])
+    assert _call(doc, _utc(2026, 6, 17, 9, 0))[0] == TransferWindow.TRADE
+    assert _call(doc, _utc(2026, 6, 17, 11, 0))[0] == TransferWindow.FREE_AGENTS
+    assert _call(doc, _utc(2026, 6, 17, 13, 0))[0] == TransferWindow.NEXT_GW_BID
+
+
+def test_schedule_takes_precedence_over_manual_override():
+    # Manual override says trade, but a passed schedule entry says free_agents.
+    doc = _doc(schedule=[{"phase": "free_agents", "effectiveAt": _utc(2026, 6, 17, 10, 0)}],
+               override={"phase": "trade", "gw": 2})
+    assert _call(doc, _utc(2026, 6, 17, 10, 30))[0] == TransferWindow.FREE_AGENTS
+    # ...but before the entry passes, the manual override still rules.
+    assert _call(doc, _utc(2026, 6, 17, 9, 0))[0] == TransferWindow.TRADE
+
+
+def test_schedule_carries_gw():
+    doc = _doc(schedule=[{"phase": "next_gw_bid", "effectiveAt": _utc(2026, 6, 17, 10, 0), "gw": 3}])
+    win, gw = _call(doc, _utc(2026, 6, 17, 11, 0))
+    assert win == TransferWindow.NEXT_GW_BID and gw == 3
+
+
+def test_parse_window_schedule_filters_and_sorts():
+    out = parse_window_schedule({"windowSchedule": [
+        {"phase": "next_gw_bid", "effectiveAt": _utc(2026, 6, 17, 12, 0)},
+        {"phase": "bogus", "effectiveAt": _utc(2026, 6, 17, 8, 0)},      # invalid phase -> dropped
+        {"phase": "trade"},                                               # no effectiveAt -> dropped
+        {"phase": "free_agents", "effectiveAt": "2026-06-17T10:00:00Z"},  # ISO string ok
+    ]})
+    assert [p for (_, p, _) in out] == ["free_agents", "next_gw_bid"]
+
+
+def test_no_schedule_is_pure_clock():
+    win, _ = _call(_doc(), _utc(2026, 6, 17, 9, 0))
+    assert win == TransferWindow.FREE_AGENTS

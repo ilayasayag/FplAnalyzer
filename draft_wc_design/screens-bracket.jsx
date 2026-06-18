@@ -327,6 +327,129 @@ function AuctionViz({ result, onClose }) {
 }
 
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
+// Ilay-only editor for the league's TIMED window schedule. Each row is a phase
+// that takes effect at a given Israel-time instant; the backend applies them
+// lazily as the clock passes each one. Times are entered in Israel time (IDT,
+// UTC+3 — correct for the summer-2026 tournament) and converted to UTC on save.
+function WindowScheduleAdmin() {
+  if (!window.IS_SUPER_ADMIN) return null;
+  const lid = window.LEAGUE && window.LEAGUE.id;
+  const IL_OFFSET_MIN = 180; // Israel Daylight Time = UTC+3 (all WC26 dates)
+
+  const utcToIsraelLocal = (iso) => {
+    const ms = Date.parse(iso);
+    if (isNaN(ms)) return "";
+    return new Date(ms + IL_OFFSET_MIN * 60000).toISOString().slice(0, 16);
+  };
+  const israelLocalToUtc = (local) => {
+    if (!local) return null;
+    const [d, t] = local.split("T");
+    const [Y, Mo, Da] = d.split("-").map(Number);
+    const [H, Mi] = (t || "00:00").split(":").map(Number);
+    const ms = Date.UTC(Y, Mo - 1, Da, H, Mi) - IL_OFFSET_MIN * 60000;
+    return new Date(ms).toISOString();
+  };
+
+  const defaultGw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || null;
+  const initial = ((window.WINDOW && window.WINDOW.scheduledOverrides) || []).map(e => ({
+    phase: e.phase, local: utcToIsraelLocal(e.effectiveAt), gw: e.gw != null ? e.gw : defaultGw,
+  }));
+  const [rows, setRows] = React.useState(initial);
+  const [saving, setSaving] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
+
+  const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
+  const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
+
+  const setRow = (i, patch) => setRows(rs => rs.map((r, k) => k === i ? { ...r, ...patch } : r));
+  const addRow = () => setRows(rs => [...rs, { phase: "free_agents", local: "", gw: defaultGw }]);
+  const removeRow = (i) => setRows(rs => rs.filter((_, k) => k !== i));
+
+  const persist = async (schedule, okMsg) => {
+    setSaving(true); setMsg("");
+    try {
+      await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
+      setMsg(okMsg);
+      setTimeout(() => window.location.reload(), 900);
+    } catch (e) {
+      setMsg("Failed: " + (e.error || e.detail || JSON.stringify(e)));
+      setSaving(false);
+    }
+  };
+  const save = () => {
+    if (saving) return;
+    if (rows.some(r => !r.local)) { setMsg("Every row needs a date/time."); return; }
+    const schedule = rows
+      .map(r => ({ phase: r.phase, effectiveAt: israelLocalToUtc(r.local), gw: r.gw != null ? Number(r.gw) : undefined }))
+      .filter(e => e.effectiveAt)
+      .sort((a, b) => a.effectiveAt.localeCompare(b.effectiveAt));
+    persist(schedule, "Saved. Reloading…");
+  };
+  const clearAll = () => {
+    if (saving) return;
+    if (!window.confirm("Clear the entire window schedule? The window reverts to the manual override / fixture clock.")) return;
+    persist([], "Cleared. Reloading…");
+  };
+
+  const sorted = [...rows].filter(r => r.local).sort((a, b) => a.local.localeCompare(b.local));
+
+  return (
+    <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>⏱ Window schedule · Ilay only</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2, maxWidth: 540 }}>
+            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. Applied the next time the window is read after each time (no background job, so it flips when someone loads the page at/after that minute).
+          </div>
+        </div>
+        {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
+      </div>
+
+      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {rows.length === 0 && (
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add one below.</div>
+        )}
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
+              style={{ ...inputStyle, fontWeight: 700 }}>
+              {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
+            </select>
+            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+            <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+            <input type="number" value={r.gw == null ? "" : r.gw} placeholder="GW" title="Gameweek this transition guards"
+              onChange={e => setRow(i, { gw: e.target.value === "" ? null : Number(e.target.value) })}
+              style={{ ...inputStyle, width: 64 }} />
+            <button onClick={() => removeRow(i)} title="Remove"
+              style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+          <button onClick={addRow} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add transition</button>
+          <button onClick={save} disabled={saving || rows.length === 0}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--green-500)", color: "var(--navy-900)", cursor: (saving || rows.length === 0) ? "default" : "pointer", fontSize: 12, fontWeight: 800, opacity: (saving || rows.length === 0) ? 0.6 : 1 }}>
+            {saving ? "Saving…" : "Save schedule"}</button>
+          <button onClick={clearAll} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear all</button>
+        </div>
+
+        {sorted.length > 0 && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+            Timeline:{" "}
+            {sorted.map((r, i) => {
+              const lbl = (PHASES.find(p => p[0] === r.phase) || [null, r.phase])[1];
+              return <span key={i}>{i ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {r.local.replace("T", " ")}</span>;
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const [runningMock, setRunningMock] = React.useState(false);
@@ -348,6 +471,8 @@ function TransfersScreen() {
   // Everyone still SEES the buttons (current window highlighted) but they are
   // greyed/disabled for non-admins. Server-side gates match.
   const amLeagueAdmin = !!(window.LEAGUE && window.LEAGUE.admin && window.LEAGUE.admin === window.ME);
+  // Window control (phase switch + timed schedule) is Ilay-only. Backend matches.
+  const amSuperAdmin = !!window.IS_SUPER_ADMIN;
   const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
   const overridden = !!(window.WINDOW && window.WINDOW.overridden);
 
@@ -453,7 +578,7 @@ function TransfersScreen() {
         </div>
         <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>
-            {amLeagueAdmin ? "Switch window (league admin)" : "Current window"}
+            {amSuperAdmin ? "Switch window (Ilay)" : "Current window"}
           </div>
           <div className="transfers-window-switch" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
@@ -463,15 +588,15 @@ function TransfersScreen() {
               ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
             ].map(([key, label, hint]) => {
               const active = key === "auto" ? !overridden : curPhase === key;
-              const locked = switching || !amLeagueAdmin;
+              const locked = switching || !amSuperAdmin;
               return (
                 <button key={key} disabled={locked} onClick={() => switchWindow(key)}
-                  title={amLeagueAdmin ? hint : "Only the league admin can switch windows"}
+                  title={amSuperAdmin ? hint : "Only Ilay can switch windows"}
                   style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8,
                     cursor: locked ? "default" : "pointer",
                     background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
-                    color: active ? "var(--navy-900)" : (amLeagueAdmin ? "white" : "rgba(255,255,255,0.45)"),
-                    opacity: (!amLeagueAdmin && !active) ? 0.55 : 1,
+                    color: active ? "var(--navy-900)" : (amSuperAdmin ? "white" : "rgba(255,255,255,0.45)"),
+                    opacity: (!amSuperAdmin && !active) ? 0.55 : 1,
                     border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
                   {label}
                   <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
@@ -481,6 +606,10 @@ function TransfersScreen() {
           </div>
         </div>
       </div>
+
+      {/* Ilay-only: schedule timed window transitions (e.g. Free agents @ 16:00,
+          Gameweek @ 18:00 Israel). Self-gates on IS_SUPER_ADMIN. */}
+      <WindowScheduleAdmin />
 
       {/* Admin-only run-actions for the mock league (wishlist auction / trade-
           window orchestrator). Self-gates on IS_ADMIN — renders null otherwise. */}
