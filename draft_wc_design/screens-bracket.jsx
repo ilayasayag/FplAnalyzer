@@ -575,39 +575,48 @@ function PickupCompare({ incoming, outgoing }) {
   const tIn = teamById(incoming.team), tOut = teamById(outgoing.team);
   const win = "var(--green-600, #1a9d5a)";
 
+  const pos = incoming.pos; // 1 = GK, 2 = DEF, 3 = MID, 4 = FWD
   const metrics = [
     ["Minutes", "minutes"],
     ["Goals", "goals"],
     ["Assists", "assists"],
-    ["Shots on target", "shotsOnTarget"],
-    ["Clean sheets", "cleanSheets"],
-    ["DefCon actions", "defconActions"],
-    ["Total points", "pts"],
   ];
+  if (pos === 1) {
+    metrics.push(["Clean sheets", "cleanSheets"]);
+  } else if (pos === 2) {
+    metrics.push(["Clean sheets", "cleanSheets"]);
+    metrics.push(["DefCon actions", "defconActions"]);
+  } else if (pos === 3) {
+    metrics.push(["DefCon actions", "defconActions"]);
+  } else if (pos === 4) {
+    metrics.push(["Shots on target", "shotsOnTarget"]);
+  }
+  metrics.push(["Total points", "pts"]);
 
   // Real upcoming fixtures only (known group opponents) — TBD knockout rows are
-  // dropped. This list shrinks naturally as GWs are played (2 now → 1 in GW2).
+  // dropped. Show up to 2 next fixtures to fit compact modal screen layout.
   const realFx = pl => upcomingFixturesFor(pl, teamById(pl.team), null)
-    .filter(f => f.gw !== "—" && f.opp && f.opp !== "TBD");
+    .filter(f => f.gw !== "—" && f.opp && f.opp !== "TBD")
+    .slice(0, 2);
 
   const FdrBadge = ({ d }) => {
     const c = d >= 5 ? "var(--red-500)" : d >= 4 ? "var(--hot-500)" : d >= 3 ? "var(--gold-500)" : "var(--green-500)";
-    return <span style={{ display: "inline-block", minWidth: 18, textAlign: "center", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: c + "22", color: c }}>{d}</span>;
+    return <span style={{ display: "inline-block", minWidth: 16, textAlign: "center", padding: "1px 4px", borderRadius: 4, fontSize: 8, fontWeight: 700, background: c + "22", color: c }}>{d}</span>;
   };
 
   const FxCol = ({ pl, fx, align }) => (
     <div style={{ flex: 1, background: "white", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
-      <div style={{ background: "var(--cream)", padding: "5px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-500)", textAlign: align }}>
+      <div style={{ background: "var(--cream)", padding: "3px 6px", fontSize: 8, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-500)", textAlign: align }}>
         {pl.name.split(" ").slice(-1)[0]} · next
       </div>
       {fx.length === 0 ? (
-        <div className="muted" style={{ padding: "8px 10px", fontSize: 11, textAlign: "center" }}>No upcoming fixtures</div>
+        <div className="muted" style={{ padding: "4px 6px", fontSize: 9, textAlign: "center" }}>No fixtures</div>
       ) : fx.map((f, i) => {
         const ot = teamById(f.opp);
         return (
-          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: "1px solid var(--border)", fontSize: 12 }}>
-            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
-              <span className="muted" style={{ fontSize: 10, fontWeight: 700 }}>GW{f.gw}</span>
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 4, padding: "3px 6px", borderTop: "1px solid var(--border)", fontSize: 10 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 4, minWidth: 0 }}>
+              <span className="muted" style={{ fontSize: 8, fontWeight: 700 }}>GW{f.gw}</span>
               {ot ? <Flag team={ot} /> : null}
               <span style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(ot && ot.name) || f.opp}</span>
             </span>
@@ -619,27 +628,27 @@ function PickupCompare({ incoming, outgoing }) {
   );
 
   return (
-    <div style={{ background: "var(--cream)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
-      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", textAlign: "center" }}>
+    <div style={{ background: "var(--cream)", borderRadius: 10, padding: "8px 10px", display: "flex", flexDirection: "column", gap: 6 }}>
+      <div style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", textAlign: "center" }}>
         Stat comparison · this season
       </div>
 
       {/* Heads — IN on the left, OUT on the right */}
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
-          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tIn} pos={incoming.pos} /></div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6 }}>
+          <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={tIn} pos={incoming.pos} /></div>
           <div style={{ minWidth: 0 }}>
-            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{incoming.name}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "#006b35", letterSpacing: "0.05em" }}>IN</div>
+            <div style={{ fontWeight: 800, fontSize: 11, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{incoming.name}</div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: "#006b35", letterSpacing: "0.05em" }}>IN</div>
           </div>
         </div>
-        <div style={{ fontWeight: 800, color: "var(--ink-500)", fontSize: 11 }}>vs</div>
-        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+        <div style={{ fontWeight: 800, color: "var(--ink-500)", fontSize: 9 }}>vs</div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 6, justifyContent: "flex-end" }}>
           <div style={{ minWidth: 0, textAlign: "right" }}>
-            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{outgoing.name}</div>
-            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--red-500)", letterSpacing: "0.05em" }}>OUT</div>
+            <div style={{ fontWeight: 800, fontSize: 11, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{outgoing.name}</div>
+            <div style={{ fontSize: 8, fontWeight: 700, color: "var(--red-500)", letterSpacing: "0.05em" }}>OUT</div>
           </div>
-          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tOut} pos={outgoing.pos} /></div>
+          <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={tOut} pos={outgoing.pos} /></div>
         </div>
       </div>
 
@@ -650,24 +659,25 @@ function PickupCompare({ incoming, outgoing }) {
           const aWin = av > bv, bWin = bv > av;
           return (
             <div key={key} style={{ display: "flex", alignItems: "center", borderTop: i ? "1px solid var(--border)" : "none" }}>
-              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: aWin ? 800 : 600, color: aWin ? win : "var(--ink-700)" }}>{av}</div>
-              <div style={{ width: 120, textAlign: "center", fontSize: 10, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
-              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: bWin ? 800 : 600, color: bWin ? win : "var(--ink-700)" }}>{bv}</div>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "3px 6px", fontWeight: aWin ? 800 : 600, color: aWin ? win : "var(--ink-700)", fontSize: 10 }}>{av}</div>
+              <div style={{ width: 110, textAlign: "center", fontSize: 8, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "3px 6px", fontWeight: bWin ? 800 : 600, color: bWin ? win : "var(--ink-700)", fontSize: 10 }}>{bv}</div>
             </div>
           );
         })}
       </div>
 
       {/* Upcoming fixtures, side by side */}
-      <div style={{ display: "flex", gap: 8 }}>
+      <div style={{ display: "flex", gap: 6 }}>
         <FxCol pl={incoming} fx={realFx(incoming)} align="left" />
         <FxCol pl={outgoing} fx={realFx(outgoing)} align="right" />
       </div>
 
-      <div className="muted" style={{ fontSize: 10, textAlign: "center" }}>
+      <div className="muted" style={{ fontSize: 8, textAlign: "center" }}>
         Greener / bolder = the better value. FDR 1 easy → 5 hard.
       </div>
     </div>
+  );
   );
 }
 
@@ -961,148 +971,175 @@ function FreeAgentsTab({ setToast }) {
         const tClaim = teamById(p.team);
         return (
           <div className="modal-backdrop" onClick={() => setActivePickup(null)}>
-            <div className="modal" style={{ maxWidth: 550, padding: 24, display: "flex", flexDirection: "column", gap: 16 }} onClick={e => e.stopPropagation()}>
+            <div className="modal" style={{
+              maxWidth: 550,
+              maxHeight: "calc(100vh - 96px)",
+              padding: "16px 20px",
+              display: "flex",
+              flexDirection: "column",
+              gap: 12
+            }} onClick={e => e.stopPropagation()}>
               <button className="modal__close" onClick={() => setActivePickup(null)}>×</button>
 
-              <div>
-                <h3 className="h-display" style={{ margin: 0, fontSize: 20, color: "var(--navy-900)" }}>
+              <div style={{ flexShrink: 0 }}>
+                <h3 className="h-display" style={{ margin: 0, fontSize: 18, color: "var(--navy-900)" }}>
                   {faOpen ? "Pick Up Free Agent" : "Add to Wishlist"}
                 </h3>
-                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>
                   {faOpen 
                     ? `Swap a player from your squad to pick up ${p.name}.`
                     : `Configure a swap to add ${p.name} to your wishlist.`}
                 </div>
               </div>
 
-              {/* Free Agent Info (IN) */}
-              <div style={{ 
-                display: "flex", 
-                alignItems: "center", 
-                gap: 12, 
-                padding: "12px 16px", 
-                background: "rgba(0, 217, 107, 0.08)", 
-                borderRadius: 8, 
-                border: "1px solid rgba(0, 217, 107, 0.25)" 
+              {/* Scrollable body wrapper */}
+              <div style={{
+                overflowY: "auto",
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 12,
+                paddingRight: 4
               }}>
-                <div style={{ width: 44, height: 44, flexShrink: 0 }}>
-                  <Jersey team={tClaim} pos={p.pos} />
-                </div>
-                <div>
-                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--navy-900)" }}>{p.name}</div>
-                  <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
-                    <Flag team={tClaim} /> {p.teamName} · <span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 9, padding: "2px 6px" }}>{POS_NAMES[p.pos]}</span> · {p.pts} pts
+                {/* Free Agent Info (IN) */}
+                <div style={{ 
+                  display: "flex", 
+                  alignItems: "center", 
+                  gap: 10, 
+                  padding: "10px 14px", 
+                  background: "rgba(0, 217, 107, 0.08)", 
+                  borderRadius: 8, 
+                  border: "1px solid rgba(0, 217, 107, 0.25)",
+                  flexShrink: 0
+                }}>
+                  <div style={{ width: 36, height: 36, flexShrink: 0 }}>
+                    <Jersey team={tClaim} pos={p.pos} />
+                  </div>
+                  <div>
+                    <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy-900)" }}>{p.name}</div>
+                    <div className="muted" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 6 }}>
+                      <Flag team={tClaim} /> {p.teamName} · <span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 9, padding: "2px 6px" }}>{POS_NAMES[p.pos]}</span> · {p.pts} pts
+                    </div>
+                  </div>
+                  <div style={{ marginLeft: "auto", fontSize: 10, fontWeight: 700, color: "#006b35", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    INCOMING
                   </div>
                 </div>
-                <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#006b35", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-                  INCOMING
-                </div>
-              </div>
 
-              {/* Arrow divider */}
-              <div style={{ display: "flex", justifyContent: "center", color: "var(--ink-300)", fontSize: 18 }}>
-                ⇅
-              </div>
-
-              {/* Drop options */}
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", marginBottom: 8 }}>
-                  Select squad player to drop (Outgoing)
+                {/* Arrow divider */}
+                <div style={{ display: "flex", justifyContent: "center", color: "var(--ink-300)", fontSize: 16, margin: "-4px 0", flexShrink: 0 }}>
+                  ⇅
                 </div>
 
-                {eligibleDrops.length === 0 ? (
-                  <div className="muted" style={{ padding: 12, border: "1px dashed var(--border)", borderRadius: 8, textAlign: "center", fontSize: 13 }}>
-                    No players in your squad share the {POS_NAMES[p.pos]} position.
+                {/* Drop options */}
+                <div style={{ flexShrink: 0 }}>
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", marginBottom: 6 }}>
+                    Select squad player to drop (Outgoing)
                   </div>
-                ) : (
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-                    {eligibleDrops.map(s => {
-                      const tDrop = teamById(s.team);
-                      const isSelected = playerToDrop === s.id;
-                      const isAlreadyOut = (window.MY_WISHLIST_BIDS || []).some(b => Number(b.playerOut) === Number(s.id));
-                      return (
-                        <div 
-                          key={s.id} 
-                          onClick={() => setPlayerToDrop(s.id)}
-                          style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 12,
-                            padding: "10px 14px",
-                            border: isSelected ? "2px solid var(--teal-400)" : "1px solid var(--border)",
-                            background: isSelected ? "rgba(27, 232, 212, 0.05)" : "white",
-                            borderRadius: 8,
-                            cursor: "pointer",
-                            transition: "all 0.15s ease",
-                            boxShadow: isSelected ? "0 4px 12px rgba(27, 232, 212, 0.15)" : "none"
-                          }}
-                        >
-                          <div style={{ width: 32, height: 32, flexShrink: 0 }}>
-                            <Jersey team={tDrop} pos={s.pos} />
-                          </div>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy-900)", display: "flex", alignItems: "center" }}>
-                              {s.name}
-                              {isAlreadyOut && (
-                                <span 
-                                  style={{ 
-                                    display: "inline-flex", 
-                                    alignItems: "center", 
-                                    justifyContent: "center", 
-                                    width: 16, 
-                                    height: 16, 
-                                    borderRadius: "50%", 
-                                    background: "var(--red-500)", 
-                                    color: "white", 
-                                    fontSize: 11, 
-                                    fontWeight: "bold", 
-                                    marginLeft: 8 
-                                  }} 
-                                  title="Already on your wishlist to be dropped"
-                                >
-                                  !
-                                </span>
-                              )}
+
+                  {eligibleDrops.length === 0 ? (
+                    <div className="muted" style={{ padding: 10, border: "1px dashed var(--border)", borderRadius: 8, textAlign: "center", fontSize: 12 }}>
+                      No players in your squad share the {POS_NAMES[p.pos]} position.
+                    </div>
+                  ) : (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {eligibleDrops.map(s => {
+                        const tDrop = teamById(s.team);
+                        const isSelected = playerToDrop === s.id;
+                        const isAlreadyOut = (window.MY_WISHLIST_BIDS || []).some(b => Number(b.playerOut) === Number(s.id));
+                        return (
+                          <div 
+                            key={s.id} 
+                            onClick={() => setPlayerToDrop(s.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              gap: 10,
+                              padding: "8px 12px",
+                              border: isSelected ? "2px solid var(--teal-400)" : "1px solid var(--border)",
+                              background: isSelected ? "rgba(27, 232, 212, 0.05)" : "white",
+                              borderRadius: 8,
+                              cursor: "pointer",
+                              transition: "all 0.15s ease",
+                              boxShadow: isSelected ? "0 2px 8px rgba(27, 232, 212, 0.1)" : "none"
+                            }}
+                          >
+                            <div style={{ width: 28, height: 28, flexShrink: 0 }}>
+                              <Jersey team={tDrop} pos={s.pos} />
                             </div>
-                            <div className="muted" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
-                              <Flag team={tDrop} /> {s.teamName || s.team} · {s.club} · {s.pts} pts
+                            <div>
+                              <div style={{ fontWeight: 700, fontSize: 13, color: "var(--navy-900)", display: "flex", alignItems: "center" }}>
+                                {s.name}
+                                {isAlreadyOut && (
+                                  <span 
+                                    style={{ 
+                                      display: "inline-flex", 
+                                      alignItems: "center", 
+                                      justifyContent: "center", 
+                                      width: 14, 
+                                      height: 14, 
+                                      borderRadius: "50%", 
+                                      background: "var(--red-500)", 
+                                      color: "white", 
+                                      fontSize: 10, 
+                                      fontWeight: "bold", 
+                                      marginLeft: 6 
+                                    }} 
+                                    title="Already on your wishlist to be dropped"
+                                  >
+                                    !
+                                  </span>
+                                )}
+                              </div>
+                              <div className="muted" style={{ fontSize: 10, display: "flex", alignItems: "center", gap: 4 }}>
+                                <Flag team={tDrop} /> {s.teamName || s.team} · {s.club} · {s.pts} pts
+                              </div>
+                            </div>
+
+                            <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+                              <input 
+                                type="radio" 
+                                name="playerToDrop" 
+                                checked={isSelected} 
+                                onChange={() => setPlayerToDrop(s.id)}
+                                style={{ cursor: "pointer", accentColor: "var(--teal-400)", width: 14, height: 14 }}
+                              />
                             </div>
                           </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
 
-                          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
-                            <input 
-                              type="radio" 
-                              name="playerToDrop" 
-                              checked={isSelected} 
-                              onChange={() => setPlayerToDrop(s.id)}
-                              style={{ cursor: "pointer", accentColor: "var(--teal-400)", width: 16, height: 16 }}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
+                {/* Stat + fixture comparison — appears once a drop is chosen */}
+                {playerToDrop && (() => {
+                  const outg = eligibleDrops.find(s => String(s.id) === String(playerToDrop))
+                    || window.PLAYER_MAP[String(playerToDrop)];
+                  return outg ? <PickupCompare incoming={p} outgoing={outg} /> : null;
+                })()}
               </div>
 
-              {/* Stat + fixture comparison — appears once a drop is chosen */}
-              {playerToDrop && (() => {
-                const outg = eligibleDrops.find(s => String(s.id) === String(playerToDrop))
-                  || window.PLAYER_MAP[String(playerToDrop)];
-                return outg ? <PickupCompare incoming={p} outgoing={outg} /> : null;
-              })()}
-
-              {/* Actions */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
-                <button className="btn btn--ghost-dark" style={{ padding: "10px 20px" }} onClick={() => setActivePickup(null)}>
+              {/* Actions footer (fixed) */}
+              <div style={{
+                display: "flex",
+                gap: 10,
+                justifyContent: "flex-end",
+                marginTop: 4,
+                borderTop: "1px solid var(--border)",
+                paddingTop: 10,
+                flexShrink: 0
+              }}>
+                <button className="btn btn--ghost-dark" style={{ padding: "8px 16px", fontSize: 13 }} onClick={() => setActivePickup(null)}>
                   Cancel
                 </button>
                 <button 
                   className="btn btn--primary" 
                   style={{ 
-                    padding: "10px 20px",
+                    padding: "8px 16px",
                     background: "var(--navy-900)",
-                    color: "white"
+                    color: "white",
+                    fontSize: 13
                   }} 
                   disabled={!playerToDrop} 
                   onClick={() => faOpen ? handlePickup(p) : handleAddWishlist(p)}
