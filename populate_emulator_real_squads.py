@@ -1,8 +1,15 @@
 #!/usr/bin/env python3
 import os
+import sys
 import firebase_admin
 from firebase_admin import firestore
 from fpl_predictor.seed.seed_league import seed_everything
+
+# Reconfigure stdout/stderr to UTF-8 to prevent UnicodeEncodeError on Windows terminals
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 # Point exclusively to the local Firestore emulator
 os.environ["FIRESTORE_EMULATOR_HOST"] = "localhost:8080"
@@ -14,9 +21,9 @@ if not firebase_admin._apps:
     firebase_admin.initialize_app(credential=AnonymousCredentials(), options={"projectId": "fpl-analyzer-792eb"})
 
 # Match the Flask backend's database target so seeded data is visible to the
-# API (Flask defaults to (default); the emulator serves a separate store per
-# database_id, so writing to (default) here is required).
-db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "(default)"))
+# API (Flask defaults to gamedb; the emulator serves a separate store per
+# database_id, so writing to gamedb here is required).
+db = firestore.client(database_id=os.environ.get("FIRESTORE_DB_ID", "gamedb"))
 
 # Clear collections
 print("🧹 Cleaning local emulator collections...")
