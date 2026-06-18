@@ -623,6 +623,21 @@ def _propagate_to_leagues(
 # GW finalization
 # ---------------------------------------------------------------------------
 
+def _carry_forward_lineup(league_ref, uid: str, gw: int):
+    """The most recent PRIOR GW's saved lineup for ``uid`` (XI/bench/formation),
+    or ``None`` if they never set one. Mirrors ``get_lineup``'s display
+    carry-forward so a manager who didn't re-pick this GW is SCORED on their
+    last set XI instead of being skipped (= 0 pts)."""
+    for prev in range(gw - 1, 0, -1):
+        snap = league_ref.collection("lineups").document(f"{uid}_{prev}").get()
+        if snap.exists:
+            d = snap.to_dict() or {}
+            return {"starting": d.get("starting", []), "bench": d.get("bench", []),
+                    "formation": d.get("formation"), "captain": d.get("captain"),
+                    "viceCaptain": d.get("viceCaptain"), "fromGw": prev}
+    return None
+
+
 def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
     """
     Full GW finalization flow:
@@ -686,7 +701,20 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
         lineup_ref = league_ref.collection("lineups").document(doc_id)
         lineup_doc = lineup_ref.get()
         if not lineup_doc.exists:
-            continue
+            # No lineup saved for this GW → carry forward the most recent prior
+            # GW's XI (same behaviour the UI shows) so the manager is scored on
+            # their last set lineup, not skipped to 0. Materialize it so the
+            # downstream update + history have a real doc to write to.
+            carried = _carry_forward_lineup(league_ref, uid, gw)
+            if carried is None:
+                continue  # never set any lineup at all → nothing to score
+            lineup_ref.set({
+                "starting": carried["starting"], "bench": carried["bench"],
+                "formation": carried.get("formation"),
+                "captain": carried.get("captain"), "viceCaptain": carried.get("viceCaptain"),
+                "gw": gw, "locked": False, "carriedForwardFrom": carried["fromGw"],
+            })
+            lineup_doc = lineup_ref.get()
 
         lineup = lineup_doc.to_dict()
         starting = lineup.get("starting", [])
