@@ -367,14 +367,29 @@ def current_window_from_db(
 # Lineup lock (squad + XI freeze at T0 - squad_lock_before_hours)
 # ---------------------------------------------------------------------------
 
-def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[datetime]:
+def lineup_lock_time(db, gw: int, config: Optional[Dict] = None,
+                     lid: Optional[str] = None) -> Optional[datetime]:
     """The instant a GW's squads + XI lock = ``T0 - squad_lock_before_hours``,
     where ``T0`` is the GW's first real kickoff (from durable ``wc_fixtures``).
+
+    Per-league override: when ``lid`` is given and
+    ``leagues/{lid}.lineupLockOverride[str(gw)]`` holds an ISO-UTC instant, THAT
+    wins over the fixture-clock calc — letting an admin extend/shorten a single
+    GW's lineup lock for ONE league without touching real kickoff times. Leagues
+    with no override keep the fixture clock.
 
     Returns ``None`` when the GW has no stored kickoff yet (so callers don't
     block edits on data that isn't there — e.g. the mock, whose simulated
     fixtures may carry no real-world clock).
     """
+    if lid:
+        snap = db.collection("leagues").document(lid).get()
+        ov = ((snap.to_dict() or {}).get("lineupLockOverride") or {}) if snap.exists else {}
+        iso = ov.get(str(gw), ov.get(gw))
+        if iso:
+            dt = _coerce_dt(iso)
+            if dt is not None:
+                return dt
     fixtures = [
         d.to_dict() for d in
         db.collection("wc_fixtures").where("gw", "==", gw).get()
@@ -386,15 +401,17 @@ def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[dat
     return bounds["squad_lock"] if bounds else None
 
 
-def is_lineup_locked(db, gw: int, now: Optional[datetime] = None) -> bool:
+def is_lineup_locked(db, gw: int, now: Optional[datetime] = None,
+                     lid: Optional[str] = None) -> bool:
     """True once ``now`` has reached the GW's lineup lock (``T0 - 1h`` by
-    default). Squads + XI may no longer change for ``gw`` from this instant.
+    default, or the per-league ``lineupLockOverride`` when set — see
+    :func:`lineup_lock_time`). Squads + XI may no longer change for ``gw``.
 
     Durable: derived from the stored fixture kickoffs, so re-running the
     simulator never moves the lock. Falls back to *unlocked* when no kickoff is
     known for the GW.
     """
-    lock = lineup_lock_time(db, gw)
+    lock = lineup_lock_time(db, gw, lid=lid)
     if lock is None:
         return False
     now = now or datetime.now(timezone.utc)

@@ -111,7 +111,7 @@ class WCSquadManager:
         # from the durable fixture kickoffs so a re-sim never moves the lock.
         from fpl_predictor.game.wc_windows import is_lineup_locked
 
-        if is_lineup_locked(self.db, gw):
+        if is_lineup_locked(self.db, gw, lid=lid):
             raise ValueError("LINEUP_LOCKED")
 
         league_doc = self.db.collection("leagues").document(lid).get()
@@ -147,6 +147,16 @@ class WCSquadManager:
         if len(set(all_ids)) != squad_size:
             raise ValueError("Duplicate player IDs in lineup")
 
+        # Per-GW pick blocklist (admin): listed players may NOT be in the
+        # starting XI for this gw (e.g. teams that kicked off while the window
+        # stays open by agreement). They may still sit on the bench, so the
+        # 15-man lineup stays valid. ``leagues/{lid}.pickBlockByGw[str(gw)]``.
+        block = set((league_doc.to_dict().get("pickBlockByGw") or {}).get(str(gw), []))
+        if block:
+            blocked_start = [pid for pid in starting if pid in block]
+            if blocked_start:
+                names = ", ".join(player_map.get(p, {}).get("name", str(p)) for p in blocked_start)
+                raise ValueError(f"PLAYER_BLOCKED_FOR_GW: cannot start {names} in GW{gw} (bench them)")
 
         formation = self._get_formation(starting, player_map)
         if formation not in VALID_FORMATIONS:
