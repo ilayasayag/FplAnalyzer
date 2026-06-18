@@ -148,7 +148,7 @@ function StatusScreen({ onTab }) {
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
   const setViewingGw = window.setViewingGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
+  const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
   
   const getOrdinal = n => {
     const num = Number(n);
@@ -320,12 +320,12 @@ function StatusScreen({ onTab }) {
 function PointsScreen({ onTab }) {
   const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
-  // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP_GW3
+  // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP
   // from GET /leagues/{lid}/lineup/{gw}). For a FINISHED gw we instead render
   // the immutable gw_history snapshot (see snapLineup below) so the pitch shows
   // exactly the squad that was locked for that GW — not whatever the squad
   // became after later free-agent/trade moves.
-  const liveLineup = window.MY_LINEUP_GW3 || MY_LINEUP_GW3;
+  const liveLineup = window.MY_LINEUP || MY_LINEUP;
 
   const currentGw = TOURNAMENT.currentGw;
   const viewingGw = window.VIEWING_GW || currentGw;
@@ -394,9 +394,9 @@ function PointsScreen({ onTab }) {
   }, [statsById]);
 
   // Authoritative squad total for the viewed gw = backend results.{uid}.points
-  // (Σ starter points post-autosub + captain bonus), synced into GW3_TOTALS by
+  // (Σ starter points post-autosub + captain bonus), synced into GW_TOTALS by
   // app.jsx. Show "—" when that gw hasn't been scored for this manager.
-  const totalPts = (window.GW3_TOTALS && window.GW3_TOTALS[me] != null) ? window.GW3_TOTALS[me] : "—";
+  const totalPts = (window.GW_TOTALS && window.GW_TOTALS[me] != null) ? window.GW_TOTALS[me] : "—";
 
   // Get current user's team name dynamically
   const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === me)?.team || "My Squad";
@@ -523,7 +523,7 @@ function PointsListView({ lineup, statsById = {} }) {
 function PickTeamScreen({ onTab, squadLoading }) {
   const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
-  const [lineup, setLineup] = React.useState(MY_LINEUP_GW3);
+  const [lineup, setLineup] = React.useState(MY_LINEUP);
   const [selected, setSelected] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   // The GW we EDIT = the earliest unlocked GW (GW2 while GW1 is live/locked),
@@ -531,10 +531,10 @@ function PickTeamScreen({ onTab, squadLoading }) {
   const [editGw, setEditGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
 
   React.useEffect(() => {
-    if (MY_LINEUP_GW3) {
-      setLineup(MY_LINEUP_GW3);
+    if (MY_LINEUP) {
+      setLineup(MY_LINEUP);
     }
-  }, [MY_LINEUP_GW3]);
+  }, [MY_LINEUP]);
 
   // Resolve the editable GW and load ITS lineup (carries the current squad
   // forward when that GW has no saved lineup yet). Independent of the Points
@@ -604,6 +604,16 @@ function PickTeamScreen({ onTab, squadLoading }) {
       };
 
       await apiCall("PUT", `/leagues/${lid}/lineup/${gw}`, payload);
+      // Keep the Points "My Team" pitch in sync immediately. That pitch reads
+      // window.MY_LINEUP for the live/upcoming GW; without this it stays on
+      // the pre-save (or a fabricated squad-default) lineup until a full reload
+      // — exactly the "I saved but Points shows my old squad" bug.
+      window.MY_LINEUP = {
+        starting: lineup.starting.map(String),
+        bench: lineup.bench.map(String),
+        formation: lineup.formation,
+        autoSubs: [],
+      };
       setToast({ type: "success", message: `Lineup saved for GW${gw}!` });
     } catch(err) {
       setToast({
@@ -762,7 +772,7 @@ function PickTeamScreen({ onTab, squadLoading }) {
         </FixtureGwContext.Provider>
 
         <div className="pickteam-savebar" style={{ display: "flex", gap: 12, justifyContent: "center", marginTop: 16 }}>
-          <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP_GW3); setSelected(null); }}>Reset</button>
+          <button className="btn btn--ghost" onClick={() => { setLineup(MY_LINEUP); setSelected(null); }}>Reset</button>
           <button onClick={handleSaveLineup} className="btn btn--primary" style={{ minWidth: isMobile ? 0 : 200, flex: isMobile ? 1 : undefined }}>Save Lineup for GW{editGw}</button>
         </div>
         <div style={{ textAlign: "center", marginTop: 10, fontSize: 12, color: "rgba(255,255,255,0.7)" }}>

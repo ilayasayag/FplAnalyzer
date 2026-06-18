@@ -267,7 +267,7 @@ function Sidebar({ onTab }) {
   }).length;
 
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
+  const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
   
   const activeWindow = window.WINDOW || WINDOW;
   const favTeam = teamById(me.flag) || teamById("GER");
