@@ -678,7 +678,6 @@ function PickupCompare({ incoming, outgoing }) {
       </div>
     </div>
   );
-  );
 }
 
 function FreeAgentsTab({ setToast }) {
