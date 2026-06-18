@@ -455,22 +455,22 @@ function App() {
 
     // 2. Scores / GW totals — via the API (→ gamedb), same reason as standings.
     // One endpoint serves both the live and past GW; an unfinalized/empty GW
-    // returns no results, which clears GW3_TOTALS (so a previous league's totals
+    // returns no results, which clears GW_TOTALS (so a previous league's totals
     // never persist after a switch).
     let scoresCancelled = false;
     const unsubScores = () => { scoresCancelled = true; };
     apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
       .then(data => {
         if (scoresCancelled) return;
-        window.GW3_TOTALS = {};
+        window.GW_TOTALS = {};
         if (data && data.results) {
           Object.entries(data.results).forEach(([uid, res]) => {
-            window.GW3_TOTALS[uid] = res.points || 0;
+            window.GW_TOTALS[uid] = res.points || 0;
           });
         }
         forceUpdate();
       })
-      .catch(err => { if (!scoresCancelled) { window.GW3_TOTALS = {}; console.error("Scores fetch error:", err); } });
+      .catch(err => { if (!scoresCancelled) { window.GW_TOTALS = {}; console.error("Scores fetch error:", err); } });
 
     // 3. Sync Draft State live
     const unsubDraft = _db.collection("leagues").doc(lid)
@@ -782,10 +782,10 @@ function App() {
             }));
             window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
 
-            // Dynamically populate GW3_POINTS from players total points in mock database!
-            window.GW3_POINTS = {};
+            // Dynamically populate GW_POINTS from players total points in mock database!
+            window.GW_POINTS = {};
             window.PLAYERS.forEach(p => {
-              window.GW3_POINTS[p.id] = p.pts;
+              window.GW_POINTS[p.id] = p.pts;
             });
           } else if (!window.PLAYERS || !window.PLAYERS.length) {
             // Server gave us nothing AND we have no prior pool → genuinely down.
@@ -937,28 +937,43 @@ function App() {
           return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
         };
         try {
-          const lineup = await apiCall("GET", _ownLineup
+          // Retry the OWN lineup fetch on transient failure (flaky mobile data):
+          // one failed GET used to fall through to _lineupFromSquad() — a
+          // DEFAULT squad-ordered XI that masquerades as the saved lineup (the
+          // "Points shows my old squad" bug). Retrying resolves to the real one.
+          const _fetchLineup = () => apiCall("GET", _ownLineup
             ? `/leagues/${lid}/lineup/${viewingGw}`
             : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
+          let lineup = null, _lastErr = null;
+          const _attempts = _ownLineup ? 3 : 1;
+          for (let _a = 0; _a < _attempts; _a++) {
+            try { lineup = await _fetchLineup(); _lastErr = null; break; }
+            catch (err) {
+              _lastErr = err;
+              if (err && err.status === 403) break;  // opponent pre-lock → don't retry
+              if (_a < _attempts - 1) await new Promise(r => setTimeout(r, 400 * (_a + 1)));
+            }
+          }
+          if (_lastErr) throw _lastErr;
           if (lineup && lineup.starting && lineup.starting.length > 0) {
-            window.MY_LINEUP_GW3 = {
+            window.MY_LINEUP = {
               starting: (lineup.starting || []).map(String),
               bench: (lineup.bench || []).map(String),
               formation: lineup.formation || [1, 4, 4, 2],
               autoSubs: lineup.autoSubsMade || [],
             };
           } else {
-            window.MY_LINEUP_GW3 = _lineupFromSquad();
+            window.MY_LINEUP = _lineupFromSquad();
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
           if (e && e.status === 403) {
             // Viewing another manager's pre-lock lineup is blocked → show their
             // squad in a default shape, never the demo roster.
-            window.MY_LINEUP_GW3 = _lineupFromSquad();
-          } else if (!(window.MY_LINEUP_GW3 && window.MY_LINEUP_GW3.starting && window.MY_LINEUP_GW3.starting.length)) {
+            window.MY_LINEUP = _lineupFromSquad();
+          } else if (!(window.MY_LINEUP && window.MY_LINEUP.starting && window.MY_LINEUP.starting.length)) {
             // Transient failure with nothing cached yet → derive from the squad.
-            window.MY_LINEUP_GW3 = _lineupFromSquad();
+            window.MY_LINEUP = _lineupFromSquad();
           }
           // else: keep last-known-good (transient-network resilience).
         }

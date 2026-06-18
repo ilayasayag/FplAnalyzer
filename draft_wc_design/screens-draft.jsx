@@ -962,7 +962,7 @@ function CreateLeagueScreen({ onTab }) {
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW3_TOTALS && window.GW3_TOTALS[window.ME] !== undefined ? window.GW3_TOTALS[window.ME] : "—";
+  const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
   const hasLeague = LEAGUE && LEAGUE.inviteCode;
 
   const [leaguesList, setLeaguesList] = React.useState([]);

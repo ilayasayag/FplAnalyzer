@@ -605,8 +605,8 @@ function ScheduleTable() {
               if (!A || !B) return null;
               const aT = teamById(A.flag), bT = teamById(B.flag);
               const gwScores = (window.ALL_GW_SCORES || {})[gw];
-              const ap = gwScores && gwScores[a] !== undefined ? gwScores[a] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[a] || 0) : "—");
-              const bp = gwScores && gwScores[b] !== undefined ? gwScores[b] : (gw === window.TOURNAMENT.currentGw ? (window.GW3_TOTALS[b] || 0) : "—");
+              const ap = gwScores && gwScores[a] !== undefined ? gwScores[a] : (gw === window.TOURNAMENT.currentGw ? (window.GW_TOTALS[a] || 0) : "—");
+              const bp = gwScores && gwScores[b] !== undefined ? gwScores[b] : (gw === window.TOURNAMENT.currentGw ? (window.GW_TOTALS[b] || 0) : "—");
               const hasScore = ap !== "—" && bp !== "—";
               const aWin = hasScore && Number(ap) > Number(bp);
               const isMe = a === window.ME || b === window.ME;
@@ -647,7 +647,7 @@ function ResultsTable() {
       <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
         {SCHEDULE[3].map(([a, b], i) => {
           const A = managerById(a), B = managerById(b);
-          const ap = GW3_TOTALS[a], bp = GW3_TOTALS[b];
+          const ap = GW_TOTALS[a], bp = GW_TOTALS[b];
           const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
           return (
             <div key={i} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 8, display: "grid", gridTemplateColumns: isMobile ? "minmax(0,1fr) auto minmax(0,1fr)" : "1fr auto 1fr", gap: isMobile ? 8 : 10, alignItems: "center" }}>
@@ -858,7 +858,7 @@ function ManagerSquadModal({ uid, gw, onClose }) {
   // Per-GW breakdown from the immutable gw_history snapshot — the SAME source the
   // Points panel uses. It carries the frozen squad that was actually fielded for
   // this GW, each player's points FOR THIS GW, and the authoritative total. This
-  // replaces the old GW3-only / season-total (GW3_POINTS) logic, so the league
+  // replaces the old GW3-only / season-total (GW_POINTS) logic, so the league
   // modal now shows real per-player points for any finished GW (#53), never a
   // season total (#52-class), and never the post-transfer squad (#50-class).
   const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot

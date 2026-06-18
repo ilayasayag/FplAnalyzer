@@ -263,7 +263,7 @@ const MY_SQUAD_IDS = [
 ];
 
 // Starting XI from squad + bench (formation 1-4-4-2)
-const MY_LINEUP_GW3 = {
+const MY_LINEUP = {
   starting: [
     "p_costa",                                      // GK
     "p_dias", "p_kounde", "p_walker", "p_hakimi",   // DEF
@@ -276,7 +276,7 @@ const MY_LINEUP_GW3 = {
 };
 
 // GW3 points breakdown — per player
-const GW3_POINTS = {
+const GW_POINTS = {
   p_costa: 6, p_donnarumma: 0,
   p_dias: 7, p_kounde: 4, p_walker: 1, p_hakimi: 2, p_canc: 5,
   p_bruno: 9, p_bellingham: 12, p_musiala: 8, p_yamal: 14, p_zielinski: 0,
@@ -284,7 +284,7 @@ const GW3_POINTS = {
 };
 
 // Other managers' GW3 totals (so H2H makes sense)
-const GW3_TOTALS = {
+const GW_TOTALS = {
   u_roy: 78, u_yonatan: 65, u_nadav: 71, u_yuval: 62,
   u_ido: 69, u_shai: 48, u_me: 65, u_dor: 73, u_omer: 56, u_eyal: 41,
 };
@@ -484,7 +484,7 @@ const teamById    = id => {
 Object.assign(window, {
   TEAMS, TEAM_MAP, PLAYERS, PLAYER_MAP, POS_NAMES,
   MANAGERS, ME, STANDINGS, BRACKET,
-  MY_SQUAD_IDS, MY_LINEUP_GW3, GW3_POINTS, GW3_TOTALS,
+  MY_SQUAD_IDS, MY_LINEUP, GW_POINTS, GW_TOTALS,
   SCHEDULE, WC_FIXTURES_GW4, WINDOW, MY_WAIVERS, FREE_AGENTS,
   TRADES_INBOX, TRADES_OUTBOX, DRAFT_STATE, DRAFT_HISTORY,
   TOURNAMENT, LEAGUE,
