@@ -464,20 +464,64 @@ def test_round_robin_alternates_between_managers(mgr, db):
 # 6. wishlist_bids batch-deleted after the auction
 # ---------------------------------------------------------------------------
 
-def test_bids_deleted_after_auction(mgr, db):
+def test_bids_preserved_and_marked_after_auction(mgr, db):
+    # Bids are NOT deleted anymore — they're kept and marked (for rollback +
+    # audit). The resolved doc is flagged ``resolved`` and each bid gets a
+    # human status (done-completed / done-denied).
     _seed_member(db, "lg", "u1", 1, 1)
     _seed_squad(db, "lg", "u1", _legal_squad(0))
     _seed_bid_doc(db, "lg", "u1", 4, [_bid(900, 7)])
-    # A bid for a DIFFERENT gw must survive.
-    _seed_bid_doc(db, "lg", "u1", 5, [_bid(901, 8)])
+    _seed_bid_doc(db, "lg", "u1", 5, [_bid(901, 8)])   # different gw — untouched
 
     mgr.run_auction("lg", 4)
 
-    coll = (db.collection("leagues").document("lg")
-            .collection("wishlist_bids"))
+    coll = (db.collection("leagues").document("lg").collection("wishlist_bids"))
     remaining = {d.id for d in coll.get()}
-    assert "u1_4" not in remaining        # gw 4 wiped
-    assert "u1_5" in remaining            # gw 5 untouched
+    assert "u1_4" in remaining and "u1_5" in remaining   # nothing deleted
+
+    doc4 = mgr.get_my_bids("lg", "u1", 4)
+    assert doc4["resolved"] is True and doc4["resolvedGw"] == 4
+    assert doc4["bids"][0]["status"] == "done-completed"   # the claim won
+    doc5 = mgr.get_my_bids("lg", "u1", 5)
+    assert not doc5.get("resolved")                        # gw5 still pending
+
+
+def test_auction_idempotent_guard(mgr, db):
+    # Running twice without force is refused (the historical double-fire bug).
+    _seed_member(db, "lg", "u1", 1, 1)
+    _seed_squad(db, "lg", "u1", _legal_squad(0))
+    _seed_bid_doc(db, "lg", "u1", 4, [_bid(900, 7)])
+    first = mgr.run_auction("lg", 4)
+    assert first["claimsExecuted"] == 1
+    with pytest.raises(ValueError, match="ALREADY_RESOLVED"):
+        mgr.run_auction("lg", 4)
+    # A resolved doc is also skipped (no new claims) even if guard is forced off
+    # by a fresh results-less state — re-seed pending to prove force re-runs.
+
+
+def test_rollback_auction_restores_and_reopens(mgr, db):
+    _seed_member(db, "lg", "u1", 1, 1)
+    _seed_squad(db, "lg", "u1", _legal_squad(0))
+    _seed_bid_doc(db, "lg", "u1", 4, [_bid(900, 7)])
+
+    mgr.run_auction("lg", 4)
+    # claimed: squad now owns 900, not 7
+    owned = {p["playerId"] for p in mgr._get_squad("lg", "u1")}
+    assert 900 in owned and 7 not in owned
+
+    summary = mgr.rollback_auction("lg", 4)
+    assert summary["reversedSwaps"] == 1 and summary["bidDocsReopened"] == 1
+    # squad restored
+    owned = {p["playerId"] for p in mgr._get_squad("lg", "u1")}
+    assert 7 in owned and 900 not in owned
+    # bids reopened (pending again, statuses cleared) + results doc gone
+    doc4 = mgr.get_my_bids("lg", "u1", 4)
+    assert not doc4.get("resolved") and "status" not in doc4["bids"][0]
+    assert not (db.collection("leagues").document("lg")
+                .collection("wishlist_results").document("4").get()).exists
+    # and the auction can now be re-run cleanly
+    re = mgr.run_auction("lg", 4)
+    assert re["claimsExecuted"] == 1
 
 
 def test_audit_transaction_written_per_claim(mgr, db):
@@ -604,15 +648,16 @@ def test_auction_persists_results_with_claimed_and_cancelled(mgr, db):
     assert res["executed"] == [{"uid": "A", "playerIn": 900, "playerOut": 107}]
     assert len(res["failed"]) == 1 and res["failed"][0]["uid"] == "B"
 
-    # Durable record persisted (survives bid deletion), ordered per manager.
+    # Durable record persisted, ordered per manager.
     doc = (db.collection("leagues").document(lid)
            .collection("wishlist_results").document(str(gw)).get()).to_dict()
     assert doc["gw"] == gw and doc["claimsExecuted"] == 1
     by_uid = {r["uid"]: r["bids"] for r in doc["results"]}
     assert by_uid["A"][0]["status"] == "claimed"
     assert by_uid["B"][0]["status"] == "cancelled"
-    # Bids themselves are gone, but the history remains.
-    assert mgr.get_my_bids(lid, "A", gw)["bids"] == []
+    # Bids are preserved (not deleted) and marked done on their own docs.
+    assert mgr.get_my_bids(lid, "A", gw)["bids"][0]["status"] == "done-completed"
+    assert mgr.get_my_bids(lid, "B", gw)["bids"][0]["status"] == "done-denied"
 
 
 def test_auction_events_are_ordered_and_name_the_winner(mgr, db):

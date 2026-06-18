@@ -3176,9 +3176,13 @@ def admin_process_wishlist_auction(lid: str, gw: int):
     uid, err = _require_admin()
     if err:
         return err
+    force = bool((request.get_json(silent=True) or {}).get("force"))
     try:
-        result = _wishlist_mgr.run_auction(lid, gw)
+        result = _wishlist_mgr.run_auction(lid, gw, force=force)
         return _ok(result)
+    except ValueError as exc:
+        # Idempotency guard (already resolved) → 409 Conflict, not a 500.
+        return _err(str(exc), 409)
     except Exception as exc:
         return _err(str(exc), 500)
 
@@ -3195,10 +3199,32 @@ def admin_open_trade_window(lid: str, gw: int):
     uid, err = _require_admin()
     if err:
         return err
+    force = bool((request.get_json(silent=True) or {}).get("force"))
     try:
         deferred = _trade_mgr.process_deferred_trades(lid, gw)
-        auction = _wishlist_mgr.run_auction(lid, gw)
+        auction = _wishlist_mgr.run_auction(lid, gw, force=force)
         return _ok({"deferredTrades": deferred, "wishlistAuction": auction})
+    except ValueError as exc:
+        return _err(str(exc), 409)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/rollback-wishlist/<int:gw>", methods=["POST"])
+def admin_rollback_wishlist(lid: str, gw: int):
+    """Ilay-only: undo a GW's wishlist auction so it can be cleanly re-run.
+
+    Reverses every wishlist_claim swap (all-or-nothing — 409 if not cleanly
+    reversible), un-resolves the bid docs back to pending, and clears the
+    results doc + the gw's wishlist_claim transactions.
+    """
+    uid, err = _require_super_admin()
+    if err:
+        return err
+    try:
+        return _ok(_wishlist_mgr.rollback_auction(lid, gw))
+    except ValueError as exc:
+        return _err(str(exc), 409)
     except Exception as exc:
         return _err(str(exc), 500)
 
@@ -3210,24 +3236,19 @@ def admin_run_mock_wishlist(lid: str):
     Opens the FREE_AGENTS window (closing the trade window), auto-fills 1-3
     wishlist bids for every manager EXCEPT the caller/viewed manager (top free
     agents in, their worst players out — same position), then resolves the
-    auction so squads actually change. Gated to ``simulated`` leagues so it can
-    never touch the real league.
+    auction so squads actually change.
+
+    SIMULATED LEAGUES ONLY — it fabricates bids, so it must NEVER touch a real
+    league (this once polluted the real draft with fake bids). Hard-gated via
+    ``_require_sim_league``; the real-league path is removed.
 
     Body: ``{gw?, excludeUid?}``. ``excludeUid`` (the manager running it) keeps
     their own real bids; defaults to the authenticated uid.
     """
-    uid, err = _require_auth()
+    ld, err = _require_sim_league(lid)
     if err:
         return err
-    league_snap = _db.collection("leagues").document(lid).get()
-    if not league_snap.exists:
-        return _err("League not found", 404)
-    ld = league_snap.to_dict() or {}
-    # Simulated leagues: any member may run it (showcase behaviour). Real
-    # leagues: LEAGUE-ADMIN ONLY (Ilay) — the auto-generated bids touch other
-    # managers' squads, so nobody else gets the trigger.
-    if not ld.get("simulated") and ld.get("adminUid") != uid:
-        return _err("Only the league admin can run the wishlist on a real league", 403)
+    uid, _ = _require_auth()
     body = request.get_json(silent=True) or {}
     try:
         gw = int(body.get("gw") or ld.get("currentGw") or 1)

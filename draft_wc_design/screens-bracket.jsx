@@ -500,28 +500,44 @@ function TransfersScreen() {
     }
   };
 
-  // MOCK: open the free-agents window + run the wishlist auction in one click.
-  // Auto-fills 1-3 bids for every OTHER manager (top free agents in, their worst
-  // players out); the viewed manager's own wishlist is kept. Resolves the
-  // auction so squads actually change, then reloads into the FA-window view.
-  const runMockWishlist = async () => {
+  // REAL wishlist auction on the managers' actual bids (NO auto-filled mock
+  // bids). Idempotent server-side: a second run is refused (409) until the GW
+  // is rolled back — so a stray double-click can't re-run it.
+  const runWishlistAuction = async () => {
     if (runningMock) return;
-    if (!window.confirm("Mock: close the trade window, open the FREE-AGENTS window and run the wishlist auction now?\n\nEvery other manager gets 1–3 auto bids (top free agents in, worst players out). Your own wishlist is kept.")) return;
+    const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+    if (!window.confirm(`Run the wishlist auction for GW${gw} on the managers' REAL bids?\n\nThis resolves all bids by waiver priority and updates squads. It can only run once per GW (roll back first to re-run).`)) return;
     setRunningMock(true);
     try {
       const lid = window.LEAGUE.id;
-      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-      const res = await apiCall("POST", `/admin/leagues/${lid}/run-mock-wishlist`, { gw, excludeUid: window.ME });
-      const a = (res && res.wishlistAuction) || {};
-      // Replay the auction in the UI (claims revealed one-by-one in resolution
-      // order) instead of a bare alert. Closing the modal reloads into the new
-      // FA-window state with the updated squads.
-      setAuctionViz({ gw: res.gw, executed: a.executed || [], failed: a.failed || [], events: a.events || [] });
+      const res = await apiCall("POST", `/admin/leagues/${lid}/process-wishlist-auction/${gw}`, {});
+      setAuctionViz({ gw: res.gw, executed: res.executed || [], failed: res.failed || [], events: res.events || [] });
     } catch (err) {
+      const already = (err && (err.status === 409)) || /ALREADY_RESOLVED/.test(JSON.stringify(err || ""));
       setToast({
         type: "error",
-        message: "Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err))
+        message: already
+          ? `GW${gw} already resolved — roll it back before re-running.`
+          : "Failed to run wishlist: " + (err.error || err.detail || JSON.stringify(err))
       });
+      setRunningMock(false);
+    }
+  };
+
+  // Ilay-only: undo a GW's wishlist auction (reverse swaps, reopen bids, clear
+  // the result) so it can be cleanly re-run.
+  const rollbackWishlist = async () => {
+    if (runningMock) return;
+    const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+    if (!window.confirm(`Roll back the GW${gw} wishlist auction?\n\nReverses every claim (squads return to pre-auction), reopens all bids, and clears the result. Use this to fix a bad run, then re-run.`)) return;
+    setRunningMock(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("POST", `/admin/leagues/${lid}/rollback-wishlist/${gw}`, {});
+      setToast({ type: "success", message: `Rolled back GW${gw}: ${res.reversedSwaps} swaps reversed, ${res.bidDocsReopened} bid lists reopened.` });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      setToast({ type: "error", message: "Rollback failed: " + (err.error || err.detail || JSON.stringify(err)) });
       setRunningMock(false);
     }
   };
@@ -564,15 +580,25 @@ function TransfersScreen() {
             <div className="transfers-banner__stats" style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value="∞" />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
-              <button className="btn" disabled={runningMock || !amLeagueAdmin} onClick={runMockWishlist}
-                title={amLeagueAdmin ? "Open the free-agents window and resolve the wishlist auction" : "Only the league admin can run the wishlist"}
-                style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap",
-                  background: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.25)" : "var(--gold-500)",
-                  color: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.55)" : "var(--navy-900)",
-                  border: "none", cursor: (runningMock || !amLeagueAdmin) ? "default" : "pointer",
-                  opacity: !amLeagueAdmin ? 0.6 : 1 }}>
-                {runningMock ? "Running…" : "▶ Run wishlist"}
-              </button>
+              {amSuperAdmin && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button className="btn" disabled={runningMock} onClick={runWishlistAuction}
+                    title="Resolve the wishlist auction on the managers' REAL bids (once per GW)"
+                    style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap",
+                      background: runningMock ? "rgba(255,255,255,0.25)" : "var(--gold-500)",
+                      color: runningMock ? "rgba(255,255,255,0.55)" : "var(--navy-900)",
+                      border: "none", cursor: runningMock ? "default" : "pointer" }}>
+                    {runningMock ? "Working…" : "▶ Run wishlist"}
+                  </button>
+                  <button className="btn" disabled={runningMock} onClick={rollbackWishlist}
+                    title="Undo this GW's wishlist auction so it can be re-run"
+                    style={{ padding: "6px 10px", fontSize: 11, fontWeight: 700, borderRadius: 8, whiteSpace: "nowrap",
+                      background: "transparent", color: "rgba(255,255,255,0.8)",
+                      border: "1px solid rgba(255,255,255,0.25)", cursor: runningMock ? "default" : "pointer" }}>
+                    ↺ Roll back wishlist
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>

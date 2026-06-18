@@ -1065,7 +1065,10 @@ function App() {
                       (window.TOURNAMENT && window.TOURNAMENT.currentGw);
           if (wgw) {
             const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
-            if (wl && Array.isArray(wl.bids)) {
+            // A RESOLVED gw's bids are kept for audit/rollback but are no longer
+            // editable — they live in the History tab, not the active wishlist.
+            window.MY_WISHLIST_RESOLVED = !!(wl && wl.resolved);
+            if (wl && Array.isArray(wl.bids) && !wl.resolved) {
               window.MY_WISHLIST_BIDS = wl.bids;
             }
           }
