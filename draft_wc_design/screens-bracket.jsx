@@ -565,6 +565,112 @@ const FA_DYNAMIC_COL = {
   dr:            ["Draft",  p => `#${p.dr || "—"}`],
 };
 
+// Side-by-side season-stat + upcoming-fixture comparison for the swap modal:
+// the player coming IN vs the squad player going OUT. Reuses the global compare
+// helpers (cmpVal, upcomingFixturesFor) and team widgets so this stays in lock-
+// step with the player-stats-modal Compare tab. Stats come straight off
+// p.season (no fetch) so it renders instantly when a drop is picked.
+function PickupCompare({ incoming, outgoing }) {
+  if (!incoming || !outgoing) return null;
+  const tIn = teamById(incoming.team), tOut = teamById(outgoing.team);
+  const win = "var(--green-600, #1a9d5a)";
+
+  const metrics = [
+    ["Minutes", "minutes"],
+    ["Goals", "goals"],
+    ["Assists", "assists"],
+    ["Shots on target", "shotsOnTarget"],
+    ["Clean sheets", "cleanSheets"],
+    ["DefCon actions", "defconActions"],
+    ["Total points", "pts"],
+  ];
+
+  // Real upcoming fixtures only (known group opponents) — TBD knockout rows are
+  // dropped. This list shrinks naturally as GWs are played (2 now → 1 in GW2).
+  const realFx = pl => upcomingFixturesFor(pl, teamById(pl.team), null)
+    .filter(f => f.gw !== "—" && f.opp && f.opp !== "TBD");
+
+  const FdrBadge = ({ d }) => {
+    const c = d >= 5 ? "var(--red-500)" : d >= 4 ? "var(--hot-500)" : d >= 3 ? "var(--gold-500)" : "var(--green-500)";
+    return <span style={{ display: "inline-block", minWidth: 18, textAlign: "center", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: c + "22", color: c }}>{d}</span>;
+  };
+
+  const FxCol = ({ pl, fx, align }) => (
+    <div style={{ flex: 1, background: "white", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+      <div style={{ background: "var(--cream)", padding: "5px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-500)", textAlign: align }}>
+        {pl.name.split(" ").slice(-1)[0]} · next
+      </div>
+      {fx.length === 0 ? (
+        <div className="muted" style={{ padding: "8px 10px", fontSize: 11, textAlign: "center" }}>No upcoming fixtures</div>
+      ) : fx.map((f, i) => {
+        const ot = teamById(f.opp);
+        return (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: "1px solid var(--border)", fontSize: 12 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+              <span className="muted" style={{ fontSize: 10, fontWeight: 700 }}>GW{f.gw}</span>
+              {ot ? <Flag team={ot} /> : null}
+              <span style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(ot && ot.name) || f.opp}</span>
+            </span>
+            <FdrBadge d={f.diff} />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div style={{ background: "var(--cream)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", textAlign: "center" }}>
+        Stat comparison · this season
+      </div>
+
+      {/* Heads — IN on the left, OUT on the right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tIn} pos={incoming.pos} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{incoming.name}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#006b35", letterSpacing: "0.05em" }}>IN</div>
+          </div>
+        </div>
+        <div style={{ fontWeight: 800, color: "var(--ink-500)", fontSize: 11 }}>vs</div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+          <div style={{ minWidth: 0, textAlign: "right" }}>
+            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{outgoing.name}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--red-500)", letterSpacing: "0.05em" }}>OUT</div>
+          </div>
+          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tOut} pos={outgoing.pos} /></div>
+        </div>
+      </div>
+
+      {/* Metric rows — the better value is greener/bolder */}
+      <div style={{ background: "white", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+        {metrics.map(([label, key], i) => {
+          const av = cmpVal(incoming, key), bv = cmpVal(outgoing, key);
+          const aWin = av > bv, bWin = bv > av;
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", borderTop: i ? "1px solid var(--border)" : "none" }}>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: aWin ? 800 : 600, color: aWin ? win : "var(--ink-700)" }}>{av}</div>
+              <div style={{ width: 120, textAlign: "center", fontSize: 10, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: bWin ? 800 : 600, color: bWin ? win : "var(--ink-700)" }}>{bv}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Upcoming fixtures, side by side */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <FxCol pl={incoming} fx={realFx(incoming)} align="left" />
+        <FxCol pl={outgoing} fx={realFx(outgoing)} align="right" />
+      </div>
+
+      <div className="muted" style={{ fontSize: 10, textAlign: "center" }}>
+        Greener / bolder = the better value. FDR 1 easy → 5 hard.
+      </div>
+    </div>
+  );
+}
+
 function FreeAgentsTab({ setToast }) {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
@@ -978,6 +1084,13 @@ function FreeAgentsTab({ setToast }) {
                   </div>
                 )}
               </div>
+
+              {/* Stat + fixture comparison — appears once a drop is chosen */}
+              {playerToDrop && (() => {
+                const outg = eligibleDrops.find(s => String(s.id) === String(playerToDrop))
+                  || window.PLAYER_MAP[String(playerToDrop)];
+                return outg ? <PickupCompare incoming={p} outgoing={outg} /> : null;
+              })()}
 
               {/* Actions */}
               <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
