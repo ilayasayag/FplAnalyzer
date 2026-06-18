@@ -1654,7 +1654,7 @@ def get_edit_gw(lid: str):
     gw = int(cur)
     # walk forward over locked GWs (cap the search so a misconfig can't loop)
     for _ in range(8):
-        if not is_lineup_locked(_db, gw):
+        if not is_lineup_locked(_db, gw, lid=lid):
             break
         gw += 1
     return _ok({"editGw": gw, "currentGw": int(cur), "currentLocked": gw != int(cur)})
@@ -1722,7 +1722,7 @@ def get_gw_history(lid: str, uid: str):
         return _ok({"leagueId": lid, **doc.to_dict()})
     # No finalized snapshot yet. Pre-lock, lineups are private: a manager may
     # always see their own, but never an opponent's (mirrors get_opponent_lineup).
-    if not is_lineup_locked(_db, gw):
+    if not is_lineup_locked(_db, gw, lid=lid):
         if uid != caller:
             return _err("lineups hidden until they lock", 403)
         return _err("gw_history not found", 404)

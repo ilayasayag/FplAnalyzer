@@ -241,6 +241,30 @@ def test_is_lineup_locked_crosses_at_squad_lock():
     assert is_lineup_locked(db, 2, now=T0 + timedelta(hours=1)) is True   # live
 
 
+def test_lineup_lock_per_league_override_extends_lock():
+    # A per-league override moves THAT league's gw2 lock to an explicit instant,
+    # later than the fixture clock — others keep T0-1h.
+    db, lineup_lock_time, is_lineup_locked = _db_with_gw2()
+    later = T0 + timedelta(hours=2, minutes=30)   # well past the first kickoff
+    db.collection("leagues").document("L").set(
+        {"lineupLockOverride": {"2": later.isoformat()}})
+    assert lineup_lock_time(db, 2) == T0 - timedelta(hours=1)        # no lid → clock
+    assert lineup_lock_time(db, 2, lid="L") == later                # lid → override
+    # At T0+1h the fixture clock says locked, but league L is still editable.
+    assert is_lineup_locked(db, 2, now=T0 + timedelta(hours=1)) is True
+    assert is_lineup_locked(db, 2, now=T0 + timedelta(hours=1), lid="L") is False
+    # Past the override → locked for L too.
+    assert is_lineup_locked(db, 2, now=later + timedelta(minutes=1), lid="L") is True
+
+
+def test_lineup_lock_override_scoped_to_one_league():
+    db, _, is_lineup_locked = _db_with_gw2()
+    db.collection("leagues").document("L").set(
+        {"lineupLockOverride": {"2": (T0 + timedelta(hours=3)).isoformat()}})
+    # A different league (no override) stays on the fixture clock.
+    assert is_lineup_locked(db, 2, now=T0, lid="OTHER") is True
+
+
 def test_is_lineup_locked_unlocked_when_no_kickoff():
     import test_helpers as H
     from fpl_predictor.game.wc_windows import is_lineup_locked
