@@ -992,28 +992,11 @@ function WishlistTab({ setToast }) {
     playerOut: Number(b.playerOut),
     position: b.position,
   })));
-  const [adding, setAdding] = React.useState(false);
-  const [dropId, setDropId] = React.useState("");
-  const [claimId, setClaimId] = React.useState("");
-  const [saving, setSaving] = React.useState(false);
 
   const win = window.WINDOW || {};
   const upcomingGw = win.gw || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
   const phase = win.phase || "none";
   const isFaWindow = phase === "free_agents";
-  const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
-
-  // Free agents eligible to claim, filtered to the chosen drop's position and
-  // excluding players already on this manager's wishlist.
-  const dropPlayer = dropId ? window.PLAYER_MAP[String(dropId)] : null;
-  const eligibleClaims = (window.FREE_AGENTS || []).filter(p => {
-    // The same incoming player MAY appear in multiple bids paired with different
-    // players OUT (ordered fallbacks). Only block the EXACT (in, out) pair that
-    // is already on the list for the currently-chosen drop.
-    if (dropId && bids.some(b => b.playerIn === Number(p.id) && b.playerOut === Number(dropId))) return false;
-    if (!dropPlayer) return true;
-    return p.pos === dropPlayer.pos;
-  });
 
   // Persist the given bids list to the backend NOW (an empty list clears the
   // wishlist doc). Used so the "X" remove and reorder are durable immediately —
@@ -1044,37 +1027,6 @@ function WishlistTab({ setToast }) {
     setBids(next);  // optimistic
     try { await persistBids(next); }
     catch (err) { setBids(prev); setToast({ type: "error", message: "Failed to remove bid: " + (err.error || err.detail || JSON.stringify(err)) }); }
-  };
-
-  const addBid = () => {
-    if (!dropId || !claimId) { setToast({ type: "error", message: "Pick a player to drop and a free agent to claim." }); return; }
-    const dp = window.PLAYER_MAP[String(dropId)];
-    const cp = window.PLAYER_MAP[String(claimId)];
-    if (dp && cp && dp.pos !== cp.pos) { setToast({ type: "error", message: "Drop and claim must be the same position." }); return; }
-    if (bids.some(b => b.playerIn === Number(claimId) && b.playerOut === Number(dropId))) {
-      setToast({ type: "error", message: "That exact swap is already on your wishlist. Pick a different player to drop to add it as a fallback." }); return;
-    }
-    setBids([...bids, { playerIn: Number(claimId), playerOut: Number(dropId), position: cp ? POS_NAMES[cp.pos] : "?" }]);
-    setAdding(false); setDropId(""); setClaimId("");
-  };
-
-  const save = async () => {
-    if (!upcomingGw) { setToast({ type: "error", message: "No upcoming gameweek — the transfer window is closed." }); return; }
-    if (!bids.length) { setToast({ type: "error", message: "Add at least one bid first." }); return; }
-    setSaving(true);
-    try {
-      const lid = window.LEAGUE.id;
-      await apiCall("POST", `/leagues/${lid}/wishlist-bids`, {
-        gw: upcomingGw,
-        bids: bids.map(b => ({ playerIn: b.playerIn, playerOut: b.playerOut, position: b.position })),
-      });
-      window.MY_WISHLIST_BIDS = bids.slice();
-      setToast({ type: "success", message: `Wishlist saved — ${bids.length} bid(s) for GW${upcomingGw}. They'll be resolved by the auction when the window closes.` });
-    } catch (err) {
-      setToast({ type: "error", message: "Failed to save wishlist: " + (err.error || err.detail || JSON.stringify(err)) });
-    } finally {
-      setSaving(false);
-    }
   };
 
   return (

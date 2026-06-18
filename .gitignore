@@ -78,3 +78,4 @@ scratch/
 dr_backup/
 draft_result_backup_*.json
 firestore_export_*.json
+exports/

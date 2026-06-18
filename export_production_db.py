@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 import os
+import sys
 import json
 import subprocess
 import datetime
 from google.cloud import firestore
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as TokenCredentials
+
+# Reconfigure stdout/stderr to UTF-8 to prevent UnicodeEncodeError on Windows terminals
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 PROJECT = "fpl-analyzer-792eb"
 DATABASE = "gamedb"
@@ -103,7 +110,9 @@ def main():
             print("Make sure you are logged in and have access permissions.")
             return
 
-    output_file = f"firestore_export_{datetime.date.today().isoformat()}.json"
+    output_dir = "exports"
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"firestore_export_{datetime.date.today().isoformat()}.json")
     print(f"💾 Saving data to {output_file}...")
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
