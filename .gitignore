@@ -77,3 +77,4 @@ scratch/
 # Local DB backups (contain user emails) — never commit
 dr_backup/
 draft_result_backup_*.json
+firestore_export_*.json

@@ -1,8 +1,11 @@
 #!/usr/bin/env python3
 import os
 import json
+import subprocess
 import datetime
 from google.cloud import firestore
+from google.oauth2 import service_account
+from google.oauth2.credentials import Credentials as TokenCredentials
 
 PROJECT = "fpl-analyzer-792eb"
 DATABASE = "gamedb"
@@ -52,6 +55,19 @@ def export_subcollections(doc_ref, spec):
             }
     return out
 
+def get_client():
+    # Prod (gamedb) rejects plain Application Default Credentials with a 403 — the
+    # bare ADC identity has no permissions (see OPS_RUNBOOK.md). Authenticate with
+    # the firebase-adminsdk service account instead, exactly like the runbook.
+    sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
+    if sa and os.path.exists(sa):
+        creds = service_account.Credentials.from_service_account_file(sa)
+        return firestore.Client(project=PROJECT, credentials=creds, database=DATABASE)
+    # Fallback: the gcloud SA access token (active gcloud account must be the
+    # firebase-adminsdk SA, not a bare user login).
+    tok = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+    return firestore.Client(project=PROJECT, credentials=TokenCredentials(token=tok), database=DATABASE)
+
 def main():
     print(f"🔌 Connecting to Production Firestore ({PROJECT} / database: {DATABASE})...")
     # Clean Firestore emulator env variables if they exist in the process,
@@ -62,10 +78,12 @@ def main():
         del os.environ["FIREBASE_AUTH_EMULATOR_HOST"]
 
     try:
-        db = firestore.Client(project=PROJECT, database=DATABASE)
+        db = get_client()
     except Exception as e:
         print(f"❌ Failed to initialize Firestore Client: {e}")
-        print("Make sure you have authenticated your local shell using: gcloud auth application-default login")
+        print("Authenticate with the firebase-adminsdk service account, then retry:")
+        print("  GOOGLE_APPLICATION_CREDENTIALS=/path/to/fpl-analyzer-792eb-firebase-adminsdk-*.json")
+        print("  (or `gcloud auth login` as the firebase-adminsdk SA). Bare ADC → 403.")
         return
 
     data = {}
