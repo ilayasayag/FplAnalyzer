@@ -995,6 +995,8 @@ function App() {
               nextPhase: winData.nextPhase || null,
               nextPhaseStartsAt: winData.nextPhaseStartsAt || null,
               schedule: winData.schedule || [],
+              // Admin-authored timed phase overrides ([{phase, effectiveAt, gw}]).
+              scheduledOverrides: winData.scheduledOverrides || [],
             };
           }
         } catch (e) {
@@ -1005,8 +1007,12 @@ function App() {
         try {
           const adminRes = await apiCall("GET", "/me/admin");
           window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
+          // Super-admin (Ilay) gates window control: the phase switcher + the
+          // timed window-schedule editor. Backend enforces too.
+          window.IS_SUPER_ADMIN = !!(adminRes && adminRes.isSuperAdmin);
         } catch (e) {
           window.IS_ADMIN = false;
+          window.IS_SUPER_ADMIN = false;
           console.warn("Failed to fetch admin flag", e);
         }
 
