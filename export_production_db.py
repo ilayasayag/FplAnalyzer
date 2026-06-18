@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 import os
+import sys
 import json
 import subprocess
 import datetime
 from google.cloud import firestore
 from google.oauth2 import service_account
 from google.oauth2.credentials import Credentials as TokenCredentials
+
+# Reconfigure stdout/stderr to UTF-8 to prevent UnicodeEncodeError on Windows terminals
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8')
 
 PROJECT = "fpl-analyzer-792eb"
 DATABASE = "gamedb"
@@ -56,17 +63,37 @@ def export_subcollections(doc_ref, spec):
     return out
 
 def get_client():
-    # Prod (gamedb) rejects plain Application Default Credentials with a 403 — the
-    # bare ADC identity has no permissions (see OPS_RUNBOOK.md). Authenticate with
-    # the firebase-adminsdk service account instead, exactly like the runbook.
+    errs = []
+    # Try 1: Plain Application Default Credentials (ADC)
+    try:
+        db = firestore.Client(project=PROJECT, database=DATABASE)
+        # Test read to verify permissions
+        list(db.collection("wc_config").limit(1).get())
+        return db
+    except Exception as e:
+        errs.append(f"Plain ADC failed: {e}")
+
+    # Try 2: Service account credentials from GOOGLE_APPLICATION_CREDENTIALS
     sa = os.environ.get("GOOGLE_APPLICATION_CREDENTIALS")
     if sa and os.path.exists(sa):
-        creds = service_account.Credentials.from_service_account_file(sa)
-        return firestore.Client(project=PROJECT, credentials=creds, database=DATABASE)
-    # Fallback: the gcloud SA access token (active gcloud account must be the
-    # firebase-adminsdk SA, not a bare user login).
-    tok = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
-    return firestore.Client(project=PROJECT, credentials=TokenCredentials(token=tok), database=DATABASE)
+        try:
+            creds = service_account.Credentials.from_service_account_file(sa)
+            db = firestore.Client(project=PROJECT, credentials=creds, database=DATABASE)
+            list(db.collection("wc_config").limit(1).get())
+            return db
+        except Exception as e:
+            errs.append(f"SA file credentials failed: {e}")
+
+    # Try 3: gcloud print-access-token fallback
+    try:
+        tok = subprocess.check_output(["gcloud", "auth", "print-access-token"], text=True).strip()
+        db = firestore.Client(project=PROJECT, credentials=TokenCredentials(token=tok), database=DATABASE)
+        list(db.collection("wc_config").limit(1).get())
+        return db
+    except Exception as e:
+        errs.append(f"gcloud access token fallback failed: {e}")
+
+    raise ValueError(f"All authentication methods failed:\n" + "\n".join(f"  - {err}" for err in errs))
 
 def main():
     print(f"🔌 Connecting to Production Firestore ({PROJECT} / database: {DATABASE})...")
@@ -103,7 +130,9 @@ def main():
             print("Make sure you are logged in and have access permissions.")
             return
 
-    output_file = f"firestore_export_{datetime.date.today().isoformat()}.json"
+    output_dir = "exports"
+    os.makedirs(output_dir, exist_ok=True)
+    output_file = os.path.join(output_dir, f"firestore_export_{datetime.date.today().isoformat()}.json")
     print(f"💾 Saving data to {output_file}...")
     with open(output_file, "w", encoding="utf-8") as f:
         json.dump(data, f, indent=2)
