@@ -165,11 +165,10 @@ if not mgrs:
     print("  (no standings yet — previewing from expected GW result)")
 else:
     ranked = [m["uid"] for m in sorted(mgrs, key=lambda m: (m.get("hpts", 0), m.get("fpts", 0)), reverse=True)]
-# emulate reset_waiver_priority_to_standings: worst -> wp 1
-wp = {u: r for r, u in enumerate(reversed(ranked), start=1)}
-# emulate wc_wishlist._ordered_managers actual sort
-mem_meta = {m.id: (m.to_dict() or {}) for m in db.collection("leagues").document(LID).collection("members").get()}
-actual = sorted(members, key=lambda u: (-wp[u], -(mem_meta[u].get("draftPosition", 0) or 0), u))
+# Call the REAL auction order fn against the LIVE waiverPriority — so this
+# reflects the deployed code, not an inline copy of it.
+from fpl_predictor.game.wc_wishlist import WCWishlistManager
+actual = WCWishlistManager(db)._ordered_managers(LID)
 expected = list(reversed(ranked))  # last place first
 wl_ok = (actual == expected)
 results["Wishlist"] = wl_ok
