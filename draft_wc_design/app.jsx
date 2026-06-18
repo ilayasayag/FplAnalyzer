@@ -274,6 +274,15 @@ function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
 
+  // "Trade" buttons in the Transfers player table dispatch wc:open-trade with
+  // { targetUid, receiveId }. Stash it for TradesScreen to consume on mount, then
+  // jump to the Trades tab where the proposal opens pre-seeded.
+  React.useEffect(() => {
+    const onOpenTrade = e => { window.__TRADE_SEED = e.detail; setTab("trades"); };
+    window.addEventListener("wc:open-trade", onOpenTrade);
+    return () => window.removeEventListener("wc:open-trade", onOpenTrade);
+  }, []);
+
   // Auth States
   const [user, setUser] = React.useState(null);
   const [authLoading, setAuthLoading] = React.useState(true);
@@ -1084,9 +1093,11 @@ function App() {
             createdAt: fmtAgo(t.createdAt),
             message: t.message || "",
           });
-          const pending = (trades || []).filter(t => t.status === "pending").map(mapTrade);
-          window.TRADES_INBOX = pending.filter(t => t.target === window.ME);
-          window.TRADES_OUTBOX = pending.filter(t => t.proposer === window.ME);
+          // Include live BIDS (deferred_pending) alongside pending offers so the
+          // gameweek-window bids are visible + cancellable in the Trades screen.
+          const open = (trades || []).filter(t => t.status === "pending" || t.status === "deferred_pending").map(mapTrade);
+          window.TRADES_INBOX = open.filter(t => t.target === window.ME);
+          window.TRADES_OUTBOX = open.filter(t => t.proposer === window.ME);
         } catch (e) {
           console.warn("Failed to fetch trades", e);
           window.TRADES_INBOX = [];
