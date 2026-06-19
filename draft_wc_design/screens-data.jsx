@@ -248,16 +248,10 @@ function FixturesScreen() {
   const isMobile = useIsMobile();
   const round = TOURNAMENT.gwDates[gw];
 
-  // Secret: long-press the GW-bar dot (~2s) opens the score-pool EV picks.
+  // Secret: single-click the GW-bar dot opens the score-pool EV picks.
   // Self-contained; no league data touched.
   const [picksOpen, setPicksOpen] = React.useState(false);
-  const holdRef = React.useRef(null);
-  const holdStart = (e) => {
-    if (e) { e.stopPropagation(); }
-    clearTimeout(holdRef.current);
-    holdRef.current = setTimeout(() => setPicksOpen(true), 2000);
-  };
-  const holdCancel = () => { clearTimeout(holdRef.current); holdRef.current = null; };
+  const openPicks = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } setPicksOpen(true); };
 
   React.useEffect(() => {
     let cancelled = false;
@@ -377,11 +371,9 @@ function FixturesScreen() {
             <span style={{ display: "block", fontSize: isMobile ? 11 : 9, opacity: 0.7, fontWeight: 500, marginTop: 2 }}>{TOURNAMENT.gwDates[n].wcRound.replace("Group Stage · ", "")}</span>
           </button>
         ))}
-        {/* secret: long-press (~2s) → score-pool EV picks */}
-        <span onMouseDown={holdStart} onMouseUp={holdCancel} onMouseLeave={holdCancel}
-          onTouchStart={holdStart} onTouchEnd={holdCancel} onTouchCancel={holdCancel}
-          onContextMenu={(e) => e.preventDefault()} aria-hidden="true"
-          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, marginLeft: 2, borderRadius: "50%", opacity: 0.3, cursor: "default", userSelect: "none", WebkitUserSelect: "none", WebkitTapHighlightColor: "transparent", touchAction: "none", color: "var(--ink-500)", fontSize: 22 }}>•</span>
+        {/* secret: single-click → score-pool EV picks */}
+        <span onClick={openPicks} aria-hidden="true"
+          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, marginLeft: 2, borderRadius: "50%", opacity: 0.35, cursor: "pointer", userSelect: "none", WebkitTapHighlightColor: "transparent", color: "var(--ink-500)", fontSize: 22 }}>•</span>
       </div>
 
       {window.BettingPicksModal
