@@ -40,3 +40,20 @@ Point Netanel at `NETANEL_GUIDE.md` for setup / workflow / gotchas instead of re
 - **JSX: a compile-check is NOT enough.** Scope/runtime errors crash a component at render and pass Babel (this white-screened the player modal). SSR or load the touched component before deploying frontend.
 - **Scoring invariant:** `fantasyPoints = FIFA total + DefCon − scouting` in every write path; `breakdown` lines are display-only. DefCon: DEF = CBIT, MID = CBITR.
 - **Backfill / re-score** via the `/sync-gw-scores` skill (WhoScored only works from the residential Mac; cloud ticks are FIFA/ESPN). Always verify 0 audit mismatches afterward.
+
+## Gameweek operations: every GW boundary — run `/gw-transition`
+
+This is the standing protocol distilled from the GW2 rollover. **All agents must follow it at a GW boundary**, even in a checkout where the skill files are absent (skills live in the gitignored `.claude/skills/` — the knowledge below is the source of truth; the skills just execute it).
+
+- **There is no scheduler. Three independent clocks — never conflate them:**
+  1. **Lineup lock** = `T0 − squad_lock_before_hours` (default 1h before the GW's first kickoff). Freezes squads/XI. Per-league override: `leagues/{lid}.lineupLockOverride[gw]`.
+  2. **Window phase** (trade / free_agents / next_gw_bid) = a *lazy resolver*: passed `windowSchedule` entry > manual `windowOverride` > fixture clock. Nothing fires on its own; it resolves when read.
+  3. **Finalize** = scoring. **Manual**, only AFTER every match of that GW is FT + scored (group GWs span ~6 days). It is NOT the lineup lock.
+- **End-of-GW order (gw = n):** `/sync-gw-scores n` → `/gw-end-validations n` + `/squad-lineup-audit n` (resolve every FAIL) → `finalize_gw(n)` (CONFIRM) → `/post-finalize-reconcile n`.
+- **Start-of-next order (gw = n+1):** advance `currentGw → n+1` → open **Trade** window → at FA-open run `/wishlist-run` (snapshot → dry-run → run ONCE → verify → rollback-if-needed) then open **Free agents** → set lineup lock / `windowSchedule` and validate with `/window-schedule-check` → **Pick Team** auto-targets n+1 → audit once more at the deadline.
+- **Hard landmines (these bit us in GW2):**
+  - **Never run the wishlist via the mock auto-fill path.** `run-mock-wishlist` *fabricates fake bids* and was un-guarded against double-runs. Only `/wishlist-run` on REAL bids. Bid snapshots must be stamped with the *real* capture time.
+  - **Free-agent / wishlist / trade swaps update the squad (`players`) but NOT the lineup doc** → stale lineups (a dropped player dangles, the new one goes missing — the Vargas/Leão class). Always run `/squad-lineup-audit` after any roster change and before locking.
+  - **Post-lock fairness:** never edit a locked lineup without an explicit override AND confirming no swapped-in/out player has already kicked off.
+- **All human-facing times are Israel time (IDT, UTC+3);** store ISO-UTC. Confirm before every prod write; back up squads/lineups to timestamped JSON before any destructive step.
+- **GW-ops skills** (in `.claude/skills/`, invoke by name): `/gw-transition` (master runbook), `/gw-end-validations`, `/squad-lineup-audit`, `/wishlist-run`, `/window-schedule-check`, `/post-finalize-reconcile`, `/sync-gw-scores`. Read-only validators propose fixes and apply only on confirm; orchestrators confirm before every write.

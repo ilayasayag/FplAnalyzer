@@ -63,8 +63,10 @@ secrets.json
 ml_venv/
 ml/
 
-# Claude AI session files (local only)
-.claude/
+# Claude AI session files (local only) — but track shared skills so all agents/checkouts get them
+.claude/*
+!.claude/skills/
+# (settings.local.json, launch.json, etc. stay ignored)
 
 # Python cache
 __pycache__/
