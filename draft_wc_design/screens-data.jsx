@@ -248,18 +248,10 @@ function FixturesScreen() {
   const isMobile = useIsMobile();
   const round = TOURNAMENT.gwDates[gw];
 
-  // Secret: triple-tap the GW-bar dot (within 1.5s) opens the score-pool EV
-  // picks. Self-contained; no league data touched.
+  // Secret: single-click the GW-bar dot opens the score-pool EV picks.
+  // Self-contained; no league data touched.
   const [picksOpen, setPicksOpen] = React.useState(false);
-  const tapRef = React.useRef({ n: 0, t: 0 });
-  const secretTap = (e) => {
-    if (e) { e.stopPropagation(); }
-    const now = Date.now();
-    const r = tapRef.current;
-    r.n = (now - r.t < 2500) ? r.n + 1 : 1;
-    r.t = now;
-    if (r.n >= 3) { r.n = 0; setPicksOpen(true); }
-  };
+  const openPicks = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } setPicksOpen(true); };
 
   React.useEffect(() => {
     let cancelled = false;
@@ -379,9 +371,9 @@ function FixturesScreen() {
             <span style={{ display: "block", fontSize: isMobile ? 11 : 9, opacity: 0.7, fontWeight: 500, marginTop: 2 }}>{TOURNAMENT.gwDates[n].wcRound.replace("Group Stage · ", "")}</span>
           </button>
         ))}
-        {/* secret: triple-tap → score-pool EV picks */}
-        <span onClick={secretTap} onTouchEnd={secretTap} aria-hidden="true"
-          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, marginLeft: 2, borderRadius: "50%", opacity: 0.3, cursor: "default", userSelect: "none", WebkitTapHighlightColor: "transparent", color: "var(--ink-500)", fontSize: 22 }}>•</span>
+        {/* secret: single-click → score-pool EV picks */}
+        <span onClick={openPicks} aria-hidden="true"
+          style={{ flexShrink: 0, display: "inline-flex", alignItems: "center", justifyContent: "center", width: 32, height: 32, marginLeft: 2, borderRadius: "50%", opacity: 0.35, cursor: "pointer", userSelect: "none", WebkitTapHighlightColor: "transparent", color: "var(--ink-500)", fontSize: 22 }}>•</span>
       </div>
 
       {window.BettingPicksModal

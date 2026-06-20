@@ -620,99 +620,174 @@ function SyncDataButton({ style }) {
 // blended 0.6/0.4 with FIFA Match Predictor crowd picks on the exact score.
 // Hand-computed (no live feed) — refresh by editing this table. Hidden behind a
 // triple-tap on the Fixtures GW bar; nothing here touches league data.
+// Row = [match, bet(direction), recScore, blend%, P(dir)%, base, polymarketExact,
+// fifaCrowdExact, source, nonObvious, dateLabel, sortKey, actualResult|null,
+// pointsEarned|null, hit('exact'|'dir'|'miss')|null, realScorePct|null].
+// EV = P(dir)·base + 4·blend at render; points for played games = base (direction
+// hit) / base+4 (exact) / 0 (miss). realScorePct = the actual scoreline's FIFA
+// crowd share. src: agree · blend · diverge (the "% differential" value picks) ·
+// fifa (GW1: Polymarket exact market not captured).
 const BETTING_PICKS = {
-  GW1: { label: "GW1 · Round 1 (closing tonight)", rows: [
-    ["Portugal – DR Congo", "Portugal 3-0", 2.10, false],
-    ["England – Croatia",   "England 2-1",  2.02, false],
-    ["Uzbekistan – Colombia","Colombia 2-0", 1.97, false],
-    ["Ghana – Panama",      "Draw 1-1 (toss-up)", 1.60, true],
+  GW1: { label: "GW1 · Round 1 — complete", rows: [
+    ["Portugal – DR Congo",  "Portugal", "3-0", 24, 76, 1.5, "—", "3-0 (37%)",       "fifa",    false, "Wed 17 Jun", 6172000, "1-1", 0,   "miss", "1-1 <13%"],
+    ["England – Croatia",    "England",  "2-1", 22, 57, 2.0, "—", "2-1 (35%)",       "fifa",    false, "Wed 17 Jun", 6172300, "4-2", 2,   "dir",  "4-2 <8%"],
+    ["Ghana – Panama",       "DRAW",     "1-1", 10, 30, 4.0, "—", "2-0 Ghana (30%)", "diverge", true,  "Thu 18 Jun", 6180200, "1-0", 0,   "miss", "1-0 = 19%"],
+    ["Uzbekistan – Colombia","Colombia", "0-2", 23, 71, 1.5, "—", "0-2 (35%)",       "fifa",    false, "Thu 18 Jun", 6180500, "1-3", 1.5, "dir",  "1-3 = 15%"],
   ]},
-  GW2: { label: "GW2 · Round 2", rows: [
-    ["Canada – Qatar",        "Canada 2-0",      2.42, false],
-    ["Ecuador – Curaçao",     "Ecuador 2-0",     2.30, false],
-    ["Spain – Saudi Arabia",  "Spain 3-0",       2.19, false],
-    ["Brazil – Haiti",        "Brazil 3-0",      2.16, false],
-    ["France – Iraq",         "France 3-0",      2.16, false],
-    ["Tunisia – Japan",       "Japan 2-0",       2.15, true],
-    ["Portugal – Uzbekistan", "Portugal 3-0",    2.09, false],
-    ["Switzerland – Bosnia",  "Switzerland 2-1", 2.01, false],
-    ["Czech – South Africa",  "Czech 2-0",       1.94, false],
-    ["USA – Australia",       "USA 2-1",         1.94, false],
-    ["Netherlands – Sweden",  "Netherlands 2-1", 1.94, false],
-    ["Uruguay – Cape Verde",  "Uruguay 2-0",     1.94, false],
-    ["England – Ghana",       "England 2-0",     1.94, false],
-    ["Jordan – Algeria",      "Algeria 2-0",     1.93, true],
-    ["Turkey – Paraguay",     "Turkey 2-1",      1.92, false],
-    ["Argentina – Austria",   "Argentina 2-1",   1.91, false],
-    ["Colombia – DR Congo",   "Colombia 2-0",    1.91, false],
-    ["New Zealand – Egypt",   "Egypt 2-0",       1.91, true],
-    ["Belgium – Iran",        "Belgium 2-0",     1.86, false],
-    ["Mexico – S.Korea",      "Draw 1-1",        1.86, true],
-    ["Scotland – Morocco",    "Morocco 2-1",     1.84, true],
-    ["Panama – Croatia",      "Croatia 2-0",     1.84, false],
-    ["Norway – Senegal",      "Draw 1-1",        1.55, true],
-    ["Germany – Ivory Coast", "Germany 2-1",     1.54, false],
+  GW2: { label: "GW2 · Round 2 — live", rows: [
+    ["Czech – South Africa",  "Czech",       "2-0", 21, 55, 2.0, "1-0 (14%)", "2-0 (36%)", "blend",   false, "Thu 18 Jun", 6181900, "1-1", 0,   "miss", "1-1 <12%"],
+    ["Switzerland – Bosnia",  "Switzerland", "2-1", 19, 62, 2.0, "1-0 (14%)", "2-1 (33%)", "blend",   false, "Thu 18 Jun", 6182200, "4-1", 2,   "dir",  "4-1 <17%"],
+    ["Canada – Qatar",        "Canada",      "2-0", 23, 75, 2.0, "2-0 (14%)", "2-0 (37%)", "agree",   false, "Fri 19 Jun", 6190100, "6-0", 2,   "dir",  "6-0 <14%"],
+    ["Mexico – S.Korea",      "DRAW",        "1-1", 19, 28, 4.0, "1-1 (15%)", "2-1 Mex (26%)", "diverge", true,  "Fri 19 Jun", 6190400, "1-0", 0,   "miss", "1-0 <20%"],
+    ["USA – Australia",       "USA",         "2-1", 18, 61, 2.0, "1-0 (13%)", "2-1 (30%)", "blend",   false, "Fri 19 Jun", 6192200, "2-0", 2,   "dir",  "2-0 = 15%"],
+    ["Scotland – Morocco",    "Morocco",     "1-2", 18, 56, 2.0, "0-1 (15%)", "1-2 (30%)", "blend",   true,  "Sat 20 Jun", 6200100, "0-1", 2,   "dir",  "0-1 <17%"],
+    ["Brazil – Haiti",        "Brazil",      "3-0", 21, 88, 1.5, "3-0 (15%)", "3-0 (30%)", "agree",   false, "Sat 20 Jun", 6200330, "3-0", 5.5, "exact","3-0 = 35%"],
+    ["Turkey – Paraguay",     "Turkey",      "2-1", 18, 48, 2.5, "1-0 (13%)", "2-1 (30%)", "blend",   false, "Sat 20 Jun", 6200600, "0-1", 0,   "miss", "0-1 <18%"],
+    ["Netherlands – Sweden",  "Netherlands", "2-1", 20, 57, 2.0, "1-0 (12%)", "2-1 (35%)", "blend",   false, "Sat 20 Jun", 6202000, null, null, null, null],
+    ["Germany – Ivory Coast", "Germany",     "2-1", 15, 63, 1.5, "2-0 (11%)", "3-1 (27%)", "blend",   false, "Sat 20 Jun", 6202300, null, null, null, null],
+    ["Ecuador – Curaçao",     "Ecuador",     "2-0", 25, 88, 1.5, "3-0 (15%)", "2-0 (39%)", "blend",   false, "Sun 21 Jun", 6210300, null, null, null, null],
+    ["Tunisia – Japan",       "Japan",       "0-2", 22, 64, 2.0, "0-1 (14%)", "0-2 (35%)", "blend",   true,  "Sun 21 Jun", 6210700, null, null, null, null],
+    ["Spain – Saudi Arabia",  "Spain",       "3-0", 22, 88, 1.5, "3-0 (15%)", "3-0 (32%)", "agree",   false, "Sun 21 Jun", 6211900, null, null, null, null],
+    ["Belgium – Iran",        "Belgium",     "2-0", 21, 68, 1.5, "1-0 (14%)", "2-0 (33%)", "blend",   false, "Sun 21 Jun", 6212200, null, null, null, null],
+    ["Uruguay – Cape Verde",  "Uruguay",     "2-0", 24, 66, 1.5, "1-0 (17%)", "2-0 (37%)", "blend",   false, "Mon 22 Jun", 6220100, null, null, null, null],
+    ["New Zealand – Egypt",   "Egypt",       "0-2", 18, 60, 2.0, "0-1 (16%)", "0-2 (25%)", "blend",   true,  "Mon 22 Jun", 6220400, null, null, null, null],
+    ["Argentina – Austria",   "Argentina",   "2-1", 17, 62, 2.0, "1-0 (12%)", "2-1 (27%)", "blend",   false, "Mon 22 Jun", 6222000, null, null, null, null],
+    ["France – Iraq",         "France",      "3-0", 21, 87, 1.5, "3-0 (14%)", "3-0 (32%)", "agree",   false, "Tue 23 Jun", 6230000, null, null, null, null],
+    ["Norway – Senegal",      "DRAW",        "1-1", 14, 28, 3.5, "1-1 (13%)", "2-1 Nor (27%)", "diverge", true,  "Tue 23 Jun", 6230300, null, null, null, null],
+    ["Jordan – Algeria",      "Algeria",     "0-2", 17, 62, 2.0, "0-1 (13%)", "0-2 (25%)", "blend",   true,  "Tue 23 Jun", 6230600, null, null, null, null],
+    ["Portugal – Uzbekistan", "Portugal",    "3-0", 22, 79, 1.5, "2-0 (13%)", "3-0 (38%)", "blend",   false, "Tue 23 Jun", 6232000, null, null, null, null],
+    ["England – Ghana",       "England",     "2-0", 21, 74, 1.5, "2-0 (14%)", "2-0 (31%)", "agree",   false, "Tue 23 Jun", 6232300, null, null, null, null],
+    ["Panama – Croatia",      "Croatia",     "0-2", 23, 62, 1.5, "0-1 (14%)", "0-2 (39%)", "blend",   false, "Wed 24 Jun", 6240200, null, null, null, null],
+    ["Colombia – DR Congo",   "Colombia",    "2-0", 23, 65, 1.5, "1-0 (17%)", "2-0 (37%)", "blend",   false, "Wed 24 Jun", 6240500, null, null, null, null],
   ]},
-  GW3: { label: "GW3 · Round 3", rows: [
-    ["South Africa – S.Korea","S.Korea 2-0",     2.28, true],
-    ["Curaçao – Ivory Coast", "Ivory Coast 2-0", 2.16, false],
-    ["Jordan – Argentina",    "Argentina 3-0",   2.12, false],
-    ["Czech – Mexico",        "Mexico 2-1",      2.11, true],
-    ["Senegal – Iraq",        "Senegal 2-0",     2.10, false],
-    ["Bosnia – Qatar",        "Draw 1-1",        2.08, true],
-    ["Morocco – Haiti",       "Morocco 3-0",     2.05, false],
-    ["New Zealand – Belgium", "Belgium 2-0",     2.03, false],
-    ["Croatia – Ghana",       "Croatia 2-1",     1.98, false],
-    ["Tunisia – Netherlands", "Netherlands 2-0", 1.93, false],
-    ["Panama – England",      "England 3-0",     1.91, false],
-    ["Algeria – Austria",     "Draw 1-1",        1.90, true],
-    ["Switzerland – Canada",  "Switzerland 2-1", 1.88, false],
-    ["Egypt – Iran",          "Egypt 2-1",       1.86, false],
-    ["DR Congo – Uzbekistan", "Draw 1-1",        1.84, true],
-    ["Cape Verde – Saudi Arabia","Saudi 1-0",    1.74, true],
-    ["Colombia – Portugal",   "Portugal 2-1",    1.74, false],
-    ["Norway – France",       "France 2-1",      1.73, false],
-    ["Paraguay – Australia",  "Paraguay 1-0",    1.70, false],
-    ["Scotland – Brazil",     "Brazil 2-1",      1.64, false],
-    ["Japan – Sweden",        "Japan 2-1",       1.63, false],
-    ["Uruguay – Spain",       "Spain 2-1",       1.58, false],
-    ["Ecuador – Germany",     "Germany 2-1",     1.56, false],
-    ["Turkey – USA",          "Turkey 2-1",      1.42, false],
+  GW3: { label: "GW3 · Round 3 — upcoming", rows: [
+    ["Switzerland – Canada",   "Switzerland", "2-1", 19, 45, 2.5, "1-0 (12%)", "2-1 (35%)", "blend",   false, "Wed 24 Jun", 6242200, null, null, null, null],
+    ["Bosnia – Qatar",         "DRAW",        "1-1", 10, 42, 4.0, "1-1 (13%)", "2-0 Bos (30%)", "diverge", true,  "Wed 24 Jun", 6242201, null, null, null, null],
+    ["Morocco – Haiti",        "Morocco",     "3-0", 23, 75, 1.5, "2-0 (15%)", "3-0 (41%)", "blend",   false, "Thu 25 Jun", 6250100, null, null, null, null],
+    ["Scotland – Brazil",      "Brazil",      "1-2", 15, 69, 1.5, "0-1 (15%)", "1-3 (28%)", "blend",   false, "Thu 25 Jun", 6250101, null, null, null, null],
+    ["South Africa – S.Korea", "S.Korea",     "0-2", 19, 61, 2.5, "0-1 (12%)", "0-2 (29%)", "blend",   true,  "Thu 25 Jun", 6250400, null, null, null, null],
+    ["Czech – Mexico",         "Mexico",      "1-2", 20, 53, 2.5, "0-1 (12%)", "1-2 (34%)", "blend",   true,  "Thu 25 Jun", 6250401, null, null, null, null],
+    ["Ecuador – Germany",      "Germany",     "1-2", 17, 57, 1.5, "0-1 (12%)", "1-2 (27%)", "blend",   false, "Thu 25 Jun", 6252300, null, null, null, null],
+    ["Curaçao – Ivory Coast",  "Ivory Coast", "0-2", 22, 84, 1.5, "0-2 (14%)", "0-2 (35%)", "agree",   false, "Thu 25 Jun", 6252301, null, null, null, null],
+    ["Tunisia – Netherlands",  "Netherlands", "0-2", 21, 74, 1.5, "0-2 (13%)", "0-2 (32%)", "agree",   false, "Fri 26 Jun", 6260200, null, null, null, null],
+    ["Japan – Sweden",         "Japan",       "2-1", 18, 45, 2.0, "1-0 (10%)", "2-1 (32%)", "blend",   false, "Fri 26 Jun", 6260201, null, null, null, null],
+    ["Turkey – USA",           "Turkey",      "2-1", 15, 33, 2.5, "USA 0-1 (9%)", "2-1 Tur (25%)", "diverge", false, "Fri 26 Jun", 6260500, null, null, null, null],
+    ["Paraguay – Australia",   "Paraguay",    "1-0", 15, 44, 2.5, "1-0 (13%)", "1-1 draw (28%)", "diverge", false, "Fri 26 Jun", 6260501, null, null, null, null],
+    ["Norway – France",        "France",      "1-2", 16, 54, 2.0, "0-1 (11%)", "1-2 (24%)", "blend",   false, "Fri 26 Jun", 6262200, null, null, null, null],
+    ["Senegal – Iraq",         "Senegal",     "2-0", 26, 71, 1.5, "2-0 (13%)", "2-0 (45%)", "agree",   false, "Fri 26 Jun", 6262201, null, null, null, null],
+    ["Uruguay – Spain",        "Spain",       "1-2", 16, 62, 1.5, "0-1 (11%)", "1-2 (30%)", "blend",   false, "Sat 27 Jun", 6270300, null, null, null, null],
+    ["Cape Verde – Saudi Arabia","Saudi",     "0-1", 14, 40, 3.0, "0-1 (12%)", "1-1 draw (27%)", "diverge", true,  "Sat 27 Jun", 6270301, null, null, null, null],
+    ["New Zealand – Belgium",  "Belgium",     "0-2", 22, 77, 1.5, "0-2 (15%)", "0-2 (32%)", "agree",   false, "Sat 27 Jun", 6270600, null, null, null, null],
+    ["Egypt – Iran",           "Egypt",       "2-1", 18, 46, 2.5, "1-0 (14%)", "2-1 (31%)", "blend",   false, "Sat 27 Jun", 6270601, null, null, null, null],
+    ["Croatia – Ghana",        "Croatia",     "2-1", 20, 58, 2.0, "1-0 (14%)", "2-1 (36%)", "blend",   false, "Sun 28 Jun", 6280000, null, null, null, null],
+    ["Panama – England",       "England",     "0-3", 19, 77, 1.5, "0-2 (13%)", "0-3 (32%)", "blend",   false, "Sun 28 Jun", 6280001, null, null, null, null],
+    ["DR Congo – Uzbekistan",  "DRAW",        "1-1", 22, 28, 3.5, "1-1 (14%)", "1-1 (33%)", "agree",   true,  "Sun 28 Jun", 6280230, null, null, null, null],
+    ["Colombia – Portugal",    "Portugal",    "1-2", 20, 47, 2.0, "1-1 draw (13%)", "1-2 (35%)", "diverge", false, "Sun 28 Jun", 6280231, null, null, null, null],
+    ["Jordan – Argentina",     "Argentina",   "0-3", 23, 81, 1.5, "0-2 (16%)", "0-3 (37%)", "blend",   false, "Sun 28 Jun", 6280500, null, null, null, null],
+    ["Algeria – Austria",      "DRAW",        "1-1", 20, 31, 3.5, "1-1 (15%)", "1-1 (28%)", "agree",   true,  "Sun 28 Jun", 6280501, null, null, null, null],
   ]},
 };
+const PICK_SRC_META = {
+  agree:   { label: "agree",   bg: "rgba(60,200,120,0.18)",  fg: "#5fe09a" },
+  blend:   { label: "blend",   bg: "rgba(255,255,255,0.08)", fg: "#9fb2c4" },
+  diverge: { label: "diverge", bg: "rgba(230,80,80,0.18)",   fg: "#ff8a8a" },
+  fifa:    { label: "FIFA only",bg: "rgba(255,200,68,0.16)", fg: "#ffc844" },
+};
+const PICK_HIT_META = {
+  exact: { label: "exact ✓✓", bg: "rgba(60,200,120,0.22)",  fg: "#6fe6a6" },
+  dir:   { label: "winner ✓",  bg: "rgba(60,200,120,0.12)",  fg: "#9fe0b0" },
+  miss:  { label: "missed ✗",  bg: "rgba(230,80,80,0.16)",   fg: "#ff8a8a" },
+};
 function BettingPicksModal({ open, onClose }) {
-  const [tab, setTab] = React.useState("GW1");
+  const [tab, setTab] = React.useState("GW2");
   if (!open) return null;
   const data = BETTING_PICKS[tab] || BETTING_PICKS.GW1;
   const maxEv = 2.42;
+  const evOf = (r) => r[4] / 100 * r[5] + 4 * r[3] / 100;
+  const ALL = [].concat(BETTING_PICKS.GW1.rows, BETTING_PICKS.GW2.rows, BETTING_PICKS.GW3.rows);
+  const allPlayed = ALL.filter(r => r[12] != null);
+  const totalPts = allPlayed.reduce((s, r) => s + r[13], 0);
+  const rows = data.rows.slice().sort((a, b) => a[11] - b[11]);
+  const played = rows.filter(r => r[12] != null);
+  const tabPts = played.reduce((s, r) => s + r[13], 0);
+  let lastDate = null;
   return (
-    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.62)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 16 }}>
-      <div onClick={e => e.stopPropagation()} style={{ background: "#0f1620", color: "#e8edf2", borderRadius: 14, maxWidth: 560, width: "100%", maxHeight: "86vh", overflow: "auto", boxShadow: "0 16px 56px rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.10)" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 18px 12px", position: "sticky", top: 0, background: "#0f1620", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-          <div>
-            <div style={{ fontSize: 16, fontWeight: 800 }}>🎯 Score-pool EV picks</div>
-            <div style={{ fontSize: 11, color: "#8aa0b4", marginTop: 2 }}>Polymarket × FIFA crowd blend · static snapshot</div>
-          </div>
-          <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#e8edf2", borderRadius: 8, width: 30, height: 30, fontSize: 16, cursor: "pointer" }}>✕</button>
-        </div>
-        <div style={{ display: "flex", gap: 6, padding: "10px 16px" }}>
-          {["GW1", "GW2", "GW3"].map(k => (
-            <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)", background: tab === k ? "#1be8d4" : "transparent", color: tab === k ? "#06222b" : "#cdd9e4" }}>{k}</button>
-          ))}
-        </div>
-        <div style={{ fontSize: 11, color: "#8aa0b4", padding: "0 18px 8px" }}>{data.label} — ranked by expected points. ★ = non-obvious (draw / underdog).</div>
-        <div style={{ padding: "0 12px 16px" }}>
-          {data.rows.map((r, i) => (
-            <div key={i} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 6px", borderBottom: "1px solid rgba(255,255,255,0.05)" }}>
-              <span style={{ width: 18, fontSize: 11, color: "#6a8095", flexShrink: 0 }}>{i + 1}</span>
-              <span style={{ flex: 1, minWidth: 0, fontSize: 12.5 }}>{r[0]}</span>
-              <span style={{ fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 6, whiteSpace: "nowrap", background: r[3] ? "rgba(255,200,68,0.16)" : "rgba(27,232,212,0.14)", color: r[3] ? "#ffc844" : "#1be8d4" }}>{r[1]}{r[3] ? " ★" : ""}</span>
-              <span style={{ display: "flex", alignItems: "center", gap: 6, width: 92, flexShrink: 0 }}>
-                <span style={{ height: 7, borderRadius: 4, background: r[2] >= 2.0 ? "#1be8d4" : r[2] >= 1.7 ? "#7fd6c8" : "#9aa7b3", width: Math.max(2, Math.round((r[2] / maxEv) * 56)) }} />
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#e8edf2" }}>{r[2].toFixed(2)}</span>
-              </span>
+    <div onClick={onClose} style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.62)", zIndex: 9999, display: "flex", alignItems: "center", justifyContent: "center", padding: 12 }}>
+      <div onClick={e => e.stopPropagation()} style={{ background: "#0f1620", color: "#e8edf2", borderRadius: 14, maxWidth: 600, width: "100%", maxHeight: "88vh", overflow: "auto", boxShadow: "0 16px 56px rgba(0,0,0,0.55)", border: "1px solid rgba(255,255,255,0.10)" }}>
+        <div style={{ position: "sticky", top: 0, background: "#0f1620", borderBottom: "1px solid rgba(255,255,255,0.08)", padding: "16px 18px 10px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: 16, fontWeight: 800 }}>🎯 Score-pool EV picks</div>
+              <div style={{ fontSize: 11, color: "#8aa0b4", marginTop: 2 }}>Polymarket × FIFA crowd blend · model record <span style={{ color: "#6fe6a6", fontWeight: 800 }}>{totalPts.toFixed(1)} pts</span> over {allPlayed.length} games</div>
             </div>
-          ))}
+            <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#e8edf2", borderRadius: 8, width: 30, height: 30, fontSize: 16, cursor: "pointer", flexShrink: 0 }}>✕</button>
+          </div>
+          <div style={{ display: "flex", gap: 6, marginTop: 12 }}>
+            {["GW1", "GW2", "GW3"].map(k => (
+              <button key={k} onClick={() => setTab(k)} style={{ flex: 1, padding: "8px 0", fontSize: 13, fontWeight: 700, cursor: "pointer", borderRadius: 8, border: "1px solid rgba(255,255,255,0.10)", background: tab === k ? "#1be8d4" : "transparent", color: tab === k ? "#06222b" : "#cdd9e4" }}>{k}</button>
+            ))}
+          </div>
+        </div>
+        <div style={{ fontSize: 11, color: "#8aa0b4", padding: "10px 18px 4px", lineHeight: 1.5 }}>
+          {data.label} — {played.length}/{rows.length} played{played.length ? `, model ${tabPts.toFixed(1)} pts so far` : ""}. Ordered by kick-off. Played games show the actual result, points the pick earned (winner = base, exact = base + 4), and how likely that real score was. <span style={{ color: "#ffc844", fontWeight: 700 }}>★</span> / <span style={{ color: "#ff8a8a", fontWeight: 700 }}>diverge</span> = % differential value picks.
+        </div>
+        <div style={{ padding: "8px 12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+          {rows.map((r, i) => {
+            const ev = evOf(r);
+            const isPlayed = r[12] != null;
+            const sm = PICK_SRC_META[r[8]] || PICK_SRC_META.blend;
+            const hm = isPlayed ? (PICK_HIT_META[r[14]] || PICK_HIT_META.miss) : null;
+            const accent = r[9] ? "#ffc844" : "#1be8d4";
+            const dateHdr = r[10] !== lastDate ? r[10] : null;
+            lastDate = r[10];
+            return (
+              <React.Fragment key={i}>
+                {dateHdr ? (
+                  <div style={{ fontSize: 10, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase", color: "#6a8095", padding: "8px 4px 2px" }}>{dateHdr}</div>
+                ) : null}
+                <div style={{ borderRadius: 10, border: "1px solid rgba(255,255,255,0.07)", background: isPlayed ? "rgba(255,255,255,0.015)" : (r[9] ? "rgba(255,200,68,0.05)" : "rgba(255,255,255,0.02)"), padding: "9px 11px", opacity: isPlayed && r[13] === 0 ? 0.72 : 1 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600 }}>{r[0]}</span>
+                    {isPlayed ? (
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <span style={{ fontSize: 12, fontWeight: 800, padding: "2px 8px", borderRadius: 6, background: "rgba(255,255,255,0.10)", color: "#e8edf2" }}>{r[12]}</span>
+                        <span style={{ fontSize: 13, fontWeight: 800, width: 56, textAlign: "right", color: r[13] > 0 ? "#6fe6a6" : "#ff8a8a" }}>{r[13] > 0 ? "+" : ""}{r[13]} pt{r[13] === 1 ? "" : "s"}</span>
+                      </span>
+                    ) : (
+                      <span style={{ display: "flex", alignItems: "center", gap: 6, flexShrink: 0 }}>
+                        <span style={{ height: 7, borderRadius: 4, background: ev >= 2.0 ? "#1be8d4" : ev >= 1.7 ? "#7fd6c8" : "#9aa7b3", width: Math.max(3, Math.round((ev / maxEv) * 50)) }} />
+                        <span style={{ fontSize: 14, fontWeight: 800, width: 34, textAlign: "right" }}>{ev.toFixed(2)}</span>
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap", marginTop: 7 }}>
+                    <span style={{ fontSize: 12, fontWeight: 800, padding: "3px 9px", borderRadius: 6, background: r[9] ? "rgba(255,200,68,0.16)" : "rgba(27,232,212,0.14)", color: accent, whiteSpace: "nowrap" }}>
+                      {r[1]} {r[2]}{r[9] ? " ★" : ""}
+                    </span>
+                    {isPlayed ? (
+                      <span style={{ fontSize: 10, fontWeight: 700, padding: "2px 8px", borderRadius: 5, background: hm.bg, color: hm.fg }}>{hm.label}</span>
+                    ) : (
+                      <span style={{ fontSize: 10.5, color: "#6a8095" }}>{r[4]}%×{r[5]} + 4×{r[3]}%</span>
+                    )}
+                  </div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap", marginTop: 6, fontSize: 11, color: "#9fb2c4" }}>
+                    {isPlayed ? (
+                      <React.Fragment>
+                        <span><span style={{ color: "#6a8095" }}>real score</span> {r[15]}</span>
+                        <span><span style={{ color: "#6a8095" }}>our pick</span> {r[7]}</span>
+                      </React.Fragment>
+                    ) : (
+                      <React.Fragment>
+                        <span><span style={{ color: "#6a8095" }}>Polymarket</span> {r[6]}</span>
+                        <span><span style={{ color: "#6a8095" }}>FIFA crowd</span> {r[7]}</span>
+                        <span style={{ fontSize: 10, fontWeight: 700, padding: "1px 7px", borderRadius: 5, background: sm.bg, color: sm.fg }}>{sm.label}</span>
+                      </React.Fragment>
+                    )}
+                  </div>
+                </div>
+              </React.Fragment>
+            );
+          })}
         </div>
       </div>
     </div>
