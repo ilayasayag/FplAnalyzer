@@ -197,6 +197,35 @@ def compute_window_boundaries(
     }
 
 
+_VALID_PHASES = {w.value for w in TransferWindow}
+
+
+def parse_window_schedule(league_doc: Optional[Dict]) -> List[Tuple[datetime, str, Optional[int]]]:
+    """Parse a league's ``windowSchedule`` into ``[(effectiveAt, phase, gw), ...]``
+    sorted ascending by time, dropping malformed/invalid-phase entries.
+
+    ``windowSchedule`` is an admin-authored list of *timed* phase overrides:
+    ``[{phase, effectiveAt, gw?}]``. Each ``effectiveAt`` is the instant (UTC)
+    that phase should take effect. Unlike the instant ``windowOverride``, these
+    are applied LAZILY by :func:`current_window` as the clock passes each entry
+    (no cron — the window is recomputed on every read). Pure / no I/O.
+    """
+    raw = (league_doc or {}).get("windowSchedule") or []
+    out: List[Tuple[datetime, str, Optional[int]]] = []
+    for e in raw:
+        if not isinstance(e, dict):
+            continue
+        phase = e.get("phase")
+        if phase not in _VALID_PHASES:
+            continue
+        dt = _coerce_dt(e.get("effectiveAt"))
+        if dt is None:
+            continue
+        out.append((dt, phase, e.get("gw")))
+    out.sort(key=lambda x: x[0])
+    return out
+
+
 def current_window(
     league_doc: Optional[Dict],
     fixtures_for_gw: Iterable[Dict],
@@ -230,6 +259,22 @@ def current_window(
 
     if upcoming_gw is None and league_doc is not None:
         upcoming_gw = league_doc.get("currentGw")
+
+    # Timed schedule (windowSchedule): admin-authored phase changes that take
+    # effect as the clock passes each ``effectiveAt``. The latest entry whose
+    # time has already passed wins, and it takes precedence over the instant
+    # ``windowOverride`` below. Applied lazily — this function is re-evaluated on
+    # every read, so the transition "happens" the next time the window is read
+    # after its time. See WC2026_WINDOWS_DESIGN.md.
+    scheduled = parse_window_schedule(league_doc)
+    if scheduled:
+        passed = [s for s in scheduled if s[0] <= now]
+        if passed:
+            eff_dt, phase, sched_gw = passed[-1]
+            try:
+                return TransferWindow(phase), (sched_gw or upcoming_gw)
+            except ValueError:
+                pass
 
     # Admin override (see WC2026_WINDOWS_DESIGN.md): an admin can force the
     # current phase from the UI for testing. A truthy `phase` that names a
@@ -322,14 +367,29 @@ def current_window_from_db(
 # Lineup lock (squad + XI freeze at T0 - squad_lock_before_hours)
 # ---------------------------------------------------------------------------
 
-def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[datetime]:
+def lineup_lock_time(db, gw: int, config: Optional[Dict] = None,
+                     lid: Optional[str] = None) -> Optional[datetime]:
     """The instant a GW's squads + XI lock = ``T0 - squad_lock_before_hours``,
     where ``T0`` is the GW's first real kickoff (from durable ``wc_fixtures``).
+
+    Per-league override: when ``lid`` is given and
+    ``leagues/{lid}.lineupLockOverride[str(gw)]`` holds an ISO-UTC instant, THAT
+    wins over the fixture-clock calc — letting an admin extend/shorten a single
+    GW's lineup lock for ONE league without touching real kickoff times. Leagues
+    with no override keep the fixture clock.
 
     Returns ``None`` when the GW has no stored kickoff yet (so callers don't
     block edits on data that isn't there — e.g. the mock, whose simulated
     fixtures may carry no real-world clock).
     """
+    if lid:
+        snap = db.collection("leagues").document(lid).get()
+        ov = ((snap.to_dict() or {}).get("lineupLockOverride") or {}) if snap.exists else {}
+        iso = ov.get(str(gw), ov.get(gw))
+        if iso:
+            dt = _coerce_dt(iso)
+            if dt is not None:
+                return dt
     fixtures = [
         d.to_dict() for d in
         db.collection("wc_fixtures").where("gw", "==", gw).get()
@@ -341,15 +401,17 @@ def lineup_lock_time(db, gw: int, config: Optional[Dict] = None) -> Optional[dat
     return bounds["squad_lock"] if bounds else None
 
 
-def is_lineup_locked(db, gw: int, now: Optional[datetime] = None) -> bool:
+def is_lineup_locked(db, gw: int, now: Optional[datetime] = None,
+                     lid: Optional[str] = None) -> bool:
     """True once ``now`` has reached the GW's lineup lock (``T0 - 1h`` by
-    default). Squads + XI may no longer change for ``gw`` from this instant.
+    default, or the per-league ``lineupLockOverride`` when set — see
+    :func:`lineup_lock_time`). Squads + XI may no longer change for ``gw``.
 
     Durable: derived from the stored fixture kickoffs, so re-running the
     simulator never moves the lock. Falls back to *unlocked* when no kickoff is
     known for the GW.
     """
-    lock = lineup_lock_time(db, gw)
+    lock = lineup_lock_time(db, gw, lid=lid)
     if lock is None:
         return False
     now = now or datetime.now(timezone.utc)
@@ -510,12 +572,27 @@ def transfer_window_state(
     segments = build_window_schedule(upcoming_gw, fixtures_by_gw, config)
     phase_ends_at, next_phase, next_phase_starts_at = locate_in_schedule(segments, now)
 
+    # When an admin timed schedule is in force, the live countdown should point
+    # at the next *scheduled* flip rather than the fixture-clock timeline. The
+    # current phase already reflects the schedule (via current_window).
+    scheduled = parse_window_schedule(league_doc)
+    if scheduled:
+        pending = [s for s in scheduled if s[0] > now]
+        if pending:
+            ndt, nphase, _ = pending[0]
+            phase_ends_at, next_phase, next_phase_starts_at = ndt, nphase, ndt
+        else:
+            phase_ends_at, next_phase, next_phase_starts_at = None, None, None
+
     return {
         "phase": window.value,
         "gw": win_gw,
-        "overridden": bool((league_doc or {}).get("windowOverride")),
+        "overridden": bool((league_doc or {}).get("windowOverride")) or bool(scheduled),
         "phaseEndsAt": phase_ends_at,
         "nextPhase": next_phase,
         "nextPhaseStartsAt": next_phase_starts_at,
         "schedule": segments,
+        "scheduledOverrides": [
+            {"phase": p, "effectiveAt": dt, "gw": gw} for (dt, p, gw) in scheduled
+        ],
     }

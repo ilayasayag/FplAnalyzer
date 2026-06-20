@@ -327,11 +327,143 @@ function AuctionViz({ result, onClose }) {
 }
 
 // ---------- TRANSFERS / WAIVERS / FREE AGENTS ----------
+// Ilay-only editor for the league's TIMED window schedule. Each row is a phase
+// that takes effect at a given Israel-time instant; the backend applies them
+// lazily as the clock passes each one. Times are entered in Israel time (IDT,
+// UTC+3 — correct for the summer-2026 tournament) and converted to UTC on save.
+function WindowScheduleAdmin() {
+  if (!window.IS_SUPER_ADMIN) return null;
+  const lid = window.LEAGUE && window.LEAGUE.id;
+  const IL_OFFSET_MIN = 180; // Israel Daylight Time = UTC+3 (all WC26 dates)
+
+  const utcToIsraelLocal = (iso) => {
+    const ms = Date.parse(iso);
+    if (isNaN(ms)) return "";
+    return new Date(ms + IL_OFFSET_MIN * 60000).toISOString().slice(0, 16);
+  };
+  const israelLocalToUtc = (local) => {
+    if (!local) return null;
+    const [d, t] = local.split("T");
+    const [Y, Mo, Da] = d.split("-").map(Number);
+    const [H, Mi] = (t || "00:00").split(":").map(Number);
+    const ms = Date.UTC(Y, Mo - 1, Da, H, Mi) - IL_OFFSET_MIN * 60000;
+    return new Date(ms).toISOString();
+  };
+
+  const defaultGw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || null;
+  const initial = ((window.WINDOW && window.WINDOW.scheduledOverrides) || []).map(e => ({
+    phase: e.phase, local: utcToIsraelLocal(e.effectiveAt), gw: e.gw != null ? e.gw : defaultGw,
+  }));
+  const [rows, setRows] = React.useState(initial);
+  const [saving, setSaving] = React.useState(false);
+  const [msg, setMsg] = React.useState("");
+
+  const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
+  const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
+
+  const setRow = (i, patch) => setRows(rs => rs.map((r, k) => k === i ? { ...r, ...patch } : r));
+  const addRow = () => setRows(rs => [...rs, { phase: "free_agents", local: "", gw: defaultGw }]);
+  const removeRow = (i) => setRows(rs => rs.filter((_, k) => k !== i));
+
+  const persist = async (schedule, okMsg) => {
+    setSaving(true); setMsg("");
+    try {
+      await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
+      setMsg(okMsg);
+      setTimeout(() => window.location.reload(), 900);
+    } catch (e) {
+      setMsg("Failed: " + (e.error || e.detail || JSON.stringify(e)));
+      setSaving(false);
+    }
+  };
+  const save = () => {
+    if (saving) return;
+    if (rows.some(r => !r.local)) { setMsg("Every row needs a date/time."); return; }
+    const schedule = rows
+      .map(r => ({ phase: r.phase, effectiveAt: israelLocalToUtc(r.local), gw: r.gw != null ? Number(r.gw) : undefined }))
+      .filter(e => e.effectiveAt)
+      .sort((a, b) => a.effectiveAt.localeCompare(b.effectiveAt));
+    persist(schedule, "Saved. Reloading…");
+  };
+  const clearAll = () => {
+    if (saving) return;
+    if (!window.confirm("Clear the entire window schedule? The window reverts to the manual override / fixture clock.")) return;
+    persist([], "Cleared. Reloading…");
+  };
+
+  const sorted = [...rows].filter(r => r.local).sort((a, b) => a.local.localeCompare(b.local));
+
+  return (
+    <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
+      <div style={{ padding: "14px 20px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>⏱ Window schedule · Ilay only</div>
+          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2, maxWidth: 540 }}>
+            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. Applied the next time the window is read after each time (no background job, so it flips when someone loads the page at/after that minute).
+          </div>
+        </div>
+        {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
+      </div>
+
+      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+        {rows.length === 0 && (
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add one below.</div>
+        )}
+        {rows.map((r, i) => (
+          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+            <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
+              style={{ ...inputStyle, fontWeight: 700 }}>
+              {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
+            </select>
+            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+            <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
+            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+            <input type="number" value={r.gw == null ? "" : r.gw} placeholder="GW" title="Gameweek this transition guards"
+              onChange={e => setRow(i, { gw: e.target.value === "" ? null : Number(e.target.value) })}
+              style={{ ...inputStyle, width: 64 }} />
+            <button onClick={() => removeRow(i)} title="Remove"
+              style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
+          </div>
+        ))}
+
+        <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
+          <button onClick={addRow} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add transition</button>
+          <button onClick={save} disabled={saving || rows.length === 0}
+            style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--green-500)", color: "var(--navy-900)", cursor: (saving || rows.length === 0) ? "default" : "pointer", fontSize: 12, fontWeight: 800, opacity: (saving || rows.length === 0) ? 0.6 : 1 }}>
+            {saving ? "Saving…" : "Save schedule"}</button>
+          <button onClick={clearAll} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear all</button>
+        </div>
+
+        {sorted.length > 0 && (
+          <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+            Timeline:{" "}
+            {sorted.map((r, i) => {
+              const lbl = (PHASES.find(p => p[0] === r.phase) || [null, r.phase])[1];
+              return <span key={i}>{i ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {r.local.replace("T", " ")}</span>;
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const [runningMock, setRunningMock] = React.useState(false);
   const [auctionViz, setAuctionViz] = React.useState(null);  // {gw, executed, skipped}
   const [switching, setSwitching] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
+
+  React.useEffect(() => {
+    if (toast) {
+      const timer = setTimeout(() => setToast(null), 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [toast]);
+
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
@@ -339,6 +471,8 @@ function TransfersScreen() {
   // Everyone still SEES the buttons (current window highlighted) but they are
   // greyed/disabled for non-admins. Server-side gates match.
   const amLeagueAdmin = !!(window.LEAGUE && window.LEAGUE.admin && window.LEAGUE.admin === window.ME);
+  // Window control (phase switch + timed schedule) is Ilay-only. Backend matches.
+  const amSuperAdmin = !!window.IS_SUPER_ADMIN;
   const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
   const overridden = !!(window.WINDOW && window.WINDOW.overridden);
 
@@ -358,30 +492,52 @@ function TransfersScreen() {
       await apiCall("POST", `/leagues/${lid}/admin/window-override`, phase === "auto" ? { phase } : { phase, gw });
       window.location.reload();
     } catch (err) {
-      alert("Failed to switch window: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({
+        type: "error",
+        message: "Failed to switch window: " + (err.error || err.detail || JSON.stringify(err))
+      });
       setSwitching(false);
     }
   };
 
-  // MOCK: open the free-agents window + run the wishlist auction in one click.
-  // Auto-fills 1-3 bids for every OTHER manager (top free agents in, their worst
-  // players out); the viewed manager's own wishlist is kept. Resolves the
-  // auction so squads actually change, then reloads into the FA-window view.
-  const runMockWishlist = async () => {
+  // REAL wishlist auction on the managers' actual bids (NO auto-filled mock
+  // bids). Idempotent server-side: a second run is refused (409) until the GW
+  // is rolled back — so a stray double-click can't re-run it.
+  const runWishlistAuction = async () => {
     if (runningMock) return;
-    if (!window.confirm("Mock: close the trade window, open the FREE-AGENTS window and run the wishlist auction now?\n\nEvery other manager gets 1–3 auto bids (top free agents in, worst players out). Your own wishlist is kept.")) return;
+    const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+    if (!window.confirm(`Run the wishlist auction for GW${gw} on the managers' REAL bids?\n\nThis resolves all bids by waiver priority and updates squads. It can only run once per GW (roll back first to re-run).`)) return;
     setRunningMock(true);
     try {
       const lid = window.LEAGUE.id;
-      const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-      const res = await apiCall("POST", `/admin/leagues/${lid}/run-mock-wishlist`, { gw, excludeUid: window.ME });
-      const a = (res && res.wishlistAuction) || {};
-      // Replay the auction in the UI (claims revealed one-by-one in resolution
-      // order) instead of a bare alert. Closing the modal reloads into the new
-      // FA-window state with the updated squads.
-      setAuctionViz({ gw: res.gw, executed: a.executed || [], failed: a.failed || [], events: a.events || [] });
+      const res = await apiCall("POST", `/admin/leagues/${lid}/process-wishlist-auction/${gw}`, {});
+      setAuctionViz({ gw: res.gw, executed: res.executed || [], failed: res.failed || [], events: res.events || [] });
     } catch (err) {
-      alert("Failed to run mock wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+      const already = (err && (err.status === 409)) || /ALREADY_RESOLVED/.test(JSON.stringify(err || ""));
+      setToast({
+        type: "error",
+        message: already
+          ? `GW${gw} already resolved — roll it back before re-running.`
+          : "Failed to run wishlist: " + (err.error || err.detail || JSON.stringify(err))
+      });
+      setRunningMock(false);
+    }
+  };
+
+  // Ilay-only: undo a GW's wishlist auction (reverse swaps, reopen bids, clear
+  // the result) so it can be cleanly re-run.
+  const rollbackWishlist = async () => {
+    if (runningMock) return;
+    const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+    if (!window.confirm(`Roll back the GW${gw} wishlist auction?\n\nReverses every claim (squads return to pre-auction), reopens all bids, and clears the result. Use this to fix a bad run, then re-run.`)) return;
+    setRunningMock(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("POST", `/admin/leagues/${lid}/rollback-wishlist/${gw}`, {});
+      setToast({ type: "success", message: `Rolled back GW${gw}: ${res.reversedSwaps} swaps reversed, ${res.bidDocsReopened} bid lists reopened.` });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch (err) {
+      setToast({ type: "error", message: "Rollback failed: " + (err.error || err.detail || JSON.stringify(err)) });
       setRunningMock(false);
     }
   };
@@ -424,21 +580,31 @@ function TransfersScreen() {
             <div className="transfers-banner__stats" style={{ display: "flex", gap: 12, alignItems: "center" }}>
               <StatBlock label="Free transfers" value="∞" />
               <StatBlock label="Waiver priority" value={`#${me.waiverPri}`} accent="var(--gold-500)" />
-              <button className="btn" disabled={runningMock || !amLeagueAdmin} onClick={runMockWishlist}
-                title={amLeagueAdmin ? "Open the free-agents window and resolve the wishlist auction" : "Only the league admin can run the wishlist"}
-                style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap",
-                  background: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.25)" : "var(--gold-500)",
-                  color: (runningMock || !amLeagueAdmin) ? "rgba(255,255,255,0.55)" : "var(--navy-900)",
-                  border: "none", cursor: (runningMock || !amLeagueAdmin) ? "default" : "pointer",
-                  opacity: !amLeagueAdmin ? 0.6 : 1 }}>
-                {runningMock ? "Running…" : "▶ Run wishlist"}
-              </button>
+              {amSuperAdmin && (
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <button className="btn" disabled={runningMock} onClick={runWishlistAuction}
+                    title="Resolve the wishlist auction on the managers' REAL bids (once per GW)"
+                    style={{ padding: "12px 16px", fontSize: 13, fontWeight: 800, borderRadius: 10, whiteSpace: "nowrap",
+                      background: runningMock ? "rgba(255,255,255,0.25)" : "var(--gold-500)",
+                      color: runningMock ? "rgba(255,255,255,0.55)" : "var(--navy-900)",
+                      border: "none", cursor: runningMock ? "default" : "pointer" }}>
+                    {runningMock ? "Working…" : "▶ Run wishlist"}
+                  </button>
+                  <button className="btn" disabled={runningMock} onClick={rollbackWishlist}
+                    title="Undo this GW's wishlist auction so it can be re-run"
+                    style={{ padding: "6px 10px", fontSize: 11, fontWeight: 700, borderRadius: 8, whiteSpace: "nowrap",
+                      background: "transparent", color: "rgba(255,255,255,0.8)",
+                      border: "1px solid rgba(255,255,255,0.25)", cursor: runningMock ? "default" : "pointer" }}>
+                    ↺ Roll back wishlist
+                  </button>
+                </div>
+              )}
             </div>
           </div>
         </div>
         <div style={{ padding: "10px 24px 14px", borderTop: "1px solid var(--border-dark)" }}>
           <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.55)", marginBottom: 8 }}>
-            {amLeagueAdmin ? "Switch window (league admin)" : "Current window"}
+            {amSuperAdmin ? "Switch window (Ilay)" : "Current window"}
           </div>
           <div className="transfers-window-switch" style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             {[
@@ -448,15 +614,15 @@ function TransfersScreen() {
               ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
             ].map(([key, label, hint]) => {
               const active = key === "auto" ? !overridden : curPhase === key;
-              const locked = switching || !amLeagueAdmin;
+              const locked = switching || !amSuperAdmin;
               return (
                 <button key={key} disabled={locked} onClick={() => switchWindow(key)}
-                  title={amLeagueAdmin ? hint : "Only the league admin can switch windows"}
+                  title={amSuperAdmin ? hint : "Only Ilay can switch windows"}
                   style={{ padding: "8px 14px", fontSize: 12, fontWeight: 700, borderRadius: 8,
                     cursor: locked ? "default" : "pointer",
                     background: active ? "var(--green-500)" : "rgba(255,255,255,0.10)",
-                    color: active ? "var(--navy-900)" : (amLeagueAdmin ? "white" : "rgba(255,255,255,0.45)"),
-                    opacity: (!amLeagueAdmin && !active) ? 0.55 : 1,
+                    color: active ? "var(--navy-900)" : (amSuperAdmin ? "white" : "rgba(255,255,255,0.45)"),
+                    opacity: (!amSuperAdmin && !active) ? 0.55 : 1,
                     border: "1px solid " + (active ? "var(--green-500)" : "rgba(255,255,255,0.20)") }}>
                   {label}
                   <span style={{ display: "block", fontSize: 10, fontWeight: 600, opacity: 0.8 }}>{hint}</span>
@@ -466,6 +632,10 @@ function TransfersScreen() {
           </div>
         </div>
       </div>
+
+      {/* Ilay-only: schedule timed window transitions (e.g. Free agents @ 16:00,
+          Gameweek @ 18:00 Israel). Self-gates on IS_SUPER_ADMIN. */}
+      <WindowScheduleAdmin />
 
       {/* Admin-only run-actions for the mock league (wishlist auction / trade-
           window orchestrator). Self-gates on IS_ADMIN — renders null otherwise. */}
@@ -489,10 +659,20 @@ function TransfersScreen() {
         ))}
       </div>
 
-      {tab === "free" && <FreeAgentsTab />}
-      {tab === "wishlist" && <WishlistTab />}
+      {tab === "free" && <FreeAgentsTab setToast={setToast} />}
+      {tab === "wishlist" && <WishlistTab setToast={setToast} />}
       {tab === "squad" && <MySquadTab />}
       {tab === "history" && <TransferHistoryTab />}
+
+      {toast && (
+        <div className={`toast-message toast-message--${toast.type}`} onClick={() => setToast(null)}>
+          <span className="toast-message__icon">
+            {toast.type === "success" ? "✓" : "✕"}
+          </span>
+          <span className="toast-message__text">{toast.message}</span>
+          <button className="toast-message__close">×</button>
+        </div>
+      )}
     </div>
   );
 }
@@ -540,7 +720,113 @@ const FA_DYNAMIC_COL = {
   dr:            ["Draft",  p => `#${p.dr || "—"}`],
 };
 
-function FreeAgentsTab() {
+// Side-by-side season-stat + upcoming-fixture comparison for the swap modal:
+// the player coming IN vs the squad player going OUT. Reuses the global compare
+// helpers (cmpVal, upcomingFixturesFor) and team widgets so this stays in lock-
+// step with the player-stats-modal Compare tab. Stats come straight off
+// p.season (no fetch) so it renders instantly when a drop is picked.
+function PickupCompare({ incoming, outgoing }) {
+  if (!incoming || !outgoing) return null;
+  const tIn = teamById(incoming.team), tOut = teamById(outgoing.team);
+  const win = "var(--green-600, #1a9d5a)";
+
+  const metrics = [
+    ["Minutes", "minutes"],
+    ["Goals", "goals"],
+    ["Assists", "assists"],
+    ["Shots on target", "shotsOnTarget"],
+    ["Clean sheets", "cleanSheets"],
+    ["DefCon actions", "defconActions"],
+    ["Total points", "pts"],
+  ];
+
+  // Real upcoming fixtures only (known group opponents) — TBD knockout rows are
+  // dropped. This list shrinks naturally as GWs are played (2 now → 1 in GW2).
+  const realFx = pl => upcomingFixturesFor(pl, teamById(pl.team), null)
+    .filter(f => f.gw !== "—" && f.opp && f.opp !== "TBD");
+
+  const FdrBadge = ({ d }) => {
+    const c = d >= 5 ? "var(--red-500)" : d >= 4 ? "var(--hot-500)" : d >= 3 ? "var(--gold-500)" : "var(--green-500)";
+    return <span style={{ display: "inline-block", minWidth: 18, textAlign: "center", padding: "1px 6px", borderRadius: 4, fontSize: 10, fontWeight: 700, background: c + "22", color: c }}>{d}</span>;
+  };
+
+  const FxCol = ({ pl, fx, align }) => (
+    <div style={{ flex: 1, background: "white", borderRadius: 8, border: "1px solid var(--border)", overflow: "hidden" }}>
+      <div style={{ background: "var(--cream)", padding: "5px 10px", fontSize: 10, fontWeight: 700, textTransform: "uppercase", letterSpacing: "0.05em", color: "var(--ink-500)", textAlign: align }}>
+        {pl.name.split(" ").slice(-1)[0]} · next
+      </div>
+      {fx.length === 0 ? (
+        <div className="muted" style={{ padding: "8px 10px", fontSize: 11, textAlign: "center" }}>No upcoming fixtures</div>
+      ) : fx.map((f, i) => {
+        const ot = teamById(f.opp);
+        return (
+          <div key={i} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 6, padding: "6px 10px", borderTop: "1px solid var(--border)", fontSize: 12 }}>
+            <span style={{ display: "flex", alignItems: "center", gap: 5, minWidth: 0 }}>
+              <span className="muted" style={{ fontSize: 10, fontWeight: 700 }}>GW{f.gw}</span>
+              {ot ? <Flag team={ot} /> : null}
+              <span style={{ fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{(ot && ot.name) || f.opp}</span>
+            </span>
+            <FdrBadge d={f.diff} />
+          </div>
+        );
+      })}
+    </div>
+  );
+
+  return (
+    <div style={{ background: "var(--cream)", borderRadius: 10, padding: 14, display: "flex", flexDirection: "column", gap: 12 }}>
+      <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", textAlign: "center" }}>
+        Stat comparison · this season
+      </div>
+
+      {/* Heads — IN on the left, OUT on the right */}
+      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8 }}>
+          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tIn} pos={incoming.pos} /></div>
+          <div style={{ minWidth: 0 }}>
+            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{incoming.name}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "#006b35", letterSpacing: "0.05em" }}>IN</div>
+          </div>
+        </div>
+        <div style={{ fontWeight: 800, color: "var(--ink-500)", fontSize: 11 }}>vs</div>
+        <div style={{ flex: 1, display: "flex", alignItems: "center", gap: 8, justifyContent: "flex-end" }}>
+          <div style={{ minWidth: 0, textAlign: "right" }}>
+            <div style={{ fontWeight: 800, fontSize: 12, color: "var(--navy-900)", lineHeight: 1.1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{outgoing.name}</div>
+            <div style={{ fontSize: 9, fontWeight: 700, color: "var(--red-500)", letterSpacing: "0.05em" }}>OUT</div>
+          </div>
+          <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={tOut} pos={outgoing.pos} /></div>
+        </div>
+      </div>
+
+      {/* Metric rows — the better value is greener/bolder */}
+      <div style={{ background: "white", borderRadius: 8, overflow: "hidden", border: "1px solid var(--border)" }}>
+        {metrics.map(([label, key], i) => {
+          const av = cmpVal(incoming, key), bv = cmpVal(outgoing, key);
+          const aWin = av > bv, bWin = bv > av;
+          return (
+            <div key={key} style={{ display: "flex", alignItems: "center", borderTop: i ? "1px solid var(--border)" : "none" }}>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: aWin ? 800 : 600, color: aWin ? win : "var(--ink-700)" }}>{av}</div>
+              <div style={{ width: 120, textAlign: "center", fontSize: 10, color: "var(--ink-500)", textTransform: "uppercase", letterSpacing: "0.04em" }}>{label}</div>
+              <div className="num" style={{ flex: 1, textAlign: "center", padding: "7px 8px", fontWeight: bWin ? 800 : 600, color: bWin ? win : "var(--ink-700)" }}>{bv}</div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Upcoming fixtures, side by side */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <FxCol pl={incoming} fx={realFx(incoming)} align="left" />
+        <FxCol pl={outgoing} fx={realFx(outgoing)} align="right" />
+      </div>
+
+      <div className="muted" style={{ fontSize: 10, textAlign: "center" }}>
+        Greener / bolder = the better value. FDR 1 easy → 5 hard.
+      </div>
+    </div>
+  );
+}
+
+function FreeAgentsTab({ setToast }) {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
   const [ownerFilter, setOwnerFilter] = React.useState("all"); // "all" | "__free" | manager name
@@ -566,12 +852,23 @@ function FreeAgentsTab() {
   // a memo captured on mount could be empty if Transfers opens before that async
   // load resolves, which made every owned player look like a free agent.
   const ownerByPid = {};
+  const ownerUidByPid = {};
   {
     const sbu = window.SQUADS_BY_UID || {}, mgrs = window.MANAGERS || [];
     const nameOf = uid => { const m = mgrs.find(x => x.uid === uid); return m ? (m.team || m.name || uid) : uid; };
-    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => { ownerByPid[String(pid)] = nameOf(uid); }));
+    Object.entries(sbu).forEach(([uid, ids]) => (ids || []).forEach(pid => {
+      ownerByPid[String(pid)] = nameOf(uid);
+      ownerUidByPid[String(pid)] = uid;
+    }));
   }
   const ownerNames = [...new Set(Object.values(ownerByPid))].sort();
+
+  // Manager↔manager trades/bids are allowed in the TRADE and gameweek
+  // (NEXT_GW_BID) windows. When open, a player owned by ANOTHER manager shows a
+  // "Trade" button that jumps to the Trades tab with a proposal pre-seeded
+  // (their squad selected, that player already ticked as the one you receive).
+  const tradePhase = (window.WINDOW && window.WINDOW.phase) || "none";
+  const canTrade = tradePhase === "trade" || tradePhase === "next_gw_bid";
 
   // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
   // real points. "All players" = the whole pool (owned shown with their manager,
@@ -618,7 +915,7 @@ function FreeAgentsTab() {
 
   const handlePickup = async (p) => {
     if (!playerToDrop) {
-      alert("Please select a player to drop.");
+      setToast({ type: "error", message: "Please select a player to drop." });
       return;
     }
     try {
@@ -632,19 +929,25 @@ function FreeAgentsTab() {
         playerOut: pOut,
         windowNumber: winNum
       });
-      alert(`Successfully picked up ${p.name} and dropped ${window.PLAYER_MAP[playerToDrop]?.name || playerToDrop}!`);
+      setToast({
+        type: "success",
+        message: `Successfully picked up ${p.name} and dropped ${window.PLAYER_MAP[playerToDrop]?.name || playerToDrop}!`
+      });
       setActivePickup(null);
-      window.location.reload();
+      setTimeout(() => window.location.reload(), 1500);
     } catch (err) {
-      alert("Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({
+        type: "error",
+        message: "Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err))
+      });
     }
   };
 
   // Window closed → add this free agent to the bid-wishlist (same in/out swap
   // the pickup would do), appending to the manager's ordered bids for bidGw.
   const handleAddWishlist = async (p) => {
-    if (!playerToDrop) { alert("Please select a player to drop."); return; }
-    if (!bidGw) { alert("No upcoming gameweek to bid for yet."); return; }
+    if (!playerToDrop) { setToast({ type: "error", message: "Please select a player to drop." }); return; }
+    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
     const pIn = _pid(p.id), pOut = _pid(playerToDrop);
     const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
       playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
@@ -652,7 +955,12 @@ function FreeAgentsTab() {
     // Allow the same incoming player with a DIFFERENT player out (ordered
     // fallbacks); only block an exact duplicate of the (in, out) pair.
     if (existing.some(b => b.playerIn === pIn && b.playerOut === pOut)) {
-      alert(`That exact swap (${p.name} in / ${window.PLAYER_MAP[String(playerToDrop)]?.name || "player"} out) is already on your wishlist.`); setActivePickup(null); return;
+      setToast({
+        type: "error",
+        message: `That exact swap (${p.name} in / ${window.PLAYER_MAP[String(playerToDrop)]?.name || "player"} out) is already on your wishlist.`
+      });
+      setActivePickup(null);
+      return;
     }
     try {
       const lid = window.LEAGUE.id;
@@ -660,10 +968,16 @@ function FreeAgentsTab() {
       const next = [...existing, { playerIn: pIn, playerOut: pOut, position: cp ? POS_NAMES[cp.pos] : "?" }];
       const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids`, { gw: bidGw, bids: next });
       window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : next;
-      alert(`Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.`);
+      setToast({
+        type: "success",
+        message: `Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.`
+      });
       setActivePickup(null);
     } catch (err) {
-      alert("Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({
+        type: "error",
+        message: "Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err))
+      });
     }
   };
 
@@ -740,7 +1054,6 @@ function FreeAgentsTab() {
             const t = teamById(p.team);
             const owner = ownerByPid[String(p.id)];
             const eligibleDrops = mySquad.filter(s => s.pos === p.pos);
-            const isPicking = activePickup?.id === p.id;
 
             return (
               <tr key={p.id}>
@@ -773,18 +1086,17 @@ function FreeAgentsTab() {
                 </td>
                 <td style={{ textAlign: "right" }}>
                   {owner ? (
-                    <span className="muted" style={{ fontSize: 11 }}>Owned</span>
-                  ) : isPicking ? (
-                    <div className="row fa-pickup" style={{ gap: 6, alignItems: "center", justifyContent: "flex-end" }}>
-                      <select className="input-field" style={{ width: 140, padding: "4px 8px", fontSize: 12, background: "rgba(255,255,255,0.8)", color: "black" }} value={playerToDrop} onChange={e => setPlayerToDrop(e.target.value)}>
-                        <option value="">{faOpen ? "-- Drop player --" : "-- Swap out --"}</option>
-                        {eligibleDrops.map(s => (
-                          <option key={s.id} value={s.id}>{s.name} ({s.teamName || s.team})</option>
-                        ))}
-                      </select>
-                      <button className="btn btn--solid-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--green-500)", color: "white" }} onClick={() => faOpen ? handlePickup(p) : handleAddWishlist(p)}>✔</button>
-                      <button className="btn btn--ghost-dark" style={{ padding: "4px 8px", fontSize: 11, background: "var(--red-500)", color: "white" }} onClick={() => setActivePickup(null)}>✖</button>
-                    </div>
+                    (() => {
+                      const ownerUid = ownerUidByPid[String(p.id)];
+                      const tradable = canTrade && ownerUid && ownerUid !== window.ME;
+                      return tradable ? (
+                        <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11, background: "var(--violet-500)", color: "white" }}
+                          title={`Propose a trade with ${owner} for ${p.name}`}
+                          onClick={() => window.dispatchEvent(new CustomEvent("wc:open-trade", { detail: { targetUid: ownerUid, receiveId: Number(p.id) } }))}>Trade</button>
+                      ) : (
+                        <span className="muted" style={{ fontSize: 11 }}>Owned</span>
+                      );
+                    })()
                   ) : faOpen ? (
                     <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>Pick up</button>
                   ) : (
@@ -797,11 +1109,173 @@ function FreeAgentsTab() {
         </tbody>
       </table>
       </div>
+
+      {activePickup && (() => {
+        const p = activePickup;
+        const eligibleDrops = mySquad.filter(s => s.pos === p.pos);
+        const tClaim = teamById(p.team);
+        return (
+          <div className="modal-backdrop" onClick={() => setActivePickup(null)}>
+            <div className="modal" style={{ maxWidth: 550, padding: 24, display: "flex", flexDirection: "column", gap: 16 }} onClick={e => e.stopPropagation()}>
+              <button className="modal__close" onClick={() => setActivePickup(null)}>×</button>
+
+              <div>
+                <h3 className="h-display" style={{ margin: 0, fontSize: 20, color: "var(--navy-900)" }}>
+                  {faOpen ? "Pick Up Free Agent" : "Add to Wishlist"}
+                </h3>
+                <div className="muted" style={{ fontSize: 13, marginTop: 4 }}>
+                  {faOpen 
+                    ? `Swap a player from your squad to pick up ${p.name}.`
+                    : `Configure a swap to add ${p.name} to your wishlist.`}
+                </div>
+              </div>
+
+              {/* Free Agent Info (IN) */}
+              <div style={{ 
+                display: "flex", 
+                alignItems: "center", 
+                gap: 12, 
+                padding: "12px 16px", 
+                background: "rgba(0, 217, 107, 0.08)", 
+                borderRadius: 8, 
+                border: "1px solid rgba(0, 217, 107, 0.25)" 
+              }}>
+                <div style={{ width: 44, height: 44, flexShrink: 0 }}>
+                  <Jersey team={tClaim} pos={p.pos} />
+                </div>
+                <div>
+                  <div style={{ fontWeight: 700, fontSize: 15, color: "var(--navy-900)" }}>{p.name}</div>
+                  <div className="muted" style={{ fontSize: 12, display: "flex", alignItems: "center", gap: 6 }}>
+                    <Flag team={tClaim} /> {p.teamName} · <span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 9, padding: "2px 6px" }}>{POS_NAMES[p.pos]}</span> · {p.pts} pts
+                  </div>
+                </div>
+                <div style={{ marginLeft: "auto", fontSize: 11, fontWeight: 700, color: "#006b35", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                  INCOMING
+                </div>
+              </div>
+
+              {/* Arrow divider */}
+              <div style={{ display: "flex", justifyContent: "center", color: "var(--ink-300)", fontSize: 18 }}>
+                ⇅
+              </div>
+
+              {/* Drop options */}
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", color: "var(--ink-500)", textTransform: "uppercase", marginBottom: 8 }}>
+                  Select squad player to drop (Outgoing)
+                </div>
+
+                {eligibleDrops.length === 0 ? (
+                  <div className="muted" style={{ padding: 12, border: "1px dashed var(--border)", borderRadius: 8, textAlign: "center", fontSize: 13 }}>
+                    No players in your squad share the {POS_NAMES[p.pos]} position.
+                  </div>
+                ) : (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                    {eligibleDrops.map(s => {
+                      const tDrop = teamById(s.team);
+                      const isSelected = playerToDrop === s.id;
+                      const isAlreadyOut = (window.MY_WISHLIST_BIDS || []).some(b => Number(b.playerOut) === Number(s.id));
+                      return (
+                        <div 
+                          key={s.id} 
+                          onClick={() => setPlayerToDrop(s.id)}
+                          style={{
+                            display: "flex",
+                            alignItems: "center",
+                            gap: 12,
+                            padding: "10px 14px",
+                            border: isSelected ? "2px solid var(--teal-400)" : "1px solid var(--border)",
+                            background: isSelected ? "rgba(27, 232, 212, 0.05)" : "white",
+                            borderRadius: 8,
+                            cursor: "pointer",
+                            transition: "all 0.15s ease",
+                            boxShadow: isSelected ? "0 4px 12px rgba(27, 232, 212, 0.15)" : "none"
+                          }}
+                        >
+                          <div style={{ width: 32, height: 32, flexShrink: 0 }}>
+                            <Jersey team={tDrop} pos={s.pos} />
+                          </div>
+                          <div>
+                            <div style={{ fontWeight: 700, fontSize: 14, color: "var(--navy-900)", display: "flex", alignItems: "center" }}>
+                              {s.name}
+                              {isAlreadyOut && (
+                                <span 
+                                  style={{ 
+                                    display: "inline-flex", 
+                                    alignItems: "center", 
+                                    justifyContent: "center", 
+                                    width: 16, 
+                                    height: 16, 
+                                    borderRadius: "50%", 
+                                    background: "var(--red-500)", 
+                                    color: "white", 
+                                    fontSize: 11, 
+                                    fontWeight: "bold", 
+                                    marginLeft: 8 
+                                  }} 
+                                  title="Already on your wishlist to be dropped"
+                                >
+                                  !
+                                </span>
+                              )}
+                            </div>
+                            <div className="muted" style={{ fontSize: 11, display: "flex", alignItems: "center", gap: 4 }}>
+                              <Flag team={tDrop} /> {s.teamName || s.team} · {s.club} · {s.pts} pts
+                            </div>
+                          </div>
+
+                          <div style={{ marginLeft: "auto", display: "flex", alignItems: "center" }}>
+                            <input 
+                              type="radio" 
+                              name="playerToDrop" 
+                              checked={isSelected} 
+                              onChange={() => setPlayerToDrop(s.id)}
+                              style={{ cursor: "pointer", accentColor: "var(--teal-400)", width: 16, height: 16 }}
+                            />
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Stat + fixture comparison — appears once a drop is chosen */}
+              {playerToDrop && (() => {
+                const outg = eligibleDrops.find(s => String(s.id) === String(playerToDrop))
+                  || window.PLAYER_MAP[String(playerToDrop)];
+                return outg ? <PickupCompare incoming={p} outgoing={outg} /> : null;
+              })()}
+
+              {/* Actions */}
+              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+                <button className="btn btn--ghost-dark" style={{ padding: "10px 20px" }} onClick={() => setActivePickup(null)}>
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn--primary" 
+                  style={{ 
+                    padding: "10px 20px",
+                    background: "var(--navy-900)",
+                    color: "white"
+                  }} 
+                  disabled={!playerToDrop} 
+                  onClick={() => faOpen ? handlePickup(p) : handleAddWishlist(p)}
+                >
+                  {faOpen ? "Confirm Swap" : "Add to Wishlist"}
+                </button>
+              </div>
+
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
 
-function WishlistTab() {
+function WishlistTab({ setToast }) {
+  const isMobile = useIsMobile();
   const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
     playerIn: Number(b.playerIn),
     playerOut: Number(b.playerOut),
@@ -851,31 +1325,31 @@ function WishlistTab() {
     const prev = bids;
     setBids(next);
     try { await persistBids(next); }
-    catch (err) { setBids(prev); alert("Failed to reorder: " + (err.error || err.detail || JSON.stringify(err))); }
+    catch (err) { setBids(prev); setToast({ type: "error", message: "Failed to reorder: " + (err.error || err.detail || JSON.stringify(err)) }); }
   };
   const removeBid = async (i) => {
     const next = bids.filter((_, k) => k !== i);
     const prev = bids;
     setBids(next);  // optimistic
     try { await persistBids(next); }
-    catch (err) { setBids(prev); alert("Failed to remove bid: " + (err.error || err.detail || JSON.stringify(err))); }
+    catch (err) { setBids(prev); setToast({ type: "error", message: "Failed to remove bid: " + (err.error || err.detail || JSON.stringify(err)) }); }
   };
 
   const addBid = () => {
-    if (!dropId || !claimId) { alert("Pick a player to drop and a free agent to claim."); return; }
+    if (!dropId || !claimId) { setToast({ type: "error", message: "Pick a player to drop and a free agent to claim." }); return; }
     const dp = window.PLAYER_MAP[String(dropId)];
     const cp = window.PLAYER_MAP[String(claimId)];
-    if (dp && cp && dp.pos !== cp.pos) { alert("Drop and claim must be the same position."); return; }
+    if (dp && cp && dp.pos !== cp.pos) { setToast({ type: "error", message: "Drop and claim must be the same position." }); return; }
     if (bids.some(b => b.playerIn === Number(claimId) && b.playerOut === Number(dropId))) {
-      alert("That exact swap is already on your wishlist. Pick a different player to drop to add it as a fallback."); return;
+      setToast({ type: "error", message: "That exact swap is already on your wishlist. Pick a different player to drop to add it as a fallback." }); return;
     }
     setBids([...bids, { playerIn: Number(claimId), playerOut: Number(dropId), position: cp ? POS_NAMES[cp.pos] : "?" }]);
     setAdding(false); setDropId(""); setClaimId("");
   };
 
   const save = async () => {
-    if (!upcomingGw) { alert("No upcoming gameweek — the transfer window is closed."); return; }
-    if (!bids.length) { alert("Add at least one bid first."); return; }
+    if (!upcomingGw) { setToast({ type: "error", message: "No upcoming gameweek — the transfer window is closed." }); return; }
+    if (!bids.length) { setToast({ type: "error", message: "Add at least one bid first." }); return; }
     setSaving(true);
     try {
       const lid = window.LEAGUE.id;
@@ -884,9 +1358,9 @@ function WishlistTab() {
         bids: bids.map(b => ({ playerIn: b.playerIn, playerOut: b.playerOut, position: b.position })),
       });
       window.MY_WISHLIST_BIDS = bids.slice();
-      alert(`Wishlist saved — ${bids.length} bid(s) for GW${upcomingGw}. They'll be resolved by the auction when the window closes.`);
+      setToast({ type: "success", message: `Wishlist saved — ${bids.length} bid(s) for GW${upcomingGw}. They'll be resolved by the auction when the window closes.` });
     } catch (err) {
-      alert("Failed to save wishlist: " + (err.error || err.detail || JSON.stringify(err)));
+      setToast({ type: "error", message: "Failed to save wishlist: " + (err.error || err.detail || JSON.stringify(err)) });
     } finally {
       setSaving(false);
     }
@@ -906,6 +1380,46 @@ function WishlistTab() {
       </div>
 
       <div className="card">
+        {isMobile ? (
+          <div className="col" style={{ gap: 10, padding: 12 }}>
+            {bids.length === 0 && (
+              <div className="muted" style={{ textAlign: "center", padding: 18 }}>No wishlist bids yet — add one below.</div>
+            )}
+            {bids.map((b, i) => {
+              const pIn = window.PLAYER_MAP[String(b.playerIn)] || { name: b.playerIn, team: "", pos: 1 };
+              const pOut = window.PLAYER_MAP[String(b.playerOut)] || { name: b.playerOut, team: "", pos: 1 };
+              const tIn = teamById(pIn.team);
+              const tOut = teamById(pOut.team);
+              return (
+                <div key={`${b.playerIn}_${b.playerOut}`} className="card-section" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>#{i + 1}</div>
+                  <div className="wishlist-swap" style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
+                      <Flag team={tIn} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13 }}>{pIn.name}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>IN · {POS_NAMES[pIn.pos]}</div>
+                      </div>
+                    </div>
+                    <span className="h-display" style={{ color: "var(--ink-300)", textAlign: "center" }}>↔</span>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(230,57,70,0.08)", borderRadius: 6, border: "1px solid rgba(230,57,70,0.20)" }}>
+                      <Flag team={tOut} />
+                      <div>
+                        <div style={{ fontWeight: 700, fontSize: 13, textDecoration: pOut.elim ? "line-through" : "none" }}>{pOut.name}</div>
+                        <div className="muted" style={{ fontSize: 11 }}>OUT · {pOut.elim || tOut?.elim ? "ELIMINATED" : POS_NAMES[pOut.pos]}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="row" style={{ gap: 6, marginTop: 8 }}>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13 }} disabled={i === 0} onClick={() => move(i, -1)}>↑ Up</button>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13 }} disabled={i === bids.length - 1} onClick={() => move(i, 1)}>↓ Down</button>
+                    <button className="btn btn--ghost-dark" style={{ flex: 1, minHeight: 40, fontSize: 13, background: "var(--red-500)", color: "white" }} onClick={() => removeBid(i)}>✕ Remove</button>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
         <div className="table-scroll">
         <table className="table-clean">
           <thead>
@@ -959,41 +1473,9 @@ function WishlistTab() {
           </tbody>
         </table>
         </div>
-
-        {adding ? (
-          <div className="col" style={{ padding: 18, gap: 12, borderTop: "1px solid var(--border)", background: "rgba(0,0,0,0.02)" }}>
-            <div className="wishlist-add" style={{ display: "flex", gap: 12, justifyContent: "center", alignItems: "center" }}>
-              <div className="col">
-                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>DROP PLAYER</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={dropId} onChange={e => { setDropId(e.target.value); setClaimId(""); }}>
-                  <option value="">-- Drop player --</option>
-                  {mySquad.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
-                  ))}
-                </select>
-              </div>
-              <span className="h-display" style={{ fontSize: 20, color: "var(--ink-400)", marginTop: 16 }}>↔</span>
-              <div className="col">
-                <span style={{ fontSize: 11, fontWeight: 700, marginBottom: 4 }}>CLAIM FREE AGENT</span>
-                <select className="input-field" style={{ width: 180, padding: 8, background: "white", color: "black" }} value={claimId} onChange={e => setClaimId(e.target.value)} disabled={!dropId}>
-                  <option value="">-- Claim player --</option>
-                  {eligibleClaims.map(s => (
-                    <option key={s.id} value={s.id}>{s.name} ({POS_NAMES[s.pos]})</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-            <div className="row" style={{ gap: 8, justifyContent: "center" }}>
-              <button className="btn btn--ghost-dark" onClick={() => { setAdding(false); setDropId(""); setClaimId(""); }}>Cancel</button>
-              <button className="btn btn--primary" onClick={addBid} disabled={!dropId || !claimId}>Add to wishlist</button>
-            </div>
-          </div>
-        ) : (
-          <div style={{ padding: "12px 18px", borderTop: "1px solid var(--border)", display: "flex", gap: 10, justifyContent: "center" }}>
-            <button className="btn btn--ghost-dark" onClick={() => setAdding(true)}>+ Add bid</button>
-            <button className="btn btn--primary" onClick={save} disabled={saving || !bids.length}>{saving ? "Saving…" : `Save wishlist (${bids.length})`}</button>
-          </div>
         )}
+
+        {/* Save and Add Bid buttons removed as reordering/removing are auto-saved and adding goes through Free Agents tab */}
       </div>
 
       <div className="card" style={{ padding: 18 }}>

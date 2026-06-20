@@ -3,9 +3,11 @@ WC2026 wishlist auction (PR 4).
 
 At trade-window close, each manager has submitted an ORDERED list of
 same-position swap bids (``leagues/{lid}/wishlist_bids/{uid}_{gw}``). The
-auction resolves them last-pick-first (reversed ``waiverPriority``) so the
-weakest managers get first dibs on contested free agents, mirroring the normal
-waiver order in reverse.
+auction resolves them last-place-first (ascending ``waiverPriority``) so the
+weakest managers get first dibs on contested free agents. After a GW,
+``reset_waiver_priority_to_standings`` gives the worst team ``waiverPriority=1``,
+so the order is last place, 5th, 4th, …, 1st, then last place again next round —
+the same direction as the normal waiver order (``wc_waivers.get_waiver_order``).
 
 Design references: ``WC2026_WINDOWS_DESIGN.md`` §3.1 (schema), §4 (algorithm +
 the REQUIRED deterministic tie-break), §12 (live data model — squads store full
@@ -121,7 +123,7 @@ class WCWishlistManager:
     # The auction resolver (§4)
     # ------------------------------------------------------------------
 
-    def run_auction(self, lid: str, gw: int) -> dict:
+    def run_auction(self, lid: str, gw: int, force: bool = False) -> dict:
         """Resolve the wishlist auction for ``gw`` (multi-round round-robin).
 
         Order managers last-pick-first by ``waiverPriority`` DESC with the
@@ -132,19 +134,35 @@ class WCWishlistManager:
         yields no claim. ``claimed_in`` and ``replaced_out`` are tracked IN
         MEMORY across rounds so two managers can't grab the same free agent.
 
-        After the loop, batch-delete every ``wishlist_bids/*_{gw}`` doc and
-        return a summary of executed + skipped claims.
+        IDEMPOTENT: refuses to run if ``gw`` already resolved (a
+        ``wishlist_results/{gw}`` doc exists, or any bid doc is already marked
+        ``resolved``) unless ``force=True`` — this is the guard against the
+        double-fire that previously executed an auction twice. Use
+        :func:`rollback_auction` to undo before a legitimate re-run.
+
+        Bids are NOT deleted. After the loop each bid is marked in place with a
+        ``status`` (``done-completed`` / ``done-denied``) + ``resolvedGw`` and
+        its doc flagged ``resolved`` — a durable, rollback-able record.
         """
         league_ref = self.db.collection("leagues").document(lid)
 
+        # Idempotency guard: a prior resolution for this gw must be rolled back
+        # before re-running (prevents the historical double-execution).
+        if not force:
+            if league_ref.collection("wishlist_results").document(str(gw)).get().exists:
+                raise ValueError(
+                    f"ALREADY_RESOLVED: wishlist auction already ran for gw {gw}. "
+                    f"Roll it back (rollback_auction) before re-running.")
+
         order = self._ordered_managers(lid)
 
-        # uid -> ordered list of bid dicts
+        # uid -> ordered list of bid dicts. Only PENDING (unresolved) docs are
+        # auctioned; already-resolved docs (kept for audit/rollback) are skipped.
         bids_by_uid: Dict[str, List[dict]] = {}
         bid_doc_ids: List[str] = []
         for doc in league_ref.collection("wishlist_bids").get():
             data = doc.to_dict() or {}
-            if data.get("gw") != gw:
+            if data.get("gw") != gw or data.get("resolved"):
                 continue
             bid_doc_ids.append(doc.id)
             bids_by_uid[data["uid"]] = list(data.get("bids", []))
@@ -232,37 +250,38 @@ class WCWishlistManager:
                     break  # one successful claim per manager per round
 
         # Persist a DURABLE per-GW record of the auction: every manager's ORDERED
-        # bids with each bid's outcome (claimed vs cancelled). The wishlist_bids
-        # docs are deleted below, so without this the wishlist order — and which
-        # bids failed — would be lost the moment the auction runs. Surfaced in
-        # the Transfers > History tab.
-        exec_set = {(e["uid"], e["playerIn"]) for e in executed}
-        skip_map = {(s["uid"], s["playerIn"]): s for s in skipped}
+        # bids with each bid's outcome (claimed vs cancelled). Surfaced in the
+        # Transfers > History tab.
+        #
+        # Outcome is keyed by the SPECIFIC bid (uid, playerIn, playerOut) from
+        # the event log — NOT (uid, playerIn) — so a cancelled fallback that
+        # shares a playerIn with a winning bid isn't mis-shown as claimed.
+        outcome = {(e["uid"], e["playerIn"], e["playerOut"]): e for e in events}
+
+        def _row(uid, bid):
+            ev = outcome.get((uid, bid["playerIn"], bid["playerOut"]))
+            claimed = ev is not None and ev.get("type") == "claim"
+            return {
+                "playerIn": bid["playerIn"],
+                "playerOut": bid["playerOut"],
+                "position": bid.get("position", ""),
+                "status": "claimed" if claimed else "cancelled",
+                "reason": None if claimed else (ev.get("reason") if ev else "UNAVAILABLE"),
+                "wonByUid": None if claimed else (ev.get("wonByUid") if ev else None),
+            }
+
         results: List[dict] = []
         failed: List[dict] = []
         for uid in order:
             wl = bids_by_uid.get(uid)
             if not wl:
                 continue
-            rows = []
-            for bid in wl:
-                claimed = (uid, bid["playerIn"]) in exec_set
-                skip = skip_map.get((uid, bid["playerIn"])) or {}
-                row = {
-                    "playerIn": bid["playerIn"],
-                    "playerOut": bid["playerOut"],
-                    "position": bid.get("position", ""),
-                    "status": "claimed" if claimed else "cancelled",
-                    "reason": None if claimed else (skip.get("reason") or "UNAVAILABLE"),
-                    # Who claimed the player this bid wanted (names the manager
-                    # that beat this bid), when the cancel was a contested loss.
-                    "wonByUid": None if claimed else skip.get("wonByUid"),
-                }
-                rows.append(row)
-                if not claimed:
-                    failed.append({"uid": uid, "playerIn": bid["playerIn"],
-                                   "playerOut": bid["playerOut"], "reason": row["reason"],
-                                   "wonByUid": row["wonByUid"]})
+            rows = [_row(uid, bid) for bid in wl]
+            for r in rows:
+                if r["status"] != "claimed":
+                    failed.append({"uid": uid, "playerIn": r["playerIn"],
+                                   "playerOut": r["playerOut"], "reason": r["reason"],
+                                   "wonByUid": r["wonByUid"]})
             results.append({"uid": uid, "bids": rows})
         league_ref.collection("wishlist_results").document(str(gw)).set({
             "gw": gw,
@@ -272,8 +291,24 @@ class WCWishlistManager:
             "events": events,
         })
 
-        # Batch-delete all wishlist_bids for this gw.
-        self._delete_bids(lid, bid_doc_ids)
+        # Mark (do NOT delete) every resolved bid doc so we keep a durable,
+        # rollback-able record. Each bid gets a human status; the doc is flagged
+        # ``resolved`` so it's skipped on any future run for this gw.
+        for uid in bids_by_uid:
+            rows = []
+            for bid in bids_by_uid[uid]:
+                r = _row(uid, bid)
+                rows.append({
+                    **{k: bid[k] for k in ("playerIn", "playerOut") if k in bid},
+                    "position": bid.get("position", ""),
+                    "status": "done-completed" if r["status"] == "claimed" else "done-denied",
+                    "reason": r["reason"],
+                    "wonByUid": r["wonByUid"],
+                })
+            league_ref.collection("wishlist_bids").document(f"{uid}_{gw}").set({
+                "uid": uid, "gw": gw, "bids": rows,
+                "resolved": True, "resolvedGw": gw, "resolvedAt": SERVER_TIMESTAMP,
+            })
 
         return {
             "gw": gw,
@@ -284,6 +319,87 @@ class WCWishlistManager:
             "events": events,
             "claimsExecuted": len(executed),
         }
+
+    def rollback_auction(self, lid: str, gw: int) -> dict:
+        """Undo a GW's wishlist auction so it can be cleanly re-run.
+
+        Reverses every ``wishlist_claim`` swap for ``gw`` (newest-first, so
+        chained swaps unwind correctly), applied ALL-OR-NOTHING: if any step
+        can't be cleanly reversed (the claimed player isn't currently owned, or
+        the dropped player is) it raises ``ROLLBACK_UNSAFE`` and writes nothing.
+        Then un-resolves the bid docs (back to pending, statuses cleared) and
+        deletes the ``wishlist_results/{gw}`` doc + the gw's ``wishlist_claim``
+        transactions. Returns a summary.
+        """
+        from collections import defaultdict
+        league_ref = self.db.collection("leagues").document(lid)
+
+        # 1. wishlist_claim txns for this gw, newest-first.
+        txns = []
+        for d in league_ref.collection("transactions").get():
+            f = d.to_dict() or {}
+            if f.get("type") == "wishlist_claim" and f.get("gw") == gw:
+                txns.append({"id": d.id, "uid": f.get("uid"),
+                             "in": f.get("playerIn"), "out": f.get("playerOut"),
+                             "ts": f.get("timestamp")})
+        txns.sort(key=lambda t: str(t["ts"]), reverse=True)
+
+        # 2. compute reversal per uid against CURRENT squads (all-or-nothing).
+        per = defaultdict(list)
+        for t in txns:
+            per[t["uid"]].append(t)
+        planned: Dict[str, List[dict]] = {}
+        warnings: List[str] = []
+        for uid, swaps in per.items():
+            squad = (league_ref.collection("squads").document(uid).get().to_dict() or {})
+            players = list(squad.get("players", []))
+            owned = {p["playerId"] for p in players}
+            for t in swaps:  # newest-first
+                pin, pout = t["in"], t["out"]
+                if pin not in owned:
+                    warnings.append(f"{uid}: claimed player {pin} not currently owned"); continue
+                if pout in owned:
+                    warnings.append(f"{uid}: dropped player {pout} already owned"); continue
+                players = [p for p in players if p["playerId"] != pin]
+                owned.discard(pin)
+                pdoc = self._get_wc_player(pout) or {}
+                pos = pdoc.get("position", 3)
+                players.append({
+                    "playerId": pout, "position": pos, "name": pdoc.get("name", ""),
+                    "positionName": POS_NAMES.get(pos, "?"), "teamId": pdoc.get("teamId", 0),
+                    "teamName": pdoc.get("teamName", ""), "teamIso": pdoc.get("teamIso", ""),
+                    "eliminated": pdoc.get("eliminated", False),
+                })
+                owned.add(pout)
+            planned[uid] = players
+        if warnings:
+            raise ValueError("ROLLBACK_UNSAFE: " + "; ".join(warnings))
+
+        # 3. write restored squads.
+        for uid, players in planned.items():
+            league_ref.collection("squads").document(uid).update({"players": players})
+
+        # 4. un-resolve the bid docs (pending again, statuses cleared).
+        reopened = 0
+        for d in league_ref.collection("wishlist_bids").get():
+            data = d.to_dict() or {}
+            if data.get("gw") != gw or not data.get("resolved"):
+                continue
+            cleaned = [{"playerIn": b["playerIn"], "playerOut": b["playerOut"],
+                        "position": b.get("position", "")} for b in data.get("bids", [])]
+            league_ref.collection("wishlist_bids").document(d.id).set(
+                {"uid": data.get("uid"), "gw": gw, "bids": cleaned})
+            reopened += 1
+
+        # 5. delete the results doc + the gw's wishlist_claim transactions.
+        league_ref.collection("wishlist_results").document(str(gw)).delete()
+        batch = self.db.batch()
+        for t in txns:
+            batch.delete(league_ref.collection("transactions").document(t["id"]))
+        batch.commit()
+
+        return {"gw": gw, "reversedSwaps": len(txns), "bidDocsReopened": reopened,
+                "squadsRestored": sorted(planned.keys())}
 
     # ------------------------------------------------------------------
     # Mock helper — auto-fill bids so the auction can be demoed end-to-end
@@ -373,10 +489,15 @@ class WCWishlistManager:
     # ------------------------------------------------------------------
 
     def _ordered_managers(self, lid: str) -> List[str]:
-        """Last-pick-first: (waiverPriority DESC, draftPosition DESC, uid ASC).
+        """Last-place-first: (waiverPriority ASC, draftPosition DESC, uid ASC).
 
-        Deterministic under duplicate waiverPriority (live data has dupes).
-        Excludes kicked/left members.
+        ``reset_waiver_priority_to_standings`` assigns the WORST team
+        ``waiverPriority=1``, so the weakest manager (lowest priority number) gets
+        first dibs — i.e. last place picks first, then 5th, 4th, …, 1st, then last
+        place again next round. This matches the normal waiver order
+        (``wc_waivers.get_waiver_order``, also ascending); the previous DESC sort
+        inverted it so the BEST team picked first. Deterministic under duplicate
+        waiverPriority (live data has dupes). Excludes kicked/left members.
         """
         members = list(
             self.db.collection("leagues").document(lid).collection("members").get()
@@ -391,7 +512,7 @@ class WCWishlistManager:
                 "waiverPriority": md.get("waiverPriority", 0) or 0,
                 "draftPosition": md.get("draftPosition", 0) or 0,
             })
-        active.sort(key=lambda x: (-x["waiverPriority"], -x["draftPosition"], x["uid"]))
+        active.sort(key=lambda x: (x["waiverPriority"], -x["draftPosition"], x["uid"]))
         return [m["uid"] for m in active]
 
     # ------------------------------------------------------------------

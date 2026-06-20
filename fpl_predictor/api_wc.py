@@ -104,6 +104,29 @@ def _require_admin():
     return uid, None
 
 
+# Default super-admin (Ilay). Overridable via wc_config/tournament.superAdminUid.
+DEFAULT_SUPER_ADMIN_UID = "u_ilay"
+
+
+def _super_admin_uid() -> str:
+    """The single super-admin (Ilay) uid: wc_config/tournament.superAdminUid,
+    defaulting to ``u_ilay``."""
+    cfg = _db.collection("wc_config").document("tournament").get()
+    return (cfg.to_dict() or {}).get("superAdminUid", DEFAULT_SUPER_ADMIN_UID) if cfg.exists else DEFAULT_SUPER_ADMIN_UID
+
+
+def _require_super_admin():
+    """Ilay-only gate for window control. Fails closed: caller uid must equal
+    the configured super-admin uid (``u_ilay`` by default). Used for the timed
+    window schedule and the manual window switcher, which are Ilay-only."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    if uid != _super_admin_uid():
+        return None, _err("Ilay only", 403)
+    return uid, None
+
+
 # ---------------------------------------------------------------------------
 # Response helpers
 # ---------------------------------------------------------------------------
@@ -1631,7 +1654,7 @@ def get_edit_gw(lid: str):
     gw = int(cur)
     # walk forward over locked GWs (cap the search so a misconfig can't loop)
     for _ in range(8):
-        if not is_lineup_locked(_db, gw):
+        if not is_lineup_locked(_db, gw, lid=lid):
             break
         gw += 1
     return _ok({"editGw": gw, "currentGw": int(cur), "currentLocked": gw != int(cur)})
@@ -1699,7 +1722,7 @@ def get_gw_history(lid: str, uid: str):
         return _ok({"leagueId": lid, **doc.to_dict()})
     # No finalized snapshot yet. Pre-lock, lineups are private: a manager may
     # always see their own, but never an opponent's (mirrors get_opponent_lineup).
-    if not is_lineup_locked(_db, gw):
+    if not is_lineup_locked(_db, gw, lid=lid):
         if uid != caller:
             return _err("lineups hidden until they lock", 403)
         return _err("gw_history not found", 404)
@@ -1926,6 +1949,7 @@ def get_transfer_window(lid: str):
         "nextPhase": state["nextPhase"],
         "nextPhaseStartsAt": state["nextPhaseStartsAt"],
         "schedule": state["schedule"],
+        "scheduledOverrides": state.get("scheduledOverrides", []),
     })
 
 
@@ -1936,20 +1960,23 @@ def get_is_admin():
     if err:
         return err
     cfg = _db.collection("wc_config").document("tournament").get()
-    admin_uids = (cfg.to_dict() or {}).get("adminUids", []) if cfg.exists else []
-    return _ok({"isAdmin": uid in admin_uids})
+    cfg_d = cfg.to_dict() or {}
+    admin_uids = cfg_d.get("adminUids", []) if cfg.exists else []
+    super_uid = cfg_d.get("superAdminUid", DEFAULT_SUPER_ADMIN_UID) if cfg.exists else DEFAULT_SUPER_ADMIN_UID
+    return _ok({"isAdmin": uid in admin_uids, "isSuperAdmin": uid == super_uid})
 
 
 @wc_bp.route("/leagues/<lid>/admin/window-override", methods=["POST"])
 def set_window_override(lid: str):
-    """Admin-only: force (or clear) the league's transfer-window phase.
+    """Ilay-only (on real leagues): force (or clear) the league's transfer-window phase.
 
     Body ``{phase, gw}``. ``phase`` of None/""/"auto" clears the override and
     returns to the time-based fixture-clock logic. A valid phase forces that
     window. Echoes the resolved effective window so the client can update.
 
-    Admin-only on real leagues; on ``simulated`` (mock) leagues any authenticated
-    member can flip the window so the showcase window-switcher works.
+    Ilay-only on real leagues (the window switcher is a super-admin power); on
+    ``simulated`` (mock) leagues any authenticated member can flip the window so
+    the showcase window-switcher works.
     """
     uid, err = _require_auth()
     if err:
@@ -1959,7 +1986,7 @@ def set_window_override(lid: str):
     if not league_snap.exists:
         return _err("League not found", 404)
     if not (league_snap.to_dict() or {}).get("simulated"):
-        _, admin_err = _require_admin()
+        _, admin_err = _require_super_admin()
         if admin_err:
             return admin_err
     body = request.get_json(silent=True) or {}
@@ -1982,6 +2009,81 @@ def set_window_override(lid: str):
         "status": "open",
         "window": {"phase": window.value, "gw": upcoming_gw},
         "overridden": overridden,
+    })
+
+
+@wc_bp.route("/leagues/<lid>/admin/window-schedule", methods=["GET"])
+def get_window_schedule(lid: str):
+    """Return the league's timed window schedule (``[{phase, effectiveAt, gw}]``).
+
+    Read access for any authenticated user (UI gating only); editing is
+    Ilay-only via the POST below. ``effectiveAt`` is returned as stored (a
+    Firestore timestamp → ISO on the wire)."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    snap = _db.collection("leagues").document(lid).get()
+    if not snap.exists:
+        return _err("League not found", 404)
+    return _ok({"schedule": (snap.to_dict() or {}).get("windowSchedule") or []})
+
+
+@wc_bp.route("/leagues/<lid>/admin/window-schedule", methods=["POST"])
+def set_window_schedule(lid: str):
+    """Ilay-only: set (or clear) the league's timed window schedule.
+
+    Body ``{schedule: [{phase, effectiveAt, gw?}]}`` where ``effectiveAt`` is a
+    UTC ISO-8601 string (the client converts the admin's Israel-time input to
+    UTC). Entries are validated, parsed to timestamps, sorted ascending, and
+    written to ``leagues/{lid}.windowSchedule``. An empty list / null clears it.
+    The schedule is applied LAZILY by the window resolver as the clock passes
+    each entry — there is no background job. Echoes the resolved current window.
+    """
+    uid, err = _require_super_admin()
+    if err:
+        return err
+    league_ref = _db.collection("leagues").document(lid)
+    if not league_ref.get().exists:
+        return _err("League not found", 404)
+
+    body = request.get_json(silent=True) or {}
+    raw = body.get("schedule")
+    if raw in (None, [], {}):
+        league_ref.update({"windowSchedule": firestore.DELETE_FIELD})
+    elif isinstance(raw, list):
+        valid = {"none", "trade", "free_agents", "next_gw_bid"}
+        cleaned = []
+        for e in raw:
+            if not isinstance(e, dict):
+                return _err("each schedule entry must be an object", 400)
+            phase = e.get("phase")
+            if phase not in valid:
+                return _err(f"invalid phase: {phase}", 400)
+            eff = e.get("effectiveAt")
+            try:
+                dt = datetime.fromisoformat(str(eff).replace("Z", "+00:00"))
+            except (TypeError, ValueError):
+                return _err(f"invalid effectiveAt: {eff}", 400)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            entry = {"phase": phase, "effectiveAt": dt}
+            if e.get("gw") is not None:
+                try:
+                    entry["gw"] = int(e["gw"])
+                except (TypeError, ValueError):
+                    return _err(f"invalid gw: {e.get('gw')}", 400)
+            cleaned.append(entry)
+        cleaned.sort(key=lambda x: x["effectiveAt"])
+        league_ref.update({"windowSchedule": cleaned})
+    else:
+        return _err("schedule must be a list", 400)
+
+    from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
+    window, upcoming_gw = current_window_from_db(lid, _db)
+    sched = (league_ref.get().to_dict() or {}).get("windowSchedule") or []
+    return _ok({
+        "schedule": sched,
+        "window": None if window == TransferWindow.NONE else {"phase": window.value, "gw": upcoming_gw},
     })
 
 
@@ -3074,9 +3176,13 @@ def admin_process_wishlist_auction(lid: str, gw: int):
     uid, err = _require_admin()
     if err:
         return err
+    force = bool((request.get_json(silent=True) or {}).get("force"))
     try:
-        result = _wishlist_mgr.run_auction(lid, gw)
+        result = _wishlist_mgr.run_auction(lid, gw, force=force)
         return _ok(result)
+    except ValueError as exc:
+        # Idempotency guard (already resolved) → 409 Conflict, not a 500.
+        return _err(str(exc), 409)
     except Exception as exc:
         return _err(str(exc), 500)
 
@@ -3093,10 +3199,32 @@ def admin_open_trade_window(lid: str, gw: int):
     uid, err = _require_admin()
     if err:
         return err
+    force = bool((request.get_json(silent=True) or {}).get("force"))
     try:
         deferred = _trade_mgr.process_deferred_trades(lid, gw)
-        auction = _wishlist_mgr.run_auction(lid, gw)
+        auction = _wishlist_mgr.run_auction(lid, gw, force=force)
         return _ok({"deferredTrades": deferred, "wishlistAuction": auction})
+    except ValueError as exc:
+        return _err(str(exc), 409)
+    except Exception as exc:
+        return _err(str(exc), 500)
+
+
+@wc_bp.route("/admin/leagues/<lid>/rollback-wishlist/<int:gw>", methods=["POST"])
+def admin_rollback_wishlist(lid: str, gw: int):
+    """Ilay-only: undo a GW's wishlist auction so it can be cleanly re-run.
+
+    Reverses every wishlist_claim swap (all-or-nothing — 409 if not cleanly
+    reversible), un-resolves the bid docs back to pending, and clears the
+    results doc + the gw's wishlist_claim transactions.
+    """
+    uid, err = _require_super_admin()
+    if err:
+        return err
+    try:
+        return _ok(_wishlist_mgr.rollback_auction(lid, gw))
+    except ValueError as exc:
+        return _err(str(exc), 409)
     except Exception as exc:
         return _err(str(exc), 500)
 
@@ -3108,24 +3236,19 @@ def admin_run_mock_wishlist(lid: str):
     Opens the FREE_AGENTS window (closing the trade window), auto-fills 1-3
     wishlist bids for every manager EXCEPT the caller/viewed manager (top free
     agents in, their worst players out — same position), then resolves the
-    auction so squads actually change. Gated to ``simulated`` leagues so it can
-    never touch the real league.
+    auction so squads actually change.
+
+    SIMULATED LEAGUES ONLY — it fabricates bids, so it must NEVER touch a real
+    league (this once polluted the real draft with fake bids). Hard-gated via
+    ``_require_sim_league``; the real-league path is removed.
 
     Body: ``{gw?, excludeUid?}``. ``excludeUid`` (the manager running it) keeps
     their own real bids; defaults to the authenticated uid.
     """
-    uid, err = _require_auth()
+    ld, err = _require_sim_league(lid)
     if err:
         return err
-    league_snap = _db.collection("leagues").document(lid).get()
-    if not league_snap.exists:
-        return _err("League not found", 404)
-    ld = league_snap.to_dict() or {}
-    # Simulated leagues: any member may run it (showcase behaviour). Real
-    # leagues: LEAGUE-ADMIN ONLY (Ilay) — the auto-generated bids touch other
-    # managers' squads, so nobody else gets the trigger.
-    if not ld.get("simulated") and ld.get("adminUid") != uid:
-        return _err("Only the league admin can run the wishlist on a real league", 403)
+    uid, _ = _require_auth()
     body = request.get_json(silent=True) or {}
     try:
         gw = int(body.get("gw") or ld.get("currentGw") or 1)

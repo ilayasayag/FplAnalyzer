@@ -59,9 +59,10 @@ async function apiCall(method, path, body, opts = {}) {
   // fetch". The rewrite was once abandoned for ~40% timeouts, but min_instances
   // keeps the function warm now (reliably ~0.3s) and the apiCall retry above
   // absorbs any rare hiccup. Empty base => requests stay on the page's origin.
-  const baseUrl = (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") && !_useProd
-    ? "http://localhost:5000"
-    : "";
+  let baseUrl = "";
+  if (window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1") {
+    baseUrl = _useProd ? "https://fpl-analyzer-792eb.web.app" : "http://localhost:5000";
+  }
 
   const MAX_RETRIES = 2;
   const TIMEOUT_MS = opts.timeoutMs || 12000;
