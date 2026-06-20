@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import json
 import urllib.request
+from collections import defaultdict
 from typing import Dict, List, Optional, Tuple
 
 from fpl_predictor.fuzzy import score as _name_score  # see note in fuzzy.py
@@ -292,6 +293,65 @@ def match_to_pool(name: str, iso: str, pool_index: Dict[str, List[Dict]],
 
 
 # --------------------------------------------------------------------------
+# Same-name collision guard
+# --------------------------------------------------------------------------
+# Our pool holds ONE record per drafted player, but the FIFA feed can list two
+# distinct real players who share a normalized name on the same nation (e.g.
+# Brazil's DEF "Danilo" + a MID "Danilo"; the GK "Ederson" + a MID "Éderson").
+# match_to_pool collapses both onto our single id, and a naive last-wins overwrite
+# let the wrong twin clobber the real player's FIFA points + position code (which
+# drives the per-stat itemization — e.g. clean sheet at +5 DEF vs +1 MID). This
+# resolves the tie by our pool record's position (the authority for who we
+# actually drafted), tiebreaking by FIFA season total.
+#
+# Note: the ESPN stat line is NOT position-disambiguated here — the public ESPN
+# feed carries no per-player position, and the observed cases only ever have one
+# twin actually on the pitch, so the existing name match already lands the right
+# stat row. (A future ESPN feed with positions could extend this.)
+
+
+def _pool_pos_by_id(pool_index: Dict[str, List[Dict]]) -> Dict[int, int]:
+    return {c["id"]: c.get("pos") for lst in pool_index.values() for c in lst}
+
+
+def _resolve_fifa_by_pid(fifa: List[Dict], pool_index: Dict[str, List[Dict]],
+                         gw: int) -> Tuple[Dict[int, int], Dict[int, int],
+                                           Dict[int, int]]:
+    """Map FIFA rows -> pool id, disambiguating same-name collisions by position.
+
+    When >1 FIFA row resolves to one pool id, keep the row whose FIFA position
+    matches our pool record's position (tiebreak: higher seasonTotal) instead of
+    whichever row happened to be processed last.
+
+    Returns (fifa_pts, fifa_pos, fifa_season).
+    """
+    pool_pos = _pool_pos_by_id(pool_index)
+    by_pid: Dict[int, List[Dict]] = defaultdict(list)
+    for p in fifa:
+        pid = match_to_pool(p["name"], p["iso"], pool_index)
+        if pid is not None:
+            by_pid[pid].append(p)
+
+    fifa_pts: Dict[int, int] = {}
+    fifa_pos: Dict[int, int] = {}
+    fifa_season: Dict[int, int] = {}
+    for pid, rows in by_pid.items():
+        want = pool_pos.get(pid)
+        best = max(rows, key=lambda r: (
+            FIFA_POSITION_CODE.get((r.get("position") or "").upper()) == want,
+            r.get("seasonTotal") or 0))
+        rp = best["roundPoints"].get(str(gw))
+        if rp is not None:
+            fifa_pts[pid] = rp
+        fcode = FIFA_POSITION_CODE.get((best.get("position") or "").upper())
+        if fcode:
+            fifa_pos[pid] = fcode
+        if best.get("seasonTotal"):
+            fifa_season[pid] = best["seasonTotal"]
+    return fifa_pts, fifa_pos, fifa_season
+
+
+# --------------------------------------------------------------------------
 # Orchestrator: write playerScores + fixture status + live league totals
 # --------------------------------------------------------------------------
 def _fixture_index(db, gw: Optional[int]) -> Dict[Tuple[str, str], object]:
@@ -323,36 +383,15 @@ def ingest_live(db, gw: int, date: str) -> dict:
     pool = build_pool_index(db)
     fx_index = _fixture_index(db, gw)
 
-    # name+iso -> our pool id (cache so each player resolves once)
-    _cache: Dict[Tuple[str, str], Optional[int]] = {}
+    # FIFA points indexed by pool id (authoritative fantasyPoints). Same-name
+    # twins on one nation (Danilo DEF/MID, Ederson GK / Éderson MID) are resolved
+    # by our pool record's position instead of a last-wins overwrite.
+    fifa_pts, fifa_pos, fifa_season = _resolve_fifa_by_pid(fifa, pool, gw)
 
-    def resolve(name, iso):
-        key = (iso, (name or "").lower())
-        if key not in _cache:
-            _cache[key] = match_to_pool(name, iso, pool)
-        return _cache[key]
-
-    # FIFA points indexed by pool id (authoritative fantasyPoints)
-    fifa_pts: Dict[int, int] = {}        # this GW's round points
-    fifa_pos: Dict[int, int] = {}        # FIFA's position code (itemization only)
-    fifa_season: Dict[int, int] = {}     # season total (all rounds)
-    for p in fifa:
-        rp = p["roundPoints"].get(str(gw))
-        pid = resolve(p["name"], p["iso"])
-        if pid is None:
-            continue
-        if rp is not None:
-            fifa_pts[pid] = rp
-        fcode = FIFA_POSITION_CODE.get((p.get("position") or "").upper())
-        if fcode:
-            fifa_pos[pid] = fcode
-        if p.get("seasonTotal"):
-            fifa_season[pid] = p["seasonTotal"]
-
-    # ESPN stat line indexed by pool id
+    # ESPN stat line indexed by pool id (name+iso match).
     espn_stats: Dict[int, dict] = {}
     for e in espn:
-        pid = resolve(e["name"], e["iso"])
+        pid = match_to_pool(e["name"], e["iso"], pool)
         if pid is not None:
             espn_stats[pid] = e["stats"]
 
@@ -1017,19 +1056,9 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
 
     # FIFA reference points for this GW (by pool id). We also carry FIFA's own
     # position code (for fifa_breakdown's itemization only — NOT for DefCon).
+    # Same-name twins are resolved by our pool position (see _resolve_fifa_by_pid).
     fifa = fetch_fifa_points()
-    fifa_pts = {}
-    fifa_pos: Dict[int, int] = {}
-    for p in fifa:
-        rp = p["roundPoints"].get(str(gw))
-        if rp is None:
-            continue
-        pid = match_to_pool(p["name"], p["iso"], pool)
-        if pid:
-            fifa_pts[pid] = rp
-            fcode = FIFA_POSITION_CODE.get((p.get("position") or "").upper())
-            if fcode:
-                fifa_pos[pid] = fcode
+    fifa_pts, fifa_pos, _ = _resolve_fifa_by_pid(fifa, pool, gw)
 
     sr = rules.get("scoring", {})
     defcon_pts = sr.get("defConPoints", 2)
