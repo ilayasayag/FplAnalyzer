@@ -1032,7 +1032,7 @@ function FreeAgentsTab({ setToast }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean">
+      <table className="table-clean table-clean--cards">
         <thead>
           <tr>
             <th>Player</th>
@@ -1048,7 +1048,7 @@ function FreeAgentsTab({ setToast }) {
         </thead>
         <tbody>
           {shown.length === 0 && (
-            <tr><td colSpan={dynCol ? "9" : "8"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+            <tr className="c-fullrow"><td colSpan={dynCol ? "9" : "8"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
           )}
           {shown.map(p => {
             const t = teamById(p.team);
@@ -1057,7 +1057,7 @@ function FreeAgentsTab({ setToast }) {
 
             return (
               <tr key={p.id}>
-                <td>
+                <td className="c-ident">
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
                     <div style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
                     <div style={{ minWidth: 0 }}>
@@ -1067,24 +1067,24 @@ function FreeAgentsTab({ setToast }) {
                     </div>
                   </div>
                 </td>
-                <td><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {p.teamName || (t && t.name) || p.team}</span></td>
-                <td><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
-                <td>
+                <td className="c-chip"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {p.teamName || (t && t.name) || p.team}</span></td>
+                <td className="c-chip"><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
+                <td className="c-chip" data-label="Owner">
                   {owner
                     ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
                     : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}
                 </td>
-                {dynCol && <td className="num" style={{ textAlign: "right", fontWeight: 800, color: "var(--navy-900)" }}>{dynCol[1](p)}</td>}
-                <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
-                <td className="num" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
+                {dynCol && <td className="num c-chip" data-label={dynCol[0]} style={{ textAlign: "right", fontWeight: 800, color: "var(--navy-900)" }}>{dynCol[1](p)}</td>}
+                <td className="num c-chip" data-label="Pts" style={{ textAlign: "right", fontWeight: 700 }}>{p.pts}</td>
+                <td className="num c-chip" data-label="% Sel" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
                   {p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"}
                 </td>
-                <td style={{ textAlign: "right" }}>
+                <td className="c-chip" style={{ textAlign: "right" }}>
                   <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: p.pts > 30 ? "rgba(0,217,107,0.18)" : p.pts > 20 ? "rgba(255,200,68,0.18)" : "rgba(0,0,0,0.06)", color: p.pts > 30 ? "#006b35" : p.pts > 20 ? "#7a5a00" : "var(--ink-500)" }}>
                     {p.pts > 30 ? "Hot" : p.pts > 20 ? "Form" : "Cold"}
                   </span>
                 </td>
-                <td style={{ textAlign: "right" }}>
+                <td className="c-action" style={{ textAlign: "right" }}>
                   {owner ? (
                     (() => {
                       const ownerUid = ownerUidByPid[String(p.id)];
@@ -1248,7 +1248,7 @@ function FreeAgentsTab({ setToast }) {
               })()}
 
               {/* Actions */}
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
+              <div className="pickup-modal__actions" style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 8 }}>
                 <button className="btn btn--ghost-dark" style={{ padding: "10px 20px" }} onClick={() => setActivePickup(null)}>
                   Cancel
                 </button>
