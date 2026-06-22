@@ -1285,88 +1285,48 @@ a { color: inherit; text-decoration: none; }
   /* Wrapped tables keep their layout and scroll sideways */
   .table-scroll table { min-width: 640px; }
 
-  /* Opt-in card reflow: a wide data table (standings, free agents) becomes a
-     stack of per-row cards on mobile so EVERY column stays visible without a
-     sideways scroll. The header is dropped and each cell turns into a labeled
-     chip via its data-label. Desktop (>768px) keeps the normal table. */
-  .table-scroll table.table-clean--cards { min-width: 0; width: 100%; }
-  .table-clean--cards thead { display: none; }
-  .table-clean--cards,
-  .table-clean--cards tbody { display: block; width: 100%; }
-  .table-clean--cards tr {
-    display: flex;
-    flex-wrap: wrap;
-    align-items: center;
-    gap: 7px 10px;
-    padding: 12px 14px;
-    margin-bottom: 10px;
-    background: white;
-    border: 1px solid var(--border);
-    border-radius: var(--r-md);
-  }
-  .table-clean--cards tr.is-me { background: rgba(91, 61, 242, 0.07); }
-  .table-clean--cards tr.is-qualified { background: rgba(0, 217, 107, 0.05); }
-  .table-clean--cards td {
-    border: none !important;
-    padding: 0;
-  }
-  /* Numeric / status / meta cells wrap onto their own line(s) below the
-     identity cell. Cells carrying a data-label get a grey chip + the label;
-     self-styled cells (a nation flag, a position pill, the Hot/Cold badge)
-     render their own content with no extra chrome. */
-  .table-clean--cards td.c-chip {
-    flex: 0 0 auto;
-    font-size: 13px;
-    line-height: 1.3;
-    text-align: left !important;
+  /* Opt-in compact table: a wide data table (standings, free agents) shrinks to
+     fit the phone so EVERY entity stays on ONE aligned row — points line up
+     column-to-column for easy comparison, no sideways scroll. The name column
+     absorbs the slack and truncates; the other columns size to their (tiny)
+     content. Desktop (>768px) keeps the normal table. */
+  .table-scroll table.table-clean--compact { min-width: 0; width: 100%; table-layout: auto; }
+  .table-clean--compact th,
+  .table-clean--compact td {
+    padding: 8px 2px;
+    font-size: 11px;
     white-space: nowrap;
-    order: 3;
+    vertical-align: middle;
   }
-  /* Forced flex line-break: a zero-height full-width pseudo-item (order 2) sits
-     between the identity row (order 0/1) and the chips (order 3), so the name +
-     rank/action always own line 1 and every chip wraps below them. */
-  .table-clean--cards tr:not(.c-fullrow)::after {
-    content: "";
-    flex-basis: 100%;
-    height: 0;
-    order: 2;
+  .table-clean--compact thead th {
+    font-size: 8.5px;
+    letter-spacing: 0;
+    white-space: normal;          /* long headers (H2H Pts, % Sel) wrap, cells don't */
+    line-height: 1.15;
   }
-  .table-clean--cards td.c-chip[data-label] {
-    background: rgba(12, 10, 62, 0.05);
-    border-radius: 7px;
-    padding: 4px 9px;
-  }
-  .table-clean--cards td.c-chip[data-label]::before {
-    content: attr(data-label);
-    margin-right: 5px;
-    font-size: 10px;
-    font-weight: 800;
-    color: var(--ink-500);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-  /* Identity cells (rank + name/flag) form the card header on the first line;
-     chips wrap below them. The action button (free agents) shares line 1. */
-  .table-clean--cards td.c-rank { flex: 0 0 auto; order: 0; }
-  .table-clean--cards td.c-mgr,
-  .table-clean--cards td.c-ident { flex: 1 1 auto; min-width: 0; order: 0; }
-  .table-clean--cards td.c-action {
-    flex: 0 0 auto;
-    order: 1;
-    margin-left: auto;
-    text-align: right !important;
-  }
-  /* A full-width divider row (e.g. the qualification line) keeps its own look,
-     not the card chrome. */
-  .table-clean--cards tr.c-fullrow {
-    display: block;
-    padding: 0;
-    margin: 0 0 10px;
-    background: none;
-    border: none;
-    border-radius: 0;
-  }
-  .table-clean--cards tr.c-fullrow td { display: block; }
+  /* Identity column (rank+flag+name / jersey+name) takes the leftover width and
+     ellipsizes — max-width:0 forces the truncation in an auto-layout table. */
+  .table-clean--compact td.c-mgr,
+  .table-clean--compact td.c-ident { max-width: 0; width: 100%; overflow: hidden; }
+  .table-clean--compact td.c-mgr > .row,
+  .table-clean--compact td.c-ident > div { min-width: 0; gap: 6px !important; }
+  /* Trim the manager flag so the identity row stays short. */
+  .table-clean--compact td.c-mgr .flag { width: 26px !important; height: 19px !important; flex-shrink: 0; }
+  .table-clean--compact td.c-mgr .pill { display: none; }   /* seed pill: desktop only — saves width */
+  .table-clean--compact td.c-ident .fa-jersey { width: 28px !important; height: 28px !important; }
+  /* Numeric / meta columns: snug, centred under their header. */
+  .table-clean--compact td.c-chip,
+  .table-clean--compact th { text-align: center !important; }
+  .table-clean--compact td.c-chip { padding-left: 4px; padding-right: 4px; }
+  .table-clean--compact td.c-chip[data-label] { font-weight: 600; }
+  .table-clean--compact td.c-rank { width: 18px; padding-left: 4px; text-align: left; }
+  .table-clean--compact td.c-action { padding-right: 6px; text-align: right !important; }
+  .table-clean--compact td.c-action .btn { padding: 6px 8px !important; font-size: 10px !important; min-height: 34px; }
+  /* Free-agents: keep the flag, drop the (redundant) nation label and the Owner
+     column on the phone to make room — the flag identifies the nation, and on
+     the free-agents list every owner is "Free". */
+  .table-clean--compact .c-team-name { display: none; }
+  .table-clean--compact .fa-owner-col { display: none; }
 
   /* Cap media inside cards so images/SVGs can't blow out the column */
   .card img, .card svg { max-width: 100%; }

@@ -1032,13 +1032,13 @@ function FreeAgentsTab({ setToast }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean table-clean--cards">
+      <table className="table-clean table-clean--compact">
         <thead>
           <tr>
             <th>Player</th>
             <th>Team</th>
             <th>Pos</th>
-            <th>Owner</th>
+            <th className="fa-owner-col">Owner</th>
             {dynCol && <th onClick={() => applySort(sortBy)} style={{ textAlign: "right", color: "var(--navy-900)", cursor: "pointer", userSelect: "none" }} title="Click to flip sort direction">{dynCol[0]}{sortCaret(sortBy)}</th>}
             <th onClick={() => applySort("pts")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "pts" ? "var(--navy-900)" : undefined }} title="Sort by total points">Pts{sortCaret("pts")}</th>
             <th onClick={() => applySort("selPct")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "selPct" ? "var(--navy-900)" : undefined }} title="Sort by FIFA fantasy ownership %">% Sel{sortCaret("selPct")}</th>
@@ -1059,7 +1059,7 @@ function FreeAgentsTab({ setToast }) {
               <tr key={p.id}>
                 <td className="c-ident">
                   <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-                    <div style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                    <div className="fa-jersey" style={{ width: 36, height: 36, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
                     <div style={{ minWidth: 0 }}>
                       <div style={{ fontWeight: 700, whiteSpace: "nowrap", cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
                         onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: p.id } }))}>{p.name}</div>
@@ -1067,9 +1067,9 @@ function FreeAgentsTab({ setToast }) {
                     </div>
                   </div>
                 </td>
-                <td className="c-chip"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> {p.teamName || (t && t.name) || p.team}</span></td>
+                <td className="c-chip"><span style={{ display: "inline-flex", alignItems: "center", gap: 6 }}><Flag team={t} /> <span className="c-team-name">{p.teamName || (t && t.name) || p.team}</span></span></td>
                 <td className="c-chip"><span className="pill pill--dark" style={{ background: "rgba(12,10,62,0.08)", color: "var(--navy-900)", fontSize: 10 }}>{POS_NAMES[p.pos]}</span></td>
-                <td className="c-chip" data-label="Owner">
+                <td className="c-chip fa-owner-col" data-label="Owner">
                   {owner
                     ? <span style={{ fontSize: 12, fontWeight: 600 }}>{owner}</span>
                     : <span style={{ fontSize: 12, color: "#0a8043", fontWeight: 600 }}>Free agent</span>}

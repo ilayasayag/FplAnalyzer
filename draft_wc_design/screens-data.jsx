@@ -498,7 +498,7 @@ function StandingsTable({ onTab }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean table-clean--cards">
+      <table className="table-clean table-clean--compact">
         <thead>
           <tr>
             <th>#</th>

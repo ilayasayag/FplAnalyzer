@@ -197,6 +197,7 @@ const MOBILE_PRIMARY_TABS = [
   { id: "points",    icon: "📊" },
   { id: "pickteam",  icon: "⚽" },
   { id: "transfers", icon: "🔁" },
+  { id: "league",    icon: "🏆" },
 ];
 
 function MobileNav({ tab, onTab }) {
