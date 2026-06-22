@@ -1283,14 +1283,16 @@ def fifa_breakdown(stats: dict, position: int, fifa_total: Optional[int],
         add("Own goal", og, -2 * og)
 
     # Scouting bonus (FIFA rule): flat +2 if the player scored >4 match points AND
-    # is <5% owned. We judge "match points" off FIFA's authoritative total (minus
-    # the bonus itself), NOT our itemization, so imperfect minutes data can't flip
-    # it. Our league excludes it.
-    scouting = (SCOUTING_BONUS
-                if (percent_selected is not None
-                    and percent_selected < SCOUTING_OWNERSHIP_MAX
-                    and (fifa_total - SCOUTING_BONUS) > SCOUTING_MIN_MATCH_POINTS)
-                else 0)
+    # is <5% owned. FIFA's bonus is DISCRETIONARY and often applied late, so it is
+    # NOT guaranteed to be inside ``fifa_total``. We therefore exclude it only up to
+    # the headroom FIFA's total leaves UNEXPLAINED by our itemized lines — if our
+    # stats already account for the whole total (e.g. a goal+assist game), there is
+    # no bonus to remove and subtracting one would undercount a +2 FIFA never gave.
+    headroom = max(0, fifa_total - known)
+    eligible = (percent_selected is not None
+                and percent_selected < SCOUTING_OWNERSHIP_MAX
+                and (fifa_total - SCOUTING_BONUS) > SCOUTING_MIN_MATCH_POINTS)
+    scouting = min(SCOUTING_BONUS, headroom) if eligible else 0
     # Reconcile the itemized lines to FIFA's total. Whatever's left after the
     # scouting bonus is real FIFA-awarded performance our feed couldn't itemize
     # (different minutes/stats than FIFA, or rules we can't see) — KEEP it.
