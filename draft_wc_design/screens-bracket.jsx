@@ -1032,7 +1032,7 @@ function FreeAgentsTab({ setToast }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean table-clean--compact">
+      <table className="table-clean table-clean--compact table-clean--fa">
         <thead>
           <tr>
             <th>Player</th>
@@ -1042,13 +1042,14 @@ function FreeAgentsTab({ setToast }) {
             {dynCol && <th onClick={() => applySort(sortBy)} style={{ textAlign: "right", color: "var(--navy-900)", cursor: "pointer", userSelect: "none" }} title="Click to flip sort direction">{dynCol[0]}{sortCaret(sortBy)}</th>}
             <th onClick={() => applySort("pts")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "pts" ? "var(--navy-900)" : undefined }} title="Sort by total points">Pts{sortCaret("pts")}</th>
             <th onClick={() => applySort("selPct")} style={{ textAlign: "right", cursor: "pointer", userSelect: "none", color: sortBy === "selPct" ? "var(--navy-900)" : undefined }} title="Sort by FIFA fantasy ownership %">% Sel{sortCaret("selPct")}</th>
-            <th style={{ textAlign: "right" }}>Form</th>
+            <th className="c-form" style={{ textAlign: "right" }}>Form</th>
+            <th className="c-next" style={{ textAlign: "center" }}>Next</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
           {shown.length === 0 && (
-            <tr className="c-fullrow"><td colSpan={dynCol ? "9" : "8"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
+            <tr className="c-fullrow"><td colSpan={dynCol ? "10" : "9"} style={{ padding: 28, textAlign: "center", color: "var(--ink-500)" }}>No players match your filters.</td></tr>
           )}
           {shown.map(p => {
             const t = teamById(p.team);
@@ -1079,10 +1080,19 @@ function FreeAgentsTab({ setToast }) {
                 <td className="num c-chip" data-label="% Sel" style={{ textAlign: "right", color: p.selPct != null ? "var(--ink-700)" : "var(--ink-300)" }}>
                   {p.selPct != null ? `${Number(p.selPct).toFixed(1)}%` : "—"}
                 </td>
-                <td className="c-chip" style={{ textAlign: "right" }}>
+                <td className="c-chip c-form" style={{ textAlign: "right" }}>
                   <span style={{ display: "inline-block", padding: "2px 8px", borderRadius: 4, fontSize: 11, fontWeight: 700, background: p.pts > 30 ? "rgba(0,217,107,0.18)" : p.pts > 20 ? "rgba(255,200,68,0.18)" : "rgba(0,0,0,0.06)", color: p.pts > 30 ? "#006b35" : p.pts > 20 ? "#7a5a00" : "var(--ink-500)" }}>
                     {p.pts > 30 ? "Hot" : p.pts > 20 ? "Form" : "Cold"}
                   </span>
+                </td>
+                <td className="c-chip c-next" style={{ textAlign: "center" }}>
+                  {(() => {
+                    const oppIso = getNextFixtureOpponentIso(p.team);
+                    const oppT = oppIso ? teamById(oppIso) : null;
+                    return oppT
+                      ? <span title={`Next: v ${oppT.name || oppIso}`}><Flag team={oppT} /></span>
+                      : <span className="c-next-blank" title="Next fixture not set yet" />;
+                  })()}
                 </td>
                 <td className="c-action" style={{ textAlign: "right" }}>
                   {owner ? (
@@ -1098,9 +1108,9 @@ function FreeAgentsTab({ setToast }) {
                       );
                     })()
                   ) : faOpen ? (
-                    <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>Pick up</button>
+                    <button className="btn btn--draft" title="Pick up" style={{ padding: "6px 14px", fontSize: 11 }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}><span className="lbl-full">Pick up</span><span className="lbl-short">+</span></button>
                   ) : (
-                    <button className="btn btn--draft" style={{ padding: "6px 14px", fontSize: 11, background: "var(--gold-500)", color: "var(--navy-900)" }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}>+ Wishlist</button>
+                    <button className="btn btn--draft" title="Add to wishlist" style={{ padding: "6px 14px", fontSize: 11, background: "var(--gold-500)", color: "var(--navy-900)" }} onClick={() => { setActivePickup(p); setPlayerToDrop(eligibleDrops[0]?.id || ""); }}><span className="lbl-full">+ Wishlist</span><span className="lbl-short">+</span></button>
                   )}
                 </td>
               </tr>

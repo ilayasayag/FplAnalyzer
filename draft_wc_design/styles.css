@@ -759,6 +759,18 @@ a { color: inherit; text-decoration: none; }
 .table-clean tr.is-qualified td { background: rgba(0, 217, 107, 0.05); }
 .table-clean .num { font-family: var(--font-num); font-weight: 600; }
 
+/* Free-agents action button: the short "+" label is mobile-only (see the
+   compact-table media query); desktop shows the full text. */
+.lbl-short { display: none; }
+/* "Next fixture" placeholder shown when the opponent isn't known yet. */
+.c-next-blank {
+  display: inline-block;
+  width: 22px;
+  height: 15px;
+  border-radius: 2px;
+  background: rgba(12, 10, 62, 0.10);
+}
+
 /* dark table variant */
 .table-dark th { color: rgba(255,255,255,0.6); border-color: var(--border-dark); }
 .table-dark td { border-color: var(--border-dark); color: white; }
@@ -1327,6 +1339,23 @@ a { color: inherit; text-decoration: none; }
      the free-agents list every owner is "Free". */
   .table-clean--compact .c-team-name { display: none; }
   .table-clean--compact .fa-owner-col { display: none; }
+
+  /* ---- Standings: status is conveyed by the row tint on mobile, so the
+     Qualified/Eliminated column is dropped (kept on desktop). The reclaimed
+     width goes into a bigger flag + bigger stats, still no sideways scroll. */
+  .table-clean--compact.table-clean--standings .c-status { display: none; }
+  .table-clean--compact.table-clean--standings td.c-mgr .flag { width: 36px !important; height: 26px !important; }
+  .table-clean--compact.table-clean--standings td { font-size: 13px; padding-top: 11px; padding-bottom: 11px; }
+  .table-clean--compact.table-clean--standings td.c-chip { font-size: 15px; }
+  .table-clean--compact.table-clean--standings thead th { font-size: 10px; }
+  .table-clean--compact.table-clean--standings tr.is-eliminated td { background: rgba(255, 62, 108, 0.07); }
+
+  /* ---- Free agents: drop Form on mobile (room for the name); the action
+     button collapses to a "+" icon; "Next" shows the upcoming opponent flag. */
+  .table-clean--compact.table-clean--fa .c-form { display: none; }
+  .table-clean--compact .lbl-full { display: none; }
+  .table-clean--compact .lbl-short { display: inline; }
+  .table-clean--compact td.c-next .flag { width: 24px !important; height: 17px !important; }
 
   /* Cap media inside cards so images/SVGs can't blow out the column */
   .card img, .card svg { max-width: 100%; }

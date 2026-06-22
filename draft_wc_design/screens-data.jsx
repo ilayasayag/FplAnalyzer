@@ -498,7 +498,7 @@ function StandingsTable({ onTab }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean table-clean--compact">
+      <table className="table-clean table-clean--compact table-clean--standings">
         <thead>
           <tr>
             <th>#</th>
@@ -508,7 +508,7 @@ function StandingsTable({ onTab }) {
             <th style={{ textAlign: "right" }}>L</th>
             <th style={{ textAlign: "right" }}>H2H Pts</th>
             <th style={{ textAlign: "right" }}>FPts</th>
-            <th></th>
+            <th className="c-status"></th>
           </tr>
         </thead>
         <tbody>
@@ -524,7 +524,7 @@ function StandingsTable({ onTab }) {
             const showQualLine = sortBy === "hpts" && i === qualifiers - 1 && qualifiers < rows.length;
             return (
               <React.Fragment key={s.uid}>
-                <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "")}>
+                <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "is-eliminated")}>
                   <td className="num c-rank" style={{ width: 50 }}>
                     <div className="row" style={{ gap: 6 }}>
                       <strong style={{ fontSize: 15 }}>{s.rank}</strong>
@@ -550,7 +550,7 @@ function StandingsTable({ onTab }) {
                   <td className="num c-chip" data-label="L" style={{ textAlign: "right" }}>{s.hl}</td>
                   <td className="num c-chip" data-label="H2H" style={{ textAlign: "right", fontWeight: 700 }}>{s.hpts}</td>
                   <td className="num c-chip" data-label="FPts" style={{ textAlign: "right" }}>{s.fpts}</td>
-                  <td className="c-chip" style={{ textAlign: "right", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <td className="c-chip c-status" style={{ textAlign: "right", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     {qualified ? <span style={{ color: "var(--green-500)" }}>Qualified</span> : <span style={{ color: "var(--red-500)" }}>Eliminated</span>}
                   </td>
                 </tr>
