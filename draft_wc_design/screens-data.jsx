@@ -498,7 +498,7 @@ function StandingsTable({ onTab }) {
         </div>
       </div>
       <div className="table-scroll">
-      <table className="table-clean">
+      <table className="table-clean table-clean--compact table-clean--standings">
         <thead>
           <tr>
             <th>#</th>
@@ -508,7 +508,7 @@ function StandingsTable({ onTab }) {
             <th style={{ textAlign: "right" }}>L</th>
             <th style={{ textAlign: "right" }}>H2H Pts</th>
             <th style={{ textAlign: "right" }}>FPts</th>
-            <th></th>
+            <th className="c-status"></th>
           </tr>
         </thead>
         <tbody>
@@ -524,15 +524,15 @@ function StandingsTable({ onTab }) {
             const showQualLine = sortBy === "hpts" && i === qualifiers - 1 && qualifiers < rows.length;
             return (
               <React.Fragment key={s.uid}>
-                <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "")}>
-                  <td className="num" style={{ width: 50 }}>
+                <tr className={(isMe ? "is-me " : "") + (qualified ? "is-qualified" : "is-eliminated")}>
+                  <td className="num c-rank" style={{ width: 50 }}>
                     <div className="row" style={{ gap: 6 }}>
                       <strong style={{ fontSize: 15 }}>{s.rank}</strong>
                       {s.mv > 0 && <span style={{ color: "var(--green-500)" }}>▲</span>}
                       {s.mv < 0 && <span style={{ color: "var(--hot-500)" }}>▼</span>}
                     </div>
                   </td>
-                  <td>
+                  <td className="c-mgr">
                     <div className="row" style={{ gap: 10, minWidth: 0 }}>
                       <ManagerFlag uid={s.uid} size="xl" fallback={t} />
                       <div style={{ minWidth: 0, flex: 1, cursor: "pointer" }}
@@ -545,17 +545,17 @@ function StandingsTable({ onTab }) {
                       {qualified && s.ptsSeed && <span className="pill pill--teal" style={{ marginLeft: 4, flexShrink: 0 }}>Pts Seed</span>}
                     </div>
                   </td>
-                  <td className="num" style={{ textAlign: "right" }}>{s.hw}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{s.hd}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{s.hl}</td>
-                  <td className="num" style={{ textAlign: "right", fontWeight: 700 }}>{s.hpts}</td>
-                  <td className="num" style={{ textAlign: "right" }}>{s.fpts}</td>
-                  <td style={{ textAlign: "right", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  <td className="num c-chip" data-label="W" style={{ textAlign: "right" }}>{s.hw}</td>
+                  <td className="num c-chip" data-label="D" style={{ textAlign: "right" }}>{s.hd}</td>
+                  <td className="num c-chip" data-label="L" style={{ textAlign: "right" }}>{s.hl}</td>
+                  <td className="num c-chip" data-label="H2H" style={{ textAlign: "right", fontWeight: 700 }}>{s.hpts}</td>
+                  <td className="num c-chip" data-label="FPts" style={{ textAlign: "right" }}>{s.fpts}</td>
+                  <td className="c-chip c-status" style={{ textAlign: "right", fontSize: 11, fontWeight: 700, letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     {qualified ? <span style={{ color: "var(--green-500)" }}>Qualified</span> : <span style={{ color: "var(--red-500)" }}>Eliminated</span>}
                   </td>
                 </tr>
                 {showQualLine && (
-                  <tr>
+                  <tr className="c-fullrow">
                     <td colSpan="8" style={{ padding: 0 }}>
                       <div style={{ borderTop: "2px dashed var(--hot-500)", padding: "6px 14px", background: "rgba(255,62,108,0.05)", fontSize: 11, fontWeight: 700, color: "var(--hot-500)", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                         ↑ Qualification Line · Top {qualifiers} enter {roundName}

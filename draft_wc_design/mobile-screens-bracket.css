@@ -98,4 +98,22 @@
 
   /* ---------- History tab ---------- */
   .history-badge { font-size: 11px !important; }
+
+  /* ---------- Pick-up / Add-to-Wishlist modal ---------- */
+  /* On the full-screen mobile sheet the stat comparison + fixtures make the
+     body tall; without this the Cancel / Add-to-Wishlist buttons scroll off
+     the bottom. Pin them as a sticky footer so they're always reachable while
+     the comparison scrolls above. Negative side/bottom margins bleed the
+     footer past the modal's 24px padding to the screen edges. */
+  .pickup-modal__actions {
+    position: sticky;
+    bottom: 0;
+    margin: 8px -24px -24px;
+    padding: 14px 24px calc(14px + env(safe-area-inset-bottom, 0px));
+    background: white;
+    border-top: 1px solid var(--border);
+    box-shadow: 0 -6px 16px rgba(0, 0, 0, 0.06);
+    z-index: 2;
+  }
+  .pickup-modal__actions .btn { min-height: 44px; flex: 1; }
 }

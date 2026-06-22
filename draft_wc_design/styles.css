@@ -759,6 +759,18 @@ a { color: inherit; text-decoration: none; }
 .table-clean tr.is-qualified td { background: rgba(0, 217, 107, 0.05); }
 .table-clean .num { font-family: var(--font-num); font-weight: 600; }
 
+/* Free-agents action button: the short "+" label is mobile-only (see the
+   compact-table media query); desktop shows the full text. */
+.lbl-short { display: none; }
+/* "Next fixture" placeholder shown when the opponent isn't known yet. */
+.c-next-blank {
+  display: inline-block;
+  width: 22px;
+  height: 15px;
+  border-radius: 2px;
+  background: rgba(12, 10, 62, 0.10);
+}
+
 /* dark table variant */
 .table-dark th { color: rgba(255,255,255,0.6); border-color: var(--border-dark); }
 .table-dark td { border-color: var(--border-dark); color: white; }
@@ -1284,6 +1296,66 @@ a { color: inherit; text-decoration: none; }
 
   /* Wrapped tables keep their layout and scroll sideways */
   .table-scroll table { min-width: 640px; }
+
+  /* Opt-in compact table: a wide data table (standings, free agents) shrinks to
+     fit the phone so EVERY entity stays on ONE aligned row — points line up
+     column-to-column for easy comparison, no sideways scroll. The name column
+     absorbs the slack and truncates; the other columns size to their (tiny)
+     content. Desktop (>768px) keeps the normal table. */
+  .table-scroll table.table-clean--compact { min-width: 0; width: 100%; table-layout: auto; }
+  .table-clean--compact th,
+  .table-clean--compact td {
+    padding: 8px 2px;
+    font-size: 11px;
+    white-space: nowrap;
+    vertical-align: middle;
+  }
+  .table-clean--compact thead th {
+    font-size: 8.5px;
+    letter-spacing: 0;
+    white-space: normal;          /* long headers (H2H Pts, % Sel) wrap, cells don't */
+    line-height: 1.15;
+  }
+  /* Identity column (rank+flag+name / jersey+name) takes the leftover width and
+     ellipsizes — max-width:0 forces the truncation in an auto-layout table. */
+  .table-clean--compact td.c-mgr,
+  .table-clean--compact td.c-ident { max-width: 0; width: 100%; overflow: hidden; }
+  .table-clean--compact td.c-mgr > .row,
+  .table-clean--compact td.c-ident > div { min-width: 0; gap: 6px !important; }
+  /* Trim the manager flag so the identity row stays short. */
+  .table-clean--compact td.c-mgr .flag { width: 26px !important; height: 19px !important; flex-shrink: 0; }
+  .table-clean--compact td.c-mgr .pill { display: none; }   /* seed pill: desktop only — saves width */
+  .table-clean--compact td.c-ident .fa-jersey { width: 28px !important; height: 28px !important; }
+  /* Numeric / meta columns: snug, centred under their header. */
+  .table-clean--compact td.c-chip,
+  .table-clean--compact th { text-align: center !important; }
+  .table-clean--compact td.c-chip { padding-left: 4px; padding-right: 4px; }
+  .table-clean--compact td.c-chip[data-label] { font-weight: 600; }
+  .table-clean--compact td.c-rank { width: 18px; padding-left: 4px; text-align: left; }
+  .table-clean--compact td.c-action { padding-right: 6px; text-align: right !important; }
+  .table-clean--compact td.c-action .btn { padding: 6px 8px !important; font-size: 10px !important; min-height: 34px; }
+  /* Free-agents: keep the flag, drop the (redundant) nation label and the Owner
+     column on the phone to make room — the flag identifies the nation, and on
+     the free-agents list every owner is "Free". */
+  .table-clean--compact .c-team-name { display: none; }
+  .table-clean--compact .fa-owner-col { display: none; }
+
+  /* ---- Standings: status is conveyed by the row tint on mobile, so the
+     Qualified/Eliminated column is dropped (kept on desktop). The reclaimed
+     width goes into a bigger flag + bigger stats, still no sideways scroll. */
+  .table-clean--compact.table-clean--standings .c-status { display: none; }
+  .table-clean--compact.table-clean--standings td.c-mgr .flag { width: 36px !important; height: 26px !important; }
+  .table-clean--compact.table-clean--standings td { font-size: 13px; padding-top: 11px; padding-bottom: 11px; }
+  .table-clean--compact.table-clean--standings td.c-chip { font-size: 15px; }
+  .table-clean--compact.table-clean--standings thead th { font-size: 10px; }
+  .table-clean--compact.table-clean--standings tr.is-eliminated td { background: rgba(255, 62, 108, 0.07); }
+
+  /* ---- Free agents: drop Form on mobile (room for the name); the action
+     button collapses to a "+" icon; "Next" shows the upcoming opponent flag. */
+  .table-clean--compact.table-clean--fa .c-form { display: none; }
+  .table-clean--compact .lbl-full { display: none; }
+  .table-clean--compact .lbl-short { display: inline; }
+  .table-clean--compact td.c-next .flag { width: 24px !important; height: 17px !important; }
 
   /* Cap media inside cards so images/SVGs can't blow out the column */
   .card img, .card svg { max-width: 100%; }

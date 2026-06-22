@@ -246,6 +246,22 @@ function getNextFixtureOpponent(teamIso, gw = null) {
   return "—";
 }
 
+// Same lookup as getNextFixtureOpponent but returns the opponent's raw iso code
+// (e.g. "TUN") so callers can render a flag, or null when the fixture for the
+// resolved round isn't known yet (round not scheduled / not fetched).
+function getNextFixtureOpponentIso(teamIso, gw = null) {
+  if (!teamIso) return null;
+  const iso = String(teamIso).toUpperCase();
+  const byTeam = (gw != null)
+    ? (window.WC_FIXTURES_BY_GW || {})[gw]
+    : window.WC_FIXTURES_BY_TEAM;
+  if (byTeam && typeof byTeam === "object") {
+    const entry = byTeam[iso];
+    if (entry && entry.opp) return entry.opp;
+  }
+  return null;
+}
+
 // ---------- Player Slot (used on pitch) ----------
 function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick }) {
   // null outside a FixtureGwContext provider → viewed-GW map (legacy behavior).

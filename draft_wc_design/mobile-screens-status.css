@@ -67,6 +67,10 @@
     grid-template-columns: minmax(0, 1fr);
     gap: 8px;
     padding: 10px 12px;
+    /* The Save bar floats (sticky, bottom:96px) over the bottom of the pitch
+       card. Without clearance it covers the bench chips' names + "V XXX"
+       fixtures. This spacer lets the bench scroll clear of the floating bar. */
+    margin-bottom: 88px;
   }
   .bench-row__slots {
     display: flex;
