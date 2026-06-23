@@ -847,6 +847,41 @@ function FreeAgentsTab({ setToast }) {
   };
   const sortCaret = key => (sortBy === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
 
+  // The "Next" column shows each player's opponent in the GW you're transferring
+  // FOR — the next editable round (GW3 while GW2 is live), NOT the current/viewed
+  // GW. Resolve it from the same backend endpoint Pick Team uses ("Save Lineup
+  // for GWX"), then load that round's per-team fixtures into WC_FIXTURES_BY_GW.
+  // Until it resolves (or if that round isn't scheduled) the column stays blank.
+  const [nextGw, setNextGw] = React.useState(null);
+  const [, setFixturesLoaded] = React.useState(0);
+  React.useEffect(() => {
+    const lid = window.LEAGUE && window.LEAGUE.id;
+    if (!lid) return;
+    let cancelled = false;
+    (async () => {
+      let gw = null;
+      try {
+        const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
+        gw = (eg && eg.editGw) || null;
+      } catch (e) {
+        console.warn("FreeAgents: edit-gw resolve failed", e);
+      }
+      if (!gw) gw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || null;
+      if (cancelled || !gw) return;
+      setNextGw(gw);
+      try {
+        if (typeof window.fetchFixturesByTeamForGw === "function" &&
+            !(window.WC_FIXTURES_BY_GW && window.WC_FIXTURES_BY_GW[gw])) {
+          await window.fetchFixturesByTeamForGw(gw);
+        }
+        if (!cancelled) setFixturesLoaded(gw);
+      } catch (e) {
+        console.warn(`FreeAgents: fixtures fetch failed for GW${gw}`, e);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
+
   // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
   // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
   // a memo captured on mount could be empty if Transfers opens before that async
@@ -1087,11 +1122,11 @@ function FreeAgentsTab({ setToast }) {
                 </td>
                 <td className="c-chip c-next" style={{ textAlign: "center" }}>
                   {(() => {
-                    const oppIso = getNextFixtureOpponentIso(p.team);
+                    const oppIso = nextGw ? getNextFixtureOpponentIso(p.team, nextGw) : null;
                     const oppT = oppIso ? teamById(oppIso) : null;
                     return oppT
-                      ? <span title={`Next: v ${oppT.name || oppIso}`}><Flag team={oppT} /></span>
-                      : <span className="c-next-blank" title="Next fixture not set yet" />;
+                      ? <span title={`GW${nextGw}: v ${oppT.name || oppIso}`}><Flag team={oppT} /></span>
+                      : <span className="c-next-blank" title={nextGw ? `GW${nextGw} fixture not set yet` : "Next fixture not set yet"} />;
                   })()}
                 </td>
                 <td className="c-action" style={{ textAlign: "right" }}>
