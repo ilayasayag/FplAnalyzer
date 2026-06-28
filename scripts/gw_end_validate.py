@@ -160,11 +160,11 @@ hdr("5. WISHLIST AUCTION ORDER (must be last-place-first by standings)")
 st_doc = db.collection("leagues").document(LID).collection("standings").document("current").get().to_dict() or {}
 mgrs = st_doc.get("managers", [])
 if not mgrs:
-    # preview from expected standings
-    ranked = sorted(members, key=lambda u: (exp_hpts[u], pts_by.get(u, 0)), reverse=True)
+    # preview from expected standings — auction order is by TOTAL points (fpts).
+    ranked = sorted(members, key=lambda u: (pts_by.get(u, 0), exp_hpts[u]), reverse=True)
     print("  (no standings yet — previewing from expected GW result)")
 else:
-    ranked = [m["uid"] for m in sorted(mgrs, key=lambda m: (m.get("hpts", 0), m.get("fpts", 0)), reverse=True)]
+    ranked = [m["uid"] for m in sorted(mgrs, key=lambda m: (m.get("fpts", 0), m.get("hpts", 0)), reverse=True)]
 # Call the REAL auction order fn against the LIVE waiverPriority — so this
 # reflects the deployed code, not an inline copy of it.
 from fpl_predictor.game.wc_wishlist import WCWishlistManager
