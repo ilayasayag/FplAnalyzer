@@ -246,6 +246,60 @@ function normalizeFixtureRow(fx) {
 // ESPN placeholder ("Round of 32 1 Winner") until the team is decided.
 const WC_BRACKET_ROUND_ORDER = ["Round of 32", "Round of 16", "Quarter-Final", "Semi-Final", "Final"];
 
+// Canonical Round-of-32 bracket order (FIFA official bracket): left half top→
+// bottom, then right half top→bottom. Our ESPN scan stores matches in DATE order,
+// which scrambles the tree — we re-seat them so the bracket reads like the
+// official one and each round's halves feed inward correctly.
+const WC_CANON_R32 = [
+  ["GER", "PAR"], ["FRA", "SWE"], ["RSA", "CAN"], ["NED", "MOR"],
+  ["POR", "CRO"], ["SPA", "AUT"], ["USA", "BOS"], ["BEL", "SEN"],
+  ["BRA", "JAP"], ["CIV", "NOR"], ["MEX", "ECU"], ["ENG", "COD"],
+  ["ARG", "CPV"], ["AUS", "EGY"], ["SWI", "ALG"], ["COL", "GHA"],
+];
+
+// Re-seat every round into canonical bracket order. R32 is sorted by the matchup
+// table above; each later round's matches are placed by which R32 slot their
+// (real) teams came from, with regenerated "Winner of …" placeholders for the
+// slots not yet decided — so the W1/W2, W3/W4 … feeder labels line up with the
+// tree. Falls back to the raw data if R32 isn't populated.
+function wcCanonicalize(rounds) {
+  const r32src = rounds["Round of 32"] || [];
+  if (!r32src.length) return rounds;
+  const idxOf = m => {
+    const a = m.home, b = m.away;
+    for (let i = 0; i < WC_CANON_R32.length; i++) {
+      const [x, y] = WC_CANON_R32[i];
+      if ((a === x && b === y) || (a === y && b === x)) return i;
+    }
+    return 99; // unknown matchup → sorts to the end, never crashes
+  };
+  const r32 = [...r32src].sort((m, n) => idxOf(m) - idxOf(n));
+  const slotOf = {};
+  r32.forEach((m, i) => { if (m.home) slotOf[m.home] = i; if (m.away) slotOf[m.away] = i; });
+  const out = { "Round of 32": r32 };
+  for (let ri = 1; ri < WC_BRACKET_ROUND_ORDER.length; ri++) {
+    const rname = WC_BRACKET_ROUND_ORDER[ri];
+    if (!(rounds[rname] && rounds[rname].length)) continue; // round not scheduled yet
+    const prev = WC_BRACKET_ROUND_ORDER[ri - 1];
+    const size = 16 >> ri;
+    const bySlot = {};
+    (rounds[rname] || []).forEach(m => {
+      const t = m.home || m.away;
+      if (t && slotOf[t] != null) bySlot[slotOf[t] >> ri] = m;
+    });
+    const arr = [];
+    for (let s = 0; s < size; s++) {
+      arr.push(bySlot[s] || {
+        id: rname + "-canon-" + s, home: null, away: null, winner: null, status: "NS",
+        homeName: prev + " " + (2 * s + 1) + " Winner",
+        awayName: prev + " " + (2 * s + 2) + " Winner",
+      });
+    }
+    out[rname] = arr;
+  }
+  return out;
+}
+
 // Compact an ESPN placeholder label ("Round of 32 1 Winner") to a tiny slot tag
 // ("R32 W1") so undecided boxes stay one short line instead of two long ones.
 function wcShortSlot(name) {
@@ -301,7 +355,7 @@ function WCBracketView() {
   }, []);
   if (err) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Bracket unavailable right now.</div>;
   if (!data) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading bracket…</div>;
-  const rounds = data.rounds || {};
+  const rounds = wcCanonicalize(data.rounds || {});
   const present = WC_BRACKET_ROUND_ORDER.filter(r => (rounds[r] || []).length > 0);
   if (present.length === 0) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>The bracket will populate as the Round of 32 begins.</div>;
   // Two-sided bracket: every round except the Final splits in half — the first
