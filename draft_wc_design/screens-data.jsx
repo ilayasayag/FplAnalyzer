@@ -323,6 +323,8 @@ function WCBracketView() {
 function FixturesScreen() {
   // Default to the tournament's REAL current GW (mock-era code hardcoded 4).
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
+  const isKnockout = ((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1) >= 4;
+  const [view, setView] = React.useState(isKnockout ? "bracket" : "list");
   const [fetched, setFetched] = React.useState(null); // null = not loaded yet
   const [loading, setLoading] = React.useState(false);
   const isMobile = useIsMobile();
@@ -374,6 +376,19 @@ function FixturesScreen() {
         </div>
 
         <div style={{ padding: isMobile ? "14px 12px" : "20px 28px", color: "white" }}>
+          {isKnockout && (
+            <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
+              {["bracket", "list"].map(v => (
+                <button key={v} onClick={() => setView(v)}
+                  className={"btn " + (view === v ? "btn--solid-dark" : "btn--ghost-dark")}
+                  style={{ padding: "6px 16px", fontSize: 12 }}>
+                  {v === "bracket" ? "Bracket" : "List"}
+                </button>
+              ))}
+            </div>
+          )}
+          {view === "bracket" ? <WCBracketView /> : (
+          <React.Fragment>
           {loading && fetched == null && (
             <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading fixtures…</div>
           )}
@@ -434,6 +449,8 @@ function FixturesScreen() {
               })}
             </div>
           ))}
+          </React.Fragment>
+          )}
         </div>
       </div>
 

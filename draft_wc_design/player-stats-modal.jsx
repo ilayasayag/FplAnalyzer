@@ -28,6 +28,18 @@ function PlayerStatsModal() {
     return () => window.removeEventListener("keydown", k);
   }, [playerId]);
 
+  // Load the knockout fixtures-by-team so the Fixtures tab shows the real
+  // opponent (R32 now, later rounds as the bracket fills) instead of "TBD".
+  const [, bumpKo] = React.useState(0);
+  React.useEffect(() => {
+    if (!playerId || !window.fetchFixturesByTeamForGw) return;
+    [4, 5, 6, 7, 8].forEach(gw => {
+      window.fetchFixturesByTeamForGw(gw)
+        .then(map => { if (map && Object.keys(map).length) bumpKo(n => n + 1); })
+        .catch(() => {});
+    });
+  }, [playerId]);
+
   // Fetch the REAL per-GW scoring breakdown for the open player. Every rendered
   // row's stats AND its PTS come from the SAME backend row — the engine output
   // (fantasyPoints already includes bonus), never an independent fabrication.
@@ -581,13 +593,27 @@ function fixturesFor(p, t) {
     const opp = groupOpps[gw - 1] || "TBD";
     rows.push({ gw, date: GW_DATES[gw], round: `Group ${t.grp}`, opp, home: true, venue: "Group stage", diff: diffFor(opp) });
   });
-  rows.push(
-    { gw: 4, date: "28 Jun – 3 Jul", round: "R32",   opp: "TBD", home: true,  venue: "TBD",    diff: 3 },
-    { gw: 5, date: "4–7 Jul",        round: "R16",   opp: "TBD", home: true,  venue: "TBD",    diff: 3 },
-    { gw: 6, date: "9–11 Jul",       round: "QF",    opp: "TBD", home: false, venue: "TBD",    diff: 4 },
-    { gw: 7, date: "14–15 Jul",      round: "SF",    opp: "TBD", home: true,  venue: "TBD",    diff: 4 },
-    { gw: 8, date: "Sun 19 Jul",     round: "FINAL", opp: "TBD", home: true,  venue: "NJ/NYC", diff: 5 },
-  );
+  // Knockout rows — opponent resolved from the live fixtures-by-team map
+  // (window.WC_FIXTURES_BY_GW, populated by fetchFixturesByTeamForGw). R32 is
+  // known now; later rounds stay "TBD" until the bracket fills them in.
+  const teamIso = (p.team || "").toUpperCase();
+  [
+    { gw: 4, date: "28 Jun – 3 Jul", round: "R32",   diff: 3 },
+    { gw: 5, date: "4–7 Jul",        round: "R16",   diff: 3 },
+    { gw: 6, date: "9–11 Jul",       round: "QF",    diff: 4 },
+    { gw: 7, date: "14–15 Jul",      round: "SF",    diff: 4 },
+    { gw: 8, date: "Sun 19 Jul",     round: "FINAL", diff: 5 },
+  ].forEach(k => {
+    const m = (window.WC_FIXTURES_BY_GW && window.WC_FIXTURES_BY_GW[k.gw]) || {};
+    const fx = m[teamIso];
+    const opp = fx ? fx.opp : "TBD";
+    rows.push({
+      gw: k.gw, date: k.date, round: k.round, opp,
+      home: fx ? !!fx.home : true,
+      venue: fx ? (fx.home ? "Home" : "Away") : "TBD",
+      diff: opp !== "TBD" ? diffFor(opp) : k.diff,
+    });
+  });
   return rows;
 }
 
