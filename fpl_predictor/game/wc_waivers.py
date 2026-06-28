@@ -304,7 +304,12 @@ class WCWaiverManager:
         return sorted(active, key=lambda x: x["waiverPriority"])
 
     def reset_waiver_priority_to_standings(self, lid: str, admin_uid: str):
-        """Admin can reset waiver order to reverse-standings after a GW."""
+        """Admin can reset waiver/auction order after a GW: WORST team picks first.
+
+        Order is by the TOTAL-POINTS table (season ``fpts``), NOT the H2H points —
+        the lowest total-points manager gets ``waiverPriority=1`` (first pick). H2H
+        points are only a tiebreak.
+        """
         league = self.db.collection("leagues").document(lid).get().to_dict()
         if league.get("adminUid") != admin_uid:
             raise ValueError("Only admin can reset waiver priority")
@@ -315,7 +320,7 @@ class WCWaiverManager:
             raise ValueError("No standings available yet")
 
         managers = standings_doc.to_dict().get("managers", [])
-        sorted_managers = sorted(managers, key=lambda m: (-m.get("hpts", 0), -m.get("fpts", 0)))
+        sorted_managers = sorted(managers, key=lambda m: (-m.get("fpts", 0), -m.get("hpts", 0)))
 
         league_ref = self.db.collection("leagues").document(lid)
         for rank, manager in enumerate(reversed(sorted_managers), start=1):

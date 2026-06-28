@@ -48,7 +48,7 @@ def _winner_iso(home: dict, away: dict, hi: str, ai: str, completed: bool) -> Op
     return None
 
 
-def scan_and_build_bracket(db, days_back: int = 4, days_ahead: int = 16,
+def scan_and_build_bracket(db, days_back: int = 4, days_ahead: int = 26,
                            today: Optional[datetime.date] = None) -> dict:
     """Fetch ESPN across the knockout window, build the bracket doc + upsert the
     per-round fixtures. Returns a summary."""

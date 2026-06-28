@@ -240,6 +240,89 @@ function normalizeFixtureRow(fx) {
   };
 }
 
+<<<<<<< Updated upstream
+=======
+// ---------- WC tournament knockout bracket (national teams) ----------
+// Renders wc_config/wc_bracket (served by GET /wc-bracket), self-updated by the
+// daily scan. Round columns R32 → Final; winners highlighted; TBD slots show the
+// ESPN placeholder ("Round of 32 1 Winner") until the team is decided.
+const WC_BRACKET_ROUND_ORDER = ["Round of 32", "Round of 16", "Quarter-Final", "Semi-Final", "Final"];
+
+function WCBracketSide({ iso, name, score, winner }) {
+  const isWinner = !!(winner && iso && winner === iso);
+  return (
+    <div className="bracket__side" style={{ opacity: iso ? 1 : 0.55 }}>
+      {iso ? <Flag team={{ id: iso, name: name || iso }} size="lg" /> : <div className="bracket__seed">—</div>}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div className="bracket__team" style={{ fontWeight: isWinner ? 800 : 600 }}>{iso || (name || "TBD")}</div>
+        {!iso && <div className="bracket__team-sub">{name || "to be decided"}</div>}
+      </div>
+      <div className="bracket__pts" style={{ color: isWinner ? "var(--green-400)" : undefined }}>
+        {score == null ? "–" : score}
+      </div>
+    </div>
+  );
+}
+
+function WCBracketMatch({ m }) {
+  const tag = m.status === "LIVE" ? "LIVE"
+    : m.status === "FT" ? (m.decidedBy === "penalties" ? "FT · pens" : "FT") : null;
+  return (
+    <div className="bracket__match" style={{ borderColor: m.status === "LIVE" ? "var(--green-400)" : undefined }}>
+      <WCBracketSide iso={m.home} name={m.homeName} score={m.homeScore} winner={m.winner} />
+      <WCBracketSide iso={m.away} name={m.awayName} score={m.awayScore} winner={m.winner} />
+      {tag && <div style={{ textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: m.status === "LIVE" ? "var(--green-400)" : "rgba(255,255,255,0.45)", paddingTop: 4 }}>{tag}</div>}
+    </div>
+  );
+}
+
+function WCBracketView() {
+  const [data, setData] = React.useState(null);
+  const [err, setErr] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    apiCall("GET", "/wc-bracket")
+      .then(d => { if (!cancelled) setData(d || {}); })
+      .catch(() => { if (!cancelled) setErr(true); });
+    return () => { cancelled = true; };
+  }, []);
+  if (err) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Bracket unavailable right now.</div>;
+  if (!data) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading bracket…</div>;
+  const rounds = data.rounds || {};
+  const present = WC_BRACKET_ROUND_ORDER.filter(r => (rounds[r] || []).length > 0);
+  if (present.length === 0) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>The bracket will populate as the Round of 32 begins.</div>;
+  // Two-sided bracket: every round except the Final splits in half — the first
+  // half is the LEFT side, the second half the RIGHT side (ESPN orders matches
+  // in bracket sequence). Columns run R32-L → SF-L → FINAL → SF-R → R32-R, so
+  // the Final sits in the middle and both halves read inward.
+  const sideRounds = present.filter(r => r !== "Final");
+  const hasFinal = (rounds["Final"] || []).length > 0;
+  const half = ms => Math.ceil(ms.length / 2);
+  const columns = [];
+  sideRounds.forEach(r => {
+    const ms = rounds[r] || [];
+    columns.push({ key: r + "-L", head: r, matches: ms.slice(0, half(ms)) });
+  });
+  if (hasFinal) columns.push({ key: "Final", head: "Final", matches: rounds["Final"], center: true });
+  [...sideRounds].reverse().forEach(r => {
+    const ms = rounds[r] || [];
+    columns.push({ key: r + "-R", head: r, matches: ms.slice(half(ms)) });
+  });
+  return (
+    <div className="bracket-scroll">
+      <div className="bracket" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr))` }}>
+        {columns.map(col => (
+          <div className="bracket__col" key={col.key} style={col.center ? { justifyContent: "center" } : undefined}>
+            <div className="bracket__col-head">{col.head}</div>
+            {(col.matches || []).map(m => <WCBracketMatch key={m.id} m={m} />)}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+>>>>>>> Stashed changes
 function FixturesScreen() {
   // Default to the tournament's REAL current GW (mock-era code hardcoded 4).
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
