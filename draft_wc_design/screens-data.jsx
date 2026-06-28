@@ -240,8 +240,6 @@ function normalizeFixtureRow(fx) {
   };
 }
 
-<<<<<<< Updated upstream
-=======
 // ---------- WC tournament knockout bracket (national teams) ----------
 // Renders wc_config/wc_bracket (served by GET /wc-bracket), self-updated by the
 // daily scan. Round columns R32 → Final; winners highlighted; TBD slots show the
@@ -322,7 +320,6 @@ function WCBracketView() {
   );
 }
 
->>>>>>> Stashed changes
 function FixturesScreen() {
   // Default to the tournament's REAL current GW (mock-era code hardcoded 4).
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
