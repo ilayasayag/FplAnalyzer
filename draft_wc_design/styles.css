@@ -823,8 +823,8 @@ a { color: inherit; text-decoration: none; }
 .bracket {
   display: grid;
   grid-template-columns: 1fr 1fr 1fr 1fr;
-  gap: 24px;
-  padding: 24px;
+  gap: 10px;
+  padding: 14px;
   background: var(--grad-card-dark);
   border-radius: var(--r-md);
   color: white;
@@ -835,35 +835,35 @@ a { color: inherit; text-decoration: none; }
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  gap: 16px;
+  gap: 7px;
 }
 .bracket__col-head {
   text-align: center;
   font-family: var(--font-display);
-  font-size: 13px;
+  font-size: 11px;
   font-weight: 700;
-  letter-spacing: 0.1em;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
   color: var(--teal-300);
-  margin-bottom: 12px;
+  margin-bottom: 5px;
 }
 .bracket__match {
   background: rgba(255,255,255,0.06);
   border: 1px solid var(--border-dark-strong);
   border-radius: var(--r-sm);
-  padding: 4px;
+  padding: 3px;
   position: relative;
 }
 .bracket__match.is-live { border-color: var(--green-400); box-shadow: 0 0 0 1px var(--green-400); }
 .bracket__side {
   display: grid;
-  grid-template-columns: 24px 1fr auto;
-  gap: 10px;
+  grid-template-columns: 20px 1fr auto;
+  gap: 7px;
   align-items: center;
-  padding: 8px 10px;
+  padding: 4px 7px;
   border-radius: 4px;
 }
-.bracket__side + .bracket__side { margin-top: 4px; }
+.bracket__side + .bracket__side { margin-top: 3px; }
 .bracket__side.is-winner { background: rgba(255, 200, 68, 0.18); }
 .bracket__side.is-loser { opacity: 0.55; }
 .bracket__seed {
@@ -875,7 +875,10 @@ a { color: inherit; text-decoration: none; }
 }
 .bracket__team {
   font-weight: 700;
-  font-size: 13px;
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .bracket__team-sub {
   font-size: 10px;
@@ -886,9 +889,11 @@ a { color: inherit; text-decoration: none; }
 }
 .bracket__pts {
   font-family: var(--font-num);
-  font-size: 16px;
+  font-size: 13px;
   font-weight: 800;
 }
+/* Compact the flag inside bracket sides so each tie stays short. */
+.bracket .flag.flag--lg { width: 20px; height: 15px; }
 
 /* ---------- Misc utilities ---------- */
 .dot {

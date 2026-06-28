@@ -854,6 +854,43 @@ function FreeAgentsTab({ setToast }) {
   // Until it resolves (or if that round isn't scheduled) the column stays blank.
   const [nextGw, setNextGw] = React.useState(null);
   const [, setFixturesLoaded] = React.useState(0);
+  // Knockout bracket (national teams) — used to optionally hide free agents whose
+  // nation is already OUT of the tournament. Same doc the Fixtures bracket renders.
+  const [wcBracket, setWcBracket] = React.useState(null);
+  const [activeOnly, setActiveOnly] = React.useState(false);
+  React.useEffect(() => {
+    let cancelled = false;
+    apiCall("GET", "/wc-bracket")
+      .then(d => { if (!cancelled) setWcBracket(d || {}); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  // Teams still alive = reached the knockouts (have a Round-of-32 tie) AND have
+  // not lost a completed knockout match. A nation with NO R32 tie (group-stage
+  // exit, e.g. Iran / New Zealand) is out; a nation whose R32 tie hasn't been
+  // played yet stays in (we only drop CONFIRMED exits — losers of a finished
+  // match or teams that never qualified).
+  const { aliveReady, isNationAlive, eliminatedCount } = (() => {
+    const rounds = (wcBracket && wcBracket.rounds) || {};
+    const knockout = new Set(), eliminated = new Set();
+    (rounds["Round of 32"] || []).forEach(m => {
+      if (m.home) knockout.add(m.home);
+      if (m.away) knockout.add(m.away);
+    });
+    Object.values(rounds).forEach(ms => (ms || []).forEach(m => {
+      if (m.status === "FT" && m.winner) {
+        if (m.home && m.home !== m.winner) eliminated.add(m.home);
+        if (m.away && m.away !== m.winner) eliminated.add(m.away);
+      }
+    }));
+    const ready = knockout.size > 0;
+    const alive = iso => !ready ? true : (knockout.has(iso) && !eliminated.has(iso));
+    return { aliveReady: ready, isNationAlive: alive,
+             // how many of the current pool's nations are out (display hint)
+             eliminatedCount: ready
+               ? [...new Set((window.PLAYERS || []).map(p => (p.team || "").toUpperCase()))].filter(t => t && !alive(t)).length
+               : 0 };
+  })();
   React.useEffect(() => {
     const lid = window.LEAGUE && window.LEAGUE.id;
     if (!lid) return;
@@ -922,6 +959,8 @@ function FreeAgentsTab({ setToast }) {
       return ownerFilter === "__free" ? !o : o === ownerFilter;
     })
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
+    // Optional: drop players whose nation is already out of the tournament.
+    .filter(p => !activeOnly || isNationAlive((p.team || "").toUpperCase()))
     // Primary sort = chosen key in the chosen direction (header click toggles
     // asc/desc). SECONDARY is ALWAYS total points (desc), then draft rank — so
     // ties, and any column that's still all-zero pre-data, stay best-first.
@@ -1043,6 +1082,17 @@ function FreeAgentsTab({ setToast }) {
           <select value={sortBy} onChange={e => { setSortBy(e.target.value); setSortDir(defaultDirFor(e.target.value)); }} style={selStyle} title="Sort players by (or click a column header)">
             {FA_SORT_OPTIONS.map(([k, label]) => <option key={k} value={k}>Sort: {label}</option>)}
           </select>
+          {aliveReady && (
+            <button onClick={() => setActiveOnly(v => !v)}
+              title="Hide free agents whose nation is already out of the tournament (group-stage exits and knockout losers). Nations still to play their round are kept."
+              className="btn"
+              style={{ padding: "7px 12px", fontSize: 12, borderRadius: 8, whiteSpace: "nowrap",
+                border: "1px solid " + (activeOnly ? "var(--navy-900)" : "var(--border)"),
+                background: activeOnly ? "var(--navy-900)" : "white",
+                color: activeOnly ? "white" : "var(--ink-700)" }}>
+              {activeOnly ? "✓ " : ""}In tournament{activeOnly && eliminatedCount ? ` · −${eliminatedCount}` : ""}
+            </button>
+          )}
           {mode === "all" && (
             <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
               <option value="all">Any owner</option>

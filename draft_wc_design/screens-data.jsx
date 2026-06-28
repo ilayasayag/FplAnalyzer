@@ -246,30 +246,45 @@ function normalizeFixtureRow(fx) {
 // ESPN placeholder ("Round of 32 1 Winner") until the team is decided.
 const WC_BRACKET_ROUND_ORDER = ["Round of 32", "Round of 16", "Quarter-Final", "Semi-Final", "Final"];
 
-function WCBracketSide({ iso, name, score, winner }) {
+// Compact an ESPN placeholder label ("Round of 32 1 Winner") to a tiny slot tag
+// ("R32 W1") so undecided boxes stay one short line instead of two long ones.
+function wcShortSlot(name) {
+  if (!name) return "TBD";
+  let s = String(name)
+    .replace(/Round of 32/i, "R32").replace(/Round of 16/i, "R16")
+    .replace(/Quarter-?final/i, "QF").replace(/Semi-?final/i, "SF")
+    .replace(/\s*Winner\s*/i, " W").trim();
+  // "R32 1 W" -> "R32 W1"
+  s = s.replace(/^(R32|R16|QF|SF)\s+(\d+)\s*W$/i, "$1 W$2");
+  return s || "TBD";
+}
+
+function WCBracketSide({ iso, name, score, winner, played }) {
   const isWinner = !!(winner && iso && winner === iso);
   return (
     <div className="bracket__side" style={{ opacity: iso ? 1 : 0.55 }}>
       {iso ? <Flag team={{ id: iso, name: name || iso }} size="lg" /> : <div className="bracket__seed">—</div>}
-      <div style={{ flex: 1, minWidth: 0 }}>
-        <div className="bracket__team" style={{ fontWeight: isWinner ? 800 : 600 }}>{iso || (name || "TBD")}</div>
-        {!iso && <div className="bracket__team-sub">{name || "to be decided"}</div>}
-      </div>
-      <div className="bracket__pts" style={{ color: isWinner ? "var(--green-400)" : undefined }}>
-        {score == null ? "–" : score}
-      </div>
+      <div className="bracket__team" style={{ fontWeight: isWinner ? 800 : 600 }}>{iso || wcShortSlot(name)}</div>
+      {/* Only show a score once the tie is actually being/been played — an
+          unplayed match has score 0 which read as clutter. */}
+      {played && (
+        <div className="bracket__pts" style={{ color: isWinner ? "var(--green-400)" : undefined }}>
+          {score == null ? "–" : score}
+        </div>
+      )}
     </div>
   );
 }
 
 function WCBracketMatch({ m }) {
+  const played = m.status === "FT" || m.status === "LIVE";
   const tag = m.status === "LIVE" ? "LIVE"
     : m.status === "FT" ? (m.decidedBy === "penalties" ? "FT · pens" : "FT") : null;
   return (
     <div className="bracket__match" style={{ borderColor: m.status === "LIVE" ? "var(--green-400)" : undefined }}>
-      <WCBracketSide iso={m.home} name={m.homeName} score={m.homeScore} winner={m.winner} />
-      <WCBracketSide iso={m.away} name={m.awayName} score={m.awayScore} winner={m.winner} />
-      {tag && <div style={{ textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: m.status === "LIVE" ? "var(--green-400)" : "rgba(255,255,255,0.45)", paddingTop: 4 }}>{tag}</div>}
+      <WCBracketSide iso={m.home} name={m.homeName} score={m.homeScore} winner={m.winner} played={played} />
+      <WCBracketSide iso={m.away} name={m.awayName} score={m.awayScore} winner={m.winner} played={played} />
+      {tag && <div style={{ textAlign: "center", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: m.status === "LIVE" ? "var(--green-400)" : "rgba(255,255,255,0.45)", paddingTop: 2 }}>{tag}</div>}
     </div>
   );
 }
@@ -308,7 +323,7 @@ function WCBracketView() {
   });
   return (
     <div className="bracket-scroll">
-      <div className="bracket" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(150px, 1fr))` }}>
+      <div className="bracket" style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(112px, 1fr))` }}>
         {columns.map(col => (
           <div className="bracket__col" key={col.key} style={col.center ? { justifyContent: "center" } : undefined}>
             <div className="bracket__col-head">{col.head}</div>
