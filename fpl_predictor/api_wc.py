@@ -280,6 +280,14 @@ def list_teams():
     return _ok(teams)
 
 
+@wc_bp.route("/wc-bracket", methods=["GET"])
+def get_wc_bracket():
+    """The WC2026 tournament knockout bracket (national teams), self-updated by
+    the daily scan (``scan_and_build_bracket``). Public read."""
+    snap = _db.collection("wc_config").document("wc_bracket").get()
+    return _ok(snap.to_dict() if snap.exists else {"rounds": {}, "qualified": {}})
+
+
 @wc_bp.route("/players", methods=["GET"])
 def list_players():
     position = request.args.get("position", type=int)
