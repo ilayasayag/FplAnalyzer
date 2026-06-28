@@ -472,7 +472,7 @@ def ingest_live(db, gw: int, date: str) -> dict:
     # refresh_pool_aggregates (run once per scan), so it's not written here.
     for pid, total in our_gw_pts.items():
         db.collection("wc_players").document(str(pid)).set(
-            {f"gwPoints.{gw}": total}, merge=True)
+            {"gwPoints": {str(gw): total}}, merge=True)  # nested map: set() treats a dotted key as a LITERAL field, not a path
 
     # per-manager LIVE totals for every active league (no finalize, no lock flip).
     # Read back OUR fantasyPoints (bonus-excluded, DefCon-included) so the manager
@@ -735,7 +735,10 @@ def recompute_all_scores(db, fifa_by_pid: Optional[Dict[int, Dict[str, int]]] = 
                                        ((p, {"seasonStats": s, "totalPoints": s["points"]})
                                         for p, s in season.items())}
     for pid, (gw, fp) in gw_points.items():
-        player_updates.setdefault(pid, {})[f"gwPoints.{gw}"] = fp
+        # nested map — _batch_set_players uses set(merge=True), which writes a
+        # dotted key as a LITERAL field name (e.g. "gwPoints.3") rather than the
+        # nested gwPoints map the frontend/API read.
+        player_updates.setdefault(pid, {})["gwPoints"] = {str(gw): fp}
     _batch_set_players(db, player_updates)
 
     return {"rescored": len(score_writes),
@@ -1120,7 +1123,7 @@ def ingest_whoscored_fixture(db, ws_match_id: int, our_fixture_id: str, gw: int)
             "updatedAt": _fs.SERVER_TIMESTAMP,
         }, merge=True)
         db.collection("wc_players").document(str(pid)).set(
-            {f"gwPoints.{gw}": total}, merge=True)
+            {"gwPoints": {str(gw): total}}, merge=True)  # nested map: set() treats a dotted key as a LITERAL field, not a path
         written += 1
 
     fref.set({
