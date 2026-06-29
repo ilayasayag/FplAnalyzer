@@ -20,6 +20,37 @@ session log and `NETANEL_GUIDE.md` is the newcomer guide. Bugs: `KNOWN_ISSUES.md
   `min_instances=1`) at `https://api-4anrfyrdxa-uc.a.run.app`. **Frontend:**
   Firebase Hosting at `https://fpl-analyzer-792eb.web.app`.
 
+### Collaborators & merge control
+
+- **Roles:** `ilayasayag` (owner/admin) is the **only** account that merges to
+  `main` and deploys to **prod**. Contributors (e.g. Chen, Netanel) get **Write**
+  access so they can push branches and open PRs — they **cannot** merge.
+- **Enforcement:** `main` is protected (require PR + 1 approving review +
+  **review from Code Owners**). `.github/CODEOWNERS` makes `@ilayasayag` the sole
+  code owner, so no PR merges without his review and contributors can't
+  self-approve. (This is a personal/public repo — GitHub's per-user "who can
+  merge" lock is org-only, so this review gate is the enforcement mechanism.)
+- **Prod deploy** is gated by Firebase/GCP credentials, not GitHub: only the
+  owner's `firebase login` can `firebase deploy`. Don't hand out prod IAM.
+
+### Staging environment (Hosting preview channel)
+
+Contributors test on a **staging Hosting channel** that shares the prod backend
+(`api` Cloud Function + `gamedb`) — frontend-only isolation, no separate DB.
+
+```bash
+# Deploy current dist/ to the staging channel (from a checkout with a real dist/)
+firebase hosting:channel:deploy staging --project fpl-analyzer-792eb --expires 30d
+```
+
+- Channel URL: `https://fpl-analyzer-792eb--staging-<hash>.web.app`
+  (run `firebase hosting:channel:list` for the current URL — the hash is stable
+  per channel; re-deploying refreshes content, not the URL).
+- Preview channels expire (30-day max). Re-run the command to extend/refresh.
+- To let Chen/Netanel deploy to staging themselves they'd need Firebase Hosting
+  IAM on the prod project — **not granted by default** (it would also expose prod
+  data). Default flow: they open a PR, owner deploys their branch to staging.
+
 ## 2. Accessing the prod DB (read or write)
 
 Use `.venv/bin/python` (bare `python` lacks `firebase_admin`). Two working auth
