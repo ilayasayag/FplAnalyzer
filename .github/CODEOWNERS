@@ -1,0 +1,5 @@
+# Code ownership — governs required PR reviews on protected branches.
+# Ilay (@ilayasayag) is the sole code owner: every PR to a protected branch
+# requires his review before merge. Collaborators can open PRs but not
+# self-approve, so they cannot merge their own work.
+*       @ilayasayag
