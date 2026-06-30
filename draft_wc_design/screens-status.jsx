@@ -13,7 +13,7 @@
 // account controls the same windows regardless of which league they happen to
 // be viewing.
 const WINDOW_TEST_LID = "lg_mock_draft";
-function AdminWindowSwitcher() {
+function useAdminWindowSwitcher() {
   const isAdmin = !!window.IS_ADMIN;
   const [msg, setMsg] = React.useState("");
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1); // upcoming gw the auction/orchestrator run for
@@ -31,10 +31,6 @@ function AdminWindowSwitcher() {
   }, [isAdmin]);
 
   React.useEffect(() => { refresh(); }, [refresh]);
-
-  // Visible to the global admin (Ilay) on ANY league — he keeps window
-  // control after go-live; nobody else ever sees this panel.
-  if (!isAdmin) return null;
 
   // Run a backend action for the mock league and report a short summary.
   // `kind` is "auction" (PR-4 wishlist-only) or "orchestrator" (PR-5: deferred
@@ -67,6 +63,16 @@ function AdminWindowSwitcher() {
       setRunning(false);
     }
   };
+
+  return { isAdmin, msg, gw, setGw, running, runAction };
+}
+
+function AdminWindowSwitcher() {
+  const { isAdmin, msg, gw, setGw, running, runAction } = useAdminWindowSwitcher();
+
+  // Visible to the global admin (Ilay) on ANY league — he keeps window
+  // control after go-live; nobody else ever sees this panel.
+  if (!isAdmin) return null;
 
   return (
     <div className="card-dark">
@@ -146,10 +152,9 @@ function StatusScreen({ onTab }) {
   };
 
   const currentGw = TOURNAMENT.currentGw;
-  const viewingGw = window.VIEWING_GW || currentGw;
-  const setViewingGw = window.setViewingGw;
+  const { viewingGw, setViewingGw } = useAppCtx();
   const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
-  
+
   const getOrdinal = n => {
     const num = Number(n);
     if (isNaN(num)) return "";
@@ -317,7 +322,7 @@ function StatusScreen({ onTab }) {
 
 
 // ---------- POINTS (finished GW pitch) ----------
-function PointsScreen({ onTab }) {
+function usePointsScreen() {
   const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
   // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP
@@ -328,8 +333,7 @@ function PointsScreen({ onTab }) {
   const liveLineup = window.MY_LINEUP || MY_LINEUP;
 
   const currentGw = TOURNAMENT.currentGw;
-  const viewingGw = window.VIEWING_GW || currentGw;
-  const setViewingGw = window.setViewingGw;
+  const { viewingGw, setViewingGw } = useAppCtx();
   const me = window.ME;
 
   // Per-player breakdown for the VIEWED gw from the manager's gw_history
@@ -400,6 +404,12 @@ function PointsScreen({ onTab }) {
 
   // Get current user's team name dynamically
   const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === me)?.team || "My Squad";
+
+  return { isMobile, view, setView, lineup, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw };
+}
+
+function PointsScreen({ onTab }) {
+  const { isMobile, view, setView, lineup, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw } = usePointsScreen();
 
   return (
     <div className="col" style={{ gap: 20 }}>
@@ -520,8 +530,9 @@ function PointsListView({ lineup, statsById = {} }) {
 
 
 // ---------- PICK TEAM ----------
-function PickTeamScreen({ onTab, squadLoading }) {
+function usePickTeamScreen() {
   const isMobile = useIsMobile();
+  const { viewingGw } = useAppCtx();
   const [view, setView] = React.useState("pitch");
   const [lineup, setLineup] = React.useState(MY_LINEUP);
   const [selected, setSelected] = React.useState(null);
@@ -549,7 +560,7 @@ function PickTeamScreen({ onTab, squadLoading }) {
         const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
         if (cancelled) return;
         setEditGw(gw);
-        const curViewing = window.VIEWING_GW || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+        const curViewing = viewingGw || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
         if (gw !== curViewing) {
           const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
           if (cancelled) return;
@@ -696,6 +707,12 @@ function PickTeamScreen({ onTab, squadLoading }) {
     });
     setSelected(null);
   };
+
+  return { isMobile, view, setView, lineup, setLineup, selected, toast, setToast, editGw, handleSaveLineup, handlePlayerClick };
+}
+
+function PickTeamScreen({ onTab, squadLoading }) {
+  const { isMobile, view, setView, lineup, setLineup, selected, toast, setToast, editGw, handleSaveLineup, handlePlayerClick } = usePickTeamScreen();
 
   // While an authenticated user's real squad is still loading, show a
   // lightweight skeleton instead of the data.jsx demo squad (which would
