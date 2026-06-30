@@ -983,7 +983,10 @@ function FreeAgentsTab({ setToast }) {
   // the player onto your bid-wishlist (resolved by the auction when the window
   // opens). Target GW = the open window's GW, else the next GW to be played.
   const faOpen = (window.WINDOW && window.WINDOW.phase) === "free_agents";
-  const bidGw = (window.WINDOW && window.WINDOW.gw) ||
+  // First UNRESOLVED gw (computed at bootstrap) — bids never target a GW whose
+  // auction already ran. Falls back to the window/current GW pre-bootstrap.
+  const bidGw = window.WISHLIST_BID_GW ||
+                (window.WINDOW && window.WINDOW.gw) ||
                 (window.TOURNAMENT && window.TOURNAMENT.currentGw);
   const _pid = (v) => (isNaN(Number(v)) ? Number(String(v).replace("p_", "")) : Number(v));
 
@@ -1382,7 +1385,8 @@ function WishlistTab({ setToast }) {
   const [saving, setSaving] = React.useState(false);
 
   const win = window.WINDOW || {};
-  const upcomingGw = win.gw || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+  // First UNRESOLVED gw (bootstrap) so bids roll to the next GW once one resolves.
+  const upcomingGw = window.WISHLIST_BID_GW || win.gw || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
   const phase = win.phase || "none";
   const isFaWindow = phase === "free_agents";
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);

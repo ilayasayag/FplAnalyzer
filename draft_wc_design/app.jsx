@@ -1073,19 +1073,21 @@ function App() {
         // the batch auction). The upcoming GW comes from the transfer window.
         window.MY_WISHLIST_BIDS = [];
         try {
-          // The bid GW is the open window's GW when one is open, else the next
-          // GW to be played — so the wishlist loads/persists even while the
-          // window is closed (you queue free agents ahead of the next window).
-          const wgw = (window.WINDOW && window.WINDOW.gw) ||
-                      (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-          if (wgw) {
+          // Bids belong to the FIRST gameweek whose auction hasn't resolved yet.
+          // Start from the open window's GW (else the current GW) and roll FORWARD
+          // over any already-resolved GW: once a GW's wishlist auction has run, new
+          // bids target the next GW (e.g. GW4 resolved mid-GW4 → bids go to GW5).
+          // The resolved GW's bids stay in the History tab for audit/rollback.
+          let wgw = (window.WINDOW && window.WINDOW.gw) ||
+                    (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+          window.WISHLIST_BID_GW = wgw || null;
+          window.MY_WISHLIST_RESOLVED = false;
+          for (let guard = 0; wgw && wgw <= 8 && guard < 8; guard++) {
             const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
-            // A RESOLVED gw's bids are kept for audit/rollback but are no longer
-            // editable — they live in the History tab, not the active wishlist.
-            window.MY_WISHLIST_RESOLVED = !!(wl && wl.resolved);
-            if (wl && Array.isArray(wl.bids) && !wl.resolved) {
-              window.MY_WISHLIST_BIDS = wl.bids;
-            }
+            if (wl && wl.resolved) { wgw += 1; continue; } // already auctioned → next GW
+            window.WISHLIST_BID_GW = wgw;
+            if (wl && Array.isArray(wl.bids)) window.MY_WISHLIST_BIDS = wl.bids;
+            break;
           }
         } catch (e) {
           console.warn("Failed to fetch wishlist bids", e);
