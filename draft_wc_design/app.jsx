@@ -1012,6 +1012,9 @@ function App() {
               schedule: winData.schedule || [],
               // Admin-authored timed phase overrides ([{phase, effectiveAt, gw}]).
               scheduledOverrides: winData.scheduledOverrides || [],
+              // Last wishlist auto-run outcome — the Transfers admin banner
+              // surfaces blocked/failed runs so they don't go unnoticed.
+              wishlistAutoRun: winData.wishlistAutoRun || null,
             };
           }
         } catch (e) {

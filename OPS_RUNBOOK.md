@@ -134,7 +134,38 @@ clean and only that PR's own commits land.
   stored` (0 mismatches), and `leagues/lg_mock_draft/scores/{gw}` `updatedAt` is
   fresh.
 
-## 6. Scoring model invariant (don't break it)
+## 6. Wishlist auto-run (Trade → Free agents)
+
+The wishlist auction now **runs itself** when the FREE_AGENTS window opens for a
+real league — the timed `windowSchedule` still only flips the *phase* (lazy, on
+read); the *auction* is fired by explicit triggers, never by page loads:
+
+- **`GET|POST /cron/window-tick?key=<wc_config/cron.secret>`** — the safety net.
+  Called every launchd pass by `scripts/run_ingest_cron.sh` (reads the secret
+  from `~/.wc_cron_secret`, chmod 600 — set it up once:
+  `echo '<secret>' > ~/.wc_cron_secret && chmod 600 ~/.wc_cron_secret`).
+  Optional extra belt: a Cloud Scheduler job hitting the same URL every 5 min.
+- **Admin phase switch / schedule save** that lands in Free agents fires the
+  same pipeline synchronously (the UI confirms first and reports the outcome).
+
+Pipeline per GW (all in `wc_wishlist_autorun.py`): guards → **lease**
+(`wishlist_runs/{gw}`, atomic create — the double-fire protection) → **snapshot**
+(`wishlist_snapshots/{gw}_{ts}`: every bid doc + every squad, UTC+IL timestamps)
+→ stale-bucket bid sweep → deferred trades → `run_auction`. Outcome is mirrored
+to `leagues/{lid}.wishlistAutoRun` and shown as a banner on Transfers (Ilay).
+
+**Guards that BLOCK (surfaced, retried each tick):** previous GW not finalized
+(`currentGw != window gw` — finalize first, order = finalize → waiver reset →
+auction); an earlier GW with pending bids whose auction never ran; a `failed`
+lease (inspect `wishlist_runs/{gw}`, fix, **delete the doc** to retry); a
+`rolled_back` lease (after `rollback_auction` the auto-run refuses to re-fire —
+re-run manually via the `/wishlist-run` skill, or delete the lease doc).
+
+**Stale-tab writes are now rejected server-side** (409 `WISHLIST_LOCKED` /
+`AUCTION_RUNNING`): once a GW's auction resolved, its bucket takes no writes and
+`get_my_bids` reports it resolved for everyone (bids roll to the next GW).
+
+## 7. Scoring model invariant (don't break it)
 
 ```
 fantasyPoints = FIFA_round_total + DefCon_bonus − scouting_bonus

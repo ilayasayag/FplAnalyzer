@@ -595,4 +595,8 @@ def transfer_window_state(
         "scheduledOverrides": [
             {"phase": p, "effectiveAt": dt, "gw": gw} for (dt, p, gw) in scheduled
         ],
+        # Last wishlist auto-run outcome (done/blocked/failed/rolled_back),
+        # written by WishlistAutoRunner — lets the admin UI surface a blocked
+        # auto-run without polling anything else.
+        "wishlistAutoRun": (league_doc or {}).get("wishlistAutoRun"),
     }

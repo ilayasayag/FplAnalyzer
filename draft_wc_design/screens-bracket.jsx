@@ -368,9 +368,20 @@ function WindowScheduleAdmin() {
   const persist = async (schedule, okMsg) => {
     setSaving(true); setMsg("");
     try {
-      await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
-      setMsg(okMsg);
-      setTimeout(() => window.location.reload(), 900);
+      const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
+      // A schedule already resolving to Free agents auto-runs the wishlist
+      // auction server-side — report what happened instead of a silent reload.
+      const ar = res && res.wishlistAutoRun;
+      if (ar && ar.status === "done") {
+        setMsg(`Saved — wishlist auction ran for GW${ar.gw} (${ar.claims} claims). Reloading…`);
+        setTimeout(() => window.location.reload(), 2200);
+      } else if (ar && (ar.status === "blocked" || ar.status === "failed")) {
+        setMsg(`Saved, but wishlist auto-run ${ar.status}: ${ar.reason || ar.error || ""}`);
+        setTimeout(() => window.location.reload(), 3500);
+      } else {
+        setMsg(okMsg);
+        setTimeout(() => window.location.reload(), 900);
+      }
     } catch (e) {
       setMsg("Failed: " + (e.error || e.detail || JSON.stringify(e)));
       setSaving(false);
@@ -399,7 +410,7 @@ function WindowScheduleAdmin() {
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>⏱ Window schedule · Ilay only</div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2, maxWidth: 540 }}>
-            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. Applied the next time the window is read after each time (no background job, so it flips when someone loads the page at/after that minute).
+            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. The phase flips the next time the window is read after each time. A <strong>Free agents</strong> entry also AUTO-RUNS the wishlist auction (cron tick, ~5 min granularity; snapshot saved first, once per GW).
           </div>
         </div>
         {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
@@ -483,14 +494,29 @@ function TransfersScreen() {
   const switchWindow = async (phase) => {
     if (switching) return;
     if (phase === "auto" ? !overridden : phase === curPhase) return;
+    // Entering Free agents AUTO-RUNS the wishlist auction on real leagues
+    // (server-side, once per GW, snapshot saved first) — make that explicit.
+    if (phase === "free_agents" && !isMock &&
+        !window.confirm("Opening the Free agents window AUTO-RUNS the wishlist auction on everyone's pending bids (once per GW; a bid+squad snapshot is saved first).\n\nContinue?")) return;
     setSwitching(true);
     try {
       const lid = window.LEAGUE.id;
       const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
       // "auto" sends no gw — same call shape the old Status-screen admin
       // switcher used to clear the override.
-      await apiCall("POST", `/leagues/${lid}/admin/window-override`, phase === "auto" ? { phase } : { phase, gw });
-      window.location.reload();
+      const res = await apiCall("POST", `/leagues/${lid}/admin/window-override`, phase === "auto" ? { phase } : { phase, gw });
+      const ar = res && res.wishlistAutoRun;
+      if (ar && (ar.status === "done" || ar.status === "blocked" || ar.status === "failed")) {
+        setToast({
+          type: ar.status === "done" ? "success" : "error",
+          message: ar.status === "done"
+            ? `Wishlist auction ran for GW${ar.gw}: ${ar.claims} claim${ar.claims === 1 ? "" : "s"} (snapshot saved).`
+            : `Window switched, but the wishlist auto-run was ${ar.status}: ${ar.reason || ar.error || "see wishlist_runs"}`,
+        });
+        setTimeout(() => window.location.reload(), 2600);
+      } else {
+        window.location.reload();
+      }
     } catch (err) {
       setToast({
         type: "error",
@@ -631,6 +657,18 @@ function TransfersScreen() {
             })}
           </div>
         </div>
+        {/* Ilay-only: a blocked/failed wishlist auto-run must not go unnoticed —
+            the cron tick retries, but the CAUSE (unfinalized GW, failed lease)
+            needs a human. Written by the server on every auto-run attempt. */}
+        {amSuperAdmin && activeWindow.wishlistAutoRun &&
+          (activeWindow.wishlistAutoRun.status === "blocked" || activeWindow.wishlistAutoRun.status === "failed") && (
+          <div style={{ padding: "10px 24px", borderTop: "1px solid var(--border-dark)",
+            background: "rgba(255,90,110,0.10)", fontSize: 12, fontWeight: 700, color: "#ff9aa3" }}>
+            ⚠ Wishlist auto-run {activeWindow.wishlistAutoRun.status}
+            {activeWindow.wishlistAutoRun.gw ? ` (GW${activeWindow.wishlistAutoRun.gw})` : ""}:{" "}
+            {activeWindow.wishlistAutoRun.reason || activeWindow.wishlistAutoRun.error || "see wishlist_runs"}
+          </div>
+        )}
       </div>
 
       {/* Ilay-only: schedule timed window transitions (e.g. Free agents @ 16:00,

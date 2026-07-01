@@ -49,6 +49,14 @@ class WCWishlistManager:
         """
         if not isinstance(bids, list):
             raise ValueError("NO_BIDS: bids must be a list")
+
+        # HARD GATE: no writes into a closed bucket. A stale tab left open
+        # across a window flip keeps submitting to the OLD gw — before this
+        # guard, that overwrote (or deleted) an already-RESOLVED bid doc and
+        # corrupted the audit record rollback_auction depends on. Applies to
+        # the clear path too (deleting a resolved doc is just as destructive).
+        self._assert_gw_open_for_bids(lid, uid, gw)
+
         if not bids:
             doc_ref = (self.db.collection("leagues").document(lid)
                        .collection("wishlist_bids").document(f"{uid}_{gw}"))
@@ -115,9 +123,42 @@ class WCWishlistManager:
     def get_my_bids(self, lid: str, uid: str, gw: int) -> dict:
         doc = (self.db.collection("leagues").document(lid)
                .collection("wishlist_bids").document(f"{uid}_{gw}").get())
-        if not doc.exists:
-            return {"uid": uid, "gw": gw, "bids": []}
-        return doc.to_dict()
+        data = doc.to_dict() if doc.exists else {"uid": uid, "gw": gw, "bids": []}
+        # A gw whose auction ran is a CLOSED bucket for everyone — including a
+        # manager who never bid in it (no doc of their own). Reporting
+        # ``resolved`` from the results doc keeps the client's roll-forward
+        # ("bids target the first unresolved gw", PR #178) correct for
+        # non-bidders; without it they'd be bucketed into a closed gw and then
+        # rejected by the submit gate.
+        if not data.get("resolved"):
+            results = (self.db.collection("leagues").document(lid)
+                       .collection("wishlist_results").document(str(gw)).get())
+            if results.exists:
+                data["resolved"] = True
+        return data
+
+    def _assert_gw_open_for_bids(self, lid: str, uid: str, gw: int):
+        """Raise unless ``gw``'s wishlist bucket still accepts writes for ``uid``.
+
+        Closed when: the gw's auction already resolved (results doc exists),
+        the caller's own bid doc is marked resolved, or an auto-run lease is
+        currently ``running`` (the auction is resolving this very moment)."""
+        league_ref = self.db.collection("leagues").document(lid)
+        if league_ref.collection("wishlist_results").document(str(gw)).get().exists:
+            raise ValueError(
+                f"WISHLIST_LOCKED: the gw {gw} auction already ran — reload "
+                f"the page to bid for the next gameweek")
+        lease = league_ref.collection("wishlist_runs").document(str(gw)).get()
+        if lease.exists and (lease.to_dict() or {}).get("status") == "running":
+            raise ValueError(
+                f"AUCTION_RUNNING: the gw {gw} auction is resolving right now "
+                f"— try again in a minute")
+        existing = (league_ref.collection("wishlist_bids")
+                    .document(f"{uid}_{gw}").get())
+        if existing.exists and (existing.to_dict() or {}).get("resolved"):
+            raise ValueError(
+                f"WISHLIST_LOCKED: your gw {gw} wishlist is already resolved "
+                f"— reload the page to bid for the next gameweek")
 
     # ------------------------------------------------------------------
     # The auction resolver (§4)
@@ -397,6 +438,19 @@ class WCWishlistManager:
         for t in txns:
             batch.delete(league_ref.collection("transactions").document(t["id"]))
         batch.commit()
+
+        # 6. park the auto-run lease as rolled_back (do NOT delete it — a
+        # deleted lease would let the very next cron tick re-run the auction
+        # before the admin fixed whatever prompted the rollback). Manual
+        # re-runs (run_auction / the skill) ignore the lease; the auto-runner
+        # refuses a rolled_back lease until the admin deletes the doc. The
+        # pre-run snapshot in wishlist_snapshots is deliberately kept.
+        league_ref.collection("wishlist_runs").document(str(gw)).set({
+            "gw": gw, "status": "rolled_back", "rolledBackAt": SERVER_TIMESTAMP,
+        })
+        league_ref.update({"wishlistAutoRun": {
+            "status": "rolled_back", "gw": gw, "at": SERVER_TIMESTAMP,
+        }})
 
         return {"gw": gw, "reversedSwaps": len(txns), "bidDocsReopened": reopened,
                 "squadsRestored": sorted(planned.keys())}
