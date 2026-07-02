@@ -1512,20 +1512,22 @@ function useNationAlive() {
 }
 
 // One player row inside a batch side — a numbered LIST row (not a chip): drag
-// handle, rank, flag, clickable name, elimination badge, remove. Mobile gets
-// ↑/↓ buttons since HTML5 drag doesn't exist there.
-function BatchPlayerRow({ pid, idx, side, isMobile, onRemove, onMove, canUp, canDown, drag }) {
+// handle, rank, flag, clickable name, elimination badge, remove. BOTH reorder
+// affordances are always present: drag anywhere the browser supports it, and
+// ↑/↓ arrows as the universal fallback (touch, keyboard, narrow windows —
+// useIsMobile is width-based, so a squeezed desktop is "mobile" too).
+function BatchPlayerRow({ pid, idx, side, onRemove, onMove, canUp, canDown, drag }) {
   const p = window.PLAYER_MAP[String(pid)] || { name: String(pid), team: "", pos: 1, pts: 0 };
   const t = teamById(p.team);
   const isElim = p.elim || (t && t.elim);
   const inSide = side === "ins";
   return (
-    <div draggable={!isMobile} onDragStart={drag.start} onDragOver={drag.over} onDrop={drag.drop}
+    <div draggable onDragStart={drag.start} onDragOver={drag.over} onDrop={drag.drop}
       style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
         background: inSide ? "rgba(0,217,107,0.08)" : "rgba(230,57,70,0.08)",
         border: "1px solid " + (inSide ? "rgba(0,217,107,0.25)" : "rgba(230,57,70,0.20)"),
-        cursor: isMobile ? "default" : "grab" }}>
-      {!isMobile && <span style={{ color: "var(--ink-300)", fontSize: 12, fontWeight: 800 }}>⠿</span>}
+        cursor: "grab" }}>
+      <span style={{ color: "var(--ink-300)", fontSize: 12, fontWeight: 800 }}>⠿</span>
       <span className="mono" style={{ fontSize: 12, fontWeight: 800, width: 16, color: "var(--ink-500)" }}>{idx + 1}</span>
       {t && <Flag team={t} />}
       <span style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
@@ -1533,12 +1535,8 @@ function BatchPlayerRow({ pid, idx, side, isMobile, onRemove, onMove, canUp, can
       {isElim && <span className="pill pill--red" style={{ fontSize: 9, flexShrink: 0 }}>OUT OF WC</span>}
       <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
         {inSide && <span className="muted" style={{ fontSize: 11, marginRight: 4 }}>{p.pts || 0} pts</span>}
-        {isMobile && (
-          <React.Fragment>
-            <button className="btn btn--ghost-dark" disabled={!canUp} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(-1)}>↑</button>
-            <button className="btn btn--ghost-dark" disabled={!canDown} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(1)}>↓</button>
-          </React.Fragment>
-        )}
+        <button className="btn btn--ghost-dark" disabled={!canUp} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(-1)}>↑</button>
+        <button className="btn btn--ghost-dark" disabled={!canDown} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(1)}>↓</button>
         <button className="btn btn--ghost-dark" title="Remove" style={{ padding: "2px 8px", fontSize: 12, color: "var(--red-500)" }} onClick={onRemove}>✕</button>
       </span>
     </div>
@@ -1643,24 +1641,45 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
       ? ds.map((x, k) => k === di ? nd : x)
       : ds.filter((_, k) => k !== di));
   };
+  const draftMove = (di, side, i, to) => {
+    const d = drafts[di];
+    const arr = d[side];
+    if (to < 0 || to >= arr.length || to === i) return;
+    const nd = { position: d.position, outs: d.outs.slice(), ins: d.ins.slice() };
+    const [pid] = nd[side].splice(i, 1);
+    nd[side].splice(to, 0, pid);
+    setDrafts(ds => ds.map((x, k) => k === di ? nd : x));
+  };
 
   // Drag plumbing: batches drag among batches; rows drag within their own
   // batch + side. dataTransfer stays empty — dragRef carries the source.
+  // Row handlers MUST stopPropagation: the batch card is itself draggable,
+  // so without it a row's dragstart bubbles up and the card handler
+  // overwrites the source as kind:"batch" — the row's own dragover then
+  // never matches and the drop is refused (the "drag does nothing" bug).
   const rowDrag = (bi, side, i) => ({
-    start: (e) => { dragRef.current = { kind: "row", b: bi, side, i }; e.dataTransfer.effectAllowed = "move"; },
+    start: (e) => {
+      e.stopPropagation();
+      dragRef.current = { kind: "row", b: bi, side, i };
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    },
     over: (e) => {
       const d = dragRef.current;
       if (d && d.kind === "row" && d.b === bi && d.side === side) e.preventDefault();
     },
     drop: (e) => {
       e.preventDefault();
+      e.stopPropagation();
       const d = dragRef.current;
       dragRef.current = null;
       if (d && d.kind === "row" && d.b === bi && d.side === side && d.i !== i) moveRow(bi, side, d.i, i);
     },
   });
   const batchDrag = (i) => ({
-    onDragStart: (e) => { dragRef.current = { kind: "batch", i }; e.dataTransfer.effectAllowed = "move"; },
+    onDragStart: (e) => {
+      dragRef.current = { kind: "batch", i };
+      if (e.dataTransfer) e.dataTransfer.effectAllowed = "move";
+    },
     onDragOver: (e) => { const d = dragRef.current; if (d && d.kind === "batch") e.preventDefault(); },
     onDrop: (e) => {
       e.preventDefault();
@@ -1750,9 +1769,9 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
           {arr.map((pid, i) => (
-            <BatchPlayerRow key={pid} pid={pid} idx={i} side={side} isMobile={isMobile}
+            <BatchPlayerRow key={pid} pid={pid} idx={i} side={side}
               canUp={i > 0} canDown={i < arr.length - 1}
-              onMove={(dir) => isDraft ? null : moveRow(bi, side, i, i + dir)}
+              onMove={(dir) => isDraft ? draftMove(di, side, i, i + dir) : moveRow(bi, side, i, i + dir)}
               onRemove={() => isDraft ? draftRemove(di, side, i) : removeRow(bi, side, i)}
               drag={isDraft ? { start: () => {}, over: () => {}, drop: () => {} } : rowDrag(bi, side, i)} />
           ))}
@@ -1768,10 +1787,10 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
 
   const batchCard = (batch, bi, isDraft, di) => (
     <div key={isDraft ? `draft-${di}` : `b-${bi}`} className="card"
-      draggable={!isDraft && !isMobile} {...(isDraft ? {} : batchDrag(bi))}
+      draggable={!isDraft} {...(isDraft ? {} : batchDrag(bi))}
       style={{ padding: "12px 16px", opacity: busy ? 0.7 : 1 }}>
       <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
-        {!isMobile && !isDraft && <span style={{ color: "var(--ink-300)", fontSize: 13, fontWeight: 800, cursor: "grab" }}>⠿</span>}
+        {!isDraft && <span style={{ color: "var(--ink-300)", fontSize: 13, fontWeight: 800, cursor: "grab" }}>⠿</span>}
         <strong style={{ fontSize: 14 }}>{isDraft ? "New batch" : `Batch #${bi + 1}`}</strong>
         <span className="pill pill--navy" style={{ fontSize: 10 }}>{batch.position}</span>
         <span className="muted" style={{ fontSize: 11, marginLeft: "auto" }}>
@@ -1779,7 +1798,7 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
             ? "pick both sides to save"
             : `${batch.outs.length * batch.ins.length} bid${batch.outs.length * batch.ins.length === 1 ? "" : "s"} · up to ${Math.min(batch.outs.length, batch.ins.length)} swap${Math.min(batch.outs.length, batch.ins.length) === 1 ? "" : "s"}`}
         </span>
-        {isMobile && !isDraft && (
+        {!isDraft && (
           <React.Fragment>
             <button className="btn btn--ghost-dark" disabled={bi === 0} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => moveBatch(bi, bi - 1)}>↑</button>
             <button className="btn btn--ghost-dark" disabled={bi === batches.length - 1} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => moveBatch(bi, bi + 1)}>↓</button>
@@ -1985,8 +2004,12 @@ function WishlistTab({ setToast }) {
               const tIn = teamById(pIn.team);
               const tOut = teamById(pOut.team);
               return (
-                <div key={`${b.playerIn}_${b.playerOut}`} className="card-section" style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
-                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}>#{i + 1}</div>
+                <div key={`${b.playerIn}_${b.playerOut}`} className="card-section" draggable
+                  onDragStart={(e) => { flatDragRef.current = i; if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={(e) => { if (flatDragRef.current != null) e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); const from = flatDragRef.current; flatDragRef.current = null; reorderTo(from, i); }}
+                  style={{ border: "1px solid var(--border)", borderRadius: 8, padding: 10 }}>
+                  <div style={{ fontWeight: 800, fontSize: 13, marginBottom: 6 }}><span style={{ color: "var(--ink-300)", marginRight: 6 }}>⠿</span>#{i + 1}</div>
                   <div className="wishlist-swap" style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center" }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
                       <Flag team={tIn} />
@@ -2036,7 +2059,7 @@ function WishlistTab({ setToast }) {
               const tOut = teamById(pOut.team);
               return (
                 <tr key={`${b.playerIn}_${b.playerOut}`} draggable
-                  onDragStart={(e) => { flatDragRef.current = i; e.dataTransfer.effectAllowed = "move"; }}
+                  onDragStart={(e) => { flatDragRef.current = i; if (e.dataTransfer) e.dataTransfer.effectAllowed = "move"; }}
                   onDragOver={(e) => { if (flatDragRef.current != null) e.preventDefault(); }}
                   onDrop={(e) => { e.preventDefault(); const from = flatDragRef.current; flatDragRef.current = null; reorderTo(from, i); }}
                   style={{ cursor: "grab" }}>
