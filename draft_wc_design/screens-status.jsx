@@ -116,7 +116,14 @@ function AdminWindowSwitcher() {
 // ---------- STATUS / Dashboard ----------
 function StatusScreen({ onTab }) {
   const isMobile = useIsMobile();
-  const _standings = window.STANDINGS || STANDINGS;
+  // Store-backed (#51): the hero numbers subscribe to WCStore rows instead of
+  // reading raw globals. While a row is loading we render a skeleton — NEVER
+  // the data.jsx demo standings and never a stale gw's numbers (the store
+  // drops mis-stamped responses, so populate-then-blank can't happen).
+  const standingsRow = useStoreRow("standings");
+  const gwTotalsRow = useStoreRow("gwTotals");
+  const standingsLoading = standingsRow.status !== "ready";
+  const _standings = standingsRow.status === "ready" ? (standingsRow.value || []) : [];
   const myStanding = _standings.find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
   const top5 = _standings.slice(0, 8);
 
@@ -153,7 +160,9 @@ function StatusScreen({ onTab }) {
 
   const currentGw = TOURNAMENT.currentGw;
   const { viewingGw, setViewingGw } = useAppCtx();
-  const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
+  // null = still loading (render a skeleton); "—" = loaded, genuinely absent.
+  const gwPoints = gwTotalsRow.status !== "ready" ? null
+    : (gwTotalsRow.value && gwTotalsRow.value[window.ME] !== undefined ? gwTotalsRow.value[window.ME] : "—");
 
   const getOrdinal = n => {
     const num = Number(n);
@@ -249,16 +258,26 @@ function StatusScreen({ onTab }) {
         <div style={{ display: "grid", gridTemplateColumns: isMobile ? "minmax(0, 1fr) minmax(0, 1fr)" : "1fr 1fr", borderTop: "1px solid var(--border-dark)" }}>
           <div style={{ padding: isMobile ? "16px 14px" : "22px 24px", borderRight: "1px solid var(--border-dark)", minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>GW{viewingGw} Points</div>
-            <div className="h-display" style={{ fontSize: isMobile ? 42 : 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>{String(gwPoints)}</div>
+            <div className="h-display" style={{ fontSize: isMobile ? 42 : 56, color: "var(--green-400)", lineHeight: 1.1, marginTop: 4 }}>
+              {gwPoints === null ? <Skel w={isMobile ? 64 : 88} h={isMobile ? 38 : 50} /> : String(gwPoints)}
+            </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>Live performance points</div>
           </div>
           <div style={{ padding: isMobile ? "16px 14px" : "22px 24px", minWidth: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)", letterSpacing: "0.08em", textTransform: "uppercase" }}>League Rank</div>
             <div className="h-display" style={{ fontSize: isMobile ? 42 : 56, color: "var(--gold-500)", lineHeight: 1.1, marginTop: 4 }}>
-              {myStanding.rank}{myStanding.rank !== "—" && <span style={{ fontSize: isMobile ? 17 : 22, color: "rgba(255,255,255,0.5)", verticalAlign: "super" }}>{getOrdinal(myStanding.rank)}</span>}
+              {standingsLoading ? <Skel w={isMobile ? 48 : 64} h={isMobile ? 38 : 50} /> : (
+                <React.Fragment>
+                  {myStanding.rank}{myStanding.rank !== "—" && <span style={{ fontSize: isMobile ? 17 : 22, color: "rgba(255,255,255,0.5)", verticalAlign: "super" }}>{getOrdinal(myStanding.rank)}</span>}
+                </React.Fragment>
+              )}
             </div>
             <div style={{ fontSize: 12, color: "rgba(255,255,255,0.65)", marginTop: 4 }}>
-              {myStanding.hpts !== "—" ? `${myStanding.hpts} H2H pts` : "—"} · {myStanding.fpts !== "—" ? `${myStanding.fpts} total fpts` : "—"}
+              {standingsLoading ? <Skel w={140} h={12} /> : (
+                <React.Fragment>
+                  {myStanding.hpts !== "—" ? `${myStanding.hpts} H2H pts` : "—"} · {myStanding.fpts !== "—" ? `${myStanding.fpts} total fpts` : "—"}
+                </React.Fragment>
+              )}
             </div>
           </div>
         </div>

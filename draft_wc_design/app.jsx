@@ -541,51 +541,68 @@ function App() {
     let stdCancelled = false;
     const unsubStandings = () => { stdCancelled = true; };
     const curGw = window.TOURNAMENT.currentGw || 1;
+    // STAMPED WRITES (#51 fix): both fetches below are keyed to this exact
+    // league+gw. The effect's very first run can fire with a not-yet-correct
+    // viewingGw (the bootstrap resolves the real GW moments later and re-runs
+    // us) — before the store, that early response painted numbers on screen
+    // and a later empty response for the live GW wiped them to "—"
+    // (populate-then-blank). Now WCStore drops any response whose tag no
+    // longer matches the key's expected tag, in BOTH directions.
+    const _tag = `${lid}|gw${viewingGw}`;
+    WCStore.loading("standings", _tag);
+    WCStore.loading("gwTotals", _tag);
     const _stdPath = (viewingGw === curGw)
       ? `/leagues/${lid}/standings`
       : `/leagues/${lid}/standings?gw=${viewingGw}`;
     apiCall("GET", _stdPath)
       .then(data => {
         if (stdCancelled) return;
-        if (data && data.managers) {
-          window.STANDINGS = data.managers.map(m => ({
-            uid: m.uid,
-            rank: m.rank || 1,
-            hw: m.hw || 0,
-            hd: m.hd || 0,
-            hl: m.hl || 0,
-            hpts: m.hpts || 0,
-            fpts: m.fpts || 0,
-            mv: m.mv || 0,
-            bonusPoints: m.bonusPoints || 0,
-            knockedOut: m.knockedOut || false,
-            ptsSeed: m.ptsSeed || false,
-          })).sort((a, b) => a.rank - b.rank);
-        } else {
-          window.STANDINGS = [];
+        const mapped = (data && data.managers) ? data.managers.map(m => ({
+          uid: m.uid,
+          rank: m.rank || 1,
+          hw: m.hw || 0,
+          hd: m.hd || 0,
+          hl: m.hl || 0,
+          hpts: m.hpts || 0,
+          fpts: m.fpts || 0,
+          mv: m.mv || 0,
+          bonusPoints: m.bonusPoints || 0,
+          knockedOut: m.knockedOut || false,
+          ptsSeed: m.ptsSeed || false,
+        })).sort((a, b) => a.rank - b.rank) : [];
+        if (WCStore.set("standings", mapped, _tag)) {
+          window.STANDINGS = mapped;  // legacy mirror for unconverted screens
+          forceUpdate();
         }
-        forceUpdate();
       })
       .catch(err => { if (!stdCancelled) console.error("Standings fetch error:", err); });
 
     // 2. Scores / GW totals — via the API (→ gamedb), same reason as standings.
     // One endpoint serves both the live and past GW; an unfinalized/empty GW
     // returns no results, which clears GW_TOTALS (so a previous league's totals
-    // never persist after a switch).
+    // never persist after a switch). Same stamped-write guard as standings.
     let scoresCancelled = false;
     const unsubScores = () => { scoresCancelled = true; };
     apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
       .then(data => {
         if (scoresCancelled) return;
-        window.GW_TOTALS = {};
+        const totals = {};
         if (data && data.results) {
           Object.entries(data.results).forEach(([uid, res]) => {
-            window.GW_TOTALS[uid] = res.points || 0;
+            totals[uid] = res.points || 0;
           });
         }
-        forceUpdate();
+        if (WCStore.set("gwTotals", totals, _tag)) {
+          window.GW_TOTALS = totals;  // legacy mirror
+          forceUpdate();
+        }
       })
-      .catch(err => { if (!scoresCancelled) { window.GW_TOTALS = {}; console.error("Scores fetch error:", err); } });
+      .catch(err => {
+        if (!scoresCancelled) {
+          console.error("Scores fetch error:", err);
+          if (WCStore.set("gwTotals", {}, _tag)) window.GW_TOTALS = {};
+        }
+      });
 
     // 3. Sync Draft State live
     const unsubDraft = _db.collection("leagues").doc(lid)

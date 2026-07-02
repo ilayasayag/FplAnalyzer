@@ -810,5 +810,28 @@ function BettingPicksModal({ open, onClose }) {
   );
 }
 
+// ---------- Skeleton placeholder ----------
+// Shown while a WCStore row is still loading — the visual contract that
+// replaces demo/stale-data frames: never render WRONG data, render a pulse.
+// Inherits currentColor so it blends into dark and light cards alike.
+(() => {
+  try {
+    if (document.getElementById("wc-skel-style")) return;
+    const st = document.createElement("style");
+    st.id = "wc-skel-style";
+    st.textContent = "@keyframes wcSkelPulse { 0%,100% { opacity: 0.25; } 50% { opacity: 0.55; } }";
+    document.head.appendChild(st);
+  } catch (e) { /* non-browser env (tests) */ }
+})();
+function Skel({ w = 48, h = 16, style }) {
+  return (
+    <span aria-hidden="true" style={{
+      display: "inline-block", width: w, height: h, borderRadius: 6,
+      background: "currentColor", opacity: 0.3,
+      animation: "wcSkelPulse 1.2s ease-in-out infinite",
+      verticalAlign: "middle", ...style }} />
+  );
+}
+
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton, BettingPicksModal });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton, BettingPicksModal, Skel });
