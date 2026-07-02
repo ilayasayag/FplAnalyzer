@@ -1410,6 +1410,366 @@ function FreeAgentsTab({ setToast }) {
   );
 }
 
+// ---------- Batched wishlist view ----------
+// The FLAT ordered bid list stays the stored source of truth; batches are a
+// DERIVED view. These two functions mirror the server's canonical transform
+// (fpl_predictor/game/wc_wishlist_batches.py) — expansion is OUT-major (for
+// each OUT in order, every IN in order), and grouping only happens when a run
+// of bids IS exactly a batch's expansion, so batch→unbatch always returns the
+// identical flat list. Every batched save round-trips through the server,
+// which re-derives the grouping from what it stored — the client never trusts
+// its own mirror for persistence.
+const POS_NUM = { GK: 1, DEF: 2, MID: 3, FWD: 4 };
+
+function unbatchBids(batches) {
+  const flat = [];
+  (batches || []).forEach(b => {
+    (b.outs || []).forEach(out => {
+      (b.ins || []).forEach(inn => {
+        flat.push({ playerIn: Number(inn), playerOut: Number(out), position: b.position });
+      });
+    });
+  });
+  return flat;
+}
+
+function batchBidsJs(flat) {
+  flat = flat || [];
+  const batches = [];
+  let i = 0;
+  const n = flat.length;
+  while (i < n) {
+    const pos = flat[i].position || "";
+    const out1 = Number(flat[i].playerOut);
+    const ins = [];
+    let j = i;
+    while (j < n && (flat[j].position || "") === pos && Number(flat[j].playerOut) === out1
+           && ins.indexOf(Number(flat[j].playerIn)) === -1) {
+      ins.push(Number(flat[j].playerIn));
+      j++;
+    }
+    const outs = [out1];
+    const m = ins.length;
+    while (j + m <= n) {
+      const nxt = flat.slice(j, j + m);
+      const outNext = Number(nxt[0].playerOut);
+      if (outs.indexOf(outNext) !== -1) break;
+      let ok = true;
+      for (let k = 0; k < m; k++) {
+        if ((nxt[k].position || "") !== pos || Number(nxt[k].playerOut) !== outNext
+            || Number(nxt[k].playerIn) !== ins[k]) { ok = false; break; }
+      }
+      if (!ok) break;
+      outs.push(outNext);
+      j += m;
+    }
+    batches.push({ position: pos, outs: outs, ins: ins });
+    i = j;
+  }
+  return batches;
+}
+
+const showPlayerStats = (id) =>
+  window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } }));
+
+// One player row inside a batch side — a numbered LIST row (not a chip): drag
+// handle, rank, flag, clickable name, elimination badge, remove. Mobile gets
+// ↑/↓ buttons since HTML5 drag doesn't exist there.
+function BatchPlayerRow({ pid, idx, side, isMobile, onRemove, onMove, canUp, canDown, drag }) {
+  const p = window.PLAYER_MAP[String(pid)] || { name: String(pid), team: "", pos: 1, pts: 0 };
+  const t = teamById(p.team);
+  const isElim = p.elim || (t && t.elim);
+  const inSide = side === "ins";
+  return (
+    <div draggable={!isMobile} onDragStart={drag.start} onDragOver={drag.over} onDrop={drag.drop}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 10px", borderRadius: 8,
+        background: inSide ? "rgba(0,217,107,0.08)" : "rgba(230,57,70,0.08)",
+        border: "1px solid " + (inSide ? "rgba(0,217,107,0.25)" : "rgba(230,57,70,0.20)"),
+        cursor: isMobile ? "default" : "grab" }}>
+      {!isMobile && <span style={{ color: "var(--ink-300)", fontSize: 12, fontWeight: 800 }}>⠿</span>}
+      <span className="mono" style={{ fontSize: 12, fontWeight: 800, width: 16, color: "var(--ink-500)" }}>{idx + 1}</span>
+      {t && <Flag team={t} />}
+      <span style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}
+        onClick={() => showPlayerStats(pid)}>{p.name}</span>
+      {isElim && <span className="pill pill--red" style={{ fontSize: 9, flexShrink: 0 }}>OUT OF WC</span>}
+      <span style={{ marginLeft: "auto", display: "flex", alignItems: "center", gap: 4, flexShrink: 0 }}>
+        {inSide && <span className="muted" style={{ fontSize: 11, marginRight: 4 }}>{p.pts || 0} pts</span>}
+        {isMobile && (
+          <React.Fragment>
+            <button className="btn btn--ghost-dark" disabled={!canUp} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(-1)}>↑</button>
+            <button className="btn btn--ghost-dark" disabled={!canDown} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => onMove(1)}>↓</button>
+          </React.Fragment>
+        )}
+        <button className="btn btn--ghost-dark" title="Remove" style={{ padding: "2px 8px", fontSize: 12, color: "var(--red-500)" }} onClick={onRemove}>✕</button>
+      </span>
+    </div>
+  );
+}
+
+// The batched wishlist editor. Renders the DERIVED batches of the current
+// flat list + local "draft" batches (new batches still missing an IN side —
+// those live only in memory: a batch with an empty side is not persistable,
+// and deleting the last player of either side deletes the whole batch).
+function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
+  const isMobile = useIsMobile();
+  const batches = React.useMemo(() => batchBidsJs(bids), [bids]);
+  const [drafts, setDrafts] = React.useState([]);
+  const [busy, setBusy] = React.useState(false);
+  // {b: batchIdx | "d0", side: "outs"|"ins"|"new"} — which adder popover is open.
+  const [adder, setAdder] = React.useState(null);
+  const [query, setQuery] = React.useState("");
+  const dragRef = React.useRef(null);
+
+  const persist = async (nextBatches) => {
+    if (busy) return;
+    const expanded = unbatchBids(nextBatches);
+    if (expanded.length > 60) {
+      setToast({ type: "error", message: `This expands to ${expanded.length} bids — the maximum is 60. Trim a batch.` });
+      return;
+    }
+    setBusy(true);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids-batched`, { gw, batches: nextBatches });
+      onPersisted((res && Array.isArray(res.bids)) ? res.bids : expanded);
+    } catch (err) {
+      setToast({ type: "error", message: "Failed to save: " + (err.error || err.detail || JSON.stringify(err)) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const clone = () => batches.map(b => ({ position: b.position, outs: b.outs.slice(), ins: b.ins.slice() }));
+
+  const moveBatch = (i, to) => {
+    if (to < 0 || to >= batches.length || to === i) return;
+    const next = clone();
+    const [b] = next.splice(i, 1);
+    next.splice(to, 0, b);
+    persist(next);
+  };
+  const removeBatch = (i) => {
+    const next = clone();
+    next.splice(i, 1);
+    persist(next);
+  };
+  const moveRow = (bi, side, i, to) => {
+    const next = clone();
+    const arr = next[bi][side];
+    if (to < 0 || to >= arr.length || to === i) return;
+    const [pid] = arr.splice(i, 1);
+    arr.splice(to, 0, pid);
+    persist(next);
+  };
+  const removeRow = (bi, side, i) => {
+    const next = clone();
+    next[bi][side].splice(i, 1);
+    // A batch can't exist with an empty side — removing the last player on
+    // EITHER side removes the whole batch (you can't sign players in without
+    // signing players out, and vice versa).
+    if (next[bi][side].length === 0) next.splice(bi, 1);
+    persist(next);
+  };
+  const addPid = (bi, side, pid) => {
+    setAdder(null); setQuery("");
+    const next = clone();
+    next[bi][side].push(Number(pid));
+    persist(next);
+  };
+
+  // Draft (unsaved new batch) handling — local state only until both sides
+  // have a player, then it persists as a real batch and leaves the drafts.
+  const startDraft = (p) => {
+    setAdder(null); setQuery("");
+    setDrafts(ds => [...ds, { position: POS_NAMES[p.pos], outs: [Number(p.id)], ins: [] }]);
+  };
+  const draftAdd = (di, side, pid) => {
+    setAdder(null); setQuery("");
+    const d = drafts[di];
+    const nd = { position: d.position, outs: d.outs.slice(), ins: d.ins.slice() };
+    nd[side].push(Number(pid));
+    if (nd.outs.length && nd.ins.length) {
+      setDrafts(ds => ds.filter((_, k) => k !== di));
+      persist([...clone(), nd]);
+    } else {
+      setDrafts(ds => ds.map((x, k) => k === di ? nd : x));
+    }
+  };
+  const draftRemove = (di, side, i) => {
+    const d = drafts[di];
+    const nd = { position: d.position, outs: d.outs.slice(), ins: d.ins.slice() };
+    nd[side].splice(i, 1);
+    setDrafts(ds => (nd.outs.length || nd.ins.length)
+      ? ds.map((x, k) => k === di ? nd : x)
+      : ds.filter((_, k) => k !== di));
+  };
+
+  // Drag plumbing: batches drag among batches; rows drag within their own
+  // batch + side. dataTransfer stays empty — dragRef carries the source.
+  const rowDrag = (bi, side, i) => ({
+    start: (e) => { dragRef.current = { kind: "row", b: bi, side, i }; e.dataTransfer.effectAllowed = "move"; },
+    over: (e) => {
+      const d = dragRef.current;
+      if (d && d.kind === "row" && d.b === bi && d.side === side) e.preventDefault();
+    },
+    drop: (e) => {
+      e.preventDefault();
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (d && d.kind === "row" && d.b === bi && d.side === side && d.i !== i) moveRow(bi, side, d.i, i);
+    },
+  });
+  const batchDrag = (i) => ({
+    onDragStart: (e) => { dragRef.current = { kind: "batch", i }; e.dataTransfer.effectAllowed = "move"; },
+    onDragOver: (e) => { const d = dragRef.current; if (d && d.kind === "batch") e.preventDefault(); },
+    onDrop: (e) => {
+      e.preventDefault();
+      const d = dragRef.current;
+      dragRef.current = null;
+      if (d && d.kind === "batch" && d.i !== i) moveBatch(d.i, i);
+    },
+  });
+
+  // Adder option lists. OUT side: my squad, same position, not already used
+  // in this batch — knocked-out players first (they're who you're clearing).
+  // IN side: free agents, same position, name search, best points first.
+  const squadOptions = (batch) => {
+    const posN = POS_NUM[batch.position];
+    return (window.MY_SQUAD_IDS || [])
+      .map(id => window.PLAYER_MAP[id]).filter(Boolean)
+      .filter(p => (!posN || p.pos === posN) && batch.outs.indexOf(Number(p.id)) === -1)
+      .sort((a, b) => {
+        const ea = (a.elim || (teamById(a.team) || {}).elim) ? 0 : 1;
+        const eb = (b.elim || (teamById(b.team) || {}).elim) ? 0 : 1;
+        return ea - eb || (a.pts || 0) - (b.pts || 0);
+      });
+  };
+  const faOptions = (batch) => {
+    const posN = POS_NUM[batch.position];
+    const q = query.trim().toLowerCase();
+    return (window.FREE_AGENTS || [])
+      .filter(p => p.pos === posN && batch.ins.indexOf(Number(p.id)) === -1)
+      .filter(p => !q || (p.name || "").toLowerCase().includes(q))
+      .sort((a, b) => (b.pts || 0) - (a.pts || 0))
+      .slice(0, 8);
+  };
+
+  const adderPopover = (options, onPick, withSearch, placeholder) => (
+    <div style={{ position: "relative" }}>
+      <div style={{ position: "absolute", zIndex: 6, left: 0, right: 0, marginTop: 4, border: "1px solid var(--border)", borderRadius: 8, background: "white", overflow: "hidden", boxShadow: "0 6px 20px rgba(0,0,0,0.15)" }}>
+        {withSearch && (
+          <input autoFocus value={query} onChange={e => setQuery(e.target.value)} placeholder={placeholder}
+            style={{ width: "100%", padding: "8px 12px", border: "none", borderBottom: "1px solid var(--border)", fontSize: 13, outline: "none", boxSizing: "border-box" }} />
+        )}
+        {options.length === 0 && <div className="muted" style={{ padding: "8px 12px", fontSize: 12 }}>No eligible players.</div>}
+        {options.map(p => {
+          const t = teamById(p.team);
+          const isElim = p.elim || (t && t.elim);
+          return (
+            <div key={p.id} onClick={() => onPick(p)}
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "7px 12px", cursor: "pointer", fontSize: 13, borderTop: "1px solid var(--border)" }}>
+              {t && <Flag team={t} />}
+              <strong>{p.name}</strong>
+              {isElim && <span className="pill pill--red" style={{ fontSize: 9 }}>OUT OF WC</span>}
+              <span className="muted" style={{ marginLeft: "auto", fontSize: 11 }}>{p.pts || 0} pts</span>
+            </div>
+          );
+        })}
+        <div onClick={() => { setAdder(null); setQuery(""); }} className="muted"
+          style={{ padding: "6px 12px", cursor: "pointer", fontSize: 11, textAlign: "center", borderTop: "1px solid var(--border)" }}>Cancel</div>
+      </div>
+    </div>
+  );
+
+  const addRowBtn = (label, onClick) => (
+    <button onClick={onClick} disabled={busy}
+      style={{ display: "flex", alignItems: "center", gap: 6, width: "100%", padding: "7px 10px", borderRadius: 8, border: "1px dashed var(--ink-300)", background: "transparent", color: "var(--ink-500)", fontSize: 12, fontWeight: 700, cursor: "pointer" }}>
+      + {label}
+    </button>
+  );
+
+  const sideCol = (batch, bi, side, isDraft, di) => {
+    const arr = batch[side];
+    const key = isDraft ? `d${di}` : bi;
+    const open = adder && adder.b === key && adder.side === side;
+    return (
+      <div>
+        <div className="muted" style={{ fontSize: 11, fontWeight: 700, marginBottom: 6 }}>
+          {side === "outs" ? "Take out · #1 leaves first" : "Take in · #1 claimed first"}
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+          {arr.map((pid, i) => (
+            <BatchPlayerRow key={pid} pid={pid} idx={i} side={side} isMobile={isMobile}
+              canUp={i > 0} canDown={i < arr.length - 1}
+              onMove={(dir) => isDraft ? null : moveRow(bi, side, i, i + dir)}
+              onRemove={() => isDraft ? draftRemove(di, side, i) : removeRow(bi, side, i)}
+              drag={isDraft ? { start: () => {}, over: () => {}, drop: () => {} } : rowDrag(bi, side, i)} />
+          ))}
+          {addRowBtn(side === "outs" ? `Add from squad (${batch.position})` : `Search free ${batch.position}…`,
+            () => { setAdder(open ? null : { b: key, side }); setQuery(""); })}
+          {open && (side === "outs"
+            ? adderPopover(squadOptions(batch), p => isDraft ? draftAdd(di, "outs", p.id) : addPid(bi, "outs", p.id), false)
+            : adderPopover(faOptions(batch), p => isDraft ? draftAdd(di, "ins", p.id) : addPid(bi, "ins", p.id), true, `Type a free ${batch.position}'s name…`))}
+        </div>
+      </div>
+    );
+  };
+
+  const batchCard = (batch, bi, isDraft, di) => (
+    <div key={isDraft ? `draft-${di}` : `b-${bi}`} className="card"
+      draggable={!isDraft && !isMobile} {...(isDraft ? {} : batchDrag(bi))}
+      style={{ padding: "12px 16px", opacity: busy ? 0.7 : 1 }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        {!isMobile && !isDraft && <span style={{ color: "var(--ink-300)", fontSize: 13, fontWeight: 800, cursor: "grab" }}>⠿</span>}
+        <strong style={{ fontSize: 14 }}>{isDraft ? "New batch" : `Batch #${bi + 1}`}</strong>
+        <span className="pill pill--navy" style={{ fontSize: 10 }}>{batch.position}</span>
+        <span className="muted" style={{ fontSize: 11, marginLeft: "auto" }}>
+          {isDraft
+            ? "pick both sides to save"
+            : `${batch.outs.length * batch.ins.length} bid${batch.outs.length * batch.ins.length === 1 ? "" : "s"} · up to ${Math.min(batch.outs.length, batch.ins.length)} swap${Math.min(batch.outs.length, batch.ins.length) === 1 ? "" : "s"}`}
+        </span>
+        {isMobile && !isDraft && (
+          <React.Fragment>
+            <button className="btn btn--ghost-dark" disabled={bi === 0} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => moveBatch(bi, bi - 1)}>↑</button>
+            <button className="btn btn--ghost-dark" disabled={bi === batches.length - 1} style={{ padding: "2px 8px", fontSize: 12 }} onClick={() => moveBatch(bi, bi + 1)}>↓</button>
+          </React.Fragment>
+        )}
+        <button className="btn btn--ghost-dark" title="Delete batch" style={{ padding: "2px 8px", fontSize: 12, color: "var(--red-500)" }}
+          onClick={() => isDraft ? setDrafts(ds => ds.filter((_, k) => k !== di)) : removeBatch(bi)}>✕</button>
+      </div>
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "minmax(0,1fr) minmax(0,1fr)", gap: 14, alignItems: "start" }}>
+        {sideCol(batch, bi, "outs", isDraft, di)}
+        {sideCol(batch, bi, "ins", isDraft, di)}
+      </div>
+    </div>
+  );
+
+  const newBatchOpen = adder && adder.b === "new";
+  const allSquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean)
+    .filter(p => !(query.trim()) || (p.name || "").toLowerCase().includes(query.trim().toLowerCase()))
+    .sort((a, b) => {
+      const ea = (a.elim || (teamById(a.team) || {}).elim) ? 0 : 1;
+      const eb = (b.elim || (teamById(b.team) || {}).elim) ? 0 : 1;
+      return ea - eb || (a.pts || 0) - (b.pts || 0);
+    });
+
+  return (
+    <div className="col" style={{ gap: 10 }}>
+      {batches.length === 0 && drafts.length === 0 && (
+        <div className="card muted" style={{ padding: 18, textAlign: "center" }}>
+          No wishlist bids yet — start a batch below, or add players from the Free Agents tab.
+        </div>
+      )}
+      {batches.map((b, bi) => batchCard(b, bi, false))}
+      {drafts.map((d, di) => batchCard(d, null, true, di))}
+      <div>
+        {addRowBtn("New batch — pick a player to take out", () => { setAdder(newBatchOpen ? null : { b: "new", side: "new" }); setQuery(""); })}
+        {newBatchOpen && adderPopover(allSquad, startDraft, true, "Search your squad…")}
+      </div>
+    </div>
+  );
+}
+
 function WishlistTab({ setToast }) {
   const isMobile = useIsMobile();
   const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
@@ -1421,6 +1781,22 @@ function WishlistTab({ setToast }) {
   const [dropId, setDropId] = React.useState("");
   const [claimId, setClaimId] = React.useState("");
   const [saving, setSaving] = React.useState(false);
+  // Batched (grouped intents) vs flat (the stored source of truth, 1 row per
+  // bid). Batched is the default editor; the flat list stays fully editable
+  // for late adopters and for validating the exact auction try-order.
+  const [view, setView] = React.useState("batched");
+  // Desktop flat-list drag reorder (arrows stay as the fallback).
+  const flatDragRef = React.useRef(null);
+
+  // Sync helper for the batched editor: it persists server-side and hands
+  // back the authoritative stored flat list.
+  const onBatchedPersisted = (newBids) => {
+    const norm = (newBids || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    setBids(norm);
+    window.MY_WISHLIST_BIDS = norm.slice();
+  };
 
   const win = window.WINDOW || {};
   // First UNRESOLVED gw (bootstrap) so bids roll to the next GW once one resolves.
@@ -1459,6 +1835,18 @@ function WishlistTab({ setToast }) {
     if (j < 0 || j >= bids.length) return;
     const next = bids.slice();
     [next[i], next[j]] = [next[j], next[i]];
+    const prev = bids;
+    setBids(next);
+    try { await persistBids(next); }
+    catch (err) { setBids(prev); setToast({ type: "error", message: "Failed to reorder: " + (err.error || err.detail || JSON.stringify(err)) }); }
+  };
+  // Drag a flat-list row onto another row → move it there (arrows remain the
+  // keyboard/mobile fallback).
+  const reorderTo = async (from, to) => {
+    if (to === from || from == null || to == null) return;
+    const next = bids.slice();
+    const [b] = next.splice(from, 1);
+    next.splice(to, 0, b);
     const prev = bids;
     setBids(next);
     try { await persistBids(next); }
@@ -1512,10 +1900,28 @@ function WishlistTab({ setToast }) {
           swaps. When the free-agents window closes, a single batch auction resolves all managers' lists by waiver priority —
           higher priority claims first, one pick per round, cycling until no claims remain. Your <strong>order = your preference</strong> (top tried first).
           {" "}You can list the <strong>same player IN with different players OUT</strong> as fallbacks — if the first pairing can't resolve, the next is tried.
+          {" "}The <strong>Batched</strong> view groups one intent — players OUT (leave order) ↔ free agents IN (priority) — without hand-building every pairing; the <strong>Flat list</strong> is the exact order the auction tries and is what's stored.
           {!isFaWindow && <span className="muted"> Bids can be edited any time; they only resolve during the free-agents window.</span>}
         </div>
       </div>
 
+      <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+        <div style={{ display: "inline-flex", padding: 3, background: "rgba(0,0,0,0.06)", borderRadius: 999 }}>
+          {[["batched", "Batched"], ["flat", "Flat list · source of truth"]].map(([v, label]) => (
+            <button key={v} className="btn" onClick={() => setView(v)}
+              style={{ padding: "6px 16px", fontSize: 12, borderRadius: 999, fontWeight: 700,
+                background: view === v ? "var(--navy-900)" : "transparent",
+                color: view === v ? "white" : "var(--ink-700)" }}>{label}</button>
+          ))}
+        </div>
+        <span className="muted" style={{ fontSize: 12, marginLeft: "auto" }}>
+          {bids.length} bid{bids.length === 1 ? "" : "s"}{upcomingGw ? ` · GW${upcomingGw}` : ""}
+        </span>
+      </div>
+
+      {view === "batched" ? (
+        <BatchedWishlistEditor bids={bids} gw={upcomingGw} onPersisted={onBatchedPersisted} setToast={setToast} />
+      ) : (
       <div className="card">
         {isMobile ? (
           <div className="col" style={{ gap: 10, padding: 12 }}>
@@ -1534,7 +1940,8 @@ function WishlistTab({ setToast }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
                       <Flag team={tIn} />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 13 }}>{pIn.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+                          onClick={() => showPlayerStats(b.playerIn)}>{pIn.name}</div>
                         <div className="muted" style={{ fontSize: 11 }}>IN · {POS_NAMES[pIn.pos]}</div>
                       </div>
                     </div>
@@ -1542,7 +1949,8 @@ function WishlistTab({ setToast }) {
                     <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(230,57,70,0.08)", borderRadius: 6, border: "1px solid rgba(230,57,70,0.20)" }}>
                       <Flag team={tOut} />
                       <div>
-                        <div style={{ fontWeight: 700, fontSize: 13, textDecoration: pOut.elim ? "line-through" : "none" }}>{pOut.name}</div>
+                        <div style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: pOut.elim ? "line-through" : "underline", textDecorationStyle: pOut.elim ? "solid" : "dotted" }}
+                          onClick={() => showPlayerStats(b.playerOut)}>{pOut.name}</div>
                         <div className="muted" style={{ fontSize: 11 }}>OUT · {pOut.elim || tOut?.elim ? "ELIMINATED" : POS_NAMES[pOut.pos]}</div>
                       </div>
                     </div>
@@ -1576,14 +1984,19 @@ function WishlistTab({ setToast }) {
               const tIn = teamById(pIn.team);
               const tOut = teamById(pOut.team);
               return (
-                <tr key={`${b.playerIn}_${b.playerOut}`}>
-                  <td className="num" style={{ fontWeight: 800, fontSize: 16 }}>#{i + 1}</td>
+                <tr key={`${b.playerIn}_${b.playerOut}`} draggable
+                  onDragStart={(e) => { flatDragRef.current = i; e.dataTransfer.effectAllowed = "move"; }}
+                  onDragOver={(e) => { if (flatDragRef.current != null) e.preventDefault(); }}
+                  onDrop={(e) => { e.preventDefault(); const from = flatDragRef.current; flatDragRef.current = null; reorderTo(from, i); }}
+                  style={{ cursor: "grab" }}>
+                  <td className="num" style={{ fontWeight: 800, fontSize: 16 }}><span style={{ color: "var(--ink-300)", marginRight: 6 }}>⠿</span>#{i + 1}</td>
                   <td>
                     <div className="wishlist-swap" style={{ display: "grid", gridTemplateColumns: "1fr 24px 1fr", gap: 10, alignItems: "center", maxWidth: 500 }}>
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(0,217,107,0.08)", borderRadius: 6, border: "1px solid rgba(0,217,107,0.25)" }}>
                         <Flag team={tIn} />
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: 13 }}>{pIn.name}</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" }}
+                            onClick={() => showPlayerStats(b.playerIn)}>{pIn.name}</div>
                           <div className="muted" style={{ fontSize: 11 }}>IN · {POS_NAMES[pIn.pos]}</div>
                         </div>
                       </div>
@@ -1591,7 +2004,8 @@ function WishlistTab({ setToast }) {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 10px", background: "rgba(230,57,70,0.08)", borderRadius: 6, border: "1px solid rgba(230,57,70,0.20)" }}>
                         <Flag team={tOut} />
                         <div>
-                          <div style={{ fontWeight: 700, fontSize: 13, textDecoration: pOut.elim ? "line-through" : "none" }}>{pOut.name}</div>
+                          <div style={{ fontWeight: 700, fontSize: 13, cursor: "pointer", textDecoration: pOut.elim ? "line-through" : "underline", textDecorationStyle: pOut.elim ? "solid" : "dotted" }}
+                            onClick={() => showPlayerStats(b.playerOut)}>{pOut.name}</div>
                           <div className="muted" style={{ fontSize: 11 }}>OUT · {pOut.elim || tOut?.elim ? "ELIMINATED" : POS_NAMES[pOut.pos]}</div>
                         </div>
                       </div>
@@ -1614,6 +2028,7 @@ function WishlistTab({ setToast }) {
 
         {/* Save and Add Bid buttons removed as reordering/removing are auto-saved and adding goes through Free Agents tab */}
       </div>
+      )}
 
       <div className="card" style={{ padding: 18 }}>
         <div className="h-display" style={{ fontSize: 14, marginBottom: 10 }}>Auction order · League-wide waiver priority</div>

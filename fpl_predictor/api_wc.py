@@ -2284,12 +2284,57 @@ def submit_wishlist_bids(lid: str):
     except (TypeError, ValueError):
         return _err("gw is required")
     try:
-        result = _wishlist_mgr.submit_bids(lid, uid, gw, body.get("bids", []))
+        from fpl_predictor.game.wc_wishlist_batches import batch_bids, enforce_cap
+        bids = body.get("bids", [])
+        if isinstance(bids, list):
+            enforce_cap(bids)
+        result = _wishlist_mgr.submit_bids(lid, uid, gw, bids)
+        # Derived batch view of what was just stored (batched editor renders
+        # the server's grouping, never its own).
+        result["batches"] = batch_bids(result.get("bids") or [])
         return _ok(result, 201)
     except ValueError as exc:
         code = str(exc)
         # WISHLIST_LOCKED / AUCTION_RUNNING: stale-tab writes into a closed or
         # currently-resolving gw bucket — a conflict, not a bad request.
+        if ("ALREADY_OWNED" in code or "WISHLIST_LOCKED" in code
+                or "AUCTION_RUNNING" in code):
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/wishlist-bids-batched", methods=["POST"])
+def submit_wishlist_bids_batched(lid: str):
+    """Save the wishlist from the BATCHED editor.
+
+    Body: ``{gw, batches: [{position, outs: [pid], ins: [pid]}, ...]}`` —
+    both sides ordered (outs = leave order, ins = claim priority). The server
+    expands OUT-major to the canonical flat list, enforces the expanded-size
+    cap, and stores through the SAME ``submit_bids`` path as the flat editor,
+    so per-bid ownership / free-agent / same-position validation and the
+    closed-bucket gate apply unchanged. The flat list stays the only stored
+    source of truth; the response carries both views, with ``batches``
+    re-derived from what was actually stored (round-tripped).
+    """
+    uid, err = _require_auth()
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    try:
+        gw = int(body.get("gw"))
+    except (TypeError, ValueError):
+        return _err("gw is required")
+    try:
+        from fpl_predictor.game.wc_wishlist_batches import (
+            batch_bids, enforce_cap, unbatch, validate_batches)
+        batches = validate_batches(body.get("batches"))
+        flat = unbatch(batches)
+        enforce_cap(flat)
+        result = _wishlist_mgr.submit_bids(lid, uid, gw, flat)
+        result["batches"] = batch_bids(result.get("bids") or [])
+        return _ok(result, 201)
+    except ValueError as exc:
+        code = str(exc)
         if ("ALREADY_OWNED" in code or "WISHLIST_LOCKED" in code
                 or "AUCTION_RUNNING" in code):
             return _err(code, 409)
@@ -2305,7 +2350,13 @@ def get_my_wishlist_bids(lid: str):
         gw = int(request.args.get("gw"))
     except (TypeError, ValueError):
         return _err("gw query param is required")
-    return _ok(_wishlist_mgr.get_my_bids(lid, uid, gw))
+    result = _wishlist_mgr.get_my_bids(lid, uid, gw)
+    # Batch view only makes sense for a still-editable (pending) list —
+    # resolved docs carry status fields and are display-only history.
+    if not result.get("resolved"):
+        from fpl_predictor.game.wc_wishlist_batches import batch_bids
+        result["batches"] = batch_bids(result.get("bids") or [])
+    return _ok(result)
 
 
 @wc_bp.route("/leagues/<lid>/trades/<trade_id>/respond", methods=["POST"])
