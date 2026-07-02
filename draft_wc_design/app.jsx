@@ -269,6 +269,182 @@ function TweakDraftSimulator({ lid }) {
   );
 }
 
+// =====================================================================
+// useAuth — owns Firebase auth state, league list, and the onAuthStateChanged
+// listener. Extracted from App so auth-form keystrokes don't re-render the
+// full component tree.
+// =====================================================================
+function useAuth() {
+  const [user, setUser] = React.useState(null);
+  const [authLoading, setAuthLoading] = React.useState(true);
+  const [myLeagues, setMyLeagues] = React.useState([]);
+  const [leaguesLoading, setLeaguesLoading] = React.useState(true);
+
+  React.useEffect(() => {
+    return _auth.onAuthStateChanged(async (u) => {
+      if (u) {
+        setUser(u);
+        try {
+          try {
+            await apiCall("POST", "/auth/me", {
+              displayName: u.displayName || u.email.split("@")[0],
+              photoUrl: ""
+            });
+          } catch (e) {
+            console.warn("POST /auth/me profile sync failed, continuing", e);
+          }
+          const list = await apiCall("GET", "/leagues/my");
+          setMyLeagues(list || []);
+        } catch (e) {
+          console.warn("Failed to fetch leagues in auth sync", e);
+        } finally {
+          setLeaguesLoading(false);
+        }
+      } else {
+        setUser(null);
+      }
+      setAuthLoading(false);
+    });
+  }, []);
+
+  return { user, authLoading, myLeagues, leaguesLoading, setMyLeagues };
+}
+
+// =====================================================================
+// SignInForm — self-contained sign-in/sign-up form. Owns its own local
+// state so keystrokes never re-render App or any screen component.
+// =====================================================================
+function SignInForm() {
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
+  const [displayName, setDisplayName] = React.useState("");
+  const [authError, setAuthError] = React.useState("");
+  const [isSignUp, setIsSignUp] = React.useState(false);
+
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    try {
+      await _auth.signInWithEmailAndPassword(email, password);
+    } catch (err) {
+      setAuthError(err.message || "Failed to sign in");
+    }
+  };
+
+  const handleSignUp = async (e) => {
+    e.preventDefault();
+    setAuthError("");
+    try {
+      const cred = await _auth.createUserWithEmailAndPassword(email, password);
+      if (cred.user && displayName) {
+        await cred.user.updateProfile({ displayName });
+      }
+    } catch (err) {
+      setAuthError(err.message || "Failed to sign up");
+    }
+  };
+
+  return (
+    <div style={{
+      display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh",
+      background: "radial-gradient(circle at top left, #2a2080, #0c0a3e 70%)",
+      color: "white", padding: 20
+    }}>
+      <div className="card-dark" style={{
+        width: "100%", maxWidth: 440, padding: 36, borderRadius: 20,
+        background: "rgba(255, 255, 255, 0.03)",
+        backdropFilter: "blur(20px)",
+        border: "1px solid rgba(255, 255, 255, 0.08)",
+        boxShadow: "0 24px 64px rgba(0,0,0,0.4)"
+      }}>
+        <div style={{ textAlign: "center", marginBottom: 28 }}>
+          <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style={{ width: 80, height: 80, margin: "0 auto 12px" }}>
+            <defs>
+              <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1">
+                <stop offset="0" stop-color="#4a1ba8"/>
+                <stop offset="0.5" stop-color="#3a2db8"/>
+                <stop offset="1" stop-color="#1be8d4"/>
+              </linearGradient>
+            </defs>
+            <rect width="200" height="200" rx="44" fill="url(#logo-bg)"/>
+            <path d="M70 60h60v18a30 30 0 0 1-60 0V60Z" fill="#ffc844"/>
+            <text x="100" y="83" text-anchor="middle" fill="#fff" font-family="Bricolage Grotesque" font-weight="800" font-size="18">26</text>
+          </svg>
+          <h1 className="h-display" style={{ fontSize: 28, margin: 0, letterSpacing: "-0.02em" }}>WC26 Fantasy Draft</h1>
+          <p className="muted" style={{ fontSize: 13, marginTop: 4, color: "rgba(255,255,255,0.6)" }}>
+            {isSignUp ? "Create a new manager profile" : "Sign in to manage your squad"}
+          </p>
+        </div>
+
+        <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="col" style={{ gap: 16 }}>
+          {authError && (
+            <div style={{ background: "rgba(230,57,70,0.18)", color: "#ff6b8b", padding: "10px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid rgba(230,57,70,0.3)" }}>
+              ⚠ {authError}
+            </div>
+          )}
+
+          {isSignUp && (
+            <div>
+              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Display Name</label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Roy Koopa"
+                value={displayName}
+                onChange={e => setDisplayName(e.target.value)}
+                className="input-field"
+                style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
+              />
+            </div>
+          )}
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Email Address</label>
+            <input
+              type="email"
+              required
+              placeholder="you@domain.com"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="input-field"
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
+            />
+          </div>
+
+          <div>
+            <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Password</label>
+            <input
+              type="password"
+              required
+              placeholder="••••••••"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="input-field"
+              style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
+            />
+          </div>
+
+          <button type="submit" className="btn btn--primary" style={{ padding: 14, fontSize: 13, fontWeight: 700, width: "100%", marginTop: 8 }}>
+            {isSignUp ? "Sign Up as Manager" : "Sign In to Office Pool"}
+          </button>
+        </form>
+
+        <div style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>
+          <span style={{ color: "rgba(255,255,255,0.5)" }}>
+            {isSignUp ? "Already have an account?" : "Don't have an account yet?"}
+          </span>{" "}
+          <button
+            onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); }}
+            style={{ background: "transparent", border: "none", color: "var(--green-400)", fontWeight: 700, cursor: "pointer", padding: 0 }}
+          >
+            {isSignUp ? "Sign In" : "Register"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
@@ -283,14 +459,7 @@ function App() {
     return () => window.removeEventListener("wc:open-trade", onOpenTrade);
   }, []);
 
-  // Auth States
-  const [user, setUser] = React.useState(null);
-  const [authLoading, setAuthLoading] = React.useState(true);
-  const [email, setEmail] = React.useState("");
-  const [password, setPassword] = React.useState("");
-  const [displayName, setDisplayName] = React.useState("");
-  const [authError, setAuthError] = React.useState("");
-  const [isSignUp, setIsSignUp] = React.useState(false);
+  const { user, authLoading, myLeagues, leaguesLoading, setMyLeagues } = useAuth();
   // The app boots straight into the single league — the mock-data showcase
   // (lg_mock_draft), which "transforms" into the real league once its data is
   // updated. There is no platform-chooser lobby any more: lg_mock_draft IS the
@@ -299,8 +468,6 @@ function App() {
   // rehearsal sandbox) without changing the default single-league experience.
   const [activeLid, setActiveLid] = React.useState(
     new URLSearchParams(window.location.search).get("lid") || "lg_mock_draft");
-  const [myLeagues, setMyLeagues] = React.useState([]);
-  const [leaguesLoading, setLeaguesLoading] = React.useState(true);
   const [viewingGw, setViewingGw] = React.useState(1);
   // Mock-simulator (admin Tweaks panel) busy flag — disables the buttons + shows
   // progress while a GW is generated server-side.
@@ -334,64 +501,6 @@ function App() {
       }
     };
   }, []);
-
-  // Monitor Auth state changes
-  React.useEffect(() => {
-    return _auth.onAuthStateChanged(async (u) => {
-      if (u) {
-        setUser(u);
-        try {
-          // Sync profile
-          try {
-            await apiCall("POST", "/auth/me", {
-              displayName: u.displayName || u.email.split("@")[0],
-              photoUrl: ""
-            });
-          } catch (e) {
-            console.warn("POST /auth/me profile sync failed, continuing", e);
-          }
-
-          // Fetch my leagues for the platform-selector lobby. We do NOT
-          // auto-select a league: the user picks which platform to enter from
-          // the home page, so the simulated showcase never silently overrides
-          // their real league.
-          const list = await apiCall("GET", "/leagues/my");
-          setMyLeagues(list || []);
-        } catch (e) {
-          console.warn("Failed to fetch leagues in auth sync", e);
-        } finally {
-          setLeaguesLoading(false);
-        }
-      } else {
-        setUser(null);
-      }
-      setAuthLoading(false);
-    });
-  }, []);
-
-  const handleSignIn = async (e) => {
-    e.preventDefault();
-    setAuthError("");
-    try {
-      await _auth.signInWithEmailAndPassword(email, password);
-    } catch (err) {
-      setAuthError(err.message || "Failed to sign in");
-    }
-  };
-
-  const handleSignUp = async (e) => {
-    e.preventDefault();
-    setAuthError("");
-    try {
-      const cred = await _auth.createUserWithEmailAndPassword(email, password);
-      if (cred.user && displayName) {
-        await cred.user.updateProfile({ displayName });
-        setUser({ ...cred.user, displayName });
-      }
-    } catch (err) {
-      setAuthError(err.message || "Failed to sign up");
-    }
-  };
 
   const [updateKey, setUpdateKey] = React.useState(0);
   const forceUpdate = () => setUpdateKey(k => k + 1);
@@ -1260,107 +1369,7 @@ function App() {
     );
   }
 
-  if (!user) {
-    return (
-      <div style={{
-        display: "flex", justifyContent: "center", alignItems: "center", minHeight: "100vh",
-        background: "radial-gradient(circle at top left, #2a2080, #0c0a3e 70%)",
-        color: "white", padding: 20
-      }}>
-        <div className="card-dark" style={{
-          width: "100%", maxWidth: 440, padding: 36, borderRadius: 20,
-          background: "rgba(255, 255, 255, 0.03)",
-          backdropFilter: "blur(20px)",
-          border: "1px solid rgba(255, 255, 255, 0.08)",
-          boxShadow: "0 24px 64px rgba(0,0,0,0.4)"
-        }}>
-          <div style={{ textAlign: "center", marginBottom: 28 }}>
-            <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style={{ width: 80, height: 80, margin: "0 auto 12px" }}>
-              <defs>
-                <linearGradient id="logo-bg" x1="0" y1="0" x2="1" y2="1">
-                  <stop offset="0" stop-color="#4a1ba8"/>
-                  <stop offset="0.5" stop-color="#3a2db8"/>
-                  <stop offset="1" stop-color="#1be8d4"/>
-                </linearGradient>
-              </defs>
-              <rect width="200" height="200" rx="44" fill="url(#logo-bg)"/>
-              <path d="M70 60h60v18a30 30 0 0 1-60 0V60Z" fill="#ffc844"/>
-              <text x="100" y="83" text-anchor="middle" fill="#fff" font-family="Bricolage Grotesque" font-weight="800" font-size="18">26</text>
-            </svg>
-            <h1 className="h-display" style={{ fontSize: 28, margin: 0, letterSpacing: "-0.02em" }}>WC26 Fantasy Draft</h1>
-            <p className="muted" style={{ fontSize: 13, marginTop: 4, color: "rgba(255,255,255,0.6)" }}>
-              {isSignUp ? "Create a new manager profile" : "Sign in to manage your squad"}
-            </p>
-          </div>
-
-          <form onSubmit={isSignUp ? handleSignUp : handleSignIn} className="col" style={{ gap: 16 }}>
-            {authError && (
-              <div style={{ background: "rgba(230,57,70,0.18)", color: "#ff6b8b", padding: "10px 14px", borderRadius: 8, fontSize: 12, fontWeight: 600, border: "1px solid rgba(230,57,70,0.3)" }}>
-                ⚠ {authError}
-              </div>
-            )}
-
-            {isSignUp && (
-              <div>
-                <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Display Name</label>
-                <input
-                  type="text"
-                  required
-                  placeholder="e.g. Roy Koopa"
-                  value={displayName}
-                  onChange={e => setDisplayName(e.target.value)}
-                  className="input-field"
-                  style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
-                />
-              </div>
-            )}
-
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Email Address</label>
-              <input
-                type="email"
-                required
-                placeholder="you@domain.com"
-                value={email}
-                onChange={e => setEmail(e.target.value)}
-                className="input-field"
-                style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
-              />
-            </div>
-
-            <div>
-              <label style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.6)", display: "block", marginBottom: 6 }}>Password</label>
-              <input
-                type="password"
-                required
-                placeholder="••••••••"
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                className="input-field"
-                style={{ width: "100%", padding: "12px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.06)", color: "white" }}
-              />
-            </div>
-
-            <button type="submit" className="btn btn--primary" style={{ padding: 14, fontSize: 13, fontWeight: 700, width: "100%", marginTop: 8 }}>
-              {isSignUp ? "Sign Up as Manager" : "Sign In to Office Pool"}
-            </button>
-          </form>
-
-          <div style={{ textAlign: "center", marginTop: 20, fontSize: 12 }}>
-            <span style={{ color: "rgba(255,255,255,0.5)" }}>
-              {isSignUp ? "Already have an account?" : "Don't have an account yet?"}
-            </span>{" "}
-            <button
-              onClick={() => { setIsSignUp(!isSignUp); setAuthError(""); }}
-              style={{ background: "transparent", border: "none", color: "var(--green-400)", fontWeight: 700, cursor: "pointer", padding: 0 }}
-            >
-              {isSignUp ? "Sign In" : "Register"}
-            </button>
-          </div>
-        </div>
-      </div>
-    );
-  }
+  if (!user) return <SignInForm />;
 
   // Signed in but no platform selected → show the lobby / platform selector.
   if (!activeLid) {
