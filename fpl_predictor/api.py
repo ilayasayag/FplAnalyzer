@@ -113,7 +113,11 @@ def _no_cache(response):
 
 
 AUTH_EXEMPT = {"/api/health", "/api/v1/wc/admin/seed-test-leagues",
-               "/api/v1/wc/cron/ingest-live-scores"}  # secret-gated cron (Cloud Scheduler)
+               # Secret-gated cron endpoints (Cloud Scheduler / launchd tick) —
+               # they authenticate via ?key=<wc_config/cron.secret>, not a
+               # Firebase token, so the global gate must let them through.
+               "/api/v1/wc/cron/ingest-live-scores",
+               "/api/v1/wc/cron/window-tick"}
 
 
 @app.before_request
