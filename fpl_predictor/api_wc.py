@@ -21,6 +21,7 @@ from .game.wc_squads import WCSquadManager
 from .game.wc_trades import WCTradeManager
 from .game.wc_waivers import WCWaiverManager
 from .game.wc_wishlist import WCWishlistManager
+from .game.wc_wishlist_autorun import WishlistAutoRunner
 from .game.wc_knockout import get_bracket, seed_knockout, advance_knockout_bracket
 from .game.wc_scoring import finalize_gw, process_fixture
 from .game.wc_gameweeks import (
@@ -47,6 +48,7 @@ _squad_mgr: WCSquadManager = None
 _trade_mgr: WCTradeManager = None
 _waiver_mgr: WCWaiverManager = None
 _wishlist_mgr: WCWishlistManager = None
+_wishlist_autorun: WishlistAutoRunner = None
 _sim = None
 
 # The WC 2026 mock-draft showcase (lg_mock_draft) is locked to these 6 canonical
@@ -57,7 +59,8 @@ MOCK_CANONICAL_ROSTER = ("u_ilay", "u_yuval", "u_netanel", "u_shay", "u_nadav", 
 
 
 def init_wc(db, firebase_auth=None):
-    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, _wishlist_mgr, _sim
+    global _db, _wc, _league_mgr, _squad_mgr, _trade_mgr, _waiver_mgr, \
+        _wishlist_mgr, _wishlist_autorun, _sim
     _db = db
     _wc = WC2026Client(db=db)
     _league_mgr = WCLeagueManager(db)
@@ -65,6 +68,7 @@ def init_wc(db, firebase_auth=None):
     _trade_mgr = WCTradeManager(db, _wc)
     _waiver_mgr = WCWaiverManager(db, _wc)
     _wishlist_mgr = WCWishlistManager(db, _wc)
+    _wishlist_autorun = WishlistAutoRunner(db, _wishlist_mgr, _trade_mgr)
     from .game.draft_simulator import DraftSimulator
     _sim = DraftSimulator(db, _wc)
 
@@ -1958,6 +1962,7 @@ def get_transfer_window(lid: str):
         "nextPhaseStartsAt": state["nextPhaseStartsAt"],
         "schedule": state["schedule"],
         "scheduledOverrides": state.get("scheduledOverrides", []),
+        "wishlistAutoRun": state.get("wishlistAutoRun"),
     })
 
 
@@ -2009,14 +2014,30 @@ def set_window_override(lid: str):
 
     from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
     window, upcoming_gw = current_window_from_db(lid, _db)
+
+    # AUTO-RUN: switching INTO free_agents fires the wishlist pipeline (same
+    # rule as the timed schedule / cron tick — user decision: both paths).
+    # Gated on both the admin's intent (phase) AND the resolved phase, so a
+    # schedule/override precedence surprise can't run the auction on a switch
+    # to some other phase. run_if_due itself no-ops on simulated leagues and
+    # already-resolved GWs, and takes a lease against concurrent triggers.
+    auto_run = None
+    if phase == "free_agents" and window == TransferWindow.FREE_AGENTS:
+        try:
+            auto_run = _wishlist_autorun.run_if_due(lid, source="manual_override")
+        except Exception as exc:  # surface, never fail the switch itself
+            auto_run = {"lid": lid, "status": "failed", "error": str(exc)}
+
     league_snap = league_ref.get()
     overridden = bool((league_snap.to_dict() or {}).get("windowOverride")) if league_snap.exists else False
     if window == TransferWindow.NONE:
-        return _ok({"status": "closed", "window": None, "overridden": overridden})
+        return _ok({"status": "closed", "window": None, "overridden": overridden,
+                    "wishlistAutoRun": auto_run})
     return _ok({
         "status": "open",
         "window": {"phase": window.value, "gw": upcoming_gw},
         "overridden": overridden,
+        "wishlistAutoRun": auto_run,
     })
 
 
@@ -2088,10 +2109,23 @@ def set_window_schedule(lid: str):
 
     from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
     window, upcoming_gw = current_window_from_db(lid, _db)
+
+    # AUTO-RUN: if the schedule just saved already resolves to free_agents
+    # RIGHT NOW (an effectiveAt in the past), the wishlist pipeline is due —
+    # don't make it wait for the next cron tick. Future entries are picked up
+    # by /cron/window-tick as the clock passes them.
+    auto_run = None
+    if window == TransferWindow.FREE_AGENTS:
+        try:
+            auto_run = _wishlist_autorun.run_if_due(lid, source="schedule_save")
+        except Exception as exc:  # surface, never fail the save itself
+            auto_run = {"lid": lid, "status": "failed", "error": str(exc)}
+
     sched = (league_ref.get().to_dict() or {}).get("windowSchedule") or []
     return _ok({
         "schedule": sched,
         "window": None if window == TransferWindow.NONE else {"phase": window.value, "gw": upcoming_gw},
+        "wishlistAutoRun": auto_run,
     })
 
 
@@ -2254,7 +2288,10 @@ def submit_wishlist_bids(lid: str):
         return _ok(result, 201)
     except ValueError as exc:
         code = str(exc)
-        if "ALREADY_OWNED" in code:
+        # WISHLIST_LOCKED / AUCTION_RUNNING: stale-tab writes into a closed or
+        # currently-resolving gw bucket — a conflict, not a bad request.
+        if ("ALREADY_OWNED" in code or "WISHLIST_LOCKED" in code
+                or "AUCTION_RUNNING" in code):
             return _err(code, 409)
         return _err(code)
 
@@ -3559,3 +3596,37 @@ def cron_ingest_live_scores():
         import traceback
         traceback.print_exc()
         return _err(f"cron ingest failed: {exc}", 500)
+
+
+@wc_bp.route("/cron/window-tick", methods=["POST", "GET"])
+def cron_window_tick():
+    """Secret-gated scheduled window tick (Cloud Scheduler, every ~5 min).
+
+    For every REAL league: when the FREE_AGENTS window is open and that GW's
+    wishlist auction hasn't run, fire the auto-run pipeline (snapshot → sweep
+    stale bids → deferred trades → auction) exactly once — a transactional
+    lease makes overlapping ticks/admin clicks no-ops. This is what actually
+    executes the Trade → Free-agents transition's auction; the timed
+    ``windowSchedule`` only flips the PHASE (lazily, on read) and by design
+    runs nothing. Blocked runs (previous GW not finalized, earlier auction
+    skipped, failed/rolled-back lease) are surfaced on
+    ``leagues/{lid}.wishlistAutoRun`` and retried on later ticks.
+
+    Auth: ``?key=<cron secret stored at wc_config/cron.secret>`` (same as
+    ``/cron/ingest-live-scores``). Simulated leagues are never touched.
+    """
+    key = request.args.get("key") or (request.get_json(silent=True) or {}).get("key")
+    cfg = _db.collection("wc_config").document("cron").get()
+    secret = (cfg.to_dict() or {}).get("secret") if cfg.exists else None
+    if not secret or key != secret:
+        return _err("Unauthorized", 401)
+    results = []
+    for snap in _db.collection("leagues").get():
+        ld = snap.to_dict() or {}
+        if ld.get("simulated"):
+            continue
+        try:
+            results.append(_wishlist_autorun.run_if_due(snap.id, source="cron"))
+        except Exception as exc:
+            results.append({"lid": snap.id, "status": "error", "error": str(exc)})
+    return _ok({"leagues": results})

@@ -80,6 +80,15 @@ class FakeDocRef:
         else:
             self._store[self._key] = dict(data)
 
+    def create(self, data):
+        # Mirrors the real DocumentReference.create contract (used by the
+        # auto-runner's lease): atomic create-if-absent, AlreadyExists when the
+        # doc is already there.
+        from google.api_core.exceptions import AlreadyExists
+        if self._key in self._store:
+            raise AlreadyExists(f"document already exists: {self._key}")
+        self._store[self._key] = dict(data)
+
     def update(self, patch):
         self._store.setdefault(self._key, {}).update(patch)
 
