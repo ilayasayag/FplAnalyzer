@@ -1034,9 +1034,13 @@ function App() {
           console.warn("Failed to fetch admin flag", e);
         }
 
-        // Fetch free agents
+        // Fetch free agents. limit=2000 = the WHOLE pool: the endpoint's
+        // default limit of 50 — applied in raw collection order, pre-sort —
+        // was why the wishlist search only ever saw a nation-clumped sliver
+        // of the free agents. The backend now sorts best-first and returns
+        // real stats (totalPoints / minutes / DefCon) for the pickers.
         try {
-          const fa = await apiCall("GET", `/leagues/${lid}/free-agents`);
+          const fa = await apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`);
           if (fa && fa.length > 0) {
             window.FREE_AGENTS = fa.map(p => ({
               id: String(p.id),
@@ -1046,6 +1050,9 @@ function App() {
               teamName: p.teamName || "",
               club: p.club || "",
               pts: p.totalPoints || 0,
+              min: p.minutes || 0,
+              defcon: p.defconBonus || 0,
+              apps: p.appearances || 0,
               dr: p.draftRank || 999,
             }));
           } else {

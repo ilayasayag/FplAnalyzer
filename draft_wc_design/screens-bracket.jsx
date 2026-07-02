@@ -1472,6 +1472,45 @@ function batchBidsJs(flat) {
 const showPlayerStats = (id) =>
   window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } }));
 
+// Shared "is this nation still in the tournament" resolver — same rule as the
+// Free Agents tab's activeOnly filter (reached the R32 bracket AND not the
+// loser of a finished knockout match; before the bracket exists, everyone is
+// alive). The bracket doc is fetched once and cached module-wide. Needed
+// because the pool's per-player `eliminated` flag is only set for GROUP-stage
+// exits, so knocked-out nations' players would otherwise look signable.
+let _wcBracketCache = null;
+function useNationAlive() {
+  const [bracket, setBracket] = React.useState(_wcBracketCache);
+  React.useEffect(() => {
+    if (_wcBracketCache) return undefined;
+    let cancelled = false;
+    apiCall("GET", "/wc-bracket")
+      .then(d => { _wcBracketCache = d || {}; if (!cancelled) setBracket(_wcBracketCache); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
+  return React.useMemo(() => {
+    const rounds = (bracket && bracket.rounds) || {};
+    const knockout = new Set(), eliminated = new Set();
+    (rounds["Round of 32"] || []).forEach(m => {
+      if (m.home) knockout.add(m.home);
+      if (m.away) knockout.add(m.away);
+    });
+    Object.values(rounds).forEach(ms => (ms || []).forEach(m => {
+      if (m.status === "FT" && m.winner) {
+        if (m.home && m.home !== m.winner) eliminated.add(m.home);
+        if (m.away && m.away !== m.winner) eliminated.add(m.away);
+      }
+    }));
+    const ready = knockout.size > 0;
+    return (iso) => {
+      if (!ready) return true;
+      const t = (iso || "").toUpperCase();
+      return knockout.has(t) && !eliminated.has(t);
+    };
+  }, [bracket]);
+}
+
 // One player row inside a batch side — a numbered LIST row (not a chip): drag
 // handle, rank, flag, clickable name, elimination badge, remove. Mobile gets
 // ↑/↓ buttons since HTML5 drag doesn't exist there.
@@ -1512,6 +1551,7 @@ function BatchPlayerRow({ pid, idx, side, isMobile, onRemove, onMove, canUp, can
 // and deleting the last player of either side deletes the whole batch).
 function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
   const isMobile = useIsMobile();
+  const nationAlive = useNationAlive();
   const batches = React.useMemo(() => batchBidsJs(bids), [bids]);
   const [drafts, setDrafts] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
@@ -1647,11 +1687,17 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
   const faOptions = (batch) => {
     const posN = POS_NUM[batch.position];
     const q = query.trim().toLowerCase();
+    // ONLY active nations are signable-worthy — the whole point of the
+    // wishlist is replacing knocked-out players, so suggesting more of them
+    // is noise. Search spans the FULL free-agent pool (the bootstrap no
+    // longer truncates at 50); a blank query surfaces the best available by
+    // points, then minutes played.
     return (window.FREE_AGENTS || [])
       .filter(p => p.pos === posN && batch.ins.indexOf(Number(p.id)) === -1)
+      .filter(p => nationAlive(p.team))
       .filter(p => !q || (p.name || "").toLowerCase().includes(q))
-      .sort((a, b) => (b.pts || 0) - (a.pts || 0))
-      .slice(0, 8);
+      .sort((a, b) => (b.pts || 0) - (a.pts || 0) || (b.min || 0) - (a.min || 0))
+      .slice(0, 10);
   };
 
   const adderPopover = (options, onPick, withSearch, placeholder) => (
@@ -1671,7 +1717,12 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
               {t && <Flag team={t} />}
               <strong>{p.name}</strong>
               {isElim && <span className="pill pill--red" style={{ fontSize: 9 }}>OUT OF WC</span>}
-              <span className="muted" style={{ marginLeft: "auto", fontSize: 11 }}>{p.pts || 0} pts</span>
+              {/* Comparison stats: minutes · DefCon bonus · total points.
+                  Free-agent rows carry min/defcon from the API; squad rows
+                  (PLAYER_MAP) may not — show what exists. */}
+              <span className="muted mono" style={{ marginLeft: "auto", fontSize: 11, whiteSpace: "nowrap" }}>
+                {p.min != null ? `${p.min}′ · DC ${p.defcon || 0} · ` : ""}{p.pts || 0} pts
+              </span>
             </div>
           );
         })}

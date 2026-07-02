@@ -255,7 +255,16 @@ class WCWaiverManager:
 
     def get_free_agents(self, lid: str, position: Optional[int] = None,
                         search: str = "", limit: int = 50) -> list:
-        """List unclaimed players available for waiver or free agent pickup."""
+        """List unclaimed players available for waiver or free agent pickup.
+
+        Sorted best-first (totalPoints DESC, then minutes DESC, then name) so
+        a ``limit`` keeps the most relevant players — the previous version
+        sliced in raw collection order, which clumped by nation and silently
+        hid everyone past the cut (the "only Mexico + South Africa" bug in
+        the wishlist search). Each row carries the comparison stats the
+        pickers render: totalPoints + seasonStats minutes / DefCon bonus /
+        appearances.
+        """
         owned = self._get_all_owned(lid)
         player_docs = self.db.collection("wc_players").get()
 
@@ -272,6 +281,7 @@ class WCWaiverManager:
             if search:
                 if search.lower() not in p.get("name", "").lower():
                     continue
+            season = p.get("seasonStats") or {}
             result.append({
                 "id": pid,
                 "name": p.get("name", ""),
@@ -280,8 +290,14 @@ class WCWaiverManager:
                 "teamId": p.get("teamId", 0),
                 "teamName": p.get("teamName", ""),
                 "teamIso": p.get("teamIso", ""),
+                "totalPoints": p.get("totalPoints", 0) or 0,
+                "minutes": season.get("minutes", 0) or 0,
+                "defconBonus": season.get("defconBonus", 0) or 0,
+                "appearances": season.get("appearances", 0) or 0,
+                "draftRank": p.get("draftRank", 999),
             })
 
+        result.sort(key=lambda r: (-r["totalPoints"], -r["minutes"], r["name"]))
         return result[:limit]
 
     # ------------------------------------------------------------------
