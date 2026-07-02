@@ -462,6 +462,661 @@ function SignInForm() {
 }
 
 
+// =====================================================================
+// subscribeFirestoreDraft — wraps both Firestore draft onSnapshot listeners.
+// Extracted so the [user, activeLid] effect doesn't re-subscribe on every
+// viewingGw change. Returns an unsub fn.
+// =====================================================================
+function subscribeFirestoreDraft(lid, user, onUpdate) {
+  const unsubDraft = _db.collection("leagues").doc(lid)
+    .collection("draft").doc("state")
+    .onSnapshot((doc) => {
+      if (doc.exists) {
+        const data = doc.data();
+        const numMembers = data.order ? data.order.length : 10;
+        let currentDrafter = data.currentDrafter;
+        if (!currentDrafter && data.order && typeof data.currentPick === 'number') {
+          const pick = data.currentPick;
+          const rnd = Math.floor(pick / numMembers);
+          const pos = pick % numMembers;
+          currentDrafter = (rnd % 2 === 0) ? data.order[pos] : data.order[numMembers - 1 - pos];
+        }
+        window.DRAFT_STATE = {
+          round: data.currentPick ? Math.floor(data.currentPick / numMembers) + 1 : 1,
+          pickOverall: (data.currentPick || 0) + 1,
+          pickInRound: ((data.currentPick || 0) % numMembers) + 1,
+          onTheClock: currentDrafter || "",
+          totalRounds: 15,
+          totalPicks: data.totalPicks || 150,
+          pickTimer: data.pickTimer || 30,
+          secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
+          isMyTurn: currentDrafter === user.uid,
+          order: data.order || [],
+          paused: !!data.paused,
+        };
+        onUpdate();
+      } else {
+        // No draft created yet (pre_draft league) — clear stale state.
+        window.DRAFT_STATE = {
+          round: 0, pickOverall: 0, pickInRound: 0, onTheClock: "",
+          totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
+          isMyTurn: false, notStarted: true, order: [], paused: false,
+        };
+        onUpdate();
+      }
+    }, (err) => console.error("Draft state listen error:", err));
+
+  const unsubDraftPicks = _db.collection("leagues").doc(lid)
+    .collection("draft").doc("state")
+    .collection("picks").orderBy("pickNumber")
+    .onSnapshot((snap) => {
+      window.DRAFT_HISTORY = snap.docs.map(doc => {
+        const d = doc.data();
+        return { round: d.round, overall: d.pickNumber + 1, uid: d.uid, playerId: String(d.playerId) };
+      });
+      onUpdate();
+    }, (err) => console.error("Draft picks listen error:", err));
+
+  return () => { unsubDraft(); unsubDraftPicks(); };
+}
+
+// =====================================================================
+// startDraftPoll — REST poll for draft state + picks. Primary live-update
+// path in prod: the compat Firestore SDK silently reads the wrong database,
+// so the onSnapshot listeners above receive nothing there. Returns { stop() }.
+// =====================================================================
+function startDraftPoll(lid, user, onUpdate) {
+  let draftPollBusy = false, advanceBusy = false, lastDraftSig = "";
+  const id = setInterval(async () => {
+    if (draftPollBusy || !user) return;
+    draftPollBusy = true;
+    try {
+      const s = await apiCall("GET", `/leagues/${lid}/draft/state`);
+      if (!s || s.status === "pending" || !s.order || !s.order.length) return;
+      const numMembers = s.order.length;
+      const sig = `${s.currentPick}|${s.status}|${s.paused}|${Math.round(s.pickDeadline || 0)}`;
+      window.DRAFT_STATE = {
+        round: Math.floor((s.currentPick || 0) / numMembers) + 1,
+        pickOverall: (s.currentPick || 0) + 1,
+        pickInRound: ((s.currentPick || 0) % numMembers) + 1,
+        onTheClock: s.currentDrafter || "",
+        totalRounds: 15,
+        totalPicks: s.totalPicks || 0,
+        pickTimer: s.pickTimer || 30,
+        secondsLeft: Math.max(0, Math.round((s.pickDeadline || 0) - Date.now() / 1000)),
+        isMyTurn: s.currentDrafter === user.uid,
+        order: s.order,
+        paused: !!s.paused,
+        humanUids: s.humanUids || [],
+        complete: s.status === "complete",
+        // auto-pick watchdog requires these two fields
+        status: s.status,
+        pickDeadline: s.pickDeadline,
+      };
+      window.DRAFT_HISTORY = (s.picks || []).map(d => ({
+        round: d.round, overall: (d.pickNumber || 0) + 1,
+        uid: d.uid, playerId: String(d.playerId),
+      }));
+      if (sig !== lastDraftSig) { lastDraftSig = sig; onUpdate(); }
+      else onUpdate(); // clock re-sync is cheap; keep countdown honest
+      // Bot nudge: first human in humanUids drives the bots forward.
+      const humans = s.humanUids || [];
+      if (s.status === "active" && !s.paused && humans.length &&
+          user.uid === humans[0] && s.currentDrafter &&
+          !humans.includes(s.currentDrafter) && !advanceBusy) {
+        advanceBusy = true;
+        try { await apiCall("POST", `/leagues/${lid}/draft/sim/advance`, { count: 1 }); }
+        catch (e) { /* not a sim league / race — fine */ }
+        finally { advanceBusy = false; }
+      }
+    } catch (e) {
+      // 404 = no draft yet; network blips retried next tick.
+    } finally {
+      draftPollBusy = false;
+    }
+  }, 2500);
+  return { stop: () => clearInterval(id) };
+}
+
+// =====================================================================
+// loadGwData — bracket, per-team fixtures, lineup. Re-runs on every
+// viewingGw change without touching session-static data. Calls
+// opts.setSquadLoaded(true) when the lineup resolves so Pick Team can
+// reveal the real squad instead of staying on the loading skeleton.
+// =====================================================================
+async function loadGwData(lid, gw, opts) {
+  const { cancelled = { value: false }, setSquadLoaded } = opts || {};
+
+  // Mark lineup as loading before any fetch so converted screens show a
+  // skeleton instead of the previous GW's XI under the new header.
+  const _luTag = `${lid}|${window.ME}|gw${gw}`;
+  WCStore.loading("myLineup", _luTag);
+  // _setLineup routes writes through the stamped guard — stale GW responses
+  // are dropped if the user navigated to a different GW while we were awaiting.
+  const _setLineup = (lu) => { if (WCStore.set("myLineup", lu, _luTag)) window.MY_LINEUP = lu; };
+
+  // Bracket
+  try {
+    const bracket = await apiCall("GET", `/leagues/${lid}/knockout?gw=${gw}`);
+    if (cancelled.value) return;
+    if (bracket) {
+      const roundsSource = bracket.rounds || bracket;
+      const parsedSf = (roundsSource.sf || []).map(m => ({
+        id: m.id, home: m.home, away: m.away,
+        homeSeed: m.homeSeed, awaySeed: m.awaySeed, gw: m.gw,
+      }));
+      let parsedFinal = [];
+      if (roundsSource.final) {
+        const items = Array.isArray(roundsSource.final) ? roundsSource.final : [roundsSource.final];
+        parsedFinal = items.filter(Boolean).map(m => ({
+          id: m.id, home: m.home, away: m.away,
+          homeSrc: m.homeSrc, awaySrc: m.awaySrc, gw: m.gw,
+        }));
+      }
+      window.BRACKET = { sf: parsedSf, final: parsedFinal };
+    } else {
+      window.BRACKET = { sf: [], final: [] };
+    }
+  } catch (e) {
+    console.warn("Knockout bracket not seeded yet", e);
+    window.BRACKET = { sf: [], final: [] };
+  }
+
+  // Per-team fixtures for viewingGw (walk back until a populated GW is found)
+  try {
+    let byTeam = {};
+    for (let g = gw; g >= 1; g--) {
+      byTeam = await fetchFixturesByTeamForGw(g);
+      if (cancelled.value) return;
+      if (Object.keys(byTeam).length > 0) break;
+    }
+    window.WC_FIXTURES_BY_TEAM = byTeam;
+  } catch (e) {
+    console.warn("Failed to fetch per-team fixtures", e);
+    if (!window.WC_FIXTURES_BY_TEAM) window.WC_FIXTURES_BY_TEAM = {};
+  }
+
+  // Lineup for viewingGw
+  const _ownLineup = window.ME === window.__AUTH_UID;
+  const _lineupFromSquad = () => {
+    const byPos = { 1: [], 2: [], 3: [], 4: [] };
+    (window.MY_SQUAD_IDS || []).forEach(id => {
+      const p = playerById(isNaN(Number(id)) ? id : Number(id));
+      if (p && byPos[p.pos]) byPos[p.pos].push(String(id));
+    });
+    const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
+    const starting = [...byPos[1].slice(0,1), ...byPos[2].slice(0,nd), ...byPos[3].slice(0,nm), ...byPos[4].slice(0,nf)];
+    const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
+    return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
+  };
+  try {
+    const _fetchLineup = () => apiCall("GET", _ownLineup
+      ? `/leagues/${lid}/lineup/${gw}`
+      : `/leagues/${lid}/lineup/${window.ME}/${gw}`);
+    let lineup = null, _lastErr = null;
+    const _attempts = _ownLineup ? 3 : 1;
+    for (let _a = 0; _a < _attempts; _a++) {
+      try { lineup = await _fetchLineup(); _lastErr = null; break; }
+      catch (err) {
+        _lastErr = err;
+        if (err && err.status === 403) break;
+        if (_a < _attempts - 1) await new Promise(r => setTimeout(r, 400 * (_a + 1)));
+      }
+    }
+    if (cancelled.value) return;
+    if (_lastErr) throw _lastErr;
+    if (lineup && lineup.starting && lineup.starting.length > 0) {
+      _setLineup({
+        starting: (lineup.starting || []).map(String),
+        bench: (lineup.bench || []).map(String),
+        formation: lineup.formation || [1, 4, 4, 2],
+        autoSubs: lineup.autoSubsMade || [],
+      });
+    } else {
+      _setLineup(_lineupFromSquad());
+    }
+  } catch (e) {
+    console.warn("Failed to fetch my lineup", e);
+    if (e && e.status === 403) {
+      _setLineup(_lineupFromSquad());
+    } else if (!(window.MY_LINEUP && window.MY_LINEUP.starting && window.MY_LINEUP.starting.length)) {
+      _setLineup(_lineupFromSquad());
+    }
+  }
+
+  setSquadLoaded(true);
+}
+
+// =====================================================================
+// loadLeagueData — all non-GW-sensitive bootstrap fetches. Runs once per
+// user+league change; GW navigation does NOT retrigger it. Uses the same
+// parallel-prefetch (_pre/_take/PRE) pattern as the old mega-effect.
+// =====================================================================
+async function loadLeagueData(lid, user, opts) {
+  const {
+    cancelled = { value: false },
+    setViewingGw, setActiveLid, setDataSource, forceUpdate,
+  } = opts;
+
+  let criticalFailed = false;
+  let leagueDetails = null;
+  const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
+  const curGw = window.TOURNAMENT.currentGw || 1;
+
+  // Mark flash-critical rows as loading before any fetch.
+  WCStore.loading("managers", lid);
+  WCStore.loading("mySquad", `${lid}|${window.ME}`);
+  WCStore.loading("trades", lid);
+
+  const _pre = (p) => p.catch(e => ({ __bootErr: e }));
+  const _take = async (p) => { const r = await p; if (r && r.__bootErr) throw r.__bootErr; return r; };
+  const PRE = {
+    gameweeks: window.__GW_LOADED__ ? null : _pre(apiCall("GET", "/gameweeks")),
+    league:    _pre(apiCall("GET", `/leagues/${lid}`)),
+    teams:     window.__TEAMS_LOADED__   ? null : _pre(apiCall("GET", "/teams")),
+    players:   window.__PLAYERS_LOADED__ ? null : _pre(apiCall("GET", "/players")),
+    schedule:  _pre(apiCall("GET", `/leagues/${lid}/schedule`)),
+    window:    _pre(apiCall("GET", `/leagues/${lid}/transfer-window`)),
+    admin:     _pre(apiCall("GET", "/me/admin")),
+    freeAgents:_pre(apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`)),
+    waivers:   _pre(apiCall("GET", `/leagues/${lid}/waivers`)),
+    trades:    _pre(apiCall("GET", `/leagues/${lid}/trades`)),
+  };
+
+  try {
+    // Gameweeks — tournament-global, load once per session.
+    if (!window.__GW_LOADED__)
+    try {
+      const gws = await _take(PRE.gameweeks);
+      if (cancelled.value) return;
+      if (gws && gws.length > 0) {
+        window.__GW_LOADED__ = true;
+        window.TOURNAMENT.gwDates = {};
+        const formatIso = (isoStr) => {
+          if (!isoStr) return "";
+          const d = new Date(isoStr);
+          const months = ["Jun", "Jul"];
+          const m = months[d.getUTCMonth() - 5] || "Jun";
+          const date = d.getUTCDate();
+          const hrs = String(d.getUTCHours()).padStart(2, '0');
+          const mins = String(d.getUTCMinutes()).padStart(2, '0');
+          return `${m} ${date} ${hrs}:${mins}`;
+        };
+        const formatDateOnly = (isoStr) => {
+          if (!isoStr) return "";
+          const d = new Date(isoStr);
+          const months = ["Jun", "Jul"];
+          const m = months[d.getUTCMonth() - 5] || "Jun";
+          return `${m} ${d.getUTCDate()}`;
+        };
+        gws.forEach(g => {
+          window.TOURNAMENT.gwDates[g.gw] = {
+            wcRound: g.wcRound || g.label,
+            start: formatDateOnly(g.start),
+            end: formatDateOnly(g.end),
+            lockAt: formatIso(g.lockAt),
+          };
+        });
+      }
+    } catch (e) {
+      console.warn("Failed to fetch gameweeks", e);
+    }
+
+    // League details + managers
+    try {
+      leagueDetails = await _take(PRE.league);
+      if (cancelled.value) return;
+      if (leagueDetails) {
+        window.TOURNAMENT.currentGw = leagueDetails.currentGw || 1;
+        window.TOURNAMENT.status = leagueDetails.status || "pre_draft";
+
+        if (window.LAST_ACTIVE_LID !== lid) {
+          window.LAST_ACTIVE_LID = lid;
+          let initGw = leagueDetails.currentGw || 1;
+          try {
+            const pinned = localStorage.getItem("wc_view_gw_after_reload");
+            if (pinned) { initGw = Number(pinned); localStorage.removeItem("wc_view_gw_after_reload"); }
+          } catch (e) { /* ignore */ }
+          setViewingGw(initGw);
+        }
+
+        window.LEAGUE = {
+          id: leagueDetails.leagueId,
+          name: leagueDetails.name,
+          inviteCode: leagueDetails.inviteCode,
+          size: leagueDetails.memberCount || leagueDetails.maxMembers,
+          knockoutStartGw: leagueDetails.knockoutStartGw,
+          leaguePhaseGws: leagueDetails.leaguePhaseGws,
+          knockoutQualifiers: leagueDetails.knockoutQualifiers,
+          pickTimer: leagueDetails.pickTimer,
+          tradeApproval: leagueDetails.tradeApproval,
+          admin: leagueDetails.adminUid,
+          simulated: !!leagueDetails.simulated,
+        };
+
+        if (leagueDetails.members) {
+          window.MANAGERS = leagueDetails.members.map(m => ({
+            uid: m.uid,
+            name: m.displayName || m.uid.substring(0, 8),
+            team: m.teamName || "Unnamed Team",
+            flag: normalizeIso(m.flag),
+            draftPos: m.draftPosition || 99,
+            waiverPri: m.waiverPriority || 99,
+          }));
+          // Revert stale "view as manager" override if not a member of this league.
+          if (window.ME !== window.__AUTH_UID && !window.MANAGERS.some(mm => mm.uid === window.ME)) {
+            window.ME = window.__AUTH_UID;
+            try { ME = window.__AUTH_UID; } catch (e) {}
+          }
+          WCStore.set("managers", window.MANAGERS, lid);
+        } else {
+          window.MANAGERS = [];
+          WCStore.set("managers", [], lid);
+        }
+      } else {
+        criticalFailed = true;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch league details, using mock defaults", e);
+      if (lid !== "lg_mock_draft" &&
+          new URLSearchParams(window.location.search).get("lid") === lid) {
+        console.warn(`League ${lid} unavailable — falling back to lg_mock_draft`);
+        window.history.replaceState({}, "", window.location.pathname);
+        setActiveLid("lg_mock_draft");
+        return;
+      }
+      if (!window.LEAGUE || window.LAST_ACTIVE_LID !== lid) criticalFailed = true;
+    }
+
+    // Teams — session-static.
+    if (!window.__TEAMS_LOADED__)
+    try {
+      const teams = await _take(PRE.teams);
+      if (cancelled.value) return;
+      if (teams && teams.length > 0) {
+        window.__TEAMS_LOADED__ = true;
+        const staticMap = (typeof TEAM_MAP !== "undefined") ? TEAM_MAP : {};
+        const merged = {};
+        teams.forEach(t => {
+          const iso = (t.isoCode || t.short_name || "").toUpperCase();
+          if (!iso) return;
+          const base = staticMap[iso] || {};
+          merged[iso] = {
+            ...base,
+            id: iso,
+            name: t.name || base.name || iso,
+            grp: t.group || base.grp || "?",
+            elim: (t.eliminated !== undefined ? t.eliminated : base.elim) || false,
+            logo: t.logo || base.logo,
+          };
+        });
+        window.TEAM_MAP = merged;
+        window.TEAMS = Object.values(merged);
+      }
+    } catch (e) {
+      console.warn("Failed to fetch teams; falling back to static team map", e);
+    }
+
+    // Players — session-static.
+    if (!window.__PLAYERS_LOADED__)
+    try {
+      const players = await _take(PRE.players);
+      if (cancelled.value) return;
+      if (players && players.length > 0) {
+        window.__PLAYERS_LOADED__ = true;
+        window.PLAYERS = players
+          .filter(p => p && p.id != null && String(p.id) !== "undefined" && p.position != null)
+          .map(p => ({
+            id: String(p.id),
+            name: p.name,
+            pos: p.position,
+            team: normalizeIso(p.teamIso || p.teamShort || String(p.teamId)),
+            teamName: p.teamName || "",
+            club: p.club || "",
+            pts: p.totalPoints || 0,
+            dr: p.draftRank || 999,
+            season: p.seasonStats || null,
+            selPct: p.percentSelected != null ? p.percentSelected : null,
+            fifaPrice: p.fifaPrice != null ? p.fifaPrice : null,
+            fifaForm: p.fifaForm != null ? p.fifaForm : null,
+          }));
+        window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
+        window.GW_POINTS = {};
+        window.PLAYERS.forEach(p => { window.GW_POINTS[p.id] = p.pts; });
+      } else if (!window.PLAYERS || !window.PLAYERS.length) {
+        criticalFailed = true;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch players", e);
+      if (!window.PLAYERS || !window.PLAYERS.length) criticalFailed = true;
+    }
+
+    // Schedule
+    try {
+      const schedule = await _take(PRE.schedule);
+      if (cancelled.value) return;
+      if (schedule && schedule.schedule && schedule.schedule.length > 0) {
+        window.SCHEDULE = {};
+        schedule.schedule.forEach(g => {
+          window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
+        });
+      } else {
+        window.SCHEDULE = {};
+      }
+    } catch (e) {
+      console.warn("Failed to fetch schedule", e);
+    }
+
+    // My squad
+    try {
+      const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
+      if (cancelled.value) return;
+      const ids = (squad && squad.players && squad.players.length > 0)
+        ? squad.players.map(p => String(p.playerId))
+        : [];
+      if (WCStore.set("mySquad", ids, `${lid}|${window.ME}`)) {
+        window.MY_SQUAD_IDS = ids;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch my squad", e);
+    }
+
+    // All managers' squads (ownership resolution across the league)
+    try {
+      const squadsByUid = {};
+      await Promise.all((window.MANAGERS || []).map(async (m) => {
+        if (!m || !m.uid) return;
+        try {
+          const res = m.uid === window.ME
+            ? { players: (window.MY_SQUAD_IDS || []).map(playerId => ({ playerId })) }
+            : await apiCall("GET", `/leagues/${lid}/squads/${m.uid}`);
+          squadsByUid[m.uid] = (res.players || []).map(p => String(p.playerId));
+        } catch (e) {
+          squadsByUid[m.uid] = squadsByUid[m.uid] || [];
+        }
+      }));
+      if (cancelled.value) return;
+      window.SQUADS_BY_UID = squadsByUid;
+    } catch (e) {
+      console.warn("Failed to fetch all-manager squads", e);
+      if (!window.SQUADS_BY_UID) window.SQUADS_BY_UID = {};
+    }
+
+    // Transfer window
+    try {
+      const winData = await _take(PRE.window);
+      if (cancelled.value) return;
+      if (winData) {
+        const endsAt = winData.phaseEndsAt || null;
+        const endMs = endsAt ? Date.parse(endsAt) : NaN;
+        const hoursLeft = isNaN(endMs)
+          ? (winData.status === "open" ? null : 0)
+          : Math.max(0, Math.round((endMs - Date.now()) / 3600000));
+        window.WINDOW = {
+          hoursLeft,
+          closesAt: endsAt ? fmtWindowTime(endsAt) : null,
+          freeTransfers: 2,
+          used: 0,
+          state: winData.status,
+          phase: winData.window ? winData.window.phase : "none",
+          gw: winData.window ? winData.window.gw : null,
+          overridden: !!winData.overridden,
+          windowNumber: winData.window ? winData.window.windowNumber : 1,
+          phaseEndsAt: endsAt,
+          nextPhase: winData.nextPhase || null,
+          nextPhaseStartsAt: winData.nextPhaseStartsAt || null,
+          schedule: winData.schedule || [],
+          scheduledOverrides: winData.scheduledOverrides || [],
+          wishlistAutoRun: winData.wishlistAutoRun || null,
+        };
+      }
+    } catch (e) {
+      console.warn("Failed to fetch transfer window", e);
+    }
+
+    // Admin flag
+    try {
+      const adminRes = await _take(PRE.admin);
+      if (cancelled.value) return;
+      window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
+      window.IS_SUPER_ADMIN = !!(adminRes && adminRes.isSuperAdmin);
+    } catch (e) {
+      window.IS_ADMIN = false;
+      window.IS_SUPER_ADMIN = false;
+      console.warn("Failed to fetch admin flag", e);
+    }
+
+    // Free agents (limit=2000 = full pool, sorted best-first)
+    try {
+      const fa = await _take(PRE.freeAgents);
+      if (cancelled.value) return;
+      if (fa && fa.length > 0) {
+        window.FREE_AGENTS = fa.map(p => ({
+          id: String(p.id),
+          name: p.name,
+          pos: p.position,
+          team: p.teamIso || p.teamShort || String(p.teamId),
+          teamName: p.teamName || "",
+          club: p.club || "",
+          pts: p.totalPoints || 0,
+          min: p.minutes || 0,
+          defcon: p.defconBonus || 0,
+          apps: p.appearances || 0,
+          dr: p.draftRank || 999,
+        }));
+      } else {
+        window.FREE_AGENTS = [];
+      }
+    } catch (e) {
+      console.warn("Failed to fetch free agents", e);
+    }
+
+    // Active waivers
+    try {
+      const wav = await _take(PRE.waivers);
+      if (cancelled.value) return;
+      if (wav && wav.length > 0) {
+        window.MY_WAIVERS = wav.map(w => ({
+          id: w.waiverId || w.id,
+          playerIn: String(w.playerIn),
+          playerOut: String(w.playerOut),
+          priority: w.priority || 4,
+          gw: w.gw || curGw,
+          status: w.status || "pending",
+        }));
+      }
+    } catch (e) {
+      console.warn("Failed to fetch active waivers", e);
+    }
+
+    // Wishlist bids
+    window.MY_WISHLIST_BIDS = [];
+    try {
+      let wgw = (window.WINDOW && window.WINDOW.gw) ||
+                (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+      window.WISHLIST_BID_GW = wgw || null;
+      window.MY_WISHLIST_RESOLVED = false;
+      for (let guard = 0; wgw && wgw <= 8 && guard < 8; guard++) {
+        const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
+        if (cancelled.value) return;
+        if (wl && wl.resolved) { wgw += 1; continue; }
+        window.WISHLIST_BID_GW = wgw;
+        if (wl && Array.isArray(wl.bids)) window.MY_WISHLIST_BIDS = wl.bids;
+        break;
+      }
+    } catch (e) {
+      console.warn("Failed to fetch wishlist bids", e);
+    }
+
+    // Trades
+    try {
+      const trades = await _take(PRE.trades);
+      if (cancelled.value) return;
+      const fmtAgo = (ts) => {
+        if (!ts) return "";
+        const d = new Date(ts);
+        if (isNaN(d.getTime())) return "";
+        const mins = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
+        if (mins < 60) return mins + "m ago";
+        const hrs = Math.floor(mins / 60);
+        if (hrs < 24) return hrs + "h ago";
+        return Math.floor(hrs / 24) + "d ago";
+      };
+      const mapTrade = (t) => ({
+        id: t.tradeId || t.id,
+        proposer: t.proposerUid,
+        target: t.targetUid,
+        proposerPlayers: (t.proposerPlayers || []).map(p => String(p.playerId)),
+        targetPlayers: (t.targetPlayers || []).map(p => String(p.playerId)),
+        status: t.status,
+        createdAt: fmtAgo(t.createdAt),
+        message: t.message || "",
+      });
+      const open = (trades || []).filter(t => t.status === "pending" || t.status === "deferred_pending").map(mapTrade);
+      window.TRADES_INBOX  = open.filter(t => t.target   === window.ME);
+      window.TRADES_OUTBOX = open.filter(t => t.proposer === window.ME);
+      WCStore.set("trades", { inbox: window.TRADES_INBOX, outbox: window.TRADES_OUTBOX }, lid);
+    } catch (e) {
+      console.warn("Failed to fetch trades", e);
+      window.TRADES_INBOX = [];
+      window.TRADES_OUTBOX = [];
+      WCStore.set("trades", { inbox: [], outbox: [] }, lid);
+    }
+
+    // All GW scores (for the full-season view)
+    window.ALL_GW_SCORES = {};
+    try {
+      const gws = leagueDetails?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
+      await Promise.all(gws.map(async (gw) => {
+        try {
+          const scoreData = await apiCall("GET", `/leagues/${lid}/scores/${gw}`);
+          if (scoreData && scoreData.results) {
+            window.ALL_GW_SCORES[gw] = {};
+            Object.entries(scoreData.results).forEach(([uid, res]) => {
+              window.ALL_GW_SCORES[gw][uid] = res.points || 0;
+            });
+          }
+        } catch (e) { /* ignore unplayed GWs */ }
+      }));
+      if (cancelled.value) return;
+    } catch (e) {
+      console.warn("Failed to fetch all gameweek scores", e);
+    }
+
+    if (criticalFailed) {
+      setDataSource("down");
+    } else if (leagueDetails && leagueDetails.simulated === true) {
+      setDataSource("simulated");
+    } else {
+      setDataSource("live");
+    }
+    forceUpdate();
+  } catch (err) {
+    console.error("Failed to load league data:", err);
+    setDataSource("down");
+  }
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
@@ -511,38 +1166,40 @@ function App() {
   const [updateKey, setUpdateKey] = React.useState(0);
   const forceUpdate = () => setUpdateKey(k => k + 1);
 
-  // Firestore & API dynamic synchronization
+  // Effect 1: Subscriptions + all non-GW-sensitive league data.
+  // Deps: [user, activeLid] — GW navigation does NOT rerun this effect.
   React.useEffect(() => {
-    if (!user) return;
-    // No league selected yet → we're on the platform-selector lobby. Don't sync
-    // any per-league data (this is what keeps the two platforms isolated).
-    if (!activeLid) return;
+    if (!user || !activeLid) return;
 
-    // Update ME global variable to logged-in user's UID
     window.__AUTH_UID = user.uid;
     window.ME = user.uid;
-    // Mock-only "view as manager" override (admin demo tool): view the showcase
-    // league as any member without separate logins. Reverted below if the saved
-    // override isn't a member of the loaded league; cleared via the Tweaks panel.
-    try { const _m = localStorage.getItem("wc_mock_me"); if (_m) window.ME = _m; } catch (e) { /* ignore */ }
+    try { const _m = localStorage.getItem("wc_mock_me"); if (_m) window.ME = _m; } catch (e) {}
     try { ME = window.ME; } catch(e) {}
 
-    // New league / GW: hide the squad until the real fetch resolves so we never
-    // flash the demo squad seeded by data.jsx.
+    // Reset squad so Pick Team never flashes the demo roster mid-load.
     setSquadLoaded(false);
+    window.MY_SQUAD_IDS = [];
+
+    const lid = activeLid;
+    const cancelled = { value: false };
+
+    const unsubFirestore = subscribeFirestoreDraft(lid, user, forceUpdate);
+    const poll = startDraftPoll(lid, user, forceUpdate);
+    loadLeagueData(lid, user, { cancelled, setViewingGw, setActiveLid, setDataSource, forceUpdate });
+
+    return () => {
+      cancelled.value = true;
+      unsubFirestore();
+      poll.stop();
+    };
+  }, [user, activeLid]);
+
+  // Effect 2: GW-sensitive data — standings, scores, bracket, fixtures, lineup.
+  // Reruns on every viewingGw change without refetching session-static data.
+  React.useEffect(() => {
+    if (!user || !activeLid) return;
 
     const lid = activeLid; // active league ID
-
-    // Store readiness (always-live-data rule): mark the flash-critical rows
-    // as loading for THIS league+gw before any fetch. Converted screens
-    // (Points pitch, Status hero, League table, sidebar) render skeletons
-    // until their row is ready — stale rows from a previous gw/league drop to
-    // loading on the tag change, so old data never renders under a new header.
-    const _luTag = `${lid}|${window.ME}|gw${viewingGw}`;
-    WCStore.loading("mySquad", `${lid}|${window.ME}`);
-    WCStore.loading("myLineup", _luTag);
-    WCStore.loading("managers", lid);
-    WCStore.loading("trades", lid);
 
     // 1. Standings — fetched via the API (→ gamedb), NOT a direct client
     // onSnapshot. The compat Firestore SDK can't select the named "gamedb"
@@ -550,7 +1207,6 @@ function App() {
     // empty/falling back to demo data. The API targets gamedb for both the live
     // GW (/standings → current doc) and a past GW (?gw=N → that snapshot).
     let stdCancelled = false;
-    const unsubStandings = () => { stdCancelled = true; };
     const curGw = window.TOURNAMENT.currentGw || 1;
     // STAMPED WRITES (#51 fix): both fetches below are keyed to this exact
     // league+gw. The effect's very first run can fire with a not-yet-correct
@@ -593,7 +1249,6 @@ function App() {
     // returns no results, which clears GW_TOTALS (so a previous league's totals
     // never persist after a switch). Same stamped-write guard as standings.
     let scoresCancelled = false;
-    const unsubScores = () => { scoresCancelled = true; };
     apiCall("GET", `/leagues/${lid}/scores/${viewingGw}`)
       .then(data => {
         if (scoresCancelled) return;
@@ -615,760 +1270,14 @@ function App() {
         }
       });
 
-    // 3. Sync Draft State live
-    const unsubDraft = _db.collection("leagues").doc(lid)
-      .collection("draft").doc("state")
-      .onSnapshot((doc) => {
-        if (doc.exists) {
-          const data = doc.data();
-          const numMembers = data.order ? data.order.length : 10;
-          let currentDrafter = data.currentDrafter;
-          if (!currentDrafter && data.order && typeof data.currentPick === 'number') {
-            const pick = data.currentPick;
-            const rnd = Math.floor(pick / numMembers);
-            const pos = pick % numMembers;
-            currentDrafter = (rnd % 2 === 0) ? data.order[pos] : data.order[numMembers - 1 - pos];
-          }
-          window.DRAFT_STATE = {
-            round: data.currentPick ? Math.floor(data.currentPick / numMembers) + 1 : 1,
-            pickOverall: (data.currentPick || 0) + 1,
-            pickInRound: ((data.currentPick || 0) % numMembers) + 1,
-            onTheClock: currentDrafter || "",
-            totalRounds: 15,
-            totalPicks: data.totalPicks || 150,
-            pickTimer: data.pickTimer || 30,
-            secondsLeft: Math.max(0, Math.round((data.pickDeadline || 0) - Date.now() / 1000)),
-            isMyTurn: currentDrafter === user.uid,
-            order: data.order || [],
-            paused: !!data.paused,
-          };
-          forceUpdate();
-        } else {
-          // No draft has been created for this league (e.g. a pre_draft league).
-          // Clear DRAFT_STATE so we never render a stale/other league's draft.
-          window.DRAFT_STATE = {
-            round: 0, pickOverall: 0, pickInRound: 0, onTheClock: "",
-            totalRounds: 15, totalPicks: 0, pickTimer: 0, secondsLeft: 0,
-            isMyTurn: false, notStarted: true,
-            order: [],
-            paused: false,
-          };
-          forceUpdate();
-        }
-      }, (err) => console.error("Draft state listen error:", err));
-
-    // 4. Sync Draft Picks history live
-    const unsubDraftPicks = _db.collection("leagues").doc(lid)
-      .collection("draft").doc("state")
-      .collection("picks").orderBy("pickNumber")
-      .onSnapshot((snap) => {
-        window.DRAFT_HISTORY = snap.docs.map(doc => {
-          const d = doc.data();
-          return {
-            round: d.round,
-            overall: d.pickNumber + 1,
-            uid: d.uid,
-            playerId: String(d.playerId),
-          };
-        });
-        forceUpdate();
-      }, (err) => console.error("Draft picks listen error:", err));
-
-    // 4b. Draft state POLL (REST). The compat SDK silently ignores the named-
-    // database arg (firestore("gamedb") -> "(default)"), so the two listeners
-    // above receive NOTHING in production. This poll is the real live-update
-    // path for the draft: one GET returns state + picks; it also nudges bot
-    // picks forward via /draft/sim/advance when a bot is on the clock (only
-    // the first human does the nudging so concurrent clients don't race).
-    let draftPollBusy = false, advanceBusy = false, lastDraftSig = "";
-    const draftPoll = setInterval(async () => {
-      if (draftPollBusy || !user) return;
-      draftPollBusy = true;
-      try {
-        const s = await apiCall("GET", `/leagues/${lid}/draft/state`);
-        if (!s || s.status === "pending" || !s.order || !s.order.length) return;
-        const numMembers = s.order.length;
-        const sig = `${s.currentPick}|${s.status}|${s.paused}|${Math.round(s.pickDeadline || 0)}`;
-        window.DRAFT_STATE = {
-          round: Math.floor((s.currentPick || 0) / numMembers) + 1,
-          pickOverall: (s.currentPick || 0) + 1,
-          pickInRound: ((s.currentPick || 0) % numMembers) + 1,
-          onTheClock: s.currentDrafter || "",
-          totalRounds: 15,
-          totalPicks: s.totalPicks || 0,
-          pickTimer: s.pickTimer || 30,
-          secondsLeft: Math.max(0, Math.round((s.pickDeadline || 0) - Date.now() / 1000)),
-          isMyTurn: s.currentDrafter === user.uid,
-          order: s.order,
-          paused: !!s.paused,
-          humanUids: s.humanUids || [],
-          complete: s.status === "complete",
-          // The auto-pick watchdog gates on these two — without them the
-          // timeout pick can never fire.
-          status: s.status,
-          pickDeadline: s.pickDeadline,
-        };
-        window.DRAFT_HISTORY = (s.picks || []).map(d => ({
-          round: d.round, overall: (d.pickNumber || 0) + 1,
-          uid: d.uid, playerId: String(d.playerId),
-        }));
-        if (sig !== lastDraftSig) { lastDraftSig = sig; forceUpdate(); }
-        else forceUpdate(); // clock re-sync is cheap; keep the countdown honest
-        // Bot nudge: first human in humanUids drives the bots forward.
-        const humans = s.humanUids || [];
-        if (s.status === "active" && !s.paused && humans.length &&
-            user.uid === humans[0] && s.currentDrafter &&
-            !humans.includes(s.currentDrafter) && !advanceBusy) {
-          advanceBusy = true;
-          try { await apiCall("POST", `/leagues/${lid}/draft/sim/advance`, { count: 1 }); }
-          catch (e) { /* not a sim league / race — fine */ }
-          finally { advanceBusy = false; }
-        }
-      } catch (e) {
-        // 404 = no draft yet; network blips are retried next tick.
-      } finally {
-        draftPollBusy = false;
-      }
-    }, 2500);
-
-    // 5. Initial HTTP fetches (Bracket, Schedule, Squad, Lineup, Players)
-    const loadInitialData = async () => {
-      let criticalFailed = false;
-      // Declared at function scope (not inside the league-details block) so the
-      // players / free-agents / scores fetches below can read them. The backend
-      // (api-sports) is the source of truth for country codes: players' teamIso,
-      // manager flags and the /teams isoCode all use the SAME raw codes (e.g.
-      // SPA, JAP, MOR, AUT, TUR). Pass them through unchanged — window.TEAM_MAP
-      // resolves name/group/flag/elimination for every nation.
-      let leagueDetails = null;
-      const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
-      // PERF: fire the independent bootstrap GETs in parallel UP FRONT and let
-      // each block below await its own already-in-flight response. These used
-      // to run strictly one-after-another (~13 round-trips) — the grey
-      // "loading" gap after every action that reloads the page. Only the
-      // network overlaps; the PROCESSING order below is unchanged. The .catch
-      // sink keeps a failed prefetch from surfacing as an unhandled rejection
-      // — each consumer block rethrows into its own existing try/catch.
-      const _pre = (p) => p.catch(e => ({ __bootErr: e }));
-      const _take = async (p) => {
-        const r = await p;
-        if (r && r.__bootErr) throw r.__bootErr;
-        return r;
-      };
-      const PRE = {
-        gameweeks: window.__GW_LOADED__ ? null : _pre(apiCall("GET", "/gameweeks")),
-        league: _pre(apiCall("GET", `/leagues/${lid}`)),
-        teams: window.__TEAMS_LOADED__ ? null : _pre(apiCall("GET", "/teams")),
-        players: window.__PLAYERS_LOADED__ ? null : _pre(apiCall("GET", "/players")),
-        schedule: _pre(apiCall("GET", `/leagues/${lid}/schedule`)),
-        window: _pre(apiCall("GET", `/leagues/${lid}/transfer-window`)),
-        admin: _pre(apiCall("GET", "/me/admin")),
-        freeAgents: _pre(apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`)),
-        waivers: _pre(apiCall("GET", `/leagues/${lid}/waivers`)),
-        trades: _pre(apiCall("GET", `/leagues/${lid}/trades`)),
-      };
-      try {
-        // Fetch gameweeks — tournament-global, so load once per session. A
-        // league switch or GW change must not re-pull (and risk a transient
-        // failure on) data that never changes between leagues.
-        if (!window.__GW_LOADED__)
-        try {
-          const gws = await _take(PRE.gameweeks);
-          if (gws && gws.length > 0) {
-            window.__GW_LOADED__ = true;
-            window.TOURNAMENT.gwDates = {};
-            const formatIso = (isoStr) => {
-              if (!isoStr) return "";
-              const d = new Date(isoStr);
-              const months = ["Jun", "Jul"];
-              const m = months[d.getUTCMonth() - 5] || "Jun";
-              const date = d.getUTCDate();
-              const hrs = String(d.getUTCHours()).padStart(2, '0');
-              const mins = String(d.getUTCMinutes()).padStart(2, '0');
-              return `${m} ${date} ${hrs}:${mins}`;
-            };
-            const formatDateOnly = (isoStr) => {
-              if (!isoStr) return "";
-              const d = new Date(isoStr);
-              const months = ["Jun", "Jul"];
-              const m = months[d.getUTCMonth() - 5] || "Jun";
-              const date = d.getUTCDate();
-              return `${m} ${date}`;
-            };
-            gws.forEach(g => {
-              window.TOURNAMENT.gwDates[g.gw] = {
-                wcRound: g.wcRound || g.label,
-                start: formatDateOnly(g.start),
-                end: formatDateOnly(g.end),
-                lockAt: formatIso(g.lockAt)
-              };
-            });
-          }
-        } catch (e) {
-          console.warn("Failed to fetch gameweeks", e);
-        }
-
-        // Fetch active league details
-        try {
-          leagueDetails = await _take(PRE.league);
-          if (leagueDetails) {
-            window.TOURNAMENT.currentGw = leagueDetails.currentGw || 1;
-            window.TOURNAMENT.status = leagueDetails.status || "pre_draft";
-
-            if (window.LAST_ACTIVE_LID !== lid) {
-              window.LAST_ACTIVE_LID = lid;
-              // Default to the latest GW. After a mock "Simulate next GW" we pin
-              // the just-played GW so the reload lands on the result you just
-              // generated, not the next (empty) GW.
-              let initGw = leagueDetails.currentGw || 1;
-              try {
-                const pinned = localStorage.getItem("wc_view_gw_after_reload");
-                if (pinned) { initGw = Number(pinned); localStorage.removeItem("wc_view_gw_after_reload"); }
-              } catch (e) { /* ignore */ }
-              setViewingGw(initGw);
-            }
-
-            window.LEAGUE = {
-              id: leagueDetails.leagueId,
-              name: leagueDetails.name,
-              inviteCode: leagueDetails.inviteCode,
-              // Rank denominator = actual managers in the league, not the max
-              // capacity (#48: "Rank #N / 8" while 10 are enrolled).
-              size: leagueDetails.memberCount || leagueDetails.maxMembers,
-              knockoutStartGw: leagueDetails.knockoutStartGw,
-              leaguePhaseGws: leagueDetails.leaguePhaseGws,
-              knockoutQualifiers: leagueDetails.knockoutQualifiers,
-              pickTimer: leagueDetails.pickTimer,
-              tradeApproval: leagueDetails.tradeApproval,
-              admin: leagueDetails.adminUid,
-              simulated: !!leagueDetails.simulated,
-            };
-
-            if (leagueDetails.members) {
-              window.MANAGERS = leagueDetails.members.map(m => ({
-                uid: m.uid,
-                name: m.displayName || m.uid.substring(0, 8),
-                team: m.teamName || "Unnamed Team",
-                flag: normalizeIso(m.flag),
-                draftPos: m.draftPosition || 99,
-                waiverPri: m.waiverPriority || 99,
-              }));
-              // Revert a stale "view as manager" override if it isn't a member
-              // of this league (e.g. after switching leagues).
-              if (window.ME !== window.__AUTH_UID && !window.MANAGERS.some(mm => mm.uid === window.ME)) {
-                window.ME = window.__AUTH_UID;
-                try { ME = window.__AUTH_UID; } catch (e) {}
-              }
-              WCStore.set("managers", window.MANAGERS, lid);
-            } else {
-              // No members returned → clear so a previous league's managers
-              // (or the data.jsx demo roster) can never bleed through.
-              window.MANAGERS = [];
-              WCStore.set("managers", [], lid);
-            }
-          } else {
-            criticalFailed = true;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch league details, using mock defaults", e);
-          // A dead ?lid (e.g. a bookmarked sandbox league that was deleted)
-          // must not strand the app on demo data — strip the param and fall
-          // back to the home league.
-          if (lid !== "lg_mock_draft" &&
-              new URLSearchParams(window.location.search).get("lid") === lid) {
-            console.warn(`League ${lid} unavailable — falling back to lg_mock_draft`);
-            window.history.replaceState({}, "", window.location.pathname);
-            setActiveLid("lg_mock_draft");
-            return;
-          }
-          // Only flag the app as "down" if we have no previously-loaded league
-          // for this id. A transient blip on a re-run must not wipe the league
-          // the user is already viewing.
-          if (!window.LEAGUE || window.LAST_ACTIVE_LID !== lid) criticalFailed = true;
-        }
-
-        // Fetch the authoritative team list (names, groups, elimination,
-        // crests) keyed by the backend's raw ISO codes — the same codes used by
-        // players and manager flags. This replaces the hardcoded placeholder
-        // bracket so all 48 nations resolve correctly. A failure here is
-        // non-critical: teamById falls back to the static map.
-        if (!window.__TEAMS_LOADED__)
-        try {
-          const teams = await _take(PRE.teams);
-          if (teams && teams.length > 0) {
-            window.__TEAMS_LOADED__ = true;
-            const staticMap = (typeof TEAM_MAP !== "undefined") ? TEAM_MAP : {};
-            const merged = {};
-            teams.forEach(t => {
-              const iso = (t.isoCode || t.short_name || "").toUpperCase();
-              if (!iso) return;
-              const base = staticMap[iso] || {};
-              merged[iso] = {
-                ...base,
-                id: iso,
-                name: t.name || base.name || iso,
-                grp: t.group || base.grp || "?",
-                elim: (t.eliminated !== undefined ? t.eliminated : base.elim) || false,
-                logo: t.logo || base.logo,
-              };
-            });
-            window.TEAM_MAP = merged;
-            window.TEAMS = Object.values(merged);
-          }
-        } catch (e) {
-          console.warn("Failed to fetch teams; falling back to static team map", e);
-        }
-
-        // Fetch players list — global pool, load once per session.
-        if (!window.__PLAYERS_LOADED__)
-        try {
-          const players = await _take(PRE.players);
-          if (players && players.length > 0) {
-            window.__PLAYERS_LOADED__ = true;
-            window.PLAYERS = players
-              // Defensive: drop any malformed pool entry (no real id or no
-              // position). The backend already filters these, but this guards
-              // against junk wc_players docs ever reaching the draft pool, where
-              // they'd render as "UNDEFINED / Group ?" rows with a duplicate
-              // String(undefined) React key.
-              .filter(p => p && p.id != null && String(p.id) !== "undefined" && p.position != null)
-              .map(p => ({
-              id: String(p.id),
-              name: p.name,
-              pos: p.position,
-              team: normalizeIso(p.teamIso || p.teamShort || String(p.teamId)),
-              teamName: p.teamName || "",
-              club: p.club || "",
-              pts: p.totalPoints || 0,
-              dr: p.draftRank || 999,
-              // Season aggregates + FIFA ownership/price/form (Segment 6). The
-              // backend recomputes seasonStats from playerScores each ingest; the
-              // FIFA fields are stamped from the fantasy feed. All optional —
-              // absent until the next ingest tick, so every read is guarded.
-              season: p.seasonStats || null,
-              selPct: p.percentSelected != null ? p.percentSelected : null,
-              fifaPrice: p.fifaPrice != null ? p.fifaPrice : null,
-              fifaForm: p.fifaForm != null ? p.fifaForm : null,
-            }));
-            window.PLAYER_MAP = Object.fromEntries(window.PLAYERS.map(p => [p.id, p]));
-
-            // Dynamically populate GW_POINTS from players total points in mock database!
-            window.GW_POINTS = {};
-            window.PLAYERS.forEach(p => {
-              window.GW_POINTS[p.id] = p.pts;
-            });
-          } else if (!window.PLAYERS || !window.PLAYERS.length) {
-            // Server gave us nothing AND we have no prior pool → genuinely down.
-            criticalFailed = true;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch players", e);
-          // Transient network failure: only fatal if we never loaded a pool.
-          // A blip on a re-run must not blank an app that already has players.
-          if (!window.PLAYERS || !window.PLAYERS.length) criticalFailed = true;
-        }
-
-        // Fetch bracket matching viewingGw
-        try {
-          const bracket = await apiCall("GET", `/leagues/${lid}/knockout?gw=${viewingGw}`);
-          if (bracket) {
-            const roundsSource = bracket.rounds || bracket;
-            const parsedSf = (roundsSource.sf || []).map(m => ({
-              id: m.id,
-              home: m.home,
-              away: m.away,
-              homeSeed: m.homeSeed,
-              awaySeed: m.awaySeed,
-              gw: m.gw,
-            }));
-
-            let parsedFinal = [];
-            if (roundsSource.final) {
-              const finalItems = Array.isArray(roundsSource.final) ? roundsSource.final : [roundsSource.final];
-              parsedFinal = finalItems.filter(Boolean).map(m => ({
-                id: m.id,
-                home: m.home,
-                away: m.away,
-                homeSrc: m.homeSrc,
-                awaySrc: m.awaySrc,
-                gw: m.gw,
-              }));
-            }
-
-            window.BRACKET = {
-              sf: parsedSf,
-              final: parsedFinal,
-            };
-          } else {
-            window.BRACKET = { sf: [], final: [] };
-          }
-        } catch(e) {
-          console.warn("Knockout bracket not seeded yet", e);
-          window.BRACKET = { sf: [], final: [] };
-        }
-
-        // Fetch Schedule
-        try {
-          const schedule = await _take(PRE.schedule);
-          if (schedule && schedule.schedule && schedule.schedule.length > 0) {
-            window.SCHEDULE = {};
-            schedule.schedule.forEach(g => {
-              window.SCHEDULE[g.gw] = (g.matches || []).map(m => [m.home, m.away]);
-            });
-          } else {
-            // No schedule yet (pre-draft / pre-season). Don't fall back to mock.
-            window.SCHEDULE = {};
-          }
-        } catch (e) {
-          console.warn("Failed to fetch schedule", e);
-        }
-
-        // Fetch real per-team fixtures for the viewing GW so Pick Team can show
-        // each player's "v OPP" from live data instead of the static
-        // WC_FIXTURES_GW4 round. Keyed by the same iso the players use
-        // (backend resolves homeTeam/awayTeam isoCode from the team map).
-        try {
-          // Build the by-team map for the viewed GW. If that GW has no fixtures
-          // yet (e.g. the mock sits at currentGw=4/knockout but only GW1-3 are
-          // scheduled), walk back to the most recent GW that DOES have fixtures
-          // so every active player still shows a real opponent instead of "—".
-          // There is no static fallback any more — an empty map just yields "—".
-          // Each fetched round also lands in the per-GW cache
-          // (window.WC_FIXTURES_BY_GW) that Pick Team uses for its edit GW.
-          let byTeam = {};
-          for (let g = viewingGw; g >= 1; g--) {
-            byTeam = await fetchFixturesByTeamForGw(g);
-            if (Object.keys(byTeam).length > 0) break;
-          }
-          window.WC_FIXTURES_BY_TEAM = byTeam;
-        } catch (e) {
-          console.warn("Failed to fetch per-team fixtures", e);
-          // Keep any previously-loaded map; an empty map just renders "—".
-          if (!window.WC_FIXTURES_BY_TEAM) window.WC_FIXTURES_BY_TEAM = {};
-        }
-
-        // Fetch my Squad
-        try {
-          const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
-          const ids = (squad && squad.players && squad.players.length > 0)
-            ? squad.players.map(p => String(p.playerId))
-            : [];  // No squad yet (draft not complete). Don't show the mock squad.
-          if (WCStore.set("mySquad", ids, `${lid}|${window.ME}`)) {
-            window.MY_SQUAD_IDS = ids;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch my squad", e);
-        }
-
-        // Fetch every manager's squad so ownership can be resolved across the
-        // whole league (Player Browser "Owned by", Transfers free-agent gating).
-        // Without this, only ME's squad is known and every other manager's
-        // players render as "Free agent". Reuses the same per-uid squad
-        // endpoint the Manager Squad modal already calls. Failures per-manager
-        // are non-fatal; we keep whatever resolved.
-        try {
-          const squadsByUid = {};
-          await Promise.all((window.MANAGERS || []).map(async (m) => {
-            if (!m || !m.uid) return;
-            try {
-              const res = m.uid === window.ME
-                ? { players: (window.MY_SQUAD_IDS || []).map(playerId => ({ playerId })) }
-                : await apiCall("GET", `/leagues/${lid}/squads/${m.uid}`);
-              squadsByUid[m.uid] = (res.players || []).map(p => String(p.playerId));
-            } catch (e) {
-              // Leave this manager's squad unknown rather than failing the batch.
-              squadsByUid[m.uid] = squadsByUid[m.uid] || [];
-            }
-          }));
-          window.SQUADS_BY_UID = squadsByUid;
-        } catch (e) {
-          console.warn("Failed to fetch all-manager squads", e);
-          if (!window.SQUADS_BY_UID) window.SQUADS_BY_UID = {};
-        }
-
-        // Fetch the lineup for the VIEWED manager matching viewingGw.
-        // IMPORTANT: your OWN team must use the auth endpoint (/lineup/<gw>).
-        // The /lineup/<uid>/<gw> form treats ANY uid as an opponent and 403s an
-        // unlocked GW — even for yourself — so using it for your own team blanks
-        // the pitch (and falls back to the data.jsx demo roster). Only the
-        // "view as another manager" override uses the target form; when that's
-        // blocked (live GW) or empty, derive a shape from THEIR squad instead of
-        // showing the demo roster.
-        const _ownLineup = window.ME === window.__AUTH_UID;
-        const _lineupFromSquad = () => {
-          const byPos = { 1: [], 2: [], 3: [], 4: [] };
-          (window.MY_SQUAD_IDS || []).forEach(id => {
-            const p = playerById(isNaN(Number(id)) ? id : Number(id));
-            if (p && byPos[p.pos]) byPos[p.pos].push(String(id));
-          });
-          const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
-          const starting = [...byPos[1].slice(0, 1), ...byPos[2].slice(0, nd), ...byPos[3].slice(0, nm), ...byPos[4].slice(0, nf)];
-          const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
-          return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
-        };
-        // All lineup writes go through the stamped store row: a resolution for
-        // a gw the user has already navigated away from is dropped instead of
-        // rendering the old gw's XI under the new header.
-        const _setLineup = (lu) => {
-          if (WCStore.set("myLineup", lu, _luTag)) window.MY_LINEUP = lu;
-        };
-        try {
-          // Retry the OWN lineup fetch on transient failure (flaky mobile data):
-          // one failed GET used to fall through to _lineupFromSquad() — a
-          // DEFAULT squad-ordered XI that masquerades as the saved lineup (the
-          // "Points shows my old squad" bug). Retrying resolves to the real one.
-          const _fetchLineup = () => apiCall("GET", _ownLineup
-            ? `/leagues/${lid}/lineup/${viewingGw}`
-            : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
-          let lineup = null, _lastErr = null;
-          const _attempts = _ownLineup ? 3 : 1;
-          for (let _a = 0; _a < _attempts; _a++) {
-            try { lineup = await _fetchLineup(); _lastErr = null; break; }
-            catch (err) {
-              _lastErr = err;
-              if (err && err.status === 403) break;  // opponent pre-lock → don't retry
-              if (_a < _attempts - 1) await new Promise(r => setTimeout(r, 400 * (_a + 1)));
-            }
-          }
-          if (_lastErr) throw _lastErr;
-          if (lineup && lineup.starting && lineup.starting.length > 0) {
-            _setLineup({
-              starting: (lineup.starting || []).map(String),
-              bench: (lineup.bench || []).map(String),
-              formation: lineup.formation || [1, 4, 4, 2],
-              autoSubs: lineup.autoSubsMade || [],
-            });
-          } else {
-            _setLineup(_lineupFromSquad());
-          }
-        } catch (e) {
-          console.warn("Failed to fetch my lineup", e);
-          if (e && e.status === 403) {
-            // Viewing another manager's pre-lock lineup is blocked → show their
-            // squad in a default shape, never the demo roster.
-            _setLineup(_lineupFromSquad());
-          } else if (!(window.MY_LINEUP && window.MY_LINEUP.starting && window.MY_LINEUP.starting.length)) {
-            // Transient failure with nothing cached yet → derive from the squad.
-            _setLineup(_lineupFromSquad());
-          }
-          // else: keep last-known-good in window.MY_LINEUP for legacy readers;
-          // the store row stays "loading" so converted screens show a skeleton
-          // rather than data we can't confirm is current.
-        }
-
-        // Real squad + lineup have now resolved (success OR a definitive
-        // "no squad" result). Reveal the Pick Team squad area.
-        setSquadLoaded(true);
-
-        // Fetch transfer window. The endpoint now returns the real-clock
-        // boundaries (phaseEndsAt / nextPhase / schedule) so we derive a live
-        // countdown instead of the old hardcoded "36h". `closesAt` / `hoursLeft`
-        // stay populated for the existing banner copy; the ticking countdowns
-        // (sidebar, Transfers, Pick Team) read `phaseEndsAt` via <Countdown>.
-        try {
-          const winData = await _take(PRE.window);
-          if (winData) {
-            const endsAt = winData.phaseEndsAt || null;
-            const endMs = endsAt ? Date.parse(endsAt) : NaN;
-            const hoursLeft = isNaN(endMs)
-              ? (winData.status === "open" ? null : 0)
-              : Math.max(0, Math.round((endMs - Date.now()) / 3600000));
-            window.WINDOW = {
-              hoursLeft,
-              closesAt: endsAt ? fmtWindowTime(endsAt) : null,
-              freeTransfers: 2,
-              used: 0,
-              state: winData.status,
-              phase: winData.window ? winData.window.phase : "none",
-              gw: winData.window ? winData.window.gw : null,
-              overridden: !!winData.overridden,
-              windowNumber: winData.window ? winData.window.windowNumber : 1,
-              // Real-clock timeline for live countdowns + the Fixtures bands.
-              phaseEndsAt: endsAt,
-              nextPhase: winData.nextPhase || null,
-              nextPhaseStartsAt: winData.nextPhaseStartsAt || null,
-              schedule: winData.schedule || [],
-              // Admin-authored timed phase overrides ([{phase, effectiveAt, gw}]).
-              scheduledOverrides: winData.scheduledOverrides || [],
-              // Last wishlist auto-run outcome — the Transfers admin banner
-              // surfaces blocked/failed runs so they don't go unnoticed.
-              wishlistAutoRun: winData.wishlistAutoRun || null,
-            };
-          }
-        } catch (e) {
-          console.warn("Failed to fetch transfer window", e);
-        }
-
-        // Fetch admin flag (UI gating only — backend still enforces).
-        try {
-          const adminRes = await _take(PRE.admin);
-          window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
-          // Super-admin (Ilay) gates window control: the phase switcher + the
-          // timed window-schedule editor. Backend enforces too.
-          window.IS_SUPER_ADMIN = !!(adminRes && adminRes.isSuperAdmin);
-        } catch (e) {
-          window.IS_ADMIN = false;
-          window.IS_SUPER_ADMIN = false;
-          console.warn("Failed to fetch admin flag", e);
-        }
-
-        // Fetch free agents. limit=2000 = the WHOLE pool: the endpoint's
-        // default limit of 50 — applied in raw collection order, pre-sort —
-        // was why the wishlist search only ever saw a nation-clumped sliver
-        // of the free agents. The backend now sorts best-first and returns
-        // real stats (totalPoints / minutes / DefCon) for the pickers.
-        try {
-          const fa = await _take(PRE.freeAgents);
-          if (fa && fa.length > 0) {
-            window.FREE_AGENTS = fa.map(p => ({
-              id: String(p.id),
-              name: p.name,
-              pos: p.position,
-              team: p.teamIso || p.teamShort || String(p.teamId),
-              teamName: p.teamName || "",
-              club: p.club || "",
-              pts: p.totalPoints || 0,
-              min: p.minutes || 0,
-              defcon: p.defconBonus || 0,
-              apps: p.appearances || 0,
-              dr: p.draftRank || 999,
-            }));
-          } else {
-            window.FREE_AGENTS = [];
-          }
-        } catch (e) {
-          console.warn("Failed to fetch free agents", e);
-        }
-
-        // Fetch active waivers
-        try {
-          const wav = await _take(PRE.waivers);
-          if (wav && wav.length > 0) {
-            window.MY_WAIVERS = wav.map(w => ({
-              id: w.waiverId || w.id,
-              playerIn: String(w.playerIn),
-              playerOut: String(w.playerOut),
-              priority: w.priority || 4,
-              gw: w.gw || curGw,
-              status: w.status || "pending"
-            }));
-          }
-        } catch (e) {
-          console.warn("Failed to fetch active waivers", e);
-        }
-
-        // Fetch my wishlist bids for the upcoming GW (drives the Wishlist tab /
-        // the batch auction). The upcoming GW comes from the transfer window.
-        window.MY_WISHLIST_BIDS = [];
-        try {
-          // Bids belong to the FIRST gameweek whose auction hasn't resolved yet.
-          // Start from the open window's GW (else the current GW) and roll FORWARD
-          // over any already-resolved GW: once a GW's wishlist auction has run, new
-          // bids target the next GW (e.g. GW4 resolved mid-GW4 → bids go to GW5).
-          // The resolved GW's bids stay in the History tab for audit/rollback.
-          let wgw = (window.WINDOW && window.WINDOW.gw) ||
-                    (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-          window.WISHLIST_BID_GW = wgw || null;
-          window.MY_WISHLIST_RESOLVED = false;
-          for (let guard = 0; wgw && wgw <= 8 && guard < 8; guard++) {
-            const wl = await apiCall("GET", `/leagues/${lid}/wishlist-bids/me?gw=${wgw}`);
-            if (wl && wl.resolved) { wgw += 1; continue; } // already auctioned → next GW
-            window.WISHLIST_BID_GW = wgw;
-            if (wl && Array.isArray(wl.bids)) window.MY_WISHLIST_BIDS = wl.bids;
-            break;
-          }
-        } catch (e) {
-          console.warn("Failed to fetch wishlist bids", e);
-        }
-
-        // Fetch trades — split into inbox (offers TO me) and sent (offers FROM
-        // me). Without this the Trades screen rendered the data.jsx demo consts
-        // (TRADES_INBOX/TRADES_OUTBOX), i.e. the "Player zielinski / messi"
-        // placeholder cards.
-        try {
-          const trades = await _take(PRE.trades);
-          const fmtAgo = (ts) => {
-            if (!ts) return "";
-            const d = new Date(ts);
-            if (isNaN(d.getTime())) return "";
-            const mins = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000));
-            if (mins < 60) return mins + "m ago";
-            const hrs = Math.floor(mins / 60);
-            if (hrs < 24) return hrs + "h ago";
-            return Math.floor(hrs / 24) + "d ago";
-          };
-          const mapTrade = (t) => ({
-            id: t.tradeId || t.id,
-            proposer: t.proposerUid,
-            target: t.targetUid,
-            proposerPlayers: (t.proposerPlayers || []).map(p => String(p.playerId)),
-            targetPlayers: (t.targetPlayers || []).map(p => String(p.playerId)),
-            status: t.status,
-            createdAt: fmtAgo(t.createdAt),
-            message: t.message || "",
-          });
-          // Include live BIDS (deferred_pending) alongside pending offers so the
-          // gameweek-window bids are visible + cancellable in the Trades screen.
-          const open = (trades || []).filter(t => t.status === "pending" || t.status === "deferred_pending").map(mapTrade);
-          window.TRADES_INBOX = open.filter(t => t.target === window.ME);
-          window.TRADES_OUTBOX = open.filter(t => t.proposer === window.ME);
-          WCStore.set("trades", { inbox: window.TRADES_INBOX, outbox: window.TRADES_OUTBOX }, lid);
-        } catch (e) {
-          console.warn("Failed to fetch trades", e);
-          window.TRADES_INBOX = [];
-          window.TRADES_OUTBOX = [];
-          WCStore.set("trades", { inbox: [], outbox: [] }, lid);
-        }
-
-        // Fetch all gameweek scores
-        window.ALL_GW_SCORES = {};
-        try {
-          const gws = leagueDetails?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
-          await Promise.all(gws.map(async (gw) => {
-            try {
-              const scoreData = await apiCall("GET", `/leagues/${lid}/scores/${gw}`);
-              if (scoreData && scoreData.results) {
-                window.ALL_GW_SCORES[gw] = {};
-                Object.entries(scoreData.results).forEach(([uid, res]) => {
-                  window.ALL_GW_SCORES[gw][uid] = res.points || 0;
-                });
-              }
-            } catch (e) {
-              // ignore unplayed GWs
-            }
-          }));
-        } catch (e) {
-          console.warn("Failed to fetch all gameweek scores", e);
-        }
-
-        if (criticalFailed) {
-          setDataSource("down");
-        } else if (leagueDetails && leagueDetails.simulated === true) {
-          // The backend marks each league explicitly: Platform A (mock) carries
-          // simulated:true, the real 7-player draft carries simulated:false.
-          setDataSource("simulated");
-        } else {
-          setDataSource("live");
-        }
-        forceUpdate();
-      } catch (err) {
-        console.error("Failed to load initial live data:", err);
-        setDataSource("down");
-        // Don't strand the Pick Team screen on the skeleton forever if the
-        // bootstrap threw before the squad fetch ran.
-        setSquadLoaded(true);
-        forceUpdate();
-      }
-    };
-
-    loadInitialData();
+    // GW data: bracket, per-team fixtures, lineup
+    const gwCancelled = { value: false };
+    loadGwData(lid, viewingGw, { cancelled: gwCancelled, setSquadLoaded });
 
     return () => {
-      unsubStandings();
-      unsubScores();
-      unsubDraft();
-      unsubDraftPicks();
-      clearInterval(draftPoll);
+      stdCancelled = true;
+      scoresCancelled = true;
+      gwCancelled.value = true;
     };
   }, [user, activeLid, viewingGw]);
 
