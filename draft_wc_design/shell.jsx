@@ -22,19 +22,25 @@ function TopBar({ tweak }) {
   const displayName = window._auth?.currentUser?.displayName || "Me";
   const initials = displayName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
   
-  // 3-state banner — reactive: re-reads window.__DATA_SOURCE__ whenever the app
-  // updates it (fires a "wc-datasource" event), so the chip never latches a
-  // stale cold-start "down" once the real data resolves.
-  const [dataSource, setDataSourceState] = React.useState(window.__DATA_SOURCE__ || "down");
+  // 4-state banner — reactive: re-reads window.__DATA_SOURCE__ whenever the app
+  // updates it (fires a "wc-datasource" event). Cold start is "loading", a
+  // NEUTRAL state: the old default was "down", which accused the backend of
+  // being unreachable before the first request had even been sent — every
+  // page load flashed a red "DEMO DATA" chip at the users. "down" now renders
+  // only when the bootstrap EXPLICITLY concludes the backend failed.
+  const [dataSource, setDataSourceState] = React.useState(window.__DATA_SOURCE__ || "loading");
   React.useEffect(() => {
-    const sync = () => setDataSourceState(window.__DATA_SOURCE__ || "down");
+    const sync = () => setDataSourceState(window.__DATA_SOURCE__ || "loading");
     window.addEventListener("wc-datasource", sync);
     sync(); // catch a value set before this listener attached
     return () => window.removeEventListener("wc-datasource", sync);
   }, []);
   let bannerBg = "#c52836"; // dark red
   let bannerText = "⚠️ DEMO DATA — backend not reached";
-  if (dataSource === "simulated") {
+  if (dataSource === "loading") {
+    bannerBg = "rgba(255,255,255,0.16)";
+    bannerText = "⏳ Loading live data…";
+  } else if (dataSource === "simulated") {
     bannerBg = "#4a1ba8"; // deep purple
     bannerText = "📊 Simulated Data Mode";
   } else if (dataSource === "live") {

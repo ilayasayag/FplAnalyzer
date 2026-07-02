@@ -480,6 +480,63 @@ const teamById    = id => {
   };
 };
 
+// =====================================================================
+// WCStore — the app's central data ledger (issue #126, dependency-free).
+//
+// Replaces the raw window.* + forceUpdate pattern for converted domains.
+// Each key holds a frozen row { value, status, tag }:
+//   * status: "idle" (never requested) | "loading" | "ready" — screens can
+//     finally tell "not loaded yet" from "loaded and empty", so they render
+//     a skeleton instead of demo/stale data.
+//   * tag: STAMPED WRITES. loading(key, tag) declares which request the key
+//     is now waiting for; a set() carrying a different tag is a stale
+//     response (older gw / older league) and is DROPPED. This kills the
+//     populate-then-blank flicker class (#51) at the root instead of racing
+//     cancellation flags.
+// Components subscribe via useStoreRow(key) (React.useSyncExternalStore),
+// so only consumers of a changed key re-render — not the whole app.
+// Legacy screens keep working: accepted writes also mirror to the old
+// window.* global at the call site until each screen is converted.
+// =====================================================================
+const WCStore = (() => {
+  const rows = {};
+  const subs = new Set();
+  const IDLE = Object.freeze({ value: undefined, status: "idle", tag: null });
+  const notify = () => subs.forEach(fn => { try { fn(); } catch (e) { console.error("WCStore subscriber failed", e); } });
+  return {
+    row(key) { return rows[key] || IDLE; },
+    get(key) { return (rows[key] || IDLE).value; },
+    status(key) { return (rows[key] || IDLE).status; },
+    loading(key, tag) {
+      const cur = rows[key] || IDLE;
+      const t = tag == null ? null : String(tag);
+      // Same-tag refresh (periodic re-fetch of the SAME league+gw) keeps the
+      // current value on screen — no flash back to skeleton. A tag CHANGE
+      // (league switch / GW navigation) drops to loading: the old value is
+      // the WRONG data for the new key and must never render under it.
+      const sameTag = cur.tag != null && t != null && cur.tag === t;
+      rows[key] = Object.freeze({
+        value: sameTag ? cur.value : undefined,
+        status: sameTag && cur.status === "ready" ? "ready" : "loading",
+        tag: t,
+      });
+      notify();
+    },
+    set(key, value, tag) {
+      const cur = rows[key] || IDLE;
+      if (cur.tag != null && tag != null && String(tag) !== cur.tag) return false; // stale response — dropped
+      rows[key] = Object.freeze({ value, status: "ready", tag: cur.tag });
+      notify();
+      return true;
+    },
+    subscribe(fn) { subs.add(fn); return () => subs.delete(fn); },
+  };
+})();
+
+function useStoreRow(key) {
+  return React.useSyncExternalStore(WCStore.subscribe, () => WCStore.row(key));
+}
+
 // expose globally
 Object.assign(window, {
   TEAMS, TEAM_MAP, PLAYERS, PLAYER_MAP, POS_NAMES,
@@ -489,4 +546,5 @@ Object.assign(window, {
   TRADES_INBOX, TRADES_OUTBOX, DRAFT_STATE, DRAFT_HISTORY,
   TOURNAMENT, LEAGUE,
   managerById, playerById, teamById,
+  WCStore, useStoreRow,
 });
