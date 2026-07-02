@@ -270,6 +270,22 @@ function TweakDraftSimulator({ lid }) {
 }
 
 // =====================================================================
+// AppContext — provides viewingGw, setViewingGw, activeLid, setActiveLid,
+// tab, setTab, and user to any descendant without window bridges.
+// Defined before App so screen components can call useAppCtx() even though
+// app.jsx loads last — components only render after all scripts are loaded.
+//
+// SCOPE, not just order: babel-standalone runs each jsx file in its own
+// `new Function` scope, so top-level declarations are NOT globals — they must
+// be exported via Object.assign(window, ...) like every other cross-file
+// symbol in this codebase, or screens-status/screens-draft's useAppCtx()
+// calls throw ReferenceError at first render (white screen).
+// =====================================================================
+const AppContext = React.createContext(null);
+function useAppCtx() { return React.useContext(AppContext); }
+Object.assign(window, { AppContext, useAppCtx });
+
+// =====================================================================
 // useAuth — owns Firebase auth state, league list, and the onAuthStateChanged
 // listener. Extracted from App so auth-form keystrokes don't re-render the
 // full component tree.
@@ -478,20 +494,10 @@ function App() {
   // real one loads.
   const [squadLoaded, setSquadLoaded] = React.useState(false);
 
+  // Expose the refresh handler so CreateForm/JoinForm can reload the league
+  // list after they've already called setActiveLid themselves.
+  // window.setActiveLeagueId and window.goToLobby are replaced by AppContext.
   React.useEffect(() => {
-    window.VIEWING_GW = viewingGw;
-    window.setViewingGw = setViewingGw;
-  }, [viewingGw]);
-
-
-  // Expose global league switch/refresh handlers
-  React.useEffect(() => {
-    window.setActiveLeagueId = setActiveLid;
-    // The lobby is gone — there is only the one league. Any stray call just
-    // keeps the user on the mock-data league rather than showing a chooser.
-    window.goToLobby = () => setActiveLid("lg_mock_draft");
-    // Re-fetch the user's league list WITHOUT auto-selecting one. Callers that
-    // want to enter a specific league (create/join) call setActiveLeagueId themselves.
     window.refreshActiveLeague = async () => {
       try {
         const list = await apiCall("GET", "/leagues/my");
@@ -1384,6 +1390,7 @@ function App() {
   }
 
   return (
+    <AppContext.Provider value={{ viewingGw, setViewingGw, activeLid, setActiveLid, tab, setTab, user }}>
     <div data-screen-label={`WC26 · ${TABS.find(x => x.id === tab)?.label || tab}`}>
       <TopBar tweak={t} />
       <Hero tab={tab} />
@@ -1518,6 +1525,7 @@ function App() {
         )}
       </TweaksPanel>
     </div>
+    </AppContext.Provider>
   );
 }
 

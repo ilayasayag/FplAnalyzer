@@ -39,7 +39,7 @@ const getNormalizedPlayerId = (id) => {
 };
 
 // ---------- DRAFT ROOM ----------
-function DraftRoomScreen({ onTab }) {
+function useDraftRoom() {
   const isMobile = useIsMobile();
   // Mobile-only: which stacked panel is visible (watchlist | pool | squad).
   const [mobilePanel, setMobilePanel] = React.useState("pool");
@@ -375,6 +375,46 @@ function DraftRoomScreen({ onTab }) {
     });
     return dups;
   })();
+
+  return {
+    isMobile, mobilePanel, setMobilePanel,
+    isPaused, secondsLeft, draftNotStarted,
+    search, setSearch, posFilter, setPosFilter,
+    watchlistIds, setWatchlistIds, loadingWatchlist, draggedIdx, setDraggedIdx,
+    watchlistSet, nationFilter, setNationFilter,
+    page, setPage, PAGE_SIZE,
+    wlPos, setWlPos, wlNation, setWlNation, wlStatus, setWlStatus,
+    handleDraftPick, saveWatchlist, handleToggleWatchlist,
+    handlePauseResume, pauseBusy, handleStartDraft, startBusy,
+    handleUndoLastPick, rollbackBusy, isLeagueAdmin,
+    onClock, onClockName, taken, nationsList, pool, visiblePool,
+    totalPool, startIdx, sidebarOrder, upcoming,
+    picksUntilMyTurn, myPicks, mySquadByPos, myNationCounts,
+    POS_QUOTA, NATION_MAX, ineligibleReason, formatTime,
+    watchlistRows, availableCount, visibleWatchlist, wlNations,
+    duplicatePicks,
+  };
+}
+
+function DraftRoomScreen({ onTab }) {
+  const {
+    isMobile, mobilePanel, setMobilePanel,
+    isPaused, secondsLeft, draftNotStarted,
+    search, setSearch, posFilter, setPosFilter,
+    watchlistIds, setWatchlistIds, loadingWatchlist, draggedIdx, setDraggedIdx,
+    watchlistSet, nationFilter, setNationFilter,
+    page, setPage, PAGE_SIZE,
+    wlPos, setWlPos, wlNation, setWlNation, wlStatus, setWlStatus,
+    handleDraftPick, saveWatchlist, handleToggleWatchlist,
+    handlePauseResume, pauseBusy, handleStartDraft, startBusy,
+    handleUndoLastPick, rollbackBusy, isLeagueAdmin,
+    onClock, onClockName, taken, nationsList, pool, visiblePool,
+    totalPool, startIdx, sidebarOrder, upcoming,
+    picksUntilMyTurn, myPicks, mySquadByPos, myNationCounts,
+    POS_QUOTA, NATION_MAX, ineligibleReason, formatTime,
+    watchlistRows, availableCount, visibleWatchlist, wlNations,
+    duplicatePicks,
+  } = useDraftRoom();
 
   // ---- Shared panel JSX. Rendered into the desktop 3-column grid (unchanged
   // ---- output) or the mobile stacked view with chip-switched panels.
@@ -956,7 +996,7 @@ function SquadCount({ label, cur, max }) {
 
 
 // ---------- CREATE / JOIN LEAGUE ----------
-function CreateLeagueScreen({ onTab }) {
+function useCreateLeague() {
   const isMobile = useIsMobile();
   const [mode, setMode] = React.useState("home"); // home | create | join
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
@@ -984,6 +1024,13 @@ function CreateLeagueScreen({ onTab }) {
     };
     fetchLeagues();
   }, []);
+
+  return { isMobile, mode, setMode, me, myStanding, currentGw, gwPoints, hasLeague, leaguesList, loadingLeagues };
+}
+
+function CreateLeagueScreen({ onTab }) {
+  const { isMobile, mode, setMode, me, myStanding, currentGw, gwPoints, hasLeague, leaguesList, loadingLeagues } = useCreateLeague();
+  const { setActiveLid } = useAppCtx();
 
   if (mode === "create") return <CreateForm onBack={() => setMode("home")} onTab={onTab} />;
   if (mode === "join") return <JoinForm onBack={() => setMode("home")} onTab={onTab} />;
@@ -1041,7 +1088,7 @@ function CreateLeagueScreen({ onTab }) {
                       className="btn btn--primary" 
                       style={{ alignSelf: "flex-start", padding: "6px 14px", fontSize: 11 }}
                       onClick={() => {
-                        window.setActiveLeagueId(l.leagueId);
+                        setActiveLid(l.leagueId);
                       }}
                     >
                       Switch to this Platform →
@@ -1127,7 +1174,7 @@ function MetricChip({ label, value, accent }) {
   );
 }
 
-function CreateForm({ onBack, onTab }) {
+function useCreateForm({ onBack }) {
   const isMobile = useIsMobile();
   const [name, setName] = React.useState("");
   const [size, setSize] = React.useState(10);
@@ -1158,6 +1205,12 @@ function CreateForm({ onBack, onTab }) {
       alert("Failed to create league: " + (err.error || err.detail || JSON.stringify(err)));
     }
   };
+
+  return { isMobile, name, setName, size, setSize, timer, setTimer, tradeRule, setTradeRule, draftDate, setDraftDate, koStartGw, qualifiers, leaguePhase, handleCreate };
+}
+
+function CreateForm({ onBack, onTab }) {
+  const { isMobile, name, setName, size, setSize, timer, setTimer, tradeRule, setTradeRule, draftDate, setDraftDate, koStartGw, qualifiers, leaguePhase, handleCreate } = useCreateForm({ onBack });
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -1263,7 +1316,7 @@ function Field({ label, hint, children }) {
   );
 }
 
-function JoinForm({ onBack }) {
+function useJoinForm({ onBack }) {
   const [code, setCode] = React.useState("");
   const [displayName, setDisplayName] = React.useState(_auth.currentUser?.displayName || "");
   const [teamName, setTeamName] = React.useState("");
@@ -1284,6 +1337,12 @@ function JoinForm({ onBack }) {
       alert("Failed to join league: " + (err.error || err.detail || JSON.stringify(err)));
     }
   };
+
+  return { code, setCode, displayName, setDisplayName, teamName, setTeamName, handleJoin };
+}
+
+function JoinForm({ onBack }) {
+  const { code, setCode, displayName, setDisplayName, teamName, setTeamName, handleJoin } = useJoinForm({ onBack });
 
   return (
     <div className="col" style={{ gap: 16, maxWidth: 520 }}>
