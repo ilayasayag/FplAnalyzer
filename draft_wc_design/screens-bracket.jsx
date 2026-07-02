@@ -1451,8 +1451,8 @@ function FreeAgentsTab({ setToast }) {
                     </div>
                     <div className="col" style={{ gap: 6 }}>
                       {eligible.map(({ b, i }) => (
-                        <button key={i} onClick={() => handleAddToBatch(p, i)}
-                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
+                        <div key={i} onClick={() => handleAddToBatch(p, i)}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%",
                             padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
                             background: "white", cursor: "pointer", fontSize: 12 }}>
                           <strong>Batch #{i + 1}</strong>
@@ -1463,7 +1463,13 @@ function FreeAgentsTab({ setToast }) {
                           <span className="muted" style={{ fontSize: 11, marginLeft: "auto", whiteSpace: "nowrap" }}>
                             {b.ins.length} in · joins last
                           </span>
-                        </button>
+                          <button onClick={(e) => { e.stopPropagation(); handleAddToBatch(p, i); }}
+                            style={{ padding: "7px 16px", fontSize: 12, fontWeight: 700, borderRadius: 8,
+                              border: "none", background: "var(--navy-900)", color: "white",
+                              cursor: "pointer", whiteSpace: "nowrap", flexShrink: 0 }}>
+                            Add
+                          </button>
+                        </div>
                       ))}
                     </div>
                   </div>
