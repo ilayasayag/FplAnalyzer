@@ -462,6 +462,35 @@ function SignInForm() {
 }
 
 
+// =====================================================================
+// fetchAndStore — shared try/catch wrapper for the loadInitialData fetch
+// blocks. Standardises the fallback policy (criticalFailed vs. preserve
+// existing vs. empty array) that previously diverged silently across 12+
+// blocks. Complex fetches with unique logic (league details, players,
+// lineup, all-squads) are intentionally left as inline try/catch.
+// =====================================================================
+async function fetchAndStore(endpoint, opts) {
+  const {
+    transform  = x => x,
+    globalKey,
+    fallback   = [],
+    critical   = false,
+    cancelled  = { value: false },
+  } = opts || {};
+  try {
+    const raw = await apiCall("GET", endpoint);
+    if (cancelled.value) return { ok: true };
+    const result = transform(raw);
+    if (globalKey) window[globalKey] = result;
+    return { ok: true, data: result };
+  } catch (e) {
+    if (cancelled.value) return { ok: false, cancelled: true };
+    console.warn(`Failed to fetch ${endpoint}`, e);
+    if (globalKey && window[globalKey] == null) window[globalKey] = fallback;
+    return { ok: false, critical, error: e };
+  }
+}
+
 function App() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
@@ -969,43 +998,27 @@ function App() {
         }
 
         // Fetch bracket matching viewingGw
-        try {
-          const bracket = await apiCall("GET", `/leagues/${lid}/knockout?gw=${viewingGw}`);
-          if (bracket) {
+        await fetchAndStore(`/leagues/${lid}/knockout?gw=${viewingGw}`, {
+          globalKey: "BRACKET",
+          fallback: { sf: [], final: [] },
+          transform: (bracket) => {
+            if (!bracket) return { sf: [], final: [] };
             const roundsSource = bracket.rounds || bracket;
             const parsedSf = (roundsSource.sf || []).map(m => ({
-              id: m.id,
-              home: m.home,
-              away: m.away,
-              homeSeed: m.homeSeed,
-              awaySeed: m.awaySeed,
-              gw: m.gw,
+              id: m.id, home: m.home, away: m.away,
+              homeSeed: m.homeSeed, awaySeed: m.awaySeed, gw: m.gw,
             }));
-
             let parsedFinal = [];
             if (roundsSource.final) {
               const finalItems = Array.isArray(roundsSource.final) ? roundsSource.final : [roundsSource.final];
               parsedFinal = finalItems.filter(Boolean).map(m => ({
-                id: m.id,
-                home: m.home,
-                away: m.away,
-                homeSrc: m.homeSrc,
-                awaySrc: m.awaySrc,
-                gw: m.gw,
+                id: m.id, home: m.home, away: m.away,
+                homeSrc: m.homeSrc, awaySrc: m.awaySrc, gw: m.gw,
               }));
             }
-
-            window.BRACKET = {
-              sf: parsedSf,
-              final: parsedFinal,
-            };
-          } else {
-            window.BRACKET = { sf: [], final: [] };
-          }
-        } catch(e) {
-          console.warn("Knockout bracket not seeded yet", e);
-          window.BRACKET = { sf: [], final: [] };
-        }
+            return { sf: parsedSf, final: parsedFinal };
+          },
+        });
 
         // Fetch Schedule
         try {
