@@ -895,7 +895,12 @@ function FreeAgentsTab({ setToast }) {
   // Knockout bracket (national teams) — used to optionally hide free agents whose
   // nation is already OUT of the tournament. Same doc the Fixtures bracket renders.
   const [wcBracket, setWcBracket] = React.useState(null);
-  const [activeOnly, setActiveOnly] = React.useState(false);
+  // "In tournament" defaults ON — knocked-out players are what everyone is
+  // trying to get RID of; no reason to offer them back (toggle stays for the
+  // rare deliberate look). "Played minutes" is opt-in: hides the deep bench
+  // (0 minutes so far) that realistically no manager would pick.
+  const [activeOnly, setActiveOnly] = React.useState(true);
+  const [minutesOnly, setMinutesOnly] = React.useState(false);
   React.useEffect(() => {
     let cancelled = false;
     apiCall("GET", "/wc-bracket")
@@ -999,6 +1004,9 @@ function FreeAgentsTab({ setToast }) {
     .filter(p => !q || (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
     // Optional: drop players whose nation is already out of the tournament.
     .filter(p => !activeOnly || isNationAlive((p.team || "").toUpperCase()))
+    // Free-agent rows carry `min` (from /free-agents); all-players rows carry
+    // season.minutes — read whichever exists so the filter works in both modes.
+    .filter(p => !minutesOnly || ((p.min != null ? p.min : (p.season && p.season.minutes) || 0) > 0))
     // Primary sort = chosen key in the chosen direction (header click toggles
     // asc/desc). SECONDARY is ALWAYS total points (desc), then draft rank — so
     // ties, and any column that's still all-zero pre-data, stay best-first.
@@ -1096,6 +1104,38 @@ function FreeAgentsTab({ setToast }) {
     }
   };
 
+  // Add the incoming free agent to an EXISTING batch (same position, not
+  // already an IN there) instead of creating a new standalone bid. No drop
+  // selection needed — the batch's OUT side already says who leaves. The
+  // player joins as the batch's LAST IN priority (reorder in the Wishlist
+  // tab). Saves through the batched endpoint so the server round-trips the
+  // stored flat list back.
+  const handleAddToBatch = async (p, batchIdx) => {
+    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
+    const pIn = _pid(p.id);
+    const flat = (window.MY_WISHLIST_BIDS || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    const next = batchBidsJs(flat).map(b => ({ position: b.position, outs: b.outs.slice(), ins: b.ins.slice() }));
+    if (!next[batchIdx]) return;
+    next[batchIdx].ins.push(pIn);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids-batched`, { gw: bidGw, batches: next });
+      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : unbatchBids(next);
+      setToast({
+        type: "success",
+        message: `Added ${p.name} to batch #${batchIdx + 1} (GW${bidGw}) as its last IN priority.`
+      });
+      setActivePickup(null);
+    } catch (err) {
+      setToast({
+        type: "error",
+        message: "Failed to add to batch: " + (err.error || err.detail || JSON.stringify(err))
+      });
+    }
+  };
+
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       <div style={{ padding: "14px 18px", borderBottom: "1px solid var(--border)" }}>
@@ -1134,6 +1174,15 @@ function FreeAgentsTab({ setToast }) {
               {activeOnly ? "✓ " : ""}In tournament{activeOnly && eliminatedCount ? ` · −${eliminatedCount}` : ""}
             </button>
           )}
+          <button onClick={() => setMinutesOnly(v => !v)}
+            title="Hide players with 0 minutes played so far — the deep bench no manager realistically picks."
+            className="btn"
+            style={{ padding: "7px 12px", fontSize: 12, borderRadius: 8, whiteSpace: "nowrap",
+              border: "1px solid " + (minutesOnly ? "var(--navy-900)" : "var(--border)"),
+              background: minutesOnly ? "var(--navy-900)" : "white",
+              color: minutesOnly ? "white" : "var(--ink-700)" }}>
+            {minutesOnly ? "✓ " : ""}Played minutes
+          </button>
           {mode === "all" && (
             <select value={ownerFilter} onChange={e => setOwnerFilter(e.target.value)} style={selStyle}>
               <option value="all">Any owner</option>
@@ -1381,6 +1430,44 @@ function FreeAgentsTab({ setToast }) {
                 const outg = eligibleDrops.find(s => String(s.id) === String(playerToDrop))
                   || window.PLAYER_MAP[String(playerToDrop)];
                 return outg ? <PickupCompare incoming={p} outgoing={outg} /> : null;
+              })()}
+
+              {/* Shortcut: drop the player straight into one of your existing
+                  same-position batches (he joins as its LAST IN priority) —
+                  no drop selection needed, the batch's OUT side already says
+                  who leaves. Only batches not already listing him qualify. */}
+              {(() => {
+                const flat = (window.MY_WISHLIST_BIDS || []).map(b => ({
+                  playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+                }));
+                const posName = POS_NAMES[p.pos];
+                const eligible = batchBidsJs(flat).map((b, i) => ({ b, i }))
+                  .filter(({ b }) => b.position === posName && b.ins.indexOf(_pid(p.id)) === -1);
+                if (!eligible.length) return null;
+                return (
+                  <div style={{ marginTop: 10 }}>
+                    <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 6 }}>
+                      Or add to an existing batch · no drop pick needed
+                    </div>
+                    <div className="col" style={{ gap: 6 }}>
+                      {eligible.map(({ b, i }) => (
+                        <button key={i} onClick={() => handleAddToBatch(p, i)}
+                          style={{ display: "flex", alignItems: "center", gap: 8, width: "100%", textAlign: "left",
+                            padding: "8px 12px", borderRadius: 8, border: "1px solid var(--border)",
+                            background: "white", cursor: "pointer", fontSize: 12 }}>
+                          <strong>Batch #{i + 1}</strong>
+                          <span className="pill pill--navy" style={{ fontSize: 9 }}>{b.position}</span>
+                          <span className="muted" style={{ fontSize: 11, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                            out: {b.outs.map(id => (window.PLAYER_MAP[String(id)] || {}).name || id).join(", ")}
+                          </span>
+                          <span className="muted" style={{ fontSize: 11, marginLeft: "auto", whiteSpace: "nowrap" }}>
+                            {b.ins.length} in · joins last
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
               })()}
 
               {/* Actions */}

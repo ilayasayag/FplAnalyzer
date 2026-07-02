@@ -599,13 +599,38 @@ function App() {
       // resolves name/group/flag/elimination for every nation.
       let leagueDetails = null;
       const normalizeIso = iso => (iso ? String(iso).toUpperCase() : "GER");
+      // PERF: fire the independent bootstrap GETs in parallel UP FRONT and let
+      // each block below await its own already-in-flight response. These used
+      // to run strictly one-after-another (~13 round-trips) — the grey
+      // "loading" gap after every action that reloads the page. Only the
+      // network overlaps; the PROCESSING order below is unchanged. The .catch
+      // sink keeps a failed prefetch from surfacing as an unhandled rejection
+      // — each consumer block rethrows into its own existing try/catch.
+      const _pre = (p) => p.catch(e => ({ __bootErr: e }));
+      const _take = async (p) => {
+        const r = await p;
+        if (r && r.__bootErr) throw r.__bootErr;
+        return r;
+      };
+      const PRE = {
+        gameweeks: window.__GW_LOADED__ ? null : _pre(apiCall("GET", "/gameweeks")),
+        league: _pre(apiCall("GET", `/leagues/${lid}`)),
+        teams: window.__TEAMS_LOADED__ ? null : _pre(apiCall("GET", "/teams")),
+        players: window.__PLAYERS_LOADED__ ? null : _pre(apiCall("GET", "/players")),
+        schedule: _pre(apiCall("GET", `/leagues/${lid}/schedule`)),
+        window: _pre(apiCall("GET", `/leagues/${lid}/transfer-window`)),
+        admin: _pre(apiCall("GET", "/me/admin")),
+        freeAgents: _pre(apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`)),
+        waivers: _pre(apiCall("GET", `/leagues/${lid}/waivers`)),
+        trades: _pre(apiCall("GET", `/leagues/${lid}/trades`)),
+      };
       try {
         // Fetch gameweeks — tournament-global, so load once per session. A
         // league switch or GW change must not re-pull (and risk a transient
         // failure on) data that never changes between leagues.
         if (!window.__GW_LOADED__)
         try {
-          const gws = await apiCall("GET", "/gameweeks");
+          const gws = await _take(PRE.gameweeks);
           if (gws && gws.length > 0) {
             window.__GW_LOADED__ = true;
             window.TOURNAMENT.gwDates = {};
@@ -642,7 +667,7 @@ function App() {
 
         // Fetch active league details
         try {
-          leagueDetails = await apiCall("GET", `/leagues/${lid}`);
+          leagueDetails = await _take(PRE.league);
           if (leagueDetails) {
             window.TOURNAMENT.currentGw = leagueDetails.currentGw || 1;
             window.TOURNAMENT.status = leagueDetails.status || "pre_draft";
@@ -724,7 +749,7 @@ function App() {
         // non-critical: teamById falls back to the static map.
         if (!window.__TEAMS_LOADED__)
         try {
-          const teams = await apiCall("GET", "/teams");
+          const teams = await _take(PRE.teams);
           if (teams && teams.length > 0) {
             window.__TEAMS_LOADED__ = true;
             const staticMap = (typeof TEAM_MAP !== "undefined") ? TEAM_MAP : {};
@@ -752,7 +777,7 @@ function App() {
         // Fetch players list — global pool, load once per session.
         if (!window.__PLAYERS_LOADED__)
         try {
-          const players = await apiCall("GET", "/players");
+          const players = await _take(PRE.players);
           if (players && players.length > 0) {
             window.__PLAYERS_LOADED__ = true;
             window.PLAYERS = players
@@ -839,7 +864,7 @@ function App() {
 
         // Fetch Schedule
         try {
-          const schedule = await apiCall("GET", `/leagues/${lid}/schedule`);
+          const schedule = await _take(PRE.schedule);
           if (schedule && schedule.schedule && schedule.schedule.length > 0) {
             window.SCHEDULE = {};
             schedule.schedule.forEach(g => {
@@ -988,7 +1013,7 @@ function App() {
         // stay populated for the existing banner copy; the ticking countdowns
         // (sidebar, Transfers, Pick Team) read `phaseEndsAt` via <Countdown>.
         try {
-          const winData = await apiCall("GET", `/leagues/${lid}/transfer-window`);
+          const winData = await _take(PRE.window);
           if (winData) {
             const endsAt = winData.phaseEndsAt || null;
             const endMs = endsAt ? Date.parse(endsAt) : NaN;
@@ -1023,7 +1048,7 @@ function App() {
 
         // Fetch admin flag (UI gating only — backend still enforces).
         try {
-          const adminRes = await apiCall("GET", "/me/admin");
+          const adminRes = await _take(PRE.admin);
           window.IS_ADMIN = !!(adminRes && adminRes.isAdmin);
           // Super-admin (Ilay) gates window control: the phase switcher + the
           // timed window-schedule editor. Backend enforces too.
@@ -1040,7 +1065,7 @@ function App() {
         // of the free agents. The backend now sorts best-first and returns
         // real stats (totalPoints / minutes / DefCon) for the pickers.
         try {
-          const fa = await apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`);
+          const fa = await _take(PRE.freeAgents);
           if (fa && fa.length > 0) {
             window.FREE_AGENTS = fa.map(p => ({
               id: String(p.id),
@@ -1064,7 +1089,7 @@ function App() {
 
         // Fetch active waivers
         try {
-          const wav = await apiCall("GET", `/leagues/${lid}/waivers`);
+          const wav = await _take(PRE.waivers);
           if (wav && wav.length > 0) {
             window.MY_WAIVERS = wav.map(w => ({
               id: w.waiverId || w.id,
@@ -1108,7 +1133,7 @@ function App() {
         // (TRADES_INBOX/TRADES_OUTBOX), i.e. the "Player zielinski / messi"
         // placeholder cards.
         try {
-          const trades = await apiCall("GET", `/leagues/${lid}/trades`);
+          const trades = await _take(PRE.trades);
           const fmtAgo = (ts) => {
             if (!ts) return "";
             const d = new Date(ts);
