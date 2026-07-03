@@ -766,7 +766,42 @@ function App() {
         freeAgents: _pre(apiCall("GET", `/leagues/${lid}/free-agents?limit=2000`)),
         waivers: _pre(apiCall("GET", `/leagues/${lid}/waivers`)),
         trades: _pre(apiCall("GET", `/leagues/${lid}/trades`)),
+        // Squad + own viewed-gw lineup were the tail of the sequential chain —
+        // their round-trips only STARTED after players/teams/knockout had
+        // processed, which is the 5-10s "Loading your squad…" on mobile. Both
+        // only need lid+ME, so they belong in the parallel wave. ("View as
+        // manager" uses a different lineup endpoint → block falls back to a
+        // fresh fetch in that rare admin case.)
+        mySquad: _pre(apiCall("GET", `/leagues/${lid}/squads/${window.ME}`)),
+        lineupOwn: (window.ME === window.__AUTH_UID)
+          ? _pre(apiCall("GET", `/leagues/${lid}/lineup/${viewingGw}`))
+          : null,
       };
+
+      // Start Pick Team's edit-lineup cache prefetch IMMEDIATELY (needs only
+      // lid+ME): its row is ready ~2 round-trips after page start instead of
+      // after the whole bootstrap chain. Fire-and-forget; stamped writes keep
+      // it safe against league switches.
+      (async () => {
+        const _elTag = `${lid}|${window.ME}`;
+        try {
+          WCStore.loading("editLineup", _elTag);
+          const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
+          const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+          const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
+          WCStore.set("editLineup", {
+            gw,
+            lineup: (lu && Array.isArray(lu.starting) && lu.starting.length) ? {
+              starting: lu.starting.map(String),
+              bench: (lu.bench || []).map(String),
+              formation: lu.formation || [1, 4, 4, 2],
+              autoSubs: lu.autoSubsMade || [],
+            } : null,
+          }, _elTag);
+        } catch (e) {
+          console.warn("edit-lineup prefetch failed (Pick Team will fetch on open)", e);
+        }
+      })();
       try {
         // Fetch gameweeks — tournament-global, so load once per session. A
         // league switch or GW change must not re-pull (and risk a transient
@@ -1047,9 +1082,9 @@ function App() {
           if (!window.WC_FIXTURES_BY_TEAM) window.WC_FIXTURES_BY_TEAM = {};
         }
 
-        // Fetch my Squad
+        // Fetch my Squad (already in flight since the PRE wave)
         try {
-          const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
+          const squad = await _take(PRE.mySquad);
           const ids = (squad && squad.players && squad.players.length > 0)
             ? squad.players.map(p => String(p.playerId))
             : [];  // No squad yet (draft not complete). Don't show the mock squad.
@@ -1117,9 +1152,18 @@ function App() {
           // one failed GET used to fall through to _lineupFromSquad() — a
           // DEFAULT squad-ordered XI that masquerades as the saved lineup (the
           // "Points shows my old squad" bug). Retrying resolves to the real one.
-          const _fetchLineup = () => apiCall("GET", _ownLineup
-            ? `/leagues/${lid}/lineup/${viewingGw}`
-            : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
+          // First attempt rides the PRE wave (own lineup, already in flight);
+          // retries and the view-as-manager case fetch fresh.
+          let _preLineupUsed = false;
+          const _fetchLineup = () => {
+            if (_ownLineup && PRE.lineupOwn && !_preLineupUsed) {
+              _preLineupUsed = true;
+              return _take(PRE.lineupOwn);
+            }
+            return apiCall("GET", _ownLineup
+              ? `/leagues/${lid}/lineup/${viewingGw}`
+              : `/leagues/${lid}/lineup/${window.ME}/${viewingGw}`);
+          };
           let lineup = null, _lastErr = null;
           const _attempts = _ownLineup ? 3 : 1;
           for (let _a = 0; _a < _attempts; _a++) {
@@ -1160,32 +1204,8 @@ function App() {
         // "no squad" result). Reveal the Pick Team squad area.
         setSquadLoaded(true);
 
-        // Prefetch the EDIT-GW lineup for Pick Team into the store (a
-        // stale-while-revalidate cache): the tab renders instantly from this
-        // row instead of holding its skeleton through /edit-gw + /lineup
-        // round-trips on every visit. Fire-and-forget — must not delay the
-        // rest of the bootstrap chain. lineup:null = "no saved lineup yet";
-        // the consumer carries the squad forward.
-        (async () => {
-          const _elTag = `${lid}|${window.ME}`;
-          try {
-            WCStore.loading("editLineup", _elTag);
-            const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
-            const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
-            const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
-            WCStore.set("editLineup", {
-              gw,
-              lineup: (lu && Array.isArray(lu.starting) && lu.starting.length) ? {
-                starting: lu.starting.map(String),
-                bench: (lu.bench || []).map(String),
-                formation: lu.formation || [1, 4, 4, 2],
-                autoSubs: lu.autoSubsMade || [],
-              } : null,
-            }, _elTag);
-          } catch (e) {
-            console.warn("edit-lineup prefetch failed (Pick Team will fetch on open)", e);
-          }
-        })();
+        // (Pick Team's edit-lineup prefetch fires at the TOP of this effect,
+        // in the parallel wave next to PRE — see above.)
 
         // Fetch transfer window. The endpoint now returns the real-clock
         // boundaries (phaseEndsAt / nextPhase / schedule) so we derive a live
