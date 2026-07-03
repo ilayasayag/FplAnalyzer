@@ -556,53 +556,79 @@ function PointsListView({ lineup, statsById = {} }) {
 // ---------- PICK TEAM ----------
 function usePickTeamScreen() {
   const isMobile = useIsMobile();
-  const { viewingGw } = useAppCtx();
   const [view, setView] = React.useState("pitch");
-  const [lineup, setLineup] = React.useState(MY_LINEUP);
+  // null = the edit-GW lineup hasn't resolved yet → PickTeamScreen stays on
+  // its skeleton gate. Pick Team's lineup is sourced ONLY from the edit-GW
+  // fetch below. It must NEVER track the VIEWED (Points) lineup: the old
+  // useEffect that synced window.MY_LINEUP into this state clobbered the
+  // edit lineup whenever the viewed gw's doc landed late (with the parallel
+  // bootstrap that became the common case) — "Pick Team shows the Points XI
+  // until you leave and come back".
+  const [lineup, setLineup] = React.useState(null);
   const [selected, setSelected] = React.useState(null);
   const [toast, setToast] = React.useState(null);
   // The GW we EDIT = the earliest unlocked GW (GW2 while GW1 is live/locked),
   // resolved from the backend so we never edit a frozen, already-scored GW.
   const [editGw, setEditGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
+  const squadRow = useStoreRow("mySquad");
 
-  React.useEffect(() => {
-    if (MY_LINEUP) {
-      setLineup(MY_LINEUP);
-    }
-  }, [MY_LINEUP]);
-
-  // Resolve the editable GW and load ITS lineup (carries the current squad
-  // forward when that GW has no saved lineup yet). Independent of the Points
-  // tab's viewing GW, so editing GW2 never disturbs the locked GW1 view.
+  // Resolve the editable GW and ALWAYS load its own lineup (the auth
+  // endpoint — Pick Team edits YOUR team, whatever gw Points is viewing).
+  // When that GW has no saved lineup yet, genuinely carry the CURRENT squad
+  // forward (the old code's comment promised this but its no-save branch did
+  // nothing, leaving stale state on screen). Waits for the real squad row so
+  // the carry-forward can never derive from an empty/stale roster; the
+  // same-tag store semantics keep the row "ready" across gw navigation, so
+  // this does NOT re-run — and thus never resets your edits — when the user
+  // flips the viewed GW.
   React.useEffect(() => {
     const lid = window.LEAGUE && window.LEAGUE.id;
-    if (!lid) return;
+    if (!lid || squadRow.status !== "ready") return;
     let cancelled = false;
     (async () => {
+      let gw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
       try {
         const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
-        const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
-        if (cancelled) return;
-        setEditGw(gw);
-        const curViewing = viewingGw || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
-        if (gw !== curViewing) {
-          const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
-          if (cancelled) return;
-          if (lu && Array.isArray(lu.starting) && lu.starting.length) {
-            setLineup({
-              starting: lu.starting.map(String),
-              bench: (lu.bench || []).map(String),
-              formation: lu.formation || [1, 4, 4, 2],
-              autoSubs: lu.autoSubsMade || [],
-            });
-          }
-        }
+        gw = (eg && eg.editGw) || gw;
       } catch (e) {
         console.warn("edit-gw resolve failed; editing current GW", e);
       }
+      if (cancelled) return;
+      setEditGw(gw);
+      const fromSquad = () => {
+        const byPos = { 1: [], 2: [], 3: [], 4: [] };
+        (squadRow.value || []).forEach(id => {
+          const p = playerById(id);
+          if (p && byPos[p.pos]) byPos[p.pos].push(String(id));
+        });
+        const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
+        return {
+          starting: [...byPos[1].slice(0, 1), ...byPos[2].slice(0, nd), ...byPos[3].slice(0, nm), ...byPos[4].slice(0, nf)],
+          bench: [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)],
+          formation: [1, nd, nm, nf],
+          autoSubs: [],
+        };
+      };
+      try {
+        const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
+        if (cancelled) return;
+        if (lu && Array.isArray(lu.starting) && lu.starting.length) {
+          setLineup({
+            starting: lu.starting.map(String),
+            bench: (lu.bench || []).map(String),
+            formation: lu.formation || [1, 4, 4, 2],
+            autoSubs: lu.autoSubsMade || [],
+          });
+        } else {
+          setLineup(fromSquad());
+        }
+      } catch (e) {
+        console.warn(`lineup fetch failed for edit GW${gw}; carrying squad forward`, e);
+        if (!cancelled) setLineup(fromSquad());
+      }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [squadRow.status]);
 
   // Player cards must show opponents for the GW being EDITED (the one in
   // "Save Lineup for GWX"), not the viewed GW. Fetch that round's per-team
@@ -738,10 +764,10 @@ function usePickTeamScreen() {
 function PickTeamScreen({ onTab, squadLoading }) {
   const { isMobile, view, setView, lineup, setLineup, selected, toast, setToast, editGw, handleSaveLineup, handlePlayerClick } = usePickTeamScreen();
 
-  // While an authenticated user's real squad is still loading, show a
-  // lightweight skeleton instead of the data.jsx demo squad (which would
-  // otherwise flash before /squads/me resolves and overwrites the globals).
-  if (squadLoading) {
+  // While an authenticated user's real squad is still loading — or the edit
+  // GW's own lineup hasn't resolved yet (lineup === null) — show a skeleton.
+  // Nothing but the edit-GW lineup itself may ever render on this screen.
+  if (squadLoading || !lineup) {
     return (
       <div className="col" style={{ gap: 16 }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>My Team</h2>
