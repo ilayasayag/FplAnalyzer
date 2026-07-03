@@ -1160,6 +1160,33 @@ function App() {
         // "no squad" result). Reveal the Pick Team squad area.
         setSquadLoaded(true);
 
+        // Prefetch the EDIT-GW lineup for Pick Team into the store (a
+        // stale-while-revalidate cache): the tab renders instantly from this
+        // row instead of holding its skeleton through /edit-gw + /lineup
+        // round-trips on every visit. Fire-and-forget — must not delay the
+        // rest of the bootstrap chain. lineup:null = "no saved lineup yet";
+        // the consumer carries the squad forward.
+        (async () => {
+          const _elTag = `${lid}|${window.ME}`;
+          try {
+            WCStore.loading("editLineup", _elTag);
+            const eg = await apiCall("GET", `/leagues/${lid}/edit-gw`);
+            const gw = (eg && eg.editGw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
+            const lu = await apiCall("GET", `/leagues/${lid}/lineup/${gw}`);
+            WCStore.set("editLineup", {
+              gw,
+              lineup: (lu && Array.isArray(lu.starting) && lu.starting.length) ? {
+                starting: lu.starting.map(String),
+                bench: (lu.bench || []).map(String),
+                formation: lu.formation || [1, 4, 4, 2],
+                autoSubs: lu.autoSubsMade || [],
+              } : null,
+            }, _elTag);
+          } catch (e) {
+            console.warn("edit-lineup prefetch failed (Pick Team will fetch on open)", e);
+          }
+        })();
+
         // Fetch transfer window. The endpoint now returns the real-clock
         // boundaries (phaseEndsAt / nextPhase / schedule) so we derive a live
         // countdown instead of the old hardcoded "36h". `closesAt` / `hoursLeft`
