@@ -114,7 +114,7 @@ function AdminWindowSwitcher() {
 }
 
 // ---------- STATUS / Dashboard ----------
-function StatusScreen({ onTab }) {
+function useStatusScreen() {
   const isMobile = useIsMobile();
   // Store-backed (#51): the hero numbers subscribe to WCStore rows instead of
   // reading raw globals. While a row is loading we render a skeleton — NEVER
@@ -125,19 +125,18 @@ function StatusScreen({ onTab }) {
   const standingsLoading = standingsRow.status !== "ready";
   const _standings = standingsRow.status === "ready" ? (standingsRow.value || []) : [];
   const myStanding = _standings.find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
-  const top5 = _standings.slice(0, 8);
 
   const rounds = BRACKET.rounds || BRACKET || {};
   const qfArray = Array.isArray(rounds.qf) ? rounds.qf : [];
   const sfArray = Array.isArray(rounds.sf) ? rounds.sf : [];
-  const finalArray = Array.isArray(rounds.final) 
-    ? rounds.final 
+  const finalArray = Array.isArray(rounds.final)
+    ? rounds.final
     : (rounds.final && typeof rounds.final === 'object' ? [rounds.final] : []);
 
   const myMatch = qfArray.find(m => m.home === window.ME || m.away === window.ME) ||
                   sfArray.find(m => m.home === window.ME || m.away === window.ME) ||
                   finalArray.find(m => m.home === window.ME || m.away === window.ME);
-  
+
   const myOpponent = myMatch ? (myMatch.home === window.ME ? (myMatch.away ? managerById(myMatch.away) : null) : (myMatch.home ? managerById(myMatch.home) : null)) : null;
   const mySeedObj = (BRACKET.seeds || []).find(s => s.uid === window.ME);
   const mySeed = mySeedObj ? mySeedObj.seed : (myStanding ? myStanding.rank : "?");
@@ -172,6 +171,12 @@ function StatusScreen({ onTab }) {
   };
 
   const hasLeague = LEAGUE && LEAGUE.inviteCode;
+
+  return { isMobile, standingsLoading, myStanding, myMatch, myOpponent, mySeed, getRoundName, getRoundPhase, currentGw, viewingGw, setViewingGw, gwPoints, getOrdinal, hasLeague };
+}
+
+function StatusScreen({ onTab }) {
+  const { isMobile, standingsLoading, myStanding, myMatch, myOpponent, mySeed, getRoundName, getRoundPhase, currentGw, viewingGw, setViewingGw, gwPoints, getOrdinal, hasLeague } = useStatusScreen();
 
   return (
     <div className="col" style={{ gap: 20 }}>
