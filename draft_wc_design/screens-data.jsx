@@ -3,7 +3,7 @@
 // =====================================================================
 
 // ---------- PLAYER BROWSER ----------
-function PlayerBrowserScreen() {
+function usePlayerBrowserScreen() {
   const [search, setSearch] = React.useState("");
   const [pos, setPos] = React.useState("all");
   const [grp, setGrp] = React.useState("all");
@@ -12,10 +12,6 @@ function PlayerBrowserScreen() {
   const [sort, setSort] = React.useState("pts");
   const isMobile = useIsMobile();
 
-  // Squad ownership map: playerId -> owning manager uid, across ALL managers.
-  // app.jsx preloads window.SQUADS_BY_UID from the per-manager squad endpoint;
-  // without it, only ME's squad would be known and every other manager's
-  // players (e.g. Haaland) would wrongly render as free agents.
   const owners = {};
   const squadsByUid = window.SQUADS_BY_UID || {};
   const activeManagers = window.MANAGERS || MANAGERS;
@@ -26,8 +22,6 @@ function PlayerBrowserScreen() {
 
   const activePlayers = window.PLAYERS || PLAYERS;
 
-  // Distinct nations actually present in the loaded dataset — drives the
-  // Nation filter and doubles as a data-completeness check (48 = full DB).
   const nationCounts = {};
   activePlayers.forEach(p => { nationCounts[p.team] = (nationCounts[p.team] || 0) + 1; });
   const nationOptions = Object.keys(nationCounts)
@@ -52,6 +46,11 @@ function PlayerBrowserScreen() {
     if (sort === "name") return a.name.localeCompare(b.name);
     return 0;
   });
+
+  return { search, setSearch, pos, setPos, grp, setGrp, nation, setNation, owned, setOwned, sort, setSort, isMobile, owners, nationOptions, distinctNations, filtered };
+}
+function PlayerBrowserScreen() {
+  const { search, setSearch, pos, setPos, grp, setGrp, nation, setNation, owned, setOwned, sort, setSort, isMobile, owners, nationOptions, distinctNations, filtered } = usePlayerBrowserScreen();
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -360,7 +359,7 @@ function WCBracketMatch({ m }) {
   );
 }
 
-function WCBracketView() {
+function useWCBracketView() {
   const [data, setData] = React.useState(null);
   const [err, setErr] = React.useState(false);
   React.useEffect(() => {
@@ -370,6 +369,10 @@ function WCBracketView() {
       .catch(() => { if (!cancelled) setErr(true); });
     return () => { cancelled = true; };
   }, []);
+  return { data, err };
+}
+function WCBracketView() {
+  const { data, err } = useWCBracketView();
   if (err) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Bracket unavailable right now.</div>;
   if (!data) return <div className="muted" style={{ padding: "12px 0", color: "rgba(255,255,255,0.6)" }}>Loading bracket…</div>;
   const rounds = wcCanonicalize(data.rounds || {});
@@ -406,18 +409,13 @@ function WCBracketView() {
   );
 }
 
-function FixturesScreen() {
-  // Default to the tournament's REAL current GW (mock-era code hardcoded 4).
+function useFixturesScreen() {
   const [gw, setGw] = React.useState((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
   const isKnockout = ((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1) >= 4;
   const [view, setView] = React.useState(isKnockout ? "bracket" : "list");
-  const [fetched, setFetched] = React.useState(null); // null = not loaded yet
+  const [fetched, setFetched] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const isMobile = useIsMobile();
-  const round = TOURNAMENT.gwDates[gw];
-
-  // Secret: single-click the GW-bar dot opens the score-pool EV picks.
-  // Self-contained; no league data touched.
   const [picksOpen, setPicksOpen] = React.useState(false);
   const openPicks = (e) => { if (e) { e.preventDefault(); e.stopPropagation(); } setPicksOpen(true); };
 
@@ -434,18 +432,21 @@ function FixturesScreen() {
       .catch(e => {
         if (cancelled) return;
         console.warn("Fixtures fetch failed for gw", gw, e);
-        setFetched(null); // fall back to static
+        setFetched(null);
         setLoading(false);
       });
     return () => { cancelled = true; };
   }, [gw]);
 
-  // Use live fixtures once loaded; otherwise the static GW4 round as a
-  // placeholder (only meaningful for GW4, but harmless elsewhere while loading).
   const fixtures = fetched != null ? fetched : WC_FIXTURES_GW4;
-
   const byDay = {};
   fixtures.forEach(f => { (byDay[f.day] ||= []).push(f); });
+
+  return { gw, setGw, isKnockout, view, setView, fetched, loading, isMobile, picksOpen, setPicksOpen, openPicks, fixtures, byDay };
+}
+function FixturesScreen() {
+  const { gw, setGw, isKnockout, view, setView, fetched, loading, isMobile, picksOpen, setPicksOpen, openPicks, fixtures, byDay } = useFixturesScreen();
+  const round = TOURNAMENT.gwDates[gw];
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -568,11 +569,13 @@ function FixturesScreen() {
 
 
 // ---------- LEAGUE STANDINGS ----------
-function LeagueScreen({ onTab }) {
+function useLeagueScreen() {
   const [tab, setTab] = React.useState("standings");
   const isMobile = useIsMobile();
-  // Phase pill derives from the league config, not a hardcoded "Knockout
-  // Phase" (same derivation as the shell identity card).
+  return { tab, setTab, isMobile };
+}
+function LeagueScreen({ onTab }) {
+  const { tab, setTab, isMobile } = useLeagueScreen();
   const league = window.LEAGUE || LEAGUE;
   const curGw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
   const inKnockout = league.knockoutStartGw != null && league.knockoutStartGw <= curGw;
@@ -608,16 +611,10 @@ function LeagueScreen({ onTab }) {
   );
 }
 
-function StandingsTable({ onTab }) {
-  // Live standings: the backend composes a LIVE overlay mid-GW (live:true +
-  // updatedAt) so the table is never empty for an active league. Poll every
-  // 60s while the tab is mounted; window.STANDINGS (app.jsx's one-shot fetch)
-  // remains the instant first paint until our own fetch lands.
+function useStandingsTable() {
   const [liveData, setLiveData] = React.useState(null);
-  const [sortBy, setSortBy] = React.useState("fpts"); // "fpts" (default) | "hpts" — client-side only
-  const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
-  // Read the league id at render time so the effect (re)starts once app.jsx's
-  // league fetch lands (it force-updates the tree; [] deps would never rerun).
+  const [sortBy, setSortBy] = React.useState("fpts");
+  const [squadModal, setSquadModal] = React.useState(null);
   const lid = window.LEAGUE && window.LEAGUE.id;
   React.useEffect(() => {
     if (!lid) return;
@@ -625,7 +622,7 @@ function StandingsTable({ onTab }) {
     const load = () => {
       apiCall("GET", `/leagues/${lid}/standings`)
         .then(d => { if (!cancelled && d && Array.isArray(d.managers)) setLiveData(d); })
-        .catch(() => { /* keep the last good table on a transient blip */ });
+        .catch(() => {});
     };
     load();
     const timer = setInterval(load, 60000);
@@ -652,15 +649,14 @@ function StandingsTable({ onTab }) {
       : (a, b) => ((b.fpts || 0) - (a.fpts || 0)) || ((b.hpts || 0) - (a.hpts || 0)));
     return arr;
   }, [baseRows, sortBy]);
-  // "This GW" = the league's current gameweek. The modal shows real per-player
-  // points if that GW is finalised, otherwise the manager's current squad with
-  // dashes (mid-GW / not yet played).
   const viewGw = (window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1;
-  // The qualification cut + round name come from the league config, not a
-  // hardcoded "Top 8 / Quarter-Finals" (#48): a league can qualify any N.
   const qualifiers = (window.LEAGUE && window.LEAGUE.knockoutQualifiers) || 8;
   const ROUND_BY_QUALS = { 32: "Round of 32", 16: "Round of 16", 8: "Quarter-Finals", 4: "Semi-Finals", 2: "Final" };
   const roundName = ROUND_BY_QUALS[qualifiers] || "the Knockouts";
+  return { liveData, sortBy, setSortBy, squadModal, setSquadModal, isLive, updatedLabel, rows, viewGw, qualifiers, roundName };
+}
+function StandingsTable({ onTab }) {
+  const { liveData, sortBy, setSortBy, squadModal, setSquadModal, isLive, updatedLabel, rows, viewGw, qualifiers, roundName } = useStandingsTable();
   return (
     <div className="card" style={{ overflow: "hidden" }}>
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
@@ -776,10 +772,14 @@ function StandingsTable({ onTab }) {
   );
 }
 
-function ScheduleTable() {
-  const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
-  const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
+function useScheduleTable() {
+  const [squadModal, setSquadModal] = React.useState(null);
   const isMobile = useIsMobile();
+  return { squadModal, setSquadModal, isMobile };
+}
+function ScheduleTable() {
+  const { squadModal, setSquadModal, isMobile } = useScheduleTable();
+  const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
   return (
     <div className="card">
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
@@ -828,9 +828,13 @@ function ScheduleTable() {
   );
 }
 
-function ResultsTable() {
+function useResultsTable() {
   const [squadModal, setSquadModal] = React.useState(null);
   const isMobile = useIsMobile();
+  return { squadModal, setSquadModal, isMobile };
+}
+function ResultsTable() {
+  const { squadModal, setSquadModal, isMobile } = useResultsTable();
   return (
     <div className="card" style={{ padding: 20 }}>
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
@@ -862,11 +866,9 @@ function ResultsTable() {
 
 
 // ---------- TRADES ----------
-function TradesScreen() {
+function useTradesScreen() {
   const [tab, setTab] = React.useState("inbox");
   const [showPropose, setShowPropose] = React.useState(false);
-  // Seed set when the user clicks "Trade" on a player in the Transfers table:
-  // { targetUid, receiveId } pre-targets that manager + pre-ticks the player.
   const [seed, setSeed] = React.useState(null);
   React.useEffect(() => {
     const s = window.__TRADE_SEED;
@@ -875,14 +877,14 @@ function TradesScreen() {
   const isMobile = useIsMobile();
   const inbox = window.TRADES_INBOX || TRADES_INBOX;
   const outbox = window.TRADES_OUTBOX || TRADES_OUTBOX;
-  // Manager↔manager trades open in the TRADE window AND the gameweek
-  // (NEXT_GW_BID) window. In the gameweek window a proposal is a BID — it queues
-  // up and, when the trade window opens, becomes a pending offer the other
-  // manager must accept. It never executes on its own.
   const phase = (window.WINDOW && window.WINDOW.phase) || "none";
   const isBidWindow = phase === "next_gw_bid";
   const tradesOpen = phase === "trade" || isBidWindow;
   const phaseLabel = { free_agents: "free-agents window", none: "closed window" }[phase] || "this window";
+  return { tab, setTab, showPropose, setShowPropose, seed, setSeed, isMobile, inbox, outbox, isBidWindow, tradesOpen, phaseLabel };
+}
+function TradesScreen() {
+  const { tab, setTab, showPropose, setShowPropose, seed, setSeed, isMobile, inbox, outbox, isBidWindow, tradesOpen, phaseLabel } = useTradesScreen();
   return (
     <div className="col" style={{ gap: 16 }}>
       {showPropose && tradesOpen && <ProposeTradeModal isBid={isBidWindow} initialTargetUid={seed?.targetUid} initialReceiveId={seed?.receiveId} onClose={() => { setShowPropose(false); setSeed(null); }} />}
@@ -936,13 +938,9 @@ function TradesScreen() {
   );
 }
 
-function TradeCard({ trade, direction }) {
-  const proposer = managerById(trade.proposer);
-  const target = managerById(trade.target);
-  const isIncoming = direction === "inbox";
+function useTradeCard({ trade }) {
   const [busy, setBusy] = React.useState(false);
   const isMobile = useIsMobile();
-
   const act = async (kind) => {
     if (busy) return;
     if (kind === "cancel" && !window.confirm("Cancel this trade offer?")) return;
@@ -960,6 +958,13 @@ function TradeCard({ trade, direction }) {
       setBusy(false);
     }
   };
+  return { busy, isMobile, act };
+}
+function TradeCard({ trade, direction }) {
+  const { busy, isMobile, act } = useTradeCard({ trade });
+  const proposer = managerById(trade.proposer);
+  const target = managerById(trade.target);
+  const isIncoming = direction === "inbox";
 
   return (
     <div className="card" style={{ padding: 0, overflow: "hidden" }}>
@@ -1044,18 +1049,11 @@ function TradeCard({ trade, direction }) {
 }
 
 // ---------- MANAGER SQUAD MODAL ----------
-function ManagerSquadModal({ uid, gw, onClose }) {
-  const m = managerById(uid);
+function useManagerSquadModal({ uid, gw, onClose }) {
   const isMobile = useIsMobile();
-  // Per-GW breakdown from the immutable gw_history snapshot — the SAME source the
-  // Points panel uses. It carries the frozen squad that was actually fielded for
-  // this GW, each player's points FOR THIS GW, and the authoritative total. This
-  // replaces the old GW3-only / season-total (GW_POINTS) logic, so the league
-  // modal now shows real per-player points for any finished GW (#53), never a
-  // season total (#52-class), and never the post-transfer squad (#50-class).
-  const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot
+  const [snap, setSnap] = React.useState(undefined);
   const [fallbackIds, setFallbackIds] = React.useState(null);
-  const [lineupsHidden, setLineupsHidden] = React.useState(false); // 403: pre-lock, not my squad
+  const [lineupsHidden, setLineupsHidden] = React.useState(false);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -1073,13 +1071,11 @@ function ManagerSquadModal({ uid, gw, onClose }) {
       .then(s => {
         if (cancelled) return;
         if (s && Array.isArray(s.players) && s.players.length) { setSnap(s); }
-        else { setSnap(null); loadCurrentSquad(); }   // GW not finalized yet → show current squad, dashes
+        else { setSnap(null); loadCurrentSquad(); }
       })
       .catch(err => {
         if (cancelled) return;
         setSnap(null);
-        // Pre-lock privacy: another manager's lineup is hidden until it locks
-        // (backend 403) — show the notice instead of falling back to a list.
         if (err && err.status === 403) { setLineupsHidden(true); return; }
         loadCurrentSquad();
       });
@@ -1092,8 +1088,6 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     return () => window.removeEventListener("keydown", k);
   }, []);
 
-  // Resolve the player-id list + points map: prefer the frozen snapshot, else the
-  // live squad (current/unplayed GW). `players === null` means still loading.
   const hasSnap = !!snap;
   const pointsMap = {};
   let players = null;
@@ -1104,12 +1098,9 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     if (!players.length) players = snap.players.map(pl => String(pl.id));
     managerTotal = snap.totalPoints != null ? snap.totalPoints : "—";
   } else if (snap === null) {
-    players = lineupsHidden ? [] : fallbackIds; // null while the fallback squad loads
+    players = lineupsHidden ? [] : fallbackIds;
   }
 
-  // Pitch lineup for a snapshot (finalized or live-locked GW): order the
-  // starting XI GK→DEF→MID→FWD and derive the formation from the players' real
-  // positions — the same transform PointsScreen applies to its snapshot.
   const pitchLineup = React.useMemo(() => {
     if (!snap) return null;
     const ids = (snap.players || []).map(pl => pl.id);
@@ -1127,7 +1118,6 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     return { starting: ordered, bench, formation };
   }, [snap]);
 
-  // Group by position
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
   if (players) {
     players.forEach(rawId => {
@@ -1137,9 +1127,13 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     });
   }
 
-  // Snapshot present → real per-GW points (0 if the player didn't feature);
-  // no snapshot (unplayed GW) → dash.
   const getGwPts = (p) => hasSnap ? (pointsMap[String(p.id)] ?? 0) : "—";
+
+  return { isMobile, snap, hasSnap, fallbackIds, lineupsHidden, players, managerTotal, pitchLineup, byPos, getGwPts, pointsMap };
+}
+function ManagerSquadModal({ uid, gw, onClose }) {
+  const { isMobile, snap, hasSnap, lineupsHidden, players, managerTotal, pitchLineup, byPos, getGwPts, pointsMap } = useManagerSquadModal({ uid, gw, onClose });
+  const m = managerById(uid);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
@@ -1217,15 +1211,11 @@ function ManagerSquadModal({ uid, gw, onClose }) {
 
 
 // ---------- PROPOSE TRADE MODAL ----------
-function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId }) {
+function useProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId }) {
   const [step, setStep] = React.useState(1);
   const [targetUid, setTargetUid] = React.useState(null);
   const [theirPlayers, setTheirPlayers] = React.useState(null);
   const [mySelected, setMySelected] = React.useState(new Set());
-  // Pre-tick the player the user clicked "Trade" on (the one they want to
-  // receive). Seed the player object's OWN id (single canonical form) — the same
-  // value toggleTheir/countByPos use. Seeding two forms double-counts the player
-  // in countByPos and breaks position validation.
   const [theirSelected, setTheirSelected] = React.useState(() => {
     if (initialReceiveId == null) return new Set();
     const p = playerById(Number(initialReceiveId)) || playerById(String(initialReceiveId));
@@ -1274,7 +1264,6 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
     try {
       const lid = window.LEAGUE.id;
       const res = await apiCall("GET", `/leagues/${lid}/squads/${uid}`);
-      // API returns players as [{playerId, position, ...}] — normalize to string IDs
       setTheirPlayers((res.players || []).map(p => String(p.playerId)));
     } catch (e) {
       setTheirPlayers([]);
@@ -1307,9 +1296,6 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
         ? "Bid placed! When the trade window opens it becomes a pending offer the other manager must accept — it won't go through without their OK. You can cancel it any time before then."
         : "Trade proposal sent! Awaiting their response.");
       onClose();
-      // Refetch so the new trade appears in the proposer's outbox (and the
-      // target's inbox). Mirrors TradeCard.act — there's no standalone
-      // trades-loader to call, so a reload is the reliable refresh here.
       window.location.reload();
     } catch (err) {
       alert("Trade failed: " + (err.error || err.detail || JSON.stringify(err)));
@@ -1324,13 +1310,24 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
     return () => window.removeEventListener("keydown", k);
   }, []);
 
-  // Seeded from the Transfers "Trade" button: jump straight to step 2 with the
-  // chosen manager's squad loaded (the player is already ticked via state init).
   React.useEffect(() => {
     if (initialTargetUid) handleSelectManager(initialTargetUid);
   }, []);
 
   const targetMgr = targetUid ? managerById(targetUid) : null;
+
+  return {
+    step, setStep, theirPlayers, mySelected, theirSelected,
+    submitting, isMobile, managers, mySquad, theirSquad,
+    posValid, validationMsg, handleSelectManager, toggleMy, toggleTheir, handleSubmit, targetMgr,
+  };
+}
+function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId }) {
+  const {
+    step, setStep, theirPlayers, mySelected, theirSelected,
+    submitting, isMobile, managers, mySquad, theirSquad,
+    posValid, validationMsg, handleSelectManager, toggleMy, toggleTheir, handleSubmit, targetMgr,
+  } = useProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId });
 
   const renderPlayerRow = (p, selected, onToggle, side) => {
     const t = teamById(p.team);
@@ -1473,22 +1470,16 @@ function ProposeTradeModal({ onClose, isBid, initialTargetUid, initialReceiveId 
 
 
 // ---------- Scoring Audit (read-only, everyone) ----------
-// Live reconciliation of the league scoring model: for every scored player we
-// compare FIFA's live round total − the (capped) scouting bonus + our DefCon to
-// the total we actually stored. Pure transparency — nothing here is editable.
-function ScoreAuditScreen() {
-  // Lazy: nothing is fetched until the user picks a scope and hits Run, so the
-  // heavy whole-pool scan only happens on demand.
-  const [mode, setMode] = React.useState("player");   // "player" | "nation" | "all"
-  const [view, setView] = React.useState("players");  // table tab (players|nations)
+function useScoreAuditScreen() {
+  const [mode, setMode] = React.useState("player");
+  const [view, setView] = React.useState("players");
   const [nationIso, setNationIso] = React.useState("");
   const [pquery, setPquery] = React.useState("");
-  const [picked, setPicked] = React.useState(null);   // {id, name} for player mode
+  const [picked, setPicked] = React.useState(null);
   const [data, setData] = React.useState(null);
   const [loading, setLoading] = React.useState(false);
   const [err, setErr] = React.useState(false);
 
-  // Nation list from the loaded teams (fallback: derive from the player pool).
   const nations = React.useMemo(() => {
     const teams = window.TEAMS || [];
     if (teams.length) return [...teams].map(t => ({ iso: t.id, name: t.name })).sort((a, b) => a.name.localeCompare(b.name));
@@ -1496,6 +1487,7 @@ function ScoreAuditScreen() {
     (window.PLAYERS || []).forEach(p => { if (p.team) seen[p.team] = p.teamName || p.team; });
     return Object.entries(seen).map(([iso, name]) => ({ iso, name })).sort((a, b) => a.name.localeCompare(b.name));
   }, []);
+
   const q = pquery.trim().toLowerCase();
   const pmatches = !q ? [] : (window.PLAYERS || [])
     .filter(p => (p.name || "").toLowerCase().includes(q) || (p.club || "").toLowerCase().includes(q))
@@ -1515,12 +1507,26 @@ function ScoreAuditScreen() {
     else if (mode === "all") run("?scope=all");
   };
   const openPlayer = (pid) => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(pid) } }));
+  const rows = data ? (view === "players" ? data.players : data.byNation) : [];
+
+  return {
+    mode, setMode, view, setView, nationIso, setNationIso, pquery, setPquery,
+    picked, setPicked, data, loading, err, nations, pmatches, canRun, doRun, openPlayer, rows,
+  };
+}
+// Live reconciliation of the league scoring model: for every scored player we
+// compare FIFA's live round total − the (capped) scouting bonus + our DefCon to
+// the total we actually stored. Pure transparency — nothing here is editable.
+function ScoreAuditScreen() {
+  const {
+    mode, setMode, view, setView, nationIso, setNationIso, pquery, setPquery,
+    picked, setPicked, data, loading, err, nations, pmatches, canRun, doRun, openPlayer, rows,
+  } = useScoreAuditScreen();
 
   const num = { textAlign: "right", fontFamily: "var(--font-num)" };
   const th = { padding: "8px 10px", fontSize: 11, textTransform: "uppercase", letterSpacing: "0.04em", color: "var(--ink-500)" };
   const selStyle = { padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
   const Cell = ({ children, style }) => <td style={{ padding: "9px 10px", ...style }}>{children}</td>;
-  const rows = data ? (view === "players" ? data.players : data.byNation) : [];
 
   return (
     <div className="col" style={{ gap: 16 }}>
