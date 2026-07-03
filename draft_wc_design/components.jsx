@@ -100,6 +100,12 @@ function GroupChip({ group }) {
 // A nation-colored shirt SVG, sized to fit a 56×56 box.
 // Uses primary flag colour with secondary stripe.
 function Jersey({ team, pos = 3, eliminated = false }) {
+  // Unique-per-instance gradient id — declared before any early return so the
+  // hook order is stable (the kit-image branch below returns early). Fixes the
+  // duplicate-SVG-id collision that gave the wrong fill to a second same-team,
+  // same-position jersey on the pitch (#133).
+  const gradId = "g" + React.useId().replace(/:/g, "");
+
   if (!team) team = { flag: ["#888", "#888", "#888"] };
 
   // Real kit image (FIFA WC fantasy renders), keyed by the same ISO code the
@@ -133,7 +139,7 @@ function Jersey({ team, pos = 3, eliminated = false }) {
   return (
     <svg viewBox="0 0 60 60" xmlns="http://www.w3.org/2000/svg">
       <defs>
-        <linearGradient id={`g-${team.id}-${pos}`} x1="0" y1="0" x2="0" y2="1">
+        <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stopColor={main} />
           <stop offset="1" stopColor={main} stopOpacity="0.85" />
         </linearGradient>
@@ -141,7 +147,7 @@ function Jersey({ team, pos = 3, eliminated = false }) {
       {/* jersey body */}
       <path
         d="M 14 12 L 22 8 L 25 14 L 35 14 L 38 8 L 46 12 L 50 22 L 44 26 L 44 50 Q 44 54 40 54 L 20 54 Q 16 54 16 50 L 16 26 L 10 22 Z"
-        fill={`url(#g-${team.id}-${pos})`}
+        fill={`url(#${gradId})`}
         stroke="rgba(0,0,0,0.18)"
         strokeWidth="0.8"
       />
@@ -161,6 +167,14 @@ function Jersey({ team, pos = 3, eliminated = false }) {
 }
 
 // ---------- Swap Constraints Helper ----------
+// Module-level once (#130): isSwapLegal runs for every player on the pitch in
+// pick mode (up to 15×/render). The old code allocated this 7-element array
+// and did an O(n) .includes() on every call; a Set built once gives O(1)
+// lookups with zero per-call allocation.
+const VALID_FORMATIONS = new Set([
+  "1-3-5-2", "1-3-4-3", "1-4-5-1", "1-4-4-2", "1-4-3-3", "1-5-4-1", "1-5-3-2",
+]);
+
 function isSwapLegal(lineup, idA, idB) {
   if (idA === idB) return true;
 
@@ -207,11 +221,7 @@ function isSwapLegal(lineup, idA, idB) {
   const fwd = countPos[4];
 
   const formationKey = `${gk}-${def}-${mid}-${fwd}`;
-  const VALID_FORMATIONS = [
-    "1-3-5-2", "1-3-4-3", "1-4-5-1", "1-4-4-2", "1-4-3-3", "1-5-4-1", "1-5-3-2"
-  ];
-
-  return VALID_FORMATIONS.includes(formationKey);
+  return VALID_FORMATIONS.has(formationKey);
 }
 
 // Which GW's fixtures a pitch shows on its player cards. Pick Team provides
@@ -714,15 +724,22 @@ const PICK_HIT_META = {
   dir:   { label: "winner ✓",  bg: "rgba(60,200,120,0.12)",  fg: "#9fe0b0" },
   miss:  { label: "missed ✗",  bg: "rgba(230,80,80,0.16)",   fg: "#ff8a8a" },
 };
+// Static once (#131): BETTING_PICKS never changes, so the cross-GW total was
+// re-concatenated + re-reduced on every modal render and tab switch for no
+// reason. Evaluate at module load.
+const BETTING_ALL_ROWS = [
+  ...BETTING_PICKS.GW1.rows, ...BETTING_PICKS.GW2.rows, ...BETTING_PICKS.GW3.rows,
+];
+const BETTING_ALL_PLAYED = BETTING_ALL_ROWS.filter(r => r[12] != null);
+const BETTING_TOTAL_PTS = BETTING_ALL_PLAYED.reduce((s, r) => s + r[13], 0);
+
 function BettingPicksModal({ open, onClose }) {
   const [tab, setTab] = React.useState("GW2");
   if (!open) return null;
   const data = BETTING_PICKS[tab] || BETTING_PICKS.GW1;
   const maxEv = 2.42;
   const evOf = (r) => r[4] / 100 * r[5] + 4 * r[3] / 100;
-  const ALL = [].concat(BETTING_PICKS.GW1.rows, BETTING_PICKS.GW2.rows, BETTING_PICKS.GW3.rows);
-  const allPlayed = ALL.filter(r => r[12] != null);
-  const totalPts = allPlayed.reduce((s, r) => s + r[13], 0);
+  const totalPts = BETTING_TOTAL_PTS;
   const rows = data.rows.slice().sort((a, b) => a[11] - b[11]);
   const played = rows.filter(r => r[12] != null);
   const tabPts = played.reduce((s, r) => s + r[13], 0);
@@ -734,7 +751,7 @@ function BettingPicksModal({ open, onClose }) {
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
             <div style={{ minWidth: 0 }}>
               <div style={{ fontSize: 16, fontWeight: 800 }}>🎯 Score-pool EV picks</div>
-              <div style={{ fontSize: 11, color: "#8aa0b4", marginTop: 2 }}>Polymarket × FIFA crowd blend · model record <span style={{ color: "#6fe6a6", fontWeight: 800 }}>{totalPts.toFixed(1)} pts</span> over {allPlayed.length} games</div>
+              <div style={{ fontSize: 11, color: "#8aa0b4", marginTop: 2 }}>Polymarket × FIFA crowd blend · model record <span style={{ color: "#6fe6a6", fontWeight: 800 }}>{totalPts.toFixed(1)} pts</span> over {BETTING_ALL_PLAYED.length} games</div>
             </div>
             <button onClick={onClose} style={{ background: "rgba(255,255,255,0.08)", border: "none", color: "#e8edf2", borderRadius: 8, width: 30, height: 30, fontSize: 16, cursor: "pointer", flexShrink: 0 }}>✕</button>
           </div>
