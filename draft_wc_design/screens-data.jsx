@@ -246,15 +246,15 @@ function normalizeFixtureRow(fx) {
 // ESPN placeholder ("Round of 32 1 Winner") until the team is decided.
 const WC_BRACKET_ROUND_ORDER = ["Round of 32", "Round of 16", "Quarter-Final", "Semi-Final", "Final"];
 
-// Canonical Round-of-32 bracket order (FIFA official bracket): left half top→
-// bottom, then right half top→bottom. Our ESPN scan stores matches in DATE order,
-// which scrambles the tree — we re-seat them so the bracket reads like the
-// official one and each round's halves feed inward correctly.
+// Canonical Round-of-32 bracket order (official FIFA bracket, per the
+// confirmed QF venues/pairings — Boston/LA feed SF1, Miami/KC feed SF2). Our
+// ESPN scan stores matches in DATE order, which scrambles the tree — we
+// re-seat them here in groups of 4 so each QF block feeds the right SF.
 const WC_CANON_R32 = [
-  ["GER", "PAR"], ["FRA", "SWE"], ["RSA", "CAN"], ["NED", "MOR"],
-  ["POR", "CRO"], ["SPA", "AUT"], ["USA", "BOS"], ["BEL", "SEN"],
-  ["BRA", "JAP"], ["CIV", "NOR"], ["MEX", "ECU"], ["ENG", "COD"],
-  ["ARG", "CPV"], ["AUS", "EGY"], ["SWI", "ALG"], ["COL", "GHA"],
+  ["GER", "PAR"], ["FRA", "SWE"], ["RSA", "CAN"], ["NED", "MOR"],  // Boston QF
+  ["BRA", "JAP"], ["CIV", "NOR"], ["MEX", "ECU"], ["ENG", "COD"],  // LA QF
+  ["POR", "CRO"], ["SPA", "AUT"], ["USA", "BOS"], ["BEL", "SEN"],  // Miami QF
+  ["ARG", "CPV"], ["AUS", "EGY"], ["SWI", "ALG"], ["COL", "GHA"],  // KC QF
 ];
 
 // Re-seat every round into canonical bracket order. R32 is sorted by the matchup
