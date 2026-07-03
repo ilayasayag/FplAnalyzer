@@ -247,13 +247,13 @@ function normalizeFixtureRow(fx) {
 const WC_BRACKET_ROUND_ORDER = ["Round of 32", "Round of 16", "Quarter-Final", "Semi-Final", "Final"];
 
 // Canonical Round-of-32 bracket order (official FIFA bracket, per the
-// confirmed QF venues/pairings — Boston/LA feed SF1, Miami/KC feed SF2). Our
+// confirmed QF venues/pairings — Boston/Miami feed SF1, LA/KC feed SF2). Our
 // ESPN scan stores matches in DATE order, which scrambles the tree — we
 // re-seat them here in groups of 4 so each QF block feeds the right SF.
 const WC_CANON_R32 = [
   ["GER", "PAR"], ["FRA", "SWE"], ["RSA", "CAN"], ["NED", "MOR"],  // Boston QF
-  ["BRA", "JAP"], ["CIV", "NOR"], ["MEX", "ECU"], ["ENG", "COD"],  // LA QF
   ["POR", "CRO"], ["SPA", "AUT"], ["USA", "BOS"], ["BEL", "SEN"],  // Miami QF
+  ["BRA", "JAP"], ["CIV", "NOR"], ["MEX", "ECU"], ["ENG", "COD"],  // LA QF
   ["ARG", "CPV"], ["AUS", "EGY"], ["SWI", "ALG"], ["COL", "GHA"],  // KC QF
 ];
 
