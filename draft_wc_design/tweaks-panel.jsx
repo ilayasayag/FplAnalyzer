@@ -183,7 +183,7 @@ function useTweaks(defaults) {
 // The close button posts __edit_mode_dismissed so the host's toolbar toggle
 // flips off in lockstep; the host echoes __deactivate_edit_mode back which
 // is what actually hides the panel.
-function TweaksPanel({ title = 'Tweaks', children }) {
+function useTweaksPanel() {
   // Dev-only UI. In production (web.app) the Tweaks/debug panel must stay
   // invisible to end users — it exposes config toggles + the prod DB export.
   // Auto-open, the Ctrl+M shortcut, and the floating trigger are all gated to
@@ -274,6 +274,12 @@ function TweaksPanel({ title = 'Tweaks', children }) {
     window.addEventListener('mouseup', up);
   };
 
+  return { open, setOpen, dragRef, offsetRef, _canUse, dismiss, onDragStart };
+}
+
+function TweaksPanel({ title = 'Tweaks', children }) {
+  const { open, setOpen, dragRef, offsetRef, _canUse, dismiss, onDragStart } = useTweaksPanel();
+
   if (!open) {
     // No trigger for end users — only dev hosts and signed-in admins.
     if (!_canUse) return null;
@@ -363,7 +369,7 @@ function TweakToggle({ label, value, onChange }) {
   );
 }
 
-function TweakRadio({ label, value, options, onChange }) {
+function useTweakRadio({ value, options, onChange }) {
   const trackRef = React.useRef(null);
   const [dragging, setDragging] = React.useState(false);
   // The active value is read by pointer-move handlers attached for the lifetime
@@ -379,16 +385,12 @@ function TweakRadio({ label, value, options, onChange }) {
   const labelLen = (o) => String(typeof o === 'object' ? o.label : o).length;
   const maxLen = options.reduce((m, o) => Math.max(m, labelLen(o)), 0);
   const fitsAsSegments = maxLen <= ({ 2: 16, 3: 10 }[options.length] ?? 0);
-  if (!fitsAsSegments) {
-    // <select> emits strings — map back to the original option value so the
-    // fallback stays type-preserving (numbers, booleans) like the segment path.
-    const resolve = (s) => {
-      const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
-      return m === undefined ? s : typeof m === 'object' ? m.value : m;
-    };
-    return <TweakSelect label={label} value={value} options={options}
-                        onChange={(s) => onChange(resolve(s))} />;
-  }
+  // <select> emits strings — map back to the original option value so the
+  // fallback stays type-preserving (numbers, booleans) like the segment path.
+  const resolve = (s) => {
+    const m = options.find((o) => String(typeof o === 'object' ? o.value : o) === s);
+    return m === undefined ? s : typeof m === 'object' ? m.value : m;
+  };
   const opts = options.map((o) => (typeof o === 'object' ? o : { value: o, label: o }));
   const idx = Math.max(0, opts.findIndex((o) => o.value === value));
   const n = opts.length;
@@ -418,6 +420,15 @@ function TweakRadio({ label, value, options, onChange }) {
     window.addEventListener('pointerup', up);
   };
 
+  return { trackRef, dragging, fitsAsSegments, resolve, opts, idx, n, onPointerDown };
+}
+
+function TweakRadio({ label, value, options, onChange }) {
+  const { trackRef, dragging, fitsAsSegments, resolve, opts, idx, n, onPointerDown } = useTweakRadio({ value, options, onChange });
+  if (!fitsAsSegments) {
+    return <TweakSelect label={label} value={value} options={options}
+                        onChange={(s) => onChange(resolve(s))} />;
+  }
   return (
     <TweakRow label={label}>
       <div ref={trackRef} role="radiogroup" onPointerDown={onPointerDown}
@@ -458,7 +469,7 @@ function TweakText({ label, value, placeholder, onChange }) {
   );
 }
 
-function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+function useTweakNumber({ value, min, max, step = 1, onChange }) {
   const clamp = (n) => {
     if (min != null && n < min) return min;
     if (max != null && n > max) return max;
@@ -482,6 +493,11 @@ function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) 
     window.addEventListener('pointermove', move);
     window.addEventListener('pointerup', up);
   };
+  return { clamp, onScrubStart };
+}
+
+function TweakNumber({ label, value, min, max, step = 1, unit = '', onChange }) {
+  const { clamp, onScrubStart } = useTweakNumber({ value, min, max, step, onChange });
   return (
     <div className="twk-num">
       <span className="twk-num-lbl" onPointerDown={onScrubStart}>{label}</span>

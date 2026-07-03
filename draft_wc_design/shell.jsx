@@ -18,10 +18,9 @@ const TABS = [
   { id: "config",     label: "Rules Config" },
 ];
 
-function TopBar({ tweak }) {
+function useTopBar() {
   const displayName = window._auth?.currentUser?.displayName || "Me";
   const initials = displayName.split(" ").map(w => w[0]).join("").substring(0, 2).toUpperCase();
-  
   // 4-state banner — reactive: re-reads window.__DATA_SOURCE__ whenever the app
   // updates it (fires a "wc-datasource" event). Cold start is "loading", a
   // NEUTRAL state: the old default was "down", which accused the backend of
@@ -47,7 +46,11 @@ function TopBar({ tweak }) {
     bannerBg = "#10b981"; // emerald green
     bannerText = "🟢 Live Production Data";
   }
+  return { displayName, initials, bannerBg, bannerText };
+}
 
+function TopBar({ tweak }) {
+  const { displayName, initials, bannerBg, bannerText } = useTopBar();
   return (
     <div className="topbar">
       <Logo />
@@ -95,7 +98,15 @@ function Hero({ tab, manager }) {
   );
 }
 
-function ChangePasswordModal({ onClose }) {
+const CHANGE_PW_STYLES = {
+  overlay: { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 },
+  card: { background: "var(--surface, #1a1738)", color: "white", padding: 24, borderRadius: 12, width: 360, boxShadow: "0 12px 40px rgba(0,0,0,0.4)" },
+  input: { width: "100%", padding: "8px 10px", marginTop: 6, borderRadius: 6, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "white", fontSize: 13, boxSizing: "border-box" },
+  label: { display: "block", marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.7)" },
+  btnSecondary: { padding: "8px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer" },
+};
+
+function useChangePasswordModal({ onClose }) {
   const [currentPw, setCurrentPw] = React.useState("");
   const [newPw, setNewPw] = React.useState("");
   const [confirmPw, setConfirmPw] = React.useState("");
@@ -123,12 +134,14 @@ function ChangePasswordModal({ onClose }) {
     }
   };
 
-  const overlayStyle = { position: "fixed", inset: 0, background: "rgba(0,0,0,0.55)", display: "flex", alignItems: "center", justifyContent: "center", zIndex: 1000 };
-  const cardStyle = { background: "var(--surface, #1a1738)", color: "white", padding: 24, borderRadius: 12, width: 360, boxShadow: "0 12px 40px rgba(0,0,0,0.4)" };
-  const inputStyle = { width: "100%", padding: "8px 10px", marginTop: 6, borderRadius: 6, border: "1px solid rgba(255,255,255,0.18)", background: "rgba(255,255,255,0.06)", color: "white", fontSize: 13, boxSizing: "border-box" };
-  const labelStyle = { display: "block", marginTop: 12, fontSize: 12, color: "rgba(255,255,255,0.7)" };
   const btnPrimary = { padding: "8px 14px", borderRadius: 6, border: "none", background: "var(--grad-hero, #4c1d95)", color: "white", fontWeight: 700, cursor: busy ? "not-allowed" : "pointer", opacity: busy ? 0.6 : 1 };
-  const btnSecondary = { padding: "8px 14px", borderRadius: 6, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "white", cursor: "pointer" };
+
+  return { currentPw, setCurrentPw, newPw, setNewPw, confirmPw, setConfirmPw, busy, err, done, submit, btnPrimary };
+}
+
+function ChangePasswordModal({ onClose }) {
+  const { currentPw, setCurrentPw, newPw, setNewPw, confirmPw, setConfirmPw, busy, err, done, submit, btnPrimary } = useChangePasswordModal({ onClose });
+  const { overlay: overlayStyle, card: cardStyle, input: inputStyle, label: labelStyle, btnSecondary } = CHANGE_PW_STYLES;
 
   return (
     <div style={overlayStyle} onClick={onClose}>
@@ -164,8 +177,13 @@ function ChangePasswordModal({ onClose }) {
   );
 }
 
-function SubNav({ tab, onTab }) {
+function useSubNav() {
   const [pwOpen, setPwOpen] = React.useState(false);
+  return { pwOpen, setPwOpen };
+}
+
+function SubNav({ tab, onTab }) {
+  const { pwOpen, setPwOpen } = useSubNav();
   return (
     <div className="subnav">
       {TABS.map(t => (
@@ -206,19 +224,21 @@ const MOBILE_PRIMARY_TABS = [
   { id: "league",    icon: "🏆" },
 ];
 
-function MobileNav({ tab, onTab }) {
+function useMobileNav({ tab, onTab }) {
   const isMobile = useIsMobile();
   const [moreOpen, setMoreOpen] = React.useState(false);
-  if (!isMobile) return null;
-
   const primaryIds = MOBILE_PRIMARY_TABS.map(t => t.id);
   const moreTabs = TABS.filter(t =>
     !primaryIds.includes(t.id) && (t.id !== "config" || window.IS_ADMIN)
   );
   const moreActive = moreTabs.some(t => t.id === tab);
-
   const pick = (id) => { onTab(id); setMoreOpen(false); };
+  return { isMobile, moreOpen, setMoreOpen, moreTabs, moreActive, pick };
+}
 
+function MobileNav({ tab, onTab }) {
+  const { isMobile, moreOpen, setMoreOpen, moreTabs, moreActive, pick } = useMobileNav({ tab, onTab });
+  if (!isMobile) return null;
   return (
     <React.Fragment>
       {moreOpen && <div className="mobilenav-backdrop" onClick={() => setMoreOpen(false)} />}
