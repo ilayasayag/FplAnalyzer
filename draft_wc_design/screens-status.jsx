@@ -344,12 +344,15 @@ function StatusScreen({ onTab }) {
 function usePointsScreen() {
   const isMobile = useIsMobile();
   const [view, setView] = React.useState("pitch");
-  // The live lineup doc for the viewed GW (app.jsx sets window.MY_LINEUP
-  // from GET /leagues/{lid}/lineup/{gw}). For a FINISHED gw we instead render
-  // the immutable gw_history snapshot (see snapLineup below) so the pitch shows
-  // exactly the squad that was locked for that GW — not whatever the squad
-  // became after later free-agent/trade moves.
-  const liveLineup = window.MY_LINEUP || MY_LINEUP;
+  // The live lineup for the viewed GW — via the STORE row, never the data.jsx
+  // demo roster and never a stale gw's lineup (the row drops to loading on
+  // every gw/league change and stale responses are stamped out). For a
+  // FINISHED gw we instead render the immutable gw_history snapshot (see
+  // snapLineup below) so the pitch shows exactly the squad that was locked
+  // for that GW — not whatever the squad became after later moves.
+  const lineupRow = useStoreRow("myLineup");
+  const liveLineup = lineupRow.status === "ready" ? lineupRow.value : null;
+  const lineupLoading = lineupRow.status !== "ready";
 
   const currentGw = TOURNAMENT.currentGw;
   const { viewingGw, setViewingGw } = useAppCtx();
@@ -417,18 +420,20 @@ function usePointsScreen() {
   }, [statsById]);
 
   // Authoritative squad total for the viewed gw = backend results.{uid}.points
-  // (Σ starter points post-autosub + captain bonus), synced into GW_TOTALS by
-  // app.jsx. Show "—" when that gw hasn't been scored for this manager.
-  const totalPts = (window.GW_TOTALS && window.GW_TOTALS[me] != null) ? window.GW_TOTALS[me] : "—";
+  // (Σ starter points post-autosub + captain bonus). null = still loading
+  // (render a skeleton); "—" = loaded, gw not scored for this manager.
+  const gwTotalsRow = useStoreRow("gwTotals");
+  const totalPts = gwTotalsRow.status !== "ready" ? null
+    : ((gwTotalsRow.value && gwTotalsRow.value[me] != null) ? gwTotalsRow.value[me] : "—");
 
-  // Get current user's team name dynamically
-  const myTeamName = (window.MANAGERS || MANAGERS).find(m => m.uid === me)?.team || "My Squad";
+  // Get current user's team name dynamically (no demo-roster fallback).
+  const myTeamName = (window.MANAGERS || []).find(m => m.uid === me)?.team || "My Squad";
 
-  return { isMobile, view, setView, lineup, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw };
+  return { isMobile, view, setView, lineup, lineupLoading, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw };
 }
 
 function PointsScreen({ onTab }) {
-  const { isMobile, view, setView, lineup, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw } = usePointsScreen();
+  const { isMobile, view, setView, lineup, lineupLoading, statsById, gwPointsById, totalPts, myTeamName, currentGw, viewingGw, setViewingGw } = usePointsScreen();
 
   return (
     <div className="col" style={{ gap: 20 }}>
@@ -450,7 +455,7 @@ function PointsScreen({ onTab }) {
           </div>
           <div style={{ background: "var(--gold-500)", color: "var(--navy-900)", borderRadius: 12, padding: isMobile ? "10px 16px" : "12px 22px", textAlign: "center", flexShrink: 0 }}>
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", whiteSpace: "nowrap" }}>{viewingGw < currentGw ? "FINAL POINTS" : "POINTS"}</div>
-            <div className="mono" style={{ fontSize: isMobile ? 32 : 38, fontWeight: 800, lineHeight: 1 }}>{totalPts}</div>
+            <div className="mono" style={{ fontSize: isMobile ? 32 : 38, fontWeight: 800, lineHeight: 1 }}>{totalPts === null ? <Skel w={44} h={30} /> : totalPts}</div>
           </div>
         </div>
 
@@ -740,8 +745,15 @@ function PickTeamScreen({ onTab, squadLoading }) {
     return (
       <div className="col" style={{ gap: 16 }}>
         <h2 className="h-display" style={{ fontSize: 26, margin: 0 }}>My Team</h2>
-        <div className="card" style={{ padding: 40, textAlign: "center", color: "var(--ink-500)", fontSize: 14 }}>
-          Loading your squad…
+        <div className="card" style={{ padding: 28, display: "flex", flexDirection: "column", gap: 12, alignItems: "center" }}>
+          <div style={{ color: "var(--ink-500)", fontSize: 13, fontWeight: 700 }}>Loading your squad…</div>
+          {[0, 1, 2, 3].map(i => (
+            <div key={i} style={{ display: "flex", gap: 10, justifyContent: "center", width: "100%" }}>
+              {Array.from({ length: 4 - (i === 0 ? 3 : 0) }).map((_, k) => (
+                <Skel key={k} w={64} h={54} style={{ borderRadius: 10, opacity: 0.18 }} />
+              ))}
+            </div>
+          ))}
         </div>
       </div>
     );

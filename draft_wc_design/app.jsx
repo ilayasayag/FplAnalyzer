@@ -533,6 +533,17 @@ function App() {
 
     const lid = activeLid; // active league ID
 
+    // Store readiness (always-live-data rule): mark the flash-critical rows
+    // as loading for THIS league+gw before any fetch. Converted screens
+    // (Points pitch, Status hero, League table, sidebar) render skeletons
+    // until their row is ready — stale rows from a previous gw/league drop to
+    // loading on the tag change, so old data never renders under a new header.
+    const _luTag = `${lid}|${window.ME}|gw${viewingGw}`;
+    WCStore.loading("mySquad", `${lid}|${window.ME}`);
+    WCStore.loading("myLineup", _luTag);
+    WCStore.loading("managers", lid);
+    WCStore.loading("trades", lid);
+
     // 1. Standings — fetched via the API (→ gamedb), NOT a direct client
     // onSnapshot. The compat Firestore SDK can't select the named "gamedb"
     // database (it silently reads an empty "(default)"), which left the table
@@ -848,10 +859,12 @@ function App() {
                 window.ME = window.__AUTH_UID;
                 try { ME = window.__AUTH_UID; } catch (e) {}
               }
+              WCStore.set("managers", window.MANAGERS, lid);
             } else {
               // No members returned → clear so a previous league's managers
               // (or the data.jsx demo roster) can never bleed through.
               window.MANAGERS = [];
+              WCStore.set("managers", [], lid);
             }
           } else {
             criticalFailed = true;
@@ -1037,11 +1050,11 @@ function App() {
         // Fetch my Squad
         try {
           const squad = await apiCall("GET", `/leagues/${lid}/squads/${window.ME}`);
-          if (squad && squad.players && squad.players.length > 0) {
-            window.MY_SQUAD_IDS = squad.players.map(p => String(p.playerId));
-          } else {
-            // No squad yet (draft not complete). Don't show the mock squad.
-            window.MY_SQUAD_IDS = [];
+          const ids = (squad && squad.players && squad.players.length > 0)
+            ? squad.players.map(p => String(p.playerId))
+            : [];  // No squad yet (draft not complete). Don't show the mock squad.
+          if (WCStore.set("mySquad", ids, `${lid}|${window.ME}`)) {
+            window.MY_SQUAD_IDS = ids;
           }
         } catch (e) {
           console.warn("Failed to fetch my squad", e);
@@ -1093,6 +1106,12 @@ function App() {
           const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
           return { starting, bench, formation: [1, nd, nm, nf], autoSubs: [] };
         };
+        // All lineup writes go through the stamped store row: a resolution for
+        // a gw the user has already navigated away from is dropped instead of
+        // rendering the old gw's XI under the new header.
+        const _setLineup = (lu) => {
+          if (WCStore.set("myLineup", lu, _luTag)) window.MY_LINEUP = lu;
+        };
         try {
           // Retry the OWN lineup fetch on transient failure (flaky mobile data):
           // one failed GET used to fall through to _lineupFromSquad() — a
@@ -1113,26 +1132,28 @@ function App() {
           }
           if (_lastErr) throw _lastErr;
           if (lineup && lineup.starting && lineup.starting.length > 0) {
-            window.MY_LINEUP = {
+            _setLineup({
               starting: (lineup.starting || []).map(String),
               bench: (lineup.bench || []).map(String),
               formation: lineup.formation || [1, 4, 4, 2],
               autoSubs: lineup.autoSubsMade || [],
-            };
+            });
           } else {
-            window.MY_LINEUP = _lineupFromSquad();
+            _setLineup(_lineupFromSquad());
           }
         } catch (e) {
           console.warn("Failed to fetch my lineup", e);
           if (e && e.status === 403) {
             // Viewing another manager's pre-lock lineup is blocked → show their
             // squad in a default shape, never the demo roster.
-            window.MY_LINEUP = _lineupFromSquad();
+            _setLineup(_lineupFromSquad());
           } else if (!(window.MY_LINEUP && window.MY_LINEUP.starting && window.MY_LINEUP.starting.length)) {
             // Transient failure with nothing cached yet → derive from the squad.
-            window.MY_LINEUP = _lineupFromSquad();
+            _setLineup(_lineupFromSquad());
           }
-          // else: keep last-known-good (transient-network resilience).
+          // else: keep last-known-good in window.MY_LINEUP for legacy readers;
+          // the store row stays "loading" so converted screens show a skeleton
+          // rather than data we can't confirm is current.
         }
 
         // Real squad + lineup have now resolved (success OR a definitive
@@ -1291,10 +1312,12 @@ function App() {
           const open = (trades || []).filter(t => t.status === "pending" || t.status === "deferred_pending").map(mapTrade);
           window.TRADES_INBOX = open.filter(t => t.target === window.ME);
           window.TRADES_OUTBOX = open.filter(t => t.proposer === window.ME);
+          WCStore.set("trades", { inbox: window.TRADES_INBOX, outbox: window.TRADES_OUTBOX }, lid);
         } catch (e) {
           console.warn("Failed to fetch trades", e);
           window.TRADES_INBOX = [];
           window.TRADES_OUTBOX = [];
+          WCStore.set("trades", { inbox: [], outbox: [] }, lid);
         }
 
         // Fetch all gameweek scores

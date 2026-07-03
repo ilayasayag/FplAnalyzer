@@ -537,14 +537,37 @@ function useStoreRow(key) {
   return React.useSyncExternalStore(WCStore.subscribe, () => WCStore.row(key));
 }
 
-// expose globally
+// expose globally.
+//
+// ALWAYS-LIVE-DATA RULE: the per-league MUTABLE domains are seeded EMPTY, not
+// with the demo datasets above. Before this, window.MY_SQUAD_IDS et al held
+// the demo squad (Costa/Mbappé/Kane...) from script load until the bootstrap
+// overwrote them — every fresh page render flashed that "irrelevant squad"
+// on Pick Team / Points / sidebar. Screens now start from a truthful empty
+// (paired with WCStore readiness → skeletons) and only ever fill with real
+// data. The demo consts remain defined for reference/seeding tools, but they
+// no longer reach the window globals the screens read. If the backend is
+// genuinely down, the app shows empty states + the red banner — never fake
+// players.
 Object.assign(window, {
   TEAMS, TEAM_MAP, PLAYERS, PLAYER_MAP, POS_NAMES,
-  MANAGERS, ME, STANDINGS, BRACKET,
-  MY_SQUAD_IDS, MY_LINEUP, GW_POINTS, GW_TOTALS,
-  SCHEDULE, WC_FIXTURES_GW4, WINDOW, MY_WAIVERS, FREE_AGENTS,
-  TRADES_INBOX, TRADES_OUTBOX, DRAFT_STATE, DRAFT_HISTORY,
-  TOURNAMENT, LEAGUE,
+  ME, TOURNAMENT, LEAGUE, WC_FIXTURES_GW4,
   managerById, playerById, teamById,
   WCStore, useStoreRow,
+  // Mutable live domains — truthful empties until the bootstrap fills them:
+  MANAGERS: [],
+  STANDINGS: [],
+  BRACKET: { rounds: {}, seeds: [] },
+  MY_SQUAD_IDS: [],
+  MY_LINEUP: { starting: [], bench: [], formation: [1, 4, 4, 2], autoSubs: [] },
+  GW_POINTS: {},
+  GW_TOTALS: {},
+  SCHEDULE: {},
+  WINDOW: { phase: "none", state: "closed", gw: null, hoursLeft: null, closesAt: null, schedule: [], scheduledOverrides: [] },
+  MY_WAIVERS: [],
+  FREE_AGENTS: [],
+  TRADES_INBOX: [],
+  TRADES_OUTBOX: [],
+  DRAFT_STATE: {},
+  DRAFT_HISTORY: [],
 });
