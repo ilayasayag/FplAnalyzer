@@ -65,8 +65,12 @@ window.fetchFixturesByTeamForGw = fetchFixturesByTeamForGw;
 // The user explicitly chooses which league/platform to enter; no league is
 // auto-selected, so the simulated showcase never overrides their real league.
 // =====================================================================
+function useLobbyScreen() {
+  const [mode, setMode] = React.useState("home");
+  return { mode, setMode };
+}
 function LobbyScreen({ leagues, loading, onEnter, onSignOut }) {
-  const [mode, setMode] = React.useState("home"); // home | create | join
+  const { mode, setMode } = useLobbyScreen();
 
   const wrap = (inner) => (
     <div style={{
@@ -167,7 +171,7 @@ function LobbyScreen({ leagues, loading, onEnter, onSignOut }) {
   );
 }
 
-function TweakDraftSimulator({ lid }) {
+function useTweakDraftSimulator({ lid }) {
   const [active, setActive] = React.useState(false);
   const [status, setStatus] = React.useState("idle");
   const [loading, setLoading] = React.useState(false);
@@ -226,6 +230,11 @@ function TweakDraftSimulator({ lid }) {
       setLoading(false);
     }
   };
+
+  return { active, status, loading, handleToggle, handleReset };
+}
+function TweakDraftSimulator({ lid }) {
+  const { active, status, loading, handleToggle, handleReset } = useTweakDraftSimulator({ lid });
 
   if (!lid) {
     return <div style={{ fontSize: 10, color: "rgba(41,38,27,0.5)" }}>Please enter a league first to access the simulator.</div>;
@@ -330,7 +339,7 @@ function useAuth() {
 // SignInForm — self-contained sign-in/sign-up form. Owns its own local
 // state so keystrokes never re-render App or any screen component.
 // =====================================================================
-function SignInForm() {
+function useSignInForm() {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
   const [displayName, setDisplayName] = React.useState("");
@@ -359,6 +368,11 @@ function SignInForm() {
       setAuthError(err.message || "Failed to sign up");
     }
   };
+
+  return { email, setEmail, password, setPassword, displayName, setDisplayName, authError, isSignUp, setIsSignUp, handleSignIn, handleSignUp };
+}
+function SignInForm() {
+  const { email, setEmail, password, setPassword, displayName, setDisplayName, authError, isSignUp, setIsSignUp, handleSignIn, handleSignUp } = useSignInForm();
 
   return (
     <div style={{
@@ -462,7 +476,7 @@ function SignInForm() {
 }
 
 
-function App() {
+function useApp() {
   const [t, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const [tab, setTab] = React.useState("status");
 
@@ -1449,6 +1463,18 @@ function App() {
   // Use wide layout (no sidebar) on Draft, Bracket, Create, Fixtures pages
   const wideTabs = ["draft", "bracket", "create", "fixtures"];
   const isWide = wideTabs.includes(tab);
+
+  return { t, setTweak, tab, setTab, user, authLoading, myLeagues, leaguesLoading, activeLid, setActiveLid, viewingGw, setViewingGw, simBusy, setSimBusy, renderScreen, isWide };
+}
+
+function App() {
+  const {
+    t, setTweak, tab, setTab,
+    user, authLoading, myLeagues, leaguesLoading,
+    activeLid, setActiveLid, viewingGw, setViewingGw,
+    simBusy, setSimBusy,
+    renderScreen, isWide,
+  } = useApp();
 
   if (authLoading) {
     return (

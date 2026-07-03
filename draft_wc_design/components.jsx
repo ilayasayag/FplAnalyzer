@@ -610,7 +610,7 @@ function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
 // self-healing scan the schedulers run, debounced 60s server-side), then
 // reloads so every panel rerenders from the synced data. The scan walks
 // multiple feeds, so allow it well past apiCall's 12s default.
-function SyncDataButton({ style }) {
+function useSyncDataButton() {
   const [busy, setBusy] = React.useState(false);
   const run = async () => {
     if (busy) return;
@@ -623,6 +623,10 @@ function SyncDataButton({ style }) {
       setBusy(false);
     }
   };
+  return { busy, run };
+}
+function SyncDataButton({ style }) {
+  const { busy, run } = useSyncDataButton();
   return (
     <button className="btn btn--ghost-dark" disabled={busy} onClick={run}
       style={{ whiteSpace: "nowrap", ...style }}>
@@ -714,8 +718,12 @@ const PICK_HIT_META = {
   dir:   { label: "winner ✓",  bg: "rgba(60,200,120,0.12)",  fg: "#9fe0b0" },
   miss:  { label: "missed ✗",  bg: "rgba(230,80,80,0.16)",   fg: "#ff8a8a" },
 };
-function BettingPicksModal({ open, onClose }) {
+function useBettingPicksModal() {
   const [tab, setTab] = React.useState("GW2");
+  return { tab, setTab };
+}
+function BettingPicksModal({ open, onClose }) {
+  const { tab, setTab } = useBettingPicksModal();
   if (!open) return null;
   const data = BETTING_PICKS[tab] || BETTING_PICKS.GW1;
   const maxEv = 2.42;
