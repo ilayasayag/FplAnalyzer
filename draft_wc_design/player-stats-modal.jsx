@@ -3,19 +3,18 @@
 // Opens on dispatchEvent('show-player-stats', { detail: { id }})
 // =====================================================================
 
-function PlayerStatsModal() {
+function usePlayerStatsModal() {
   const [playerId, setPlayerId] = React.useState(null);
   const [tab, setTab] = React.useState("history");
   // Real per-GW breakdown fetched from GET /players/{id}/scores.
   // history === null while loading, [] when there are no scored rows yet.
   const [history, setHistory] = React.useState(null);
   const [historyErr, setHistoryErr] = React.useState(false);
+  // bumpKo forces a re-render when the knockout fixture map populates.
+  const [, bumpKo] = React.useState(0);
 
   React.useEffect(() => {
-    const handler = e => {
-      setPlayerId(e.detail.id);
-      setTab("history");
-    };
+    const handler = e => { setPlayerId(e.detail.id); setTab("history"); };
     window.addEventListener("show-player-stats", handler);
     return () => window.removeEventListener("show-player-stats", handler);
   }, []);
@@ -30,7 +29,6 @@ function PlayerStatsModal() {
 
   // Load the knockout fixtures-by-team so the Fixtures tab shows the real
   // opponent (R32 now, later rounds as the bracket fills) instead of "TBD".
-  const [, bumpKo] = React.useState(0);
   React.useEffect(() => {
     if (!playerId || !window.fetchFixturesByTeamForGw) return;
     [4, 5, 6, 7, 8].forEach(gw => {
@@ -57,13 +55,8 @@ function PlayerStatsModal() {
             gw: row.gw,
             opp: s.opponent || row.opponent || "—",
             round: s.round || row.round || `GW${row.gw}`,
-            mp: s.minutes || 0,
-            gs: s.goals || 0,
-            a: s.assists || 0,
-            cs: !!s.cleanSheet,
-            gc: s.goalsConceded || 0,
-            yc: s.yellowCards || 0,
-            s: s.saves || 0,
+            mp: s.minutes || 0, gs: s.goals || 0, a: s.assists || 0, cs: !!s.cleanSheet,
+            gc: s.goalsConceded || 0, yc: s.yellowCards || 0, s: s.saves || 0,
             b: row.bonusPoints != null ? row.bonusPoints : (s.bonusPoints || 0),
             pts: row.fantasyPoints != null ? row.fantasyPoints : 0,
             // DefCon components: tackles, interceptions, clearances, blocks,
@@ -71,11 +64,8 @@ function PlayerStatsModal() {
             // position-aware at render (CBIT for DEF, CBITR for MID); ball
             // recoveries count for MID only. `cbit` is the recovery-free sum so
             // render can add `rec` back for MIDs without re-reading the raw stats.
-            tkl: (s.tackles || {}).total || 0,
-            intc: (s.tackles || {}).interceptions || 0,
-            clr: s.clearances || 0,
-            blk: (s.tackles || {}).blocks || 0,
-            rec: s.ballRecoveries || 0,
+            tkl: (s.tackles || {}).total || 0, intc: (s.tackles || {}).interceptions || 0,
+            clr: s.clearances || 0, blk: (s.tackles || {}).blocks || 0, rec: s.ballRecoveries || 0,
             cbit: ((s.tackles || {}).total || 0) + ((s.tackles || {}).interceptions || 0) + ((s.tackles || {}).blocks || 0) + (s.clearances || 0),
             breakdown: Array.isArray(row.breakdown) ? row.breakdown : [],
             fifaPoints: row.fifaPoints,
@@ -92,43 +82,41 @@ function PlayerStatsModal() {
     return () => { cancelled = true; };
   }, [playerId]);
 
-  if (!playerId) return null;
-  const p = playerById(playerId);
-  if (!p) return null;
-  const t = teamById(p.team);
-  const isElim = p.elim || t?.elim;
-
-  const ict = posRankFor(p);
-
+  const p = playerId ? playerById(playerId) : null;
+  const t = p ? teamById(p.team) : null;
+  const isElim = p && (p.elim || t?.elim);
+  const ict = p ? posRankFor(p) : { posRank: "—", overallRank: "—", totalPos: 0 };
   // Latest scored GW row (for the quick-stat card) + 2-GW form, derived from
   // the SAME real rows the History table shows. Falls back to dashes/0 until
   // the fetch resolves or when no rows exist.
   const scored = (history || []).filter(h => h.mp > 0 || h.pts !== 0);
   const lastRow = scored.length ? scored[scored.length - 1] : null;
   const last2 = scored.slice(-2);
-  const form = last2.length
-    ? (last2.reduce((sum, h) => sum + (h.pts || 0), 0) / last2.length).toFixed(1)
-    : "0.0";
-
+  const form = last2.length ? (last2.reduce((sum, h) => sum + (h.pts || 0), 0) / last2.length).toFixed(1) : "0.0";
   // Owner: resolve from the all-manager squad map (window.SQUADS_BY_UID,
-  // populated by app.jsx) and the real manager team names. The bare lexical
-  // MY_SQUAD_IDS / hardcoded team name are static demo data — prefer the
-  // window-loaded values so real ownership shows for every manager, not just ME.
+  // populated by app.jsx) and the real manager team names.
   const managers = window.MANAGERS || MANAGERS;
   const squadsByUid = window.SQUADS_BY_UID || {};
   const mySquadIds = window.MY_SQUAD_IDS || MY_SQUAD_IDS;
   let owner = null;
-  const ownerUid = Object.keys(squadsByUid).find(
-    uid => (squadsByUid[uid] || []).map(String).includes(String(p.id))
-  );
+  const ownerUid = p ? Object.keys(squadsByUid).find(uid => (squadsByUid[uid] || []).map(String).includes(String(p.id))) : null;
   if (ownerUid) {
     const m = managers.find(mm => mm.uid === ownerUid);
     const teamName = (m && (m.team || m.displayName)) || "a manager";
     owner = ownerUid === window.ME ? `${teamName} (you)` : teamName;
-  } else if ((mySquadIds || []).map(String).includes(String(p.id))) {
+  } else if (p && (mySquadIds || []).map(String).includes(String(p.id))) {
     const me = managers.find(mm => mm.uid === window.ME);
     owner = `${(me && (me.team || me.displayName)) || "your squad"} (you)`;
   }
+
+  return { playerId, setPlayerId, tab, setTab, history, historyErr, p, t, isElim, ict, lastRow, form, owner };
+}
+
+function PlayerStatsModal() {
+  const { playerId, setPlayerId, tab, setTab, history, historyErr, p, t, isElim, ict, lastRow, form, owner } = usePlayerStatsModal();
+
+  if (!playerId) return null;
+  if (!p) return null;
 
   return (
     <div className="modal-backdrop" onClick={() => setPlayerId(null)}>
@@ -394,16 +382,11 @@ function cmpVal(pl, key) {
   return (pl.season && pl.season[key]) || 0;
 }
 
-function CompareTab({ player }) {
+function useCompareTab({ player }) {
   const [query, setQuery] = React.useState("");
   const [otherId, setOtherId] = React.useState(null);
-  const [aHist, setAHist] = React.useState(null);  // this player's per-GW series
-  const [bHist, setBHist] = React.useState(null);  // the compared player's series
-
-  const pool = window.PLAYERS || PLAYERS || [];
-  const other = otherId ? (window.PLAYER_MAP || {})[String(otherId)] : null;
-  const tA = teamById(player.team);
-  const tB = other ? teamById(other.team) : null;
+  const [aHist, setAHist] = React.useState(null); // this player's per-GW series
+  const [bHist, setBHist] = React.useState(null); // the compared player's series
 
   // Fetch this player's per-GW points once (for the form + per-GW rows).
   React.useEffect(() => {
@@ -426,12 +409,27 @@ function CompareTab({ player }) {
     return () => { cancelled = true; };
   }, [otherId]);
 
+  const pool = window.PLAYERS || PLAYERS || [];
+  const other = otherId ? (window.PLAYER_MAP || {})[String(otherId)] : null;
+  const tA = teamById(player.team);
+  const tB = other ? teamById(other.team) : null;
   // Player picker — reuse the free-agents search pattern (name/club, exclude self).
   const q = query.trim().toLowerCase();
   const matches = !q ? [] : pool
     .filter(x => String(x.id) !== String(player.id))
     .filter(x => (x.name || "").toLowerCase().includes(q) || (x.club || "").toLowerCase().includes(q))
     .slice(0, 8);
+  const valOf = (pl, hist, key) => key === "form" ? cmpForm(hist) : cmpVal(pl, key);
+  const gws = [...new Set([...(aHist || []).map(h => h.gw), ...(bHist || []).map(h => h.gw)])].sort((a, b) => a - b);
+  const ptsAt = (hist, gw) => { const r = (hist || []).find(h => h.gw === gw); return r ? r.pts : null; };
+  const fxA = upcomingFixturesFor(player, tA, aHist).slice(0, 3);
+  const fxB = other ? upcomingFixturesFor(other, tB, bHist).slice(0, 3) : [];
+
+  return { query, setQuery, otherId, setOtherId, aHist, bHist, other, tA, tB, q, matches, valOf, gws, ptsAt, fxA, fxB };
+}
+
+function CompareTab({ player }) {
+  const { query, setQuery, otherId, setOtherId, aHist, bHist, other, tA, tB, q, matches, valOf, gws, ptsAt, fxA, fxB } = useCompareTab({ player });
 
   if (!other) {
     return (
@@ -476,14 +474,6 @@ function CompareTab({ player }) {
     ["DefCon actions", "defconActions", 0],
     ["% Selected", "selPct", 1],
   ];
-  const valOf = (pl, hist, key) => key === "form" ? cmpForm(hist) : cmpVal(pl, key);
-
-  // Per-GW union of both players' rows.
-  const gws = [...new Set([...(aHist || []).map(h => h.gw), ...(bHist || []).map(h => h.gw)])].sort((a, b) => a - b);
-  const ptsAt = (hist, gw) => { const r = (hist || []).find(h => h.gw === gw); return r ? r.pts : null; };
-
-  const fxA = upcomingFixturesFor(player, tA, aHist).slice(0, 3);
-  const fxB = upcomingFixturesFor(other, tB, bHist).slice(0, 3);
 
   const Head = ({ pl, tm }) => (
     <div style={{ flex: 1, textAlign: "center" }}>
