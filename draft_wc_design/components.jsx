@@ -451,17 +451,30 @@ function Stat({ label, value, accent, big }) {
 }
 
 // ---------- useIsMobile (WP0 mobile layer) ----------
+// One shared media-query subscription for the whole app (#134). useIsMobile is
+// called from many components (SquadCount ×4, DraftRoom, CreateForm, …); the
+// old version registered a SEPARATE matchMedia listener per call, so a single
+// resize fired 6+ listeners. Now a single module-level MQ + a subscriber set
+// feed every consumer through React.useSyncExternalStore — one real listener,
+// each component still re-renders on change. Same API, no call-site changes.
+const _mobileMQ = (typeof window !== "undefined" && window.matchMedia)
+  ? window.matchMedia("(max-width: 768px)") : null;
+const _mobileSubs = new Set();
+if (_mobileMQ) {
+  const _notify = () => _mobileSubs.forEach(fn => { try { fn(); } catch (e) {} });
+  _mobileMQ.addEventListener ? _mobileMQ.addEventListener("change", _notify)
+                             : _mobileMQ.addListener(_notify);
+}
+function _subscribeMobile(fn) {
+  _mobileSubs.add(fn);
+  return () => _mobileSubs.delete(fn);
+}
 function useIsMobile() {
-  const [isMobile, setIsMobile] = React.useState(
-    () => window.matchMedia("(max-width: 768px)").matches
+  return React.useSyncExternalStore(
+    _subscribeMobile,
+    () => (_mobileMQ ? _mobileMQ.matches : false),
+    () => false,  // server/no-matchMedia fallback
   );
-  React.useEffect(() => {
-    const mq = window.matchMedia("(max-width: 768px)");
-    const fn = e => setIsMobile(e.matches);
-    mq.addEventListener ? mq.addEventListener("change", fn) : mq.addListener(fn);
-    return () => { mq.removeEventListener ? mq.removeEventListener("change", fn) : mq.removeListener(fn); };
-  }, []);
-  return isMobile;
 }
 
 // ---------- Transfer-window timers (Segment 3 — windows & timers UX) ----------
