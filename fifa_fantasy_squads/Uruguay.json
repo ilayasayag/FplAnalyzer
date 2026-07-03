@@ -1,0 +1,219 @@
+{
+  "team": "Uruguay",
+  "abbr": "URU",
+  "group": "H",
+  "squadId": 46,
+  "playerCount": 35,
+  "players": [
+    {
+      "name": "Sergio Rochet",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fernando Muslera",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Santiago Mele",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ronald Araujo",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joaquín Piquerez",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "José María Giménez",
+      "position": "DEF",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Matías Viña",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mathías Olivera",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Guillermo Varela",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sebastián Cáceres",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Santiago Bueno",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Rodríguez",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brian Barboza",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Benjamín García",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Federico Valverde",
+      "position": "MID",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Giorgian de Arrascaeta",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Maxi Araújo",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rodrigo Bentancur",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rodrigo Zalazar",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Manuel Ugarte",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nicolás de la Cruz",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Facundo Pellistri",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nicolás Fonseca",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Emiliano Martínez",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luciano González",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Juan Manuel Sanabria",
+      "position": "MID",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pablo Alcoba",
+      "position": "MID",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Darwin Núñez",
+      "position": "FWD",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brian Rodríguez",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Federico Viñas",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rodrigo Aguirre",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Facundo Torres",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Agustín Canobbio",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Facundo Martínez",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Agustín Álvarez",
+      "position": "FWD",
+      "price": 5.2,
+      "totalPoints": 0
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "team": "Norway",
+  "abbr": "NOR",
+  "group": "I",
+  "squadId": 32,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Ørjan Nyland",
+      "position": "GK",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Egil Selvik",
+      "position": "GK",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sander Tangvik",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kristoffer Ajer",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Julian Ryerson",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcus Pedersen",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Leo Østigård",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "David Møller Wolfe",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fredrik Bjørkan",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sondre Langås",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Torbjørn Heggem",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Henrik Falchener",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martin Ødegaard",
+      "position": "MID",
+      "price": 7.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fredrik Aursnes",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kristian Thorstvedt",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Antonio Nusa",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jens Petter Hauge",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Morten Thorsby",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Patrick Berg",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Thelo Aasgaard",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Oscar Bobb",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sander Berge",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Erling Haaland",
+      "position": "FWD",
+      "price": 10.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Sørloth",
+      "position": "FWD",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Andreas Schjelderup",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jørgen Strand Larsen",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    }
+  ]
+}

@@ -1,0 +1,165 @@
+{
+  "team": "Tunisia",
+  "abbr": "TUN",
+  "group": "F",
+  "squadId": 44,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Abdelmouhib Chamakh",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aymen Dahmen",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sabri Ben Hessen",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Moutaz Neffati",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ali Abdi",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Montassar Talbi",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yan Valery",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Omar Rekik",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Adem Arous",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Amine Ben Hmida",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dylan Bronn",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Raed Chikhaoui",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anis Ben Slimane",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mortadha Ben Ouanes",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hadj Mahmoud",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elias Achouri",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hannibal Mejbri",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ellyes Skhiri",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rani Khedira",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ismaël Gharbi",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elias Saad",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Firas Chaouat",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sebastian Tounekti",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hazem Mastouri",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rayan Elloumi",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Khalil Ayari",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

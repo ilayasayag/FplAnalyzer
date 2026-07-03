@@ -1,0 +1,990 @@
+{
+  "_meta": {
+    "capturedAtUTC": "2026-06-28T15:27:29.662023+00:00",
+    "capturedAtIsrael": "2026-06-28 18:27:29 IDT",
+    "league": "lg_mock_draft",
+    "gw": 4,
+    "note": "PRE-RUN post-Ilay-restore"
+  },
+  "squads": {
+    "u_ilay": {
+      "players": [
+        {
+          "positionName": "FWD",
+          "playerId": 901160,
+          "teamIso": "ENG",
+          "draftedRound": 1,
+          "teamId": 10,
+          "eliminated": false,
+          "position": 4,
+          "teamName": "England",
+          "name": "Harry Kane"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900745,
+          "teamIso": "SPA",
+          "draftedRound": 2,
+          "teamId": 9,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Spain",
+          "name": "Lamine Yamal"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900438,
+          "teamIso": "GER",
+          "draftedRound": 3,
+          "teamId": 25,
+          "eliminated": false,
+          "position": 4,
+          "teamName": "Germany",
+          "name": "Kai Havertz"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 901044,
+          "teamIso": "POR",
+          "draftedRound": 4,
+          "teamId": 27,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Portugal",
+          "name": "Nuno Mendes"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900852,
+          "teamIso": "FRA",
+          "draftedRound": 5,
+          "teamId": 2,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "France",
+          "name": "Désiré Doué"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900253,
+          "teamIso": "MOR",
+          "draftedRound": 6,
+          "teamId": 31,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Morocco",
+          "name": "Brahim Díaz"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900419,
+          "teamIso": "GER",
+          "draftedRound": 7,
+          "teamId": 25,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Germany",
+          "name": "Jonathan Tah"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900540,
+          "teamIso": "NED",
+          "draftedRound": 8,
+          "teamId": 1118,
+          "eliminated": false,
+          "position": 4,
+          "teamName": "Netherlands",
+          "name": "Cody Gakpo"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 900727,
+          "teamIso": "SPA",
+          "draftedRound": 9,
+          "teamId": 9,
+          "eliminated": false,
+          "position": 1,
+          "teamName": "Spain",
+          "name": "Unai Simón"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901062,
+          "teamIso": "POR",
+          "draftedRound": 11,
+          "teamId": 27,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Portugal",
+          "name": "Pedro Neto"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900952,
+          "teamIso": "ARG",
+          "draftedRound": 12,
+          "teamId": 26,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Argentina",
+          "name": "Enzo Fernández"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 900520,
+          "teamIso": "NED",
+          "draftedRound": 15,
+          "teamId": 1118,
+          "eliminated": false,
+          "position": 1,
+          "teamName": "Netherlands",
+          "name": "Bart Verbruggen"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "COL",
+          "playerId": 901118,
+          "teamId": 8,
+          "position": 2,
+          "teamName": "Colombia",
+          "name": "Daniel Muñoz"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "CIV",
+          "playerId": 900478,
+          "teamId": 1501,
+          "position": 2,
+          "name": "Wilfried Singo",
+          "teamName": "Ivory Coast"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "BRA",
+          "playerId": 900219,
+          "teamId": 6,
+          "position": 2,
+          "name": "Marquinhos",
+          "teamName": "Brazil"
+        }
+      ]
+    },
+    "u_nadav": {
+      "players": [
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "POR",
+          "draftedRound": 1,
+          "teamId": 27,
+          "playerId": 901051,
+          "position": 3,
+          "name": "Bruno Fernandes",
+          "teamName": "Portugal"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "FRA",
+          "draftedRound": 2,
+          "teamId": 2,
+          "playerId": 900855,
+          "position": 3,
+          "name": "Michael Olise",
+          "teamName": "France"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "SPA",
+          "draftedRound": 4,
+          "teamId": 9,
+          "playerId": 900730,
+          "position": 2,
+          "name": "Marc Cucurella",
+          "teamName": "Spain"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "GER",
+          "draftedRound": 6,
+          "teamId": 25,
+          "playerId": 900431,
+          "position": 3,
+          "name": "Jamal Musiala",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "ARG",
+          "draftedRound": 7,
+          "teamId": 26,
+          "playerId": 900941,
+          "position": 2,
+          "name": "Cristian Romero",
+          "teamName": "Argentina"
+        },
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "ENG",
+          "draftedRound": 10,
+          "teamId": 10,
+          "playerId": 901141,
+          "position": 1,
+          "name": "Jordan Pickford",
+          "teamName": "England"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "BEL",
+          "draftedRound": 12,
+          "teamId": 1,
+          "playerId": 900642,
+          "position": 3,
+          "name": "Jérémy Doku",
+          "teamName": "Belgium"
+        },
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "GER",
+          "draftedRound": 14,
+          "teamId": 25,
+          "playerId": 900416,
+          "position": 1,
+          "name": "Manuel Neuer",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "FRA",
+          "playerId": 900839,
+          "teamId": 2,
+          "position": 2,
+          "name": "Jules Koundé",
+          "teamName": "France"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "BRA",
+          "playerId": 900229,
+          "teamId": 6,
+          "position": 4,
+          "name": "Matheus Cunha",
+          "teamName": "Brazil"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "NED",
+          "playerId": 900538,
+          "teamId": 1118,
+          "position": 4,
+          "name": "Brian Brobbey",
+          "teamName": "Netherlands"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "NED",
+          "playerId": 900544,
+          "teamId": 1118,
+          "position": 3,
+          "name": "Crysencio Summerville",
+          "teamName": "Netherlands"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "CIV",
+          "playerId": 900474,
+          "teamId": 1501,
+          "position": 2,
+          "name": "Guéla Doué",
+          "teamName": "Ivory Coast"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "BEL",
+          "playerId": 900631,
+          "teamId": 1,
+          "position": 2,
+          "name": "Maxim De Cuyper",
+          "teamName": "Belgium"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "ARG",
+          "playerId": 900953,
+          "teamId": 26,
+          "position": 4,
+          "name": "Julián Alvarez",
+          "teamName": "Argentina"
+        }
+      ]
+    },
+    "u_netanel": {
+      "players": [
+        {
+          "positionName": "FWD",
+          "playerId": 900928,
+          "teamIso": "NOR",
+          "draftedRound": 1,
+          "teamId": 1090,
+          "eliminated": false,
+          "position": 4,
+          "teamName": "Norway",
+          "name": "Erling Haaland"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900749,
+          "teamIso": "SPA",
+          "draftedRound": 2,
+          "teamId": 9,
+          "eliminated": false,
+          "position": 4,
+          "teamName": "Spain",
+          "name": "Mikel Oyarzabal"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900430,
+          "teamIso": "GER",
+          "draftedRound": 3,
+          "teamId": 25,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Germany",
+          "name": "Florian Wirtz"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900421,
+          "teamIso": "GER",
+          "draftedRound": 4,
+          "teamId": 25,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Germany",
+          "name": "Joshua Kimmich"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901135,
+          "teamIso": "COL",
+          "draftedRound": 5,
+          "teamId": 8,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Colombia",
+          "name": "Luis Díaz"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900216,
+          "teamIso": "BRA",
+          "draftedRound": 6,
+          "teamId": 6,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Brazil",
+          "name": "Gabriel Magalhães"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900731,
+          "teamIso": "SPA",
+          "draftedRound": 7,
+          "teamId": 9,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Spain",
+          "name": "Pau Cubarsí"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900637,
+          "teamIso": "BEL",
+          "draftedRound": 8,
+          "teamId": 1,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Belgium",
+          "name": "Kevin De Bruyne"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900819,
+          "teamIso": "URU",
+          "draftedRound": 9,
+          "teamId": 7,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Uruguay",
+          "name": "Federico Valverde"
+        },
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "CIV",
+          "playerId": 900468,
+          "teamId": 1501,
+          "position": 1,
+          "teamName": "Ivory Coast",
+          "name": "Yahia Fofana"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "ENG",
+          "playerId": 901145,
+          "teamId": 10,
+          "position": 2,
+          "teamName": "England",
+          "name": "Nico O'Reilly"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "BRA",
+          "playerId": 900221,
+          "teamId": 6,
+          "position": 3,
+          "teamName": "Brazil",
+          "name": "Bruno Guimarães"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "SEN",
+          "playerId": 900876,
+          "teamId": 13,
+          "position": 4,
+          "teamName": "Senegal",
+          "name": "Ismaïla Sarr"
+        },
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "MEX",
+          "playerId": 900001,
+          "teamId": 16,
+          "position": 1,
+          "teamName": "Mexico",
+          "name": "Raúl Rangel"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "JAP",
+          "playerId": 900561,
+          "teamId": 12,
+          "position": 2,
+          "name": "Ritsu Doan",
+          "teamName": "Japan"
+        }
+      ]
+    },
+    "u_roy": {
+      "players": [
+        {
+          "positionName": "MID",
+          "playerId": 900233,
+          "teamIso": "BRA",
+          "draftedRound": 1,
+          "teamId": 6,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Brazil",
+          "name": "Vinícius Júnior"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900851,
+          "teamIso": "FRA",
+          "draftedRound": 2,
+          "teamId": 2,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "France",
+          "name": "Ousmane Dembélé"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901159,
+          "teamIso": "ENG",
+          "draftedRound": 4,
+          "teamId": 10,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "England",
+          "name": "Bukayo Saka"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900237,
+          "teamIso": "MOR",
+          "draftedRound": 5,
+          "teamId": 31,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Morocco",
+          "name": "Achraf Hakimi"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 901150,
+          "teamIso": "ENG",
+          "draftedRound": 6,
+          "teamId": 10,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "England",
+          "name": "Reece James"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900841,
+          "teamIso": "FRA",
+          "draftedRound": 7,
+          "teamId": 2,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "France",
+          "name": "William Saliba"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900673,
+          "teamIso": "EGY",
+          "draftedRound": 8,
+          "teamId": 32,
+          "eliminated": false,
+          "position": 3,
+          "teamName": "Egypt",
+          "name": "Mohamed Salah"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 901043,
+          "teamIso": "POR",
+          "draftedRound": 9,
+          "teamId": 27,
+          "eliminated": false,
+          "position": 2,
+          "teamName": "Portugal",
+          "name": "João Cancelo"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 900937,
+          "teamIso": "ARG",
+          "draftedRound": 10,
+          "teamId": 26,
+          "eliminated": false,
+          "position": 1,
+          "teamName": "Argentina",
+          "name": "Emiliano Martínez"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 900624,
+          "teamIso": "BEL",
+          "draftedRound": 14,
+          "teamId": 1,
+          "eliminated": false,
+          "position": 1,
+          "teamName": "Belgium",
+          "name": "Thibaut Courtois"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900959,
+          "teamIso": "ARG",
+          "eliminated": false,
+          "teamId": 26,
+          "position": 4,
+          "name": "Lautaro Martínez",
+          "teamName": "Argentina"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900643,
+          "teamIso": "BEL",
+          "eliminated": false,
+          "teamId": 1,
+          "position": 4,
+          "name": "Romelu Lukaku",
+          "teamName": "Belgium"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901154,
+          "teamIso": "ENG",
+          "eliminated": false,
+          "teamId": 10,
+          "position": 3,
+          "name": "Elliot Anderson",
+          "teamName": "England"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900732,
+          "teamIso": "SPA",
+          "eliminated": false,
+          "teamId": 9,
+          "position": 2,
+          "name": "Aymeric Laporte",
+          "teamName": "Spain"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900489,
+          "teamIso": "CIV",
+          "eliminated": false,
+          "teamId": 1501,
+          "position": 4,
+          "name": "Yan Diomande",
+          "teamName": "Ivory Coast"
+        }
+      ]
+    },
+    "u_shay": {
+      "players": [
+        {
+          "positionName": "FWD",
+          "playerId": 900854,
+          "teamIso": "FRA",
+          "draftedRound": 1,
+          "teamId": 2,
+          "eliminated": false,
+          "position": 4,
+          "name": "Kylian Mbappé",
+          "teamName": "France"
+        },
+        {
+          "positionName": "FWD",
+          "playerId": 900954,
+          "teamIso": "ARG",
+          "draftedRound": 2,
+          "teamId": 26,
+          "eliminated": false,
+          "position": 4,
+          "name": "Lionel Messi",
+          "teamName": "Argentina"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901153,
+          "teamIso": "ENG",
+          "draftedRound": 4,
+          "teamId": 10,
+          "eliminated": false,
+          "position": 3,
+          "name": "Declan Rice",
+          "teamName": "England"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 901155,
+          "teamIso": "ENG",
+          "draftedRound": 5,
+          "teamId": 10,
+          "eliminated": false,
+          "position": 3,
+          "name": "Jude Bellingham",
+          "teamName": "England"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900529,
+          "teamIso": "NED",
+          "draftedRound": 7,
+          "teamId": 1118,
+          "eliminated": false,
+          "position": 2,
+          "name": "Virgil van Dijk",
+          "teamName": "Netherlands"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900437,
+          "teamIso": "GER",
+          "draftedRound": 9,
+          "teamId": 25,
+          "eliminated": false,
+          "position": 3,
+          "name": "Leroy Sané",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900842,
+          "teamIso": "FRA",
+          "draftedRound": 10,
+          "teamId": 2,
+          "eliminated": false,
+          "position": 2,
+          "name": "Dayot Upamecano",
+          "teamName": "France"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 901038,
+          "teamIso": "POR",
+          "draftedRound": 11,
+          "teamId": 27,
+          "eliminated": false,
+          "position": 1,
+          "name": "Diogo Costa",
+          "teamName": "Portugal"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900644,
+          "teamIso": "BEL",
+          "draftedRound": 12,
+          "teamId": 1,
+          "eliminated": false,
+          "position": 3,
+          "name": "Leandro Trossard",
+          "teamName": "Belgium"
+        },
+        {
+          "positionName": "MID",
+          "playerId": 900875,
+          "teamIso": "SEN",
+          "draftedRound": 13,
+          "teamId": 13,
+          "eliminated": false,
+          "position": 3,
+          "name": "Sadio Mané",
+          "teamName": "Senegal"
+        },
+        {
+          "positionName": "GK",
+          "playerId": 900234,
+          "teamIso": "MOR",
+          "draftedRound": 15,
+          "teamId": 31,
+          "eliminated": false,
+          "position": 1,
+          "name": "Yassine Bounou",
+          "teamName": "Morocco"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "POR",
+          "playerId": 901056,
+          "teamId": 27,
+          "position": 4,
+          "name": "Cristiano Ronaldo",
+          "teamName": "Portugal"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "ENG",
+          "playerId": 901147,
+          "teamId": 10,
+          "position": 2,
+          "name": "Marc Guéhi",
+          "teamName": "England"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "NED",
+          "playerId": 900524,
+          "teamId": 1118,
+          "position": 2,
+          "name": "Denzel Dumfries",
+          "teamName": "Netherlands"
+        },
+        {
+          "positionName": "DEF",
+          "playerId": 900943,
+          "teamIso": "ARG",
+          "eliminated": false,
+          "teamId": 26,
+          "position": 2,
+          "name": "Facundo Medina",
+          "teamName": "Argentina"
+        }
+      ]
+    },
+    "u_yuval": {
+      "players": [
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "FRA",
+          "draftedRound": 4,
+          "teamId": 2,
+          "playerId": 900831,
+          "position": 1,
+          "name": "Mike Maignan",
+          "teamName": "France"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "NOR",
+          "draftedRound": 5,
+          "teamId": 1090,
+          "playerId": 900912,
+          "position": 2,
+          "name": "Julian Ryerson",
+          "teamName": "Norway"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "SPA",
+          "draftedRound": 7,
+          "teamId": 9,
+          "playerId": 900736,
+          "position": 2,
+          "name": "Marcos Llorente",
+          "teamName": "Spain"
+        },
+        {
+          "positionName": "GK",
+          "eliminated": false,
+          "teamIso": "BRA",
+          "draftedRound": 10,
+          "teamId": 6,
+          "playerId": 900209,
+          "position": 1,
+          "name": "Alisson Becker",
+          "teamName": "Brazil"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "GER",
+          "draftedRound": 11,
+          "teamId": 25,
+          "playerId": 900426,
+          "position": 2,
+          "name": "Nathaniel Brown",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "BRA",
+          "playerId": 900214,
+          "teamId": 6,
+          "position": 2,
+          "name": "Danilo",
+          "teamName": "Brazil"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "MOR",
+          "playerId": 900247,
+          "teamId": 31,
+          "position": 3,
+          "name": "Ismael Saibari",
+          "teamName": "Morocco"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "SPA",
+          "playerId": 900746,
+          "teamId": 9,
+          "position": 3,
+          "name": "Nico Williams",
+          "teamName": "Spain"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "POR",
+          "playerId": 901057,
+          "teamId": 27,
+          "position": 3,
+          "name": "Rafael Leão",
+          "teamName": "Portugal"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "GER",
+          "playerId": 900439,
+          "teamId": 25,
+          "position": 4,
+          "name": "Deniz Undav",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "GER",
+          "playerId": 900429,
+          "teamId": 25,
+          "position": 3,
+          "name": "Felix Nmecha",
+          "teamName": "Germany"
+        },
+        {
+          "positionName": "DEF",
+          "eliminated": false,
+          "teamIso": "NED",
+          "playerId": 900528,
+          "teamId": 1118,
+          "position": 2,
+          "name": "Micky van de Ven",
+          "teamName": "Netherlands"
+        },
+        {
+          "positionName": "MID",
+          "eliminated": false,
+          "teamIso": "SWI",
+          "playerId": 900201,
+          "teamId": 15,
+          "position": 3,
+          "name": "Johan Manzambi",
+          "teamName": "Switzerland"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "SWE",
+          "playerId": 900594,
+          "teamId": 5,
+          "position": 4,
+          "name": "Viktor Gyökeres",
+          "teamName": "Sweden"
+        },
+        {
+          "positionName": "FWD",
+          "eliminated": false,
+          "teamIso": "SEN",
+          "playerId": 900880,
+          "teamId": 13,
+          "position": 4,
+          "name": "Nicolas Jackson",
+          "teamName": "Senegal"
+        }
+      ]
+    }
+  }
+}

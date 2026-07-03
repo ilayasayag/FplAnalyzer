@@ -1,0 +1,165 @@
+{
+  "team": "Congo DR",
+  "abbr": "COD",
+  "group": "K",
+  "squadId": 11,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Lionel Mpasi",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Matthieu Epolo",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Timothy Fayulu",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aaron Wan-Bissaka",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Arthur Masuaku",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Chancel Mbemba",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Axel Tuanzebe",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joris Kayembe",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gédéon Kalulu",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dylan Batubinsika",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Steve Kapuadi",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Théo Bongonda",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Edo Kayembe",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Noah Sadiki",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Charles Pickel",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Samuel Moutoussamy",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ngal'ayel Mukau",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aaron Tshibola",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gaël Kakuta",
+      "position": "MID",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cédric Bakambu",
+      "position": "FWD",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yoane Wissa",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Simon Banza",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Meschack Elia",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fiston Mayele",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nathanaël Mbuku",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brian Cipenga",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    }
+  ]
+}

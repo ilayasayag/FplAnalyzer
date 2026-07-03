@@ -1,0 +1,225 @@
+{
+  "team": "Ecuador",
+  "abbr": "ECU",
+  "group": "E",
+  "squadId": 16,
+  "playerCount": 36,
+  "players": [
+    {
+      "name": "Hernán Galíndez",
+      "position": "GK",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cristhian Loor",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Moisés Ramírez",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gonzalo Valle",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pervis Estupiñán",
+      "position": "DEF",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Piero Hincapié",
+      "position": "DEF",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Willian Pacho",
+      "position": "DEF",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ángelo Preciado",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Deinner Ordóñez",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fricio Caicedo",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joel Ordóñez",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Félix Torres",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Hurtado",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jackson Porozo",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yaimar Medina",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Moisés Caicedo",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nilson Angulo",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alan Franco",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kendry Páez",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pedro Vite",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bruno Caicedo",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "John Yeboah",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luis Fragozo",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Denil Castillo",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jordy Alcívar",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Darwin Guagua",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anthony Valencia",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ederson Castillo",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Malcom DaCosta",
+      "position": "MID",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Enner Valencia",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gonzalo Plata",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kevin Rodríguez",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alan Minda",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jordy Caicedo",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "John Mercado",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jeremy Arévalo",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

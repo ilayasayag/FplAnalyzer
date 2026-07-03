@@ -1,0 +1,165 @@
+{
+  "team": "Croatia",
+  "abbr": "CRO",
+  "group": "L",
+  "squadId": 13,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Dominik Livakovic",
+      "position": "GK",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dominik Kotarski",
+      "position": "GK",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ivor Pandur",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Josko Gvardiol",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Josip Stanisic",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Josip Sutalo",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Duje Caleta-Car",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marin Pongracic",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martin Erlic",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luka Vuskovic",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martin Baturina",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mario Pasalic",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luka Modric",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nikola Vlasic",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mateo Kovacic",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nikola Moro",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kristijan Jakic",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luka Sucic",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Toni Fruk",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Petar Sucic",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ante Budimir",
+      "position": "FWD",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Andrej Kramaric",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ivan Perisic",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marco Pasalic",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Petar Musa",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Igor Matanovic",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    }
+  ]
+}

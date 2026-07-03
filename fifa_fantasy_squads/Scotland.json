@@ -1,0 +1,171 @@
+{
+  "team": "Scotland",
+  "abbr": "SCO",
+  "group": "C",
+  "squadId": 38,
+  "playerCount": 27,
+  "players": [
+    {
+      "name": "Liam Kelly",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Angus Gunn",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Craig Gordon",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Andy Robertson",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kieran Tierney",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aaron Hickey",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nathan Patterson",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jack Hendry",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "John Souttar",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Scott McKenna",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anthony Ralston",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dominic Hyam",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Grant Hanley",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Scott McTominay",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "John McGinn",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ryan Christie",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Billy Gilmour",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ben Gannon-Doak",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kenny McLean",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lewis Ferguson",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tyler Fletcher",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lawrence Shankland",
+      "position": "FWD",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ché Adams",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ross Stewart",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "George Hirst",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lyndon Dykes",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Findlay Curtis",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

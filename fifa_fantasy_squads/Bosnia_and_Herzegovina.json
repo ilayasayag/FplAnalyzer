@@ -1,0 +1,171 @@
+{
+  "team": "Bosnia and Herzegovina",
+  "abbr": "BIH",
+  "group": "B",
+  "squadId": 6,
+  "playerCount": 27,
+  "players": [
+    {
+      "name": "Nikola Vasilj",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Osman Hadzikic",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martin Zlomislic",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mladen Jurkas",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sead Kolasinac",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Amar Dedic",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tarik Muharemovic",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nikola Katic",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Stjepan Radeljic",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dennis Hadzikadunic",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nihad Mujakic",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nidal Celik",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Amir Hadziahmetovic",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Benjamin Tahirovic",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ivan Sunjic",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Armin Gigovic",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ivan Basic",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dzenis Burnic",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Amar Memic",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ermin Mahmic",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ermedin Demirovic",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Edin Dzeko",
+      "position": "FWD",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jovo Lukic",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Haris Tabakovic",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Esmir Bajraktarevic",
+      "position": "FWD",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Samed Bazdar",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kerim Alajbegovic",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    }
+  ]
+}

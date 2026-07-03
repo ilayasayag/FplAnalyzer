@@ -1,0 +1,165 @@
+{
+  "team": "France",
+  "abbr": "FRA",
+  "group": "I",
+  "squadId": 19,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Mike Maignan",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brice Samba",
+      "position": "GK",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Robin Risser",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jules Koundé",
+      "position": "DEF",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dayot Upamecano",
+      "position": "DEF",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "William Saliba",
+      "position": "DEF",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Hernández",
+      "position": "DEF",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Malo Gusto",
+      "position": "DEF",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Theo Hernández",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Digne",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ibrahima Konaté",
+      "position": "DEF",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Maxence Lacroix",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ousmane Dembélé",
+      "position": "MID",
+      "price": 10,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michael Olise",
+      "position": "MID",
+      "price": 9.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rayan Cherki",
+      "position": "MID",
+      "price": 8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bradley Barcola",
+      "position": "MID",
+      "price": 8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Désiré Doué",
+      "position": "MID",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aurélien Tchouaméni",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Adrien Rabiot",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Maghnes Akliouche",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Warren Zaïre-Emery",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Manu Koné",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "N'Golo Kanté",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kylian Mbappé",
+      "position": "FWD",
+      "price": 10.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcus Thuram",
+      "position": "FWD",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jean-Philippe Mateta",
+      "position": "FWD",
+      "price": 6.5,
+      "totalPoints": 0
+    }
+  ]
+}

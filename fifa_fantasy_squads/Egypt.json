@@ -1,0 +1,171 @@
+{
+  "team": "Egypt",
+  "abbr": "EGY",
+  "group": "G",
+  "squadId": 17,
+  "playerCount": 27,
+  "players": [
+    {
+      "name": "Mohamed El Shenawy",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "El Mahdy Soliman",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mostafa Shobeir",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Alaa",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Abdelmonem",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ahmed Fatouh",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Karim Hafez",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Hany",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ramy Rabia",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hossam Abdelmaguid",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tarek Alaa",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yasser Ibrahim",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Salah",
+      "position": "MID",
+      "price": 10,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ibrahim Adel",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohanad Lasheen",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mahmoud Saber",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Emam Ashour",
+      "position": "MID",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hamdi Fathy",
+      "position": "MID",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marwan Attia",
+      "position": "MID",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Zizo",
+      "position": "MID",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nabil Emad Dunga",
+      "position": "MID",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mostafa Zico",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Omar Marmoush",
+      "position": "FWD",
+      "price": 7.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Trezeguet",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Haissem Hassan",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aqtay Abdallah",
+      "position": "FWD",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hamza Abdelkarim",
+      "position": "FWD",
+      "price": 4.3,
+      "totalPoints": 0
+    }
+  ]
+}

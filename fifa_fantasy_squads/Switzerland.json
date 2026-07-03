@@ -1,0 +1,165 @@
+{
+  "team": "Switzerland",
+  "abbr": "SUI",
+  "group": "B",
+  "squadId": 43,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Gregor Kobel",
+      "position": "GK",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yvon Mvogo",
+      "position": "GK",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marvin Keller",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Manuel Akanji",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ricardo Rodríguez",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nico Elvedi",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Silvan Widmer",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Miro Muheim",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Eray Cömert",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aurèle Amenda",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luca Jaquez",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rubén Vargas",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Granit Xhaka",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fabian Rieder",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Djibril Sow",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Denis Zakaria",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Christian Fassnacht",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michel Aebischer",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Remo Freuler",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Johan Manzambi",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ardon Jashari",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Breel Embolo",
+      "position": "FWD",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dan Ndoye",
+      "position": "FWD",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Noah Okafor",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cedric Itten",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Zeki Amdouni",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    }
+  ]
+}
