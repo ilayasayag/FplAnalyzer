@@ -78,3 +78,22 @@ scratch/
 dr_backup/
 draft_result_backup_*.json
 firestore_export_*.json
+
+# Operational artifacts accidentally committed via #238 — never track these.
+# Local backups / rollback snapshots / migration dumps:
+*_BACKUP*.json
+squads_BACKUP*.json
+wishlist_bids_snapshot*.json
+wishlist_RESULTS_*.json
+wishlist_claim_txns_*.json
+DELETED_rollback_*.json
+PREMIGRATE_*.json
+*_to_reverse.json
+backups/
+# Generated / exported reports + one-off data dir:
+fifa_fantasy_squads/
+fifa_live_sync.py
+wc_draft_analysis.html
+wc_non_squad_players.html
+*.pages
+WC2026_GOLIVE_HANDOFF.md
