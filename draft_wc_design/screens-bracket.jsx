@@ -235,11 +235,7 @@ function BracketMatch({ match, result, round }) {
 
 // Animated replay of a wishlist auction — reveals each executed claim one-by-one
 // in resolution order (waiver priority), showing the manager + player IN/OUT.
-function AuctionViz({ result, onClose }) {
-  // Reveal events in the EXACT order the auction resolved them — claims (↔) and
-  // cancels (↓) interleaved — so a cancelled bid appears the moment it lost,
-  // next to the claim that beat it. Falls back to executed-then-failed for an
-  // older payload with no ordered event log.
+function useAuctionViz({ result }) {
   const items = React.useMemo(() => {
     const ev = (result && result.events) || [];
     if (ev.length) return ev.map(e => ({ ...e, ok: e.type === "claim" }));
@@ -257,6 +253,10 @@ function AuctionViz({ result, onClose }) {
     return () => clearTimeout(t);
   }, [revealed, items.length]);
   const done = revealed >= items.length;
+  return { items, nClaimed, nFailed, revealed, done };
+}
+function AuctionViz({ result, onClose }) {
+  const { items, nClaimed, nFailed, revealed, done } = useAuctionViz({ result });
 
   const mgrName = (uid) => { const m = managerById(uid); return m ? (m.team || m.name || uid) : uid; };
   const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
@@ -331,10 +331,9 @@ function AuctionViz({ result, onClose }) {
 // that takes effect at a given Israel-time instant; the backend applies them
 // lazily as the clock passes each one. Times are entered in Israel time (IDT,
 // UTC+3 — correct for the summer-2026 tournament) and converted to UTC on save.
-function WindowScheduleAdmin() {
-  if (!window.IS_SUPER_ADMIN) return null;
+function useWindowScheduleAdmin() {
   const lid = window.LEAGUE && window.LEAGUE.id;
-  const IL_OFFSET_MIN = 180; // Israel Daylight Time = UTC+3 (all WC26 dates)
+  const IL_OFFSET_MIN = 180;
 
   const utcToIsraelLocal = (iso) => {
     const ms = Date.parse(iso);
@@ -358,9 +357,6 @@ function WindowScheduleAdmin() {
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
 
-  const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
-  const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
-
   const setRow = (i, patch) => setRows(rs => rs.map((r, k) => k === i ? { ...r, ...patch } : r));
   const addRow = () => setRows(rs => [...rs, { phase: "free_agents", local: "", gw: defaultGw }]);
   const removeRow = (i) => setRows(rs => rs.filter((_, k) => k !== i));
@@ -369,8 +365,6 @@ function WindowScheduleAdmin() {
     setSaving(true); setMsg("");
     try {
       const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
-      // A schedule already resolving to Free agents auto-runs the wishlist
-      // auction server-side — report what happened instead of a silent reload.
       const ar = res && res.wishlistAutoRun;
       if (ar && ar.status === "done") {
         setMsg(`Saved — wishlist auction ran for GW${ar.gw} (${ar.claims} claims). Reloading…`);
@@ -403,6 +397,15 @@ function WindowScheduleAdmin() {
   };
 
   const sorted = [...rows].filter(r => r.local).sort((a, b) => a.local.localeCompare(b.local));
+
+  return { rows, saving, msg, defaultGw, setRow, addRow, removeRow, save, clearAll, sorted };
+}
+function WindowScheduleAdmin() {
+  const { rows, saving, msg, defaultGw, setRow, addRow, removeRow, save, clearAll, sorted } = useWindowScheduleAdmin();
+  if (!window.IS_SUPER_ADMIN) return null;
+
+  const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
+  const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
 
   return (
     <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
@@ -461,10 +464,10 @@ function WindowScheduleAdmin() {
   );
 }
 
-function TransfersScreen() {
+function useTransfersScreen() {
   const [tab, setTab] = React.useState("free");
   const [runningMock, setRunningMock] = React.useState(false);
-  const [auctionViz, setAuctionViz] = React.useState(null);  // {gw, executed, skipped}
+  const [auctionViz, setAuctionViz] = React.useState(null);
   const [switching, setSwitching] = React.useState(false);
   const [toast, setToast] = React.useState(null);
 
@@ -478,32 +481,19 @@ function TransfersScreen() {
   const activeWindow = window.WINDOW || WINDOW;
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const isMock = !!(window.LEAGUE && window.LEAGUE.simulated);
-  // Window switching + the wishlist runner are LEAGUE-ADMIN powers (Ilay).
-  // Everyone still SEES the buttons (current window highlighted) but they are
-  // greyed/disabled for non-admins. Server-side gates match.
-  const amLeagueAdmin = !!(window.LEAGUE && window.LEAGUE.admin && window.LEAGUE.admin === window.ME);
-  // Window control (phase switch + timed schedule) is Ilay-only. Backend matches.
   const amSuperAdmin = !!window.IS_SUPER_ADMIN;
   const curPhase = (window.WINDOW && window.WINDOW.phase) || "none";
   const overridden = !!(window.WINDOW && window.WINDOW.overridden);
 
-  // MOCK: flip the league's transfer-window phase so the page renders that
-  // window. Trade = manager trades + wishlist; Free agents = instant pickups +
-  // wishlist; Gameweek = wishlist only (no manager trades, picks go to wishlist);
-  // Auto = clear the override and hand control back to the fixture clock.
   const switchWindow = async (phase) => {
     if (switching) return;
     if (phase === "auto" ? !overridden : phase === curPhase) return;
-    // Entering Free agents AUTO-RUNS the wishlist auction on real leagues
-    // (server-side, once per GW, snapshot saved first) — make that explicit.
     if (phase === "free_agents" && !isMock &&
         !window.confirm("Opening the Free agents window AUTO-RUNS the wishlist auction on everyone's pending bids (once per GW; a bid+squad snapshot is saved first).\n\nContinue?")) return;
     setSwitching(true);
     try {
       const lid = window.LEAGUE.id;
       const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-      // "auto" sends no gw — same call shape the old Status-screen admin
-      // switcher used to clear the override.
       const res = await apiCall("POST", `/leagues/${lid}/admin/window-override`, phase === "auto" ? { phase } : { phase, gw });
       const ar = res && res.wishlistAutoRun;
       if (ar && (ar.status === "done" || ar.status === "blocked" || ar.status === "failed")) {
@@ -518,17 +508,11 @@ function TransfersScreen() {
         window.location.reload();
       }
     } catch (err) {
-      setToast({
-        type: "error",
-        message: "Failed to switch window: " + (err.error || err.detail || JSON.stringify(err))
-      });
+      setToast({ type: "error", message: "Failed to switch window: " + (err.error || err.detail || JSON.stringify(err)) });
       setSwitching(false);
     }
   };
 
-  // REAL wishlist auction on the managers' actual bids (NO auto-filled mock
-  // bids). Idempotent server-side: a second run is refused (409) until the GW
-  // is rolled back — so a stray double-click can't re-run it.
   const runWishlistAuction = async () => {
     if (runningMock) return;
     const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
@@ -550,8 +534,6 @@ function TransfersScreen() {
     }
   };
 
-  // Ilay-only: undo a GW's wishlist auction (reverse swaps, reopen bids, clear
-  // the result) so it can be cleanly re-run.
   const rollbackWishlist = async () => {
     if (runningMock) return;
     const gw = (window.WINDOW && window.WINDOW.gw) || (window.TOURNAMENT && window.TOURNAMENT.currentGw);
@@ -567,6 +549,11 @@ function TransfersScreen() {
       setRunningMock(false);
     }
   };
+
+  return { tab, setTab, runningMock, auctionViz, setAuctionViz, switching, toast, setToast, activeWindow, me, isMock, amSuperAdmin, curPhase, overridden, switchWindow, runWishlistAuction, rollbackWishlist };
+}
+function TransfersScreen() {
+  const { tab, setTab, runningMock, auctionViz, switching, toast, setToast, activeWindow, me, amSuperAdmin, curPhase, overridden, switchWindow, runWishlistAuction, rollbackWishlist } = useTransfersScreen();
 
   return (
     <div className="col" style={{ gap: 16 }}>
@@ -864,43 +851,29 @@ function PickupCompare({ incoming, outgoing }) {
   );
 }
 
-function FreeAgentsTab({ setToast }) {
+function useFreeAgentsTab({ setToast }) {
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
-  const [ownerFilter, setOwnerFilter] = React.useState("all"); // "all" | "__free" | manager name
+  const [ownerFilter, setOwnerFilter] = React.useState("all");
   const [search, setSearch] = React.useState("");
-  const [mode, setMode] = React.useState("free"); // "free" = unowned only, "all" = whole pool
+  const [mode, setMode] = React.useState("free");
   const [activePickup, setActivePickup] = React.useState(null);
   const [playerToDrop, setPlayerToDrop] = React.useState("");
-  const [sortBy, setSortBy] = React.useState("pts"); // default: total points
-  // Sort direction. Each key has a sensible default (FIFA draft rank ascends,
-  // everything else descends); clicking the active column header flips it.
+  const [sortBy, setSortBy] = React.useState("pts");
   const [sortDir, setSortDir] = React.useState("desc");
   const defaultDirFor = key => (SORT_ASC.has(key) ? "asc" : "desc");
-  // Pick a sort column (dropdown or header click). Re-selecting the active
-  // column toggles asc<->desc; a new column resets to its default direction.
   const applySort = key => {
     if (key === sortBy) setSortDir(d => (d === "asc" ? "desc" : "asc"));
     else { setSortBy(key); setSortDir(defaultDirFor(key)); }
   };
   const sortCaret = key => (sortBy === key ? (sortDir === "asc" ? " ▲" : " ▼") : "");
 
-  // The "Next" column shows each player's opponent in the GW you're transferring
-  // FOR — the next editable round (GW3 while GW2 is live), NOT the current/viewed
-  // GW. Resolve it from the same backend endpoint Pick Team uses ("Save Lineup
-  // for GWX"), then load that round's per-team fixtures into WC_FIXTURES_BY_GW.
-  // Until it resolves (or if that round isn't scheduled) the column stays blank.
   const [nextGw, setNextGw] = React.useState(null);
   const [, setFixturesLoaded] = React.useState(0);
-  // Knockout bracket (national teams) — used to optionally hide free agents whose
-  // nation is already OUT of the tournament. Same doc the Fixtures bracket renders.
   const [wcBracket, setWcBracket] = React.useState(null);
-  // "In tournament" defaults ON — knocked-out players are what everyone is
-  // trying to get RID of; no reason to offer them back (toggle stays for the
-  // rare deliberate look). "Played minutes" is opt-in: hides the deep bench
-  // (0 minutes so far) that realistically no manager would pick.
   const [activeOnly, setActiveOnly] = React.useState(true);
   const [minutesOnly, setMinutesOnly] = React.useState(false);
+
   React.useEffect(() => {
     let cancelled = false;
     apiCall("GET", "/wc-bracket")
@@ -908,11 +881,7 @@ function FreeAgentsTab({ setToast }) {
       .catch(() => {});
     return () => { cancelled = true; };
   }, []);
-  // Teams still alive = reached the knockouts (have a Round-of-32 tie) AND have
-  // not lost a completed knockout match. A nation with NO R32 tie (group-stage
-  // exit, e.g. Iran / New Zealand) is out; a nation whose R32 tie hasn't been
-  // played yet stays in (we only drop CONFIRMED exits — losers of a finished
-  // match or teams that never qualified).
+
   const { aliveReady, isNationAlive, eliminatedCount } = (() => {
     const rounds = (wcBracket && wcBracket.rounds) || {};
     const knockout = new Set(), eliminated = new Set();
@@ -929,11 +898,11 @@ function FreeAgentsTab({ setToast }) {
     const ready = knockout.size > 0;
     const alive = iso => !ready ? true : (knockout.has(iso) && !eliminated.has(iso));
     return { aliveReady: ready, isNationAlive: alive,
-             // how many of the current pool's nations are out (display hint)
              eliminatedCount: ready
                ? [...new Set((window.PLAYERS || []).map(p => (p.team || "").toUpperCase()))].filter(t => t && !alive(t)).length
                : 0 };
   })();
+
   React.useEffect(() => {
     const lid = window.LEAGUE && window.LEAGUE.id;
     if (!lid) return;
@@ -961,6 +930,93 @@ function FreeAgentsTab({ setToast }) {
     })();
     return () => { cancelled = true; };
   }, []);
+
+  const faOpen = (window.WINDOW && window.WINDOW.phase) === "free_agents";
+  const bidGw = window.WISHLIST_BID_GW ||
+                (window.WINDOW && window.WINDOW.gw) ||
+                (window.TOURNAMENT && window.TOURNAMENT.currentGw);
+  const _pid = (v) => (isNaN(Number(v)) ? Number(String(v).replace("p_", "")) : Number(v));
+
+  const handlePickup = async (p) => {
+    if (!playerToDrop) {
+      setToast({ type: "error", message: "Please select a player to drop." });
+      return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const winNum = window.WINDOW.windowNumber || 1;
+      const pIn = _pid(p.id);
+      const pOut = _pid(playerToDrop);
+      await apiCall("POST", `/leagues/${lid}/free-agent`, { playerIn: pIn, playerOut: pOut, windowNumber: winNum });
+      setToast({ type: "success", message: `Successfully picked up ${p.name} and dropped ${window.PLAYER_MAP[playerToDrop]?.name || playerToDrop}!` });
+      setActivePickup(null);
+      setTimeout(() => window.location.reload(), 1500);
+    } catch (err) {
+      setToast({ type: "error", message: "Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err)) });
+    }
+  };
+
+  const handleAddWishlist = async (p) => {
+    if (!playerToDrop) { setToast({ type: "error", message: "Please select a player to drop." }); return; }
+    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
+    const pIn = _pid(p.id), pOut = _pid(playerToDrop);
+    const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    if (existing.some(b => b.playerIn === pIn && b.playerOut === pOut)) {
+      setToast({ type: "error", message: `That exact swap (${p.name} in / ${window.PLAYER_MAP[String(playerToDrop)]?.name || "player"} out) is already on your wishlist.` });
+      setActivePickup(null);
+      return;
+    }
+    try {
+      const lid = window.LEAGUE.id;
+      const cp = window.PLAYER_MAP[String(p.id)];
+      const next = [...existing, { playerIn: pIn, playerOut: pOut, position: cp ? POS_NAMES[cp.pos] : "?" }];
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids`, { gw: bidGw, bids: next });
+      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : next;
+      setToast({ type: "success", message: `Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.` });
+      setActivePickup(null);
+    } catch (err) {
+      setToast({ type: "error", message: "Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err)) });
+    }
+  };
+
+  const handleAddToBatch = async (p, batchIdx) => {
+    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
+    const pIn = _pid(p.id);
+    const flat = (window.MY_WISHLIST_BIDS || []).map(b => ({
+      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
+    }));
+    const next = batchBidsJs(flat).map(b => ({ position: b.position, outs: b.outs.slice(), ins: b.ins.slice() }));
+    if (!next[batchIdx]) return;
+    next[batchIdx].ins.push(pIn);
+    try {
+      const lid = window.LEAGUE.id;
+      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids-batched`, { gw: bidGw, batches: next });
+      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : unbatchBids(next);
+      setToast({ type: "success", message: `Added ${p.name} to batch #${batchIdx + 1} (GW${bidGw}) as its last IN priority.` });
+      setActivePickup(null);
+    } catch (err) {
+      setToast({ type: "error", message: "Failed to add to batch: " + (err.error || err.detail || JSON.stringify(err)) });
+    }
+  };
+
+  return {
+    posFilter, setPosFilter, nationFilter, setNationFilter, ownerFilter, setOwnerFilter,
+    search, setSearch, mode, setMode, activePickup, setActivePickup, playerToDrop, setPlayerToDrop,
+    sortBy, setSortBy, sortDir, setSortDir, nextGw, activeOnly, setActiveOnly, minutesOnly, setMinutesOnly,
+    defaultDirFor, applySort, sortCaret, aliveReady, isNationAlive, eliminatedCount,
+    faOpen, bidGw, handlePickup, handleAddWishlist, handleAddToBatch,
+  };
+}
+function FreeAgentsTab({ setToast }) {
+  const {
+    posFilter, setPosFilter, nationFilter, setNationFilter, ownerFilter, setOwnerFilter,
+    search, setSearch, mode, setMode, activePickup, setActivePickup, playerToDrop, setPlayerToDrop,
+    sortBy, setSortBy, sortDir, setSortDir, nextGw, activeOnly, setActiveOnly, minutesOnly, setMinutesOnly,
+    defaultDirFor, applySort, sortCaret, aliveReady, isNationAlive, eliminatedCount,
+    faOpen, bidGw, handlePickup, handleAddWishlist, handleAddToBatch,
+  } = useFreeAgentsTab({ setToast });
 
   // playerId -> owning manager's name. Computed EVERY render (not useMemo[]) so it
   // reflects window.SQUADS_BY_UID as soon as the per-manager squads finish loading —
@@ -1023,118 +1079,6 @@ function FreeAgentsTab({ setToast }) {
   const dynCol = FA_DYNAMIC_COL[sortBy] || null;
   const mySquad = (window.MY_SQUAD_IDS || []).map(id => window.PLAYER_MAP[id]).filter(Boolean);
   const selStyle = { padding: "7px 10px", fontSize: 12, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" };
-
-  // Free-agent pickups are only INSTANT during the FREE_AGENTS window. At any
-  // other time the squad is locked, so the same drop-selection instead queues
-  // the player onto your bid-wishlist (resolved by the auction when the window
-  // opens). Target GW = the open window's GW, else the next GW to be played.
-  const faOpen = (window.WINDOW && window.WINDOW.phase) === "free_agents";
-  // First UNRESOLVED gw (computed at bootstrap) — bids never target a GW whose
-  // auction already ran. Falls back to the window/current GW pre-bootstrap.
-  const bidGw = window.WISHLIST_BID_GW ||
-                (window.WINDOW && window.WINDOW.gw) ||
-                (window.TOURNAMENT && window.TOURNAMENT.currentGw);
-  const _pid = (v) => (isNaN(Number(v)) ? Number(String(v).replace("p_", "")) : Number(v));
-
-  const handlePickup = async (p) => {
-    if (!playerToDrop) {
-      setToast({ type: "error", message: "Please select a player to drop." });
-      return;
-    }
-    try {
-      const lid = window.LEAGUE.id;
-      const winNum = window.WINDOW.windowNumber || 1;
-      const pIn = _pid(p.id);
-      const pOut = _pid(playerToDrop);
-
-      await apiCall("POST", `/leagues/${lid}/free-agent`, {
-        playerIn: pIn,
-        playerOut: pOut,
-        windowNumber: winNum
-      });
-      setToast({
-        type: "success",
-        message: `Successfully picked up ${p.name} and dropped ${window.PLAYER_MAP[playerToDrop]?.name || playerToDrop}!`
-      });
-      setActivePickup(null);
-      setTimeout(() => window.location.reload(), 1500);
-    } catch (err) {
-      setToast({
-        type: "error",
-        message: "Failed to pick up player: " + (err.error || err.detail || JSON.stringify(err))
-      });
-    }
-  };
-
-  // Window closed → add this free agent to the bid-wishlist (same in/out swap
-  // the pickup would do), appending to the manager's ordered bids for bidGw.
-  const handleAddWishlist = async (p) => {
-    if (!playerToDrop) { setToast({ type: "error", message: "Please select a player to drop." }); return; }
-    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
-    const pIn = _pid(p.id), pOut = _pid(playerToDrop);
-    const existing = (window.MY_WISHLIST_BIDS || []).map(b => ({
-      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
-    }));
-    // Allow the same incoming player with a DIFFERENT player out (ordered
-    // fallbacks); only block an exact duplicate of the (in, out) pair.
-    if (existing.some(b => b.playerIn === pIn && b.playerOut === pOut)) {
-      setToast({
-        type: "error",
-        message: `That exact swap (${p.name} in / ${window.PLAYER_MAP[String(playerToDrop)]?.name || "player"} out) is already on your wishlist.`
-      });
-      setActivePickup(null);
-      return;
-    }
-    try {
-      const lid = window.LEAGUE.id;
-      const cp = window.PLAYER_MAP[String(p.id)];
-      const next = [...existing, { playerIn: pIn, playerOut: pOut, position: cp ? POS_NAMES[cp.pos] : "?" }];
-      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids`, { gw: bidGw, bids: next });
-      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : next;
-      setToast({
-        type: "success",
-        message: `Added ${p.name} to your wishlist (GW${bidGw}). It'll be claimed by the auction when the free-agents window opens.`
-      });
-      setActivePickup(null);
-    } catch (err) {
-      setToast({
-        type: "error",
-        message: "Failed to add to wishlist: " + (err.error || err.detail || JSON.stringify(err))
-      });
-    }
-  };
-
-  // Add the incoming free agent to an EXISTING batch (same position, not
-  // already an IN there) instead of creating a new standalone bid. No drop
-  // selection needed — the batch's OUT side already says who leaves. The
-  // player joins as the batch's LAST IN priority (reorder in the Wishlist
-  // tab). Saves through the batched endpoint so the server round-trips the
-  // stored flat list back.
-  const handleAddToBatch = async (p, batchIdx) => {
-    if (!bidGw) { setToast({ type: "error", message: "No upcoming gameweek to bid for yet." }); return; }
-    const pIn = _pid(p.id);
-    const flat = (window.MY_WISHLIST_BIDS || []).map(b => ({
-      playerIn: Number(b.playerIn), playerOut: Number(b.playerOut), position: b.position,
-    }));
-    const next = batchBidsJs(flat).map(b => ({ position: b.position, outs: b.outs.slice(), ins: b.ins.slice() }));
-    if (!next[batchIdx]) return;
-    next[batchIdx].ins.push(pIn);
-    try {
-      const lid = window.LEAGUE.id;
-      const res = await apiCall("POST", `/leagues/${lid}/wishlist-bids-batched`, { gw: bidGw, batches: next });
-      window.MY_WISHLIST_BIDS = (res && Array.isArray(res.bids)) ? res.bids : unbatchBids(next);
-      setToast({
-        type: "success",
-        message: `Added ${p.name} to batch #${batchIdx + 1} (GW${bidGw}) as its last IN priority.`
-      });
-      setActivePickup(null);
-    } catch (err) {
-      setToast({
-        type: "error",
-        message: "Failed to add to batch: " + (err.error || err.detail || JSON.stringify(err))
-      });
-    }
-  };
 
   return (
     <div className="card" style={{ overflow: "hidden" }}>
@@ -1636,17 +1580,12 @@ function BatchPlayerRow({ pid, idx, side, onRemove, onMove, canUp, canDown, drag
   );
 }
 
-// The batched wishlist editor. Renders the DERIVED batches of the current
-// flat list + local "draft" batches (new batches still missing an IN side —
-// those live only in memory: a batch with an empty side is not persistable,
-// and deleting the last player of either side deletes the whole batch).
-function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
+function useBatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
   const isMobile = useIsMobile();
   const nationAlive = useNationAlive();
   const batches = React.useMemo(() => batchBidsJs(bids), [bids]);
   const [drafts, setDrafts] = React.useState([]);
   const [busy, setBusy] = React.useState(false);
-  // {b: batchIdx | "d0", side: "outs"|"ins"|"new"} — which adder popover is open.
   const [adder, setAdder] = React.useState(null);
   const [query, setQuery] = React.useState("");
   const dragRef = React.useRef(null);
@@ -1811,6 +1750,24 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
       .sort((a, b) => (b.pts || 0) - (a.pts || 0) || (b.min || 0) - (a.min || 0))
       .slice(0, 10);
   };
+  return {
+    isMobile, batches, drafts, setDrafts, busy, adder, setAdder, query, setQuery,
+    persist, moveBatch, removeBatch, moveRow, removeRow, addPid,
+    startDraft, draftAdd, draftRemove, draftMove,
+    rowDrag, batchDrag, squadOptions, faOptions,
+  };
+}
+// The batched wishlist editor. Renders the DERIVED batches of the current
+// flat list + local "draft" batches (new batches still missing an IN side —
+// those live only in memory: a batch with an empty side is not persistable,
+// and deleting the last player of either side deletes the whole batch).
+function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
+  const {
+    isMobile, batches, drafts, setDrafts, busy, adder, setAdder, query, setQuery,
+    persist, moveBatch, removeBatch, moveRow, removeRow, addPid,
+    startDraft, draftAdd, draftRemove, draftMove,
+    rowDrag, batchDrag, squadOptions, faOptions,
+  } = useBatchedWishlistEditor({ bids, gw, onPersisted, setToast });
 
   const adderPopover = (options, onPick, withSearch, placeholder) => (
     <div style={{ position: "relative" }}>
@@ -1933,7 +1890,7 @@ function BatchedWishlistEditor({ bids, gw, onPersisted, setToast }) {
   );
 }
 
-function WishlistTab({ setToast }) {
+function useWishlistTab({ setToast }) {
   const isMobile = useIsMobile();
   const [bids, setBids] = React.useState(() => (window.MY_WISHLIST_BIDS || []).map(b => ({
     playerIn: Number(b.playerIn),
@@ -2054,6 +2011,18 @@ function WishlistTab({ setToast }) {
     }
   };
 
+  return {
+    isMobile, bids, setBids, adding, setAdding, dropId, setDropId, claimId, setClaimId,
+    saving, view, setView, flatDragRef, onBatchedPersisted, upcomingGw, isFaWindow,
+    mySquad, dropPlayer, eligibleClaims, move, reorderTo, removeBid, addBid, save,
+  };
+}
+function WishlistTab({ setToast }) {
+  const {
+    isMobile, bids, setBids, adding, setAdding, dropId, setDropId, claimId, setClaimId,
+    saving, view, setView, flatDragRef, onBatchedPersisted, upcomingGw, isFaWindow,
+    mySquad, dropPlayer, eligibleClaims, move, reorderTo, removeBid, addBid, save,
+  } = useWishlistTab({ setToast });
   return (
     <div className="col" style={{ gap: 12 }}>
       <div className={"alert " + (isFaWindow ? "alert--green" : "alert--gold")}>
@@ -2256,7 +2225,7 @@ function MySquadTab() {
   );
 }
 
-function TransferHistoryTab() {
+function useTransferHistoryTab() {
   // League-wide transfer history grouped per gameweek (newest first). Each GW
   // shows BOTH:
   //   • manager↔manager trades that resolved that GW (transactions, type="trade")
@@ -2277,7 +2246,10 @@ function TransferHistoryTab() {
       .catch(() => { if (!cancelled) setTxns([]); });
     return () => { cancelled = true; };
   }, []);
-
+  return { wl, txns };
+}
+function TransferHistoryTab() {
+  const { wl, txns } = useTransferHistoryTab();
   const pl = (id) => (window.PLAYER_MAP || {})[String(id)] || { name: id, pos: 3, team: null };
   const mgr = (uid) => { const m = managerById(uid); return m ? (m.team || m.name || uid) : uid; };
 
@@ -2402,7 +2374,7 @@ function TransferHistoryTab() {
   );
 }
 
-function DraftTab() {
+function useDraftTab() {
   const [watchlist, setWatchlist] = React.useState(new Set());
   const [loadingWatchlist, setLoadingWatchlist] = React.useState(false);
   const [search, setSearch] = React.useState("");
@@ -2561,6 +2533,31 @@ function DraftTab() {
     }).sort((a, b) => a.dr - b.dr);
   }, [activePlayers, draftHistory, search, posFilter, nationFilter, ownerFilter]);
 
+  const totalPlayers = pool.length;
+  const startIdx = page * pageSize;
+  const visiblePlayers = pool.slice(startIdx, startIdx + pageSize);
+  const watchlistArray = Array.from(watchlist).map(id => PLAYER_MAP[Number(id)]).filter(Boolean);
+
+  return {
+    watchlist, loadingWatchlist, search, setSearch, posFilter, setPosFilter,
+    nationFilter, setNationFilter, ownerFilter, setOwnerFilter,
+    page, setPage, pageSize, setPageSize, draggedIndex,
+    activePlayers, draftHistory, managers, league, isMyTurn, PLAYER_MAP,
+    handleToggleWatchlist, handleDragStart, handleDragOver, handleDrop, handleDraftPick,
+    taken, ownerMap, nationsList, pool, totalPlayers, startIdx, visiblePlayers, watchlistArray,
+  };
+}
+function DraftTab() {
+  const {
+    watchlist, search, setSearch, posFilter, setPosFilter,
+    nationFilter, setNationFilter, ownerFilter, setOwnerFilter,
+    page, setPage, pageSize, setPageSize,
+    activePlayers, draftHistory, managers, isMyTurn, PLAYER_MAP,
+    handleToggleWatchlist, handleDragStart, handleDragOver, handleDrop, handleDraftPick,
+    taken, ownerMap, nationsList, pool, totalPlayers, startIdx, visiblePlayers, watchlistArray,
+  } = useDraftTab();
+  const POS_NAMES = {1: "GK", 2: "DEF", 3: "MID", 4: "FWD"};
+  const ME = window.ME;
   // Helper to derive statistics based on points & position (for realism)
   const getDerivedStats = (p) => {
     const pts = p.pts || 0;
@@ -2583,15 +2580,6 @@ function DraftTab() {
     }
     return { rating, ppg, mp, g, a, cs };
   };
-
-  // Pagination calculations
-  const totalPlayers = pool.length;
-  const startIdx = page * pageSize;
-  const visiblePlayers = pool.slice(startIdx, startIdx + pageSize);
-
-  // Watchlist array in order of selection (matching watchlist Set)
-  // watchlist stores string IDs; PLAYER_MAP is keyed by numbers — convert before lookup
-  const watchlistArray = Array.from(watchlist).map(id => PLAYER_MAP[Number(id)]).filter(Boolean);
 
   return (
     <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 16, alignItems: "start" }}>
