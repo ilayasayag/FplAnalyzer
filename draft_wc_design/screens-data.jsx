@@ -614,9 +614,14 @@ function StandingsTable({ onTab }) {
     const timer = setInterval(load, 60000);
     return () => { cancelled = true; clearInterval(timer); };
   }, [lid]);
+  // Store-backed fallback (always-live-data rule): while neither the live
+  // per-GW feed nor the standings row has resolved, render skeleton rows —
+  // never the data.jsx demo table.
+  const standingsRow = useStoreRow("standings");
   const baseRows = (liveData && liveData.managers && liveData.managers.length)
     ? liveData.managers
-    : (window.STANDINGS || STANDINGS);
+    : (standingsRow.status === "ready" ? (standingsRow.value || []) : null);
+  const standingsPending = baseRows === null;
   const isLive = !!(liveData && liveData.live);
   let updatedLabel = null;
   if (isLive && liveData.updatedAt) {
@@ -624,7 +629,7 @@ function StandingsTable({ onTab }) {
     if (!isNaN(d)) updatedLabel = d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
   }
   const rows = React.useMemo(() => {
-    const arr = [...baseRows];
+    const arr = [...(baseRows || [])];
     arr.sort(sortBy === "hpts"
       ? (a, b) => ((b.hpts || 0) - (a.hpts || 0)) || ((b.fpts || 0) - (a.fpts || 0))
       : (a, b) => ((b.fpts || 0) - (a.fpts || 0)) || ((b.hpts || 0) - (a.hpts || 0)));
@@ -678,6 +683,18 @@ function StandingsTable({ onTab }) {
           </tr>
         </thead>
         <tbody>
+          {standingsPending && Array.from({ length: 6 }).map((_, i) => (
+            <tr key={`skel-${i}`}>
+              <td className="num" style={{ width: 50 }}><Skel w={18} h={14} /></td>
+              <td><Skel w={140} h={14} /></td>
+              <td style={{ textAlign: "right" }}><Skel w={16} h={14} /></td>
+              <td style={{ textAlign: "right" }}><Skel w={16} h={14} /></td>
+              <td style={{ textAlign: "right" }}><Skel w={16} h={14} /></td>
+              <td style={{ textAlign: "right" }}><Skel w={28} h={14} /></td>
+              <td style={{ textAlign: "right" }}><Skel w={36} h={14} /></td>
+              <td className="c-status"></td>
+            </tr>
+          ))}
           {rows.map((s, i) => {
             const m = managerById(s.uid);
             const t = teamById(m.flag);
@@ -803,7 +820,7 @@ function ResultsTable() {
       <div className="h-display" style={{ fontSize: 16, marginBottom: 8 }}>Latest Results · GW3</div>
       <div className="muted" style={{ fontSize: 13 }}>Final H2H results from group stage MD3. Click a name to see their squad breakdown.</div>
       <div style={{ marginTop: 14, display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr", gap: 12 }}>
-        {SCHEDULE[3].map(([a, b], i) => {
+        {(SCHEDULE[3] || []).map(([a, b], i) => {
           const A = managerById(a), B = managerById(b);
           const ap = GW_TOTALS[a], bp = GW_TOTALS[b];
           const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };

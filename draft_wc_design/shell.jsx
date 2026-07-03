@@ -265,16 +265,23 @@ function MobileNav({ tab, onTab }) {
 function Sidebar({ onTab }) {
   const me = managerById(window.ME) || { name: "Manager", team: "My Team", flag: "GER", waiverPri: 99 };
   const myTeam = teamById(me.flag) || teamById("GER");
-  const myStanding = (window.STANDINGS || STANDINGS).find(s => s.uid === window.ME) || { rank: "—", fpts: "—", hpts: "—" };
+  // Store-backed (always-live-data rule): never the data.jsx demo standings.
+  // While loading, the chips show "…" — dashes mean "loaded, genuinely absent".
+  const standingsRow = useStoreRow("standings");
+  const gwTotalsRow = useStoreRow("gwTotals");
+  const _standings = standingsRow.status === "ready" ? (standingsRow.value || []) : null;
+  const myStanding = (_standings || []).find(s => s.uid === window.ME)
+    || { rank: _standings === null ? "…" : "—", fpts: _standings === null ? "…" : "—", hpts: "—" };
 
-  // count eliminated players in squad
-  const elimCount = MY_SQUAD_IDS.filter(id => {
+  // count eliminated players in squad (real squad only — [] pre-load)
+  const elimCount = (window.MY_SQUAD_IDS || []).filter(id => {
     const p = playerById(id);
     return p && (p.elim || teamById(p.team)?.elim);
   }).length;
 
   const currentGw = TOURNAMENT.currentGw;
-  const gwPoints = window.GW_TOTALS && window.GW_TOTALS[window.ME] !== undefined ? window.GW_TOTALS[window.ME] : "—";
+  const gwPoints = gwTotalsRow.status !== "ready" ? "…"
+    : (gwTotalsRow.value && gwTotalsRow.value[window.ME] !== undefined ? gwTotalsRow.value[window.ME] : "—");
   
   const activeWindow = window.WINDOW || WINDOW;
   const favTeam = teamById(me.flag) || teamById("GER");
