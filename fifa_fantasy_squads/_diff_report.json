@@ -1,0 +1,3445 @@
+{
+  "comparison": "LIVE wc_players DB  vs  FIFA fantasy squads (play.fifa.com)",
+  "match_method": "exact normalized full-name match within each national team",
+  "totals": {
+    "position_diffs": 103,
+    "missing_in_fifa": 105,
+    "missing_in_db": 341
+  },
+  "legend": {
+    "position_diffs": "player in BOTH, position disagrees (db_position vs fifa_position)",
+    "missing_in_fifa": "in our DB, NOT found in the FIFA squad",
+    "missing_in_db": "in the FIFA squad, NOT found in our DB"
+  },
+  "position_diffs": [
+    {
+      "team": "ALG",
+      "player": "Adil Boulbina",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ALG",
+      "player": "Ibrahim Maza",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "ALG",
+      "player": "Riyad Mahrez",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ARG",
+      "player": "Giuliano Simeone",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ARG",
+      "player": "Julián Alvarez",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "ARG",
+      "player": "Nico Paz",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ARG",
+      "player": "Thiago Almada",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "AUS",
+      "player": "Kai Trewin",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "AUS",
+      "player": "Lucas Herrington",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "AUS",
+      "player": "Nishan Velupillay",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "BEL",
+      "player": "Alexis Saelemaekers",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BEL",
+      "player": "Charles De Ketelaere",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BEL",
+      "player": "Diego Moreira",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Danilo",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Ederson",
+      "db_position": "GK",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Gabriel Martinelli",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Neymar",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Raphinha",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "BRA",
+      "player": "Vinicius Júnior",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CAN",
+      "player": "Liam Millar",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "CAN",
+      "player": "Niko Sigur",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CAN",
+      "player": "Tajon Buchanan",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "COD",
+      "player": "Aaron Tshibola",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "COD",
+      "player": "Brian Cipenga",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "COD",
+      "player": "Meschack Elia",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "COD",
+      "player": "Nathanaël Mbuku",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "COD",
+      "player": "Théo Bongonda",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "COL",
+      "player": "Jaminton Campaz",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "COL",
+      "player": "Luis Díaz",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CPV",
+      "player": "Gilson Benchimol",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CPV",
+      "player": "Helio Varela",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CRO",
+      "player": "Kristijan Jakic",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CUW",
+      "player": "Ar'jany Martha",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "CUW",
+      "player": "Leandro Bacuna",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "CUW",
+      "player": "Livano Comenencia",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "CUW",
+      "player": "Tahith Chong",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CUW",
+      "player": "Tyrese Noslin",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "CZE",
+      "player": "David Douděra",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CZE",
+      "player": "Denis Višinský",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "CZE",
+      "player": "Pavel Šulc",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ECU",
+      "player": "Alan Minda",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "ECU",
+      "player": "Anthony Valencia",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ECU",
+      "player": "Gonzalo Plata",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "ECU",
+      "player": "Nilson Angulo",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ECU",
+      "player": "Yaimar Medina",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "EGY",
+      "player": "Mohamed Salah",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "ENG",
+      "player": "Marcus Rashford",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "FRA",
+      "player": "Maghnes Akliouche",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "FRA",
+      "player": "Ousmane Dembele",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "GHA",
+      "player": "Antoine Semenyo",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "GHA",
+      "player": "Ernest Nuamah",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "IRA",
+      "player": "Alireza Jahanbakhsh",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "IRA",
+      "player": "Saman Ghoddos",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "IRQ",
+      "player": "Youssef Amyn",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "JAP",
+      "player": "Daizen Maeda",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "JAP",
+      "player": "Ritsu Doan",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "JOR",
+      "player": "Amer Jamous",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "JOR",
+      "player": "Mahmoud Al-Mardi",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "KOR",
+      "player": "Eom Ji-sung",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "KOR",
+      "player": "Hwang Hee-chan",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "KOR",
+      "player": "Jens Castrop",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "KOR",
+      "player": "Lee Gi-hyuk",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "KOR",
+      "player": "Park Jin-seob",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "KOR",
+      "player": "Yang Hyun-jun",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "MEX",
+      "player": "César Huerta",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "MEX",
+      "player": "Edson Álvarez",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "MOR",
+      "player": "Brahim Diaz",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NED",
+      "player": "Crysencio Summerville",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NED",
+      "player": "Justin Kluivert",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NOR",
+      "player": "Antonio Nusa",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NOR",
+      "player": "Jens Petter Hauge",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NOR",
+      "player": "Oscar Bobb",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NZL",
+      "player": "Callum McCowatt",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "NZL",
+      "player": "Lachlan Bayliss",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "PAN",
+      "player": "Tomás Rodríguez",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "PAR",
+      "player": "Alexandro Maidana",
+      "db_position": "DEF",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "PAR",
+      "player": "Julio Enciso",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "PAR",
+      "player": "Ramón Sosa",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "POR",
+      "player": "Francisco Conceição",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "POR",
+      "player": "Pedro Neto",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "QAT",
+      "player": "Ayoub Al-Oui",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "RSA",
+      "player": "Iqraam Rayners",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "RSA",
+      "player": "Kamogelo Sebelebele",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "RSA",
+      "player": "Tshepang Moremi",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SAU",
+      "player": "Mohammed Abu Al Shamat",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SCO",
+      "player": "Findlay Curtis",
+      "db_position": "MID",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "SEN",
+      "player": "Krépin Diatta",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SEN",
+      "player": "Sadio Mané",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SPA",
+      "player": "Nico Williams",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SWE",
+      "player": "Elliot Stroud",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SWE",
+      "player": "Eric Smith",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SWE",
+      "player": "Herman Johansson",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "SWI",
+      "player": "Rubén Vargas",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "TUN",
+      "player": "Elias Achouri",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "TUR",
+      "player": "Arda Guler",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "TUR",
+      "player": "Can Uzun",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "TUR",
+      "player": "Irfan Can Kahveci",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "TUR",
+      "player": "Kaan Ayhan",
+      "db_position": "MID",
+      "fifa_position": "DEF"
+    },
+    {
+      "team": "TUR",
+      "player": "Kenan Yildiz",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "USA",
+      "player": "Brenden Aaronson",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "USA",
+      "player": "Christian Pulisic",
+      "db_position": "FWD",
+      "fifa_position": "MID"
+    },
+    {
+      "team": "USA",
+      "player": "Max Arfsten",
+      "db_position": "DEF",
+      "fifa_position": "FWD"
+    },
+    {
+      "team": "UZB",
+      "player": "Abdulla Abdullaev",
+      "db_position": "DEF",
+      "fifa_position": "MID"
+    }
+  ],
+  "missing_in_fifa": [
+    {
+      "team": "ALG",
+      "player": "Mohamed Amine Tougai"
+    },
+    {
+      "team": "ALG",
+      "player": "Mohamed Amoura"
+    },
+    {
+      "team": "ALG",
+      "player": "Nadhir Benbouali"
+    },
+    {
+      "team": "ARG",
+      "player": "Nicolás González"
+    },
+    {
+      "team": "AUS",
+      "player": "Maty Ryan"
+    },
+    {
+      "team": "AUS",
+      "player": "Paul Okon-Engstler"
+    },
+    {
+      "team": "BRA",
+      "player": "Alisson"
+    },
+    {
+      "team": "COL",
+      "player": "Carlos Andrés Gómez"
+    },
+    {
+      "team": "COL",
+      "player": "Juan Camilo Hernández"
+    },
+    {
+      "team": "COL",
+      "player": "Juan Camilo Portilla"
+    },
+    {
+      "team": "CPV",
+      "player": "Carlos Dos Santos"
+    },
+    {
+      "team": "CPV",
+      "player": "Diney Borges"
+    },
+    {
+      "team": "CPV",
+      "player": "Joao Paulo Fernandes"
+    },
+    {
+      "team": "CPV",
+      "player": "Marcio Rosa"
+    },
+    {
+      "team": "CPV",
+      "player": "Roberto Lopes"
+    },
+    {
+      "team": "CPV",
+      "player": "Sidny Lopes Cabral"
+    },
+    {
+      "team": "CPV",
+      "player": "Stopira (Ianique Tavares)"
+    },
+    {
+      "team": "EGY",
+      "player": "Ahmed Sayed Zizo"
+    },
+    {
+      "team": "EGY",
+      "player": "Haitham Hassan"
+    },
+    {
+      "team": "EGY",
+      "player": "Hamdy Fathy"
+    },
+    {
+      "team": "EGY",
+      "player": "Hamza Abdel Karim"
+    },
+    {
+      "team": "EGY",
+      "player": "Mahmoud Trezeguet"
+    },
+    {
+      "team": "EGY",
+      "player": "Mohannad Lasheen"
+    },
+    {
+      "team": "EGY",
+      "player": "Mostafa Abdelraouf Ziko"
+    },
+    {
+      "team": "EGY",
+      "player": "Nabil Emad Donga"
+    },
+    {
+      "team": "EGY",
+      "player": "Rami Rabia"
+    },
+    {
+      "team": "GER",
+      "player": "Pascal Groß"
+    },
+    {
+      "team": "GHA",
+      "player": "Abdul Rahman Baba"
+    },
+    {
+      "team": "GHA",
+      "player": "Prince Kwabena Adu"
+    },
+    {
+      "team": "HAI",
+      "player": "Derrick Etienne Jr."
+    },
+    {
+      "team": "HAI",
+      "player": "Josuée Casimir"
+    },
+    {
+      "team": "HAI",
+      "player": "Josuée Duverger"
+    },
+    {
+      "team": "IRA",
+      "player": "Amirmohammad Razaghnian"
+    },
+    {
+      "team": "IRA",
+      "player": "Arya Yousefi"
+    },
+    {
+      "team": "IRA",
+      "player": "Danial Iri"
+    },
+    {
+      "team": "IRA",
+      "player": "Denis Dargahi"
+    },
+    {
+      "team": "IRA",
+      "player": "Ehsan Hajsafi"
+    },
+    {
+      "team": "IRA",
+      "player": "Mohammad Hossein Kanaanizadegan"
+    },
+    {
+      "team": "IRA",
+      "player": "Rouzbeh Cheshmi"
+    },
+    {
+      "team": "IRA",
+      "player": "Shahriar Moghanlou"
+    },
+    {
+      "team": "IRA",
+      "player": "Shojae Khalilzadeh"
+    },
+    {
+      "team": "IRQ",
+      "player": "Ali Jassim"
+    },
+    {
+      "team": "IRQ",
+      "player": "Ali Yousef"
+    },
+    {
+      "team": "IRQ",
+      "player": "Manaf Younis"
+    },
+    {
+      "team": "IRQ",
+      "player": "Zaid Ismail"
+    },
+    {
+      "team": "JOR",
+      "player": "Abdullah Al-Fakhouri"
+    },
+    {
+      "team": "JOR",
+      "player": "Abdullah Nasib"
+    },
+    {
+      "team": "JOR",
+      "player": "Ali Al-Azaizeh"
+    },
+    {
+      "team": "JOR",
+      "player": "Anas Banawi"
+    },
+    {
+      "team": "JOR",
+      "player": "Husam Abu Dahab"
+    },
+    {
+      "team": "JOR",
+      "player": "Ibrahim Saadeh"
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Abu Zrayq"
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Abualnadi"
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Al-Dawoud"
+    },
+    {
+      "team": "JOR",
+      "player": "Noor Bani Attiah"
+    },
+    {
+      "team": "JOR",
+      "player": "Odeh Al-Fakhouri"
+    },
+    {
+      "team": "MOR",
+      "player": "Ahmed Reda Tagnaouti"
+    },
+    {
+      "team": "MOR",
+      "player": "Ayoube Amaimouni"
+    },
+    {
+      "team": "MOR",
+      "player": "Yassine Gessime"
+    },
+    {
+      "team": "NOR",
+      "player": "Alexander Sorloth"
+    },
+    {
+      "team": "NOR",
+      "player": "David Moller Wolfe"
+    },
+    {
+      "team": "NOR",
+      "player": "Fredrik Bjorkan"
+    },
+    {
+      "team": "NOR",
+      "player": "Jorgen Strand Larsen"
+    },
+    {
+      "team": "NOR",
+      "player": "Leo Skiri Ostigard"
+    },
+    {
+      "team": "NOR",
+      "player": "Marcus Holmgren Pedersen"
+    },
+    {
+      "team": "NOR",
+      "player": "Martin Odegaard"
+    },
+    {
+      "team": "NOR",
+      "player": "Orjan Haskjold Nyland"
+    },
+    {
+      "team": "NOR",
+      "player": "Torbjorn Heggem"
+    },
+    {
+      "team": "NZL",
+      "player": "Eli Just"
+    },
+    {
+      "team": "NZL",
+      "player": "Matt Garbett"
+    },
+    {
+      "team": "PAN",
+      "player": "Michael Amir Murillo"
+    },
+    {
+      "team": "PAR",
+      "player": "Alejandro Romero Gamarra (Kaku)"
+    },
+    {
+      "team": "PAR",
+      "player": "Juan Cáceres"
+    },
+    {
+      "team": "PAR",
+      "player": "Maurício"
+    },
+    {
+      "team": "POR",
+      "player": "Francisco Trincão"
+    },
+    {
+      "team": "QAT",
+      "player": "Ahmed Alaaeldin"
+    },
+    {
+      "team": "QAT",
+      "player": "Ahmed Fathi"
+    },
+    {
+      "team": "QAT",
+      "player": "Al-Hashmi Al-Hussain"
+    },
+    {
+      "team": "QAT",
+      "player": "Homam Ahmed"
+    },
+    {
+      "team": "QAT",
+      "player": "Mahmoud Abunada"
+    },
+    {
+      "team": "QAT",
+      "player": "Mohamed Al-Mannai"
+    },
+    {
+      "team": "QAT",
+      "player": "Sultan Al-Braik"
+    },
+    {
+      "team": "RSA",
+      "player": "Sphephelo Sithole"
+    },
+    {
+      "team": "SAU",
+      "player": "Abdullah Al Hamdan"
+    },
+    {
+      "team": "SAU",
+      "player": "Alaa Al Hajji"
+    },
+    {
+      "team": "SAU",
+      "player": "Ayman Yahya"
+    },
+    {
+      "team": "SAU",
+      "player": "Feras Al Buraikan"
+    },
+    {
+      "team": "SAU",
+      "player": "Hassan Kadesh"
+    },
+    {
+      "team": "SAU",
+      "player": "Hassan Tambakti"
+    },
+    {
+      "team": "SAU",
+      "player": "Mohammed Kanno"
+    },
+    {
+      "team": "SAU",
+      "player": "Nawaf Boushal"
+    },
+    {
+      "team": "SEN",
+      "player": "Idrissa Gana Gueye"
+    },
+    {
+      "team": "TUN",
+      "player": "Mohamed Amine Ben Hamida"
+    },
+    {
+      "team": "TUN",
+      "player": "Mouhib Chamakh"
+    },
+    {
+      "team": "URU",
+      "player": "Maximiliano Araújo"
+    },
+    {
+      "team": "USA",
+      "player": "Alejandro Zendejas"
+    },
+    {
+      "team": "USA",
+      "player": "Alex Freeman"
+    },
+    {
+      "team": "USA",
+      "player": "Gio Reyna"
+    },
+    {
+      "team": "USA",
+      "player": "Tim Weah"
+    },
+    {
+      "team": "UZB",
+      "player": "Abbosbek Fayzullayev"
+    },
+    {
+      "team": "UZB",
+      "player": "Abduvohid Nematov"
+    },
+    {
+      "team": "UZB",
+      "player": "Avazbek Ulmasaliev"
+    },
+    {
+      "team": "UZB",
+      "player": "Azizbek Amonov"
+    },
+    {
+      "team": "UZB",
+      "player": "Azizjon Ganiev"
+    },
+    {
+      "team": "UZB",
+      "player": "Behruz Karimov"
+    }
+  ],
+  "missing_in_db": [
+    {
+      "team": "ALG",
+      "player": "Abdelatif Ramdane",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Adil Aouchiche",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Ahmed Benbouali",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Amin Chiakha",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Anthony Mandréa",
+      "fifa_position": "GK",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Kilian Belazzoug",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Mehdi Dorval",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Mohamed Tougaï",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Mohammed Amoura",
+      "fifa_position": "FWD",
+      "fifa_price": 6.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ALG",
+      "player": "Sohaib Nair",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Agustín Giay",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Alan Varela",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Alejandro Garnacho",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Aníbal Moreno",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Claudio Echeverri",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Emiliano Buendía",
+      "fifa_position": "MID",
+      "fifa_price": 6.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Equi Fernández",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Facundo Cambeses",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Franco Mastantuono",
+      "fifa_position": "MID",
+      "fifa_price": 5.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Gabriel Rojas",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Germán Pezzella",
+      "fifa_position": "DEF",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Gianluca Prestianni",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Guido Rodríguez",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Kevin Mac Allister",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Lautaro Di Lollo",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Leonardo Balerdi",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Lucas Martínez Quarta",
+      "fifa_position": "DEF",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Marcos Acuña",
+      "fifa_position": "DEF",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Marcos Senesi",
+      "fifa_position": "DEF",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Mateo Pellegrino",
+      "fifa_position": "FWD",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Matías Soulé",
+      "fifa_position": "MID",
+      "fifa_price": 6.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Milton Delgado",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Máximo Perrone",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Nico González",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Nicolás Capaldo",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Nicolás Domínguez",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Santiago Beltrán",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Santiago Castro",
+      "fifa_position": "FWD",
+      "fifa_price": 6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Tomás Aranda",
+      "fifa_position": "MID",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Walter Benítez",
+      "fifa_position": "GK",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ARG",
+      "player": "Zaid Romero",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Alex Robertson",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Ante Suto",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Brandon Borrello",
+      "fifa_position": "FWD",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Deni Juric",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Fran Karacic",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Joe Gauci",
+      "fifa_position": "GK",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Kye Rowles",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Martin Boyle",
+      "fifa_position": "FWD",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Mathew Ryan",
+      "fifa_position": "GK",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Patrick Yazbek",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Paul Okon",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "AUS",
+      "player": "Riley McGree",
+      "fifa_position": "MID",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "BOS",
+      "player": "Osman Hadzikic",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "BRA",
+      "player": "Alisson Becker",
+      "fifa_position": "GK",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Daniel Jebbison",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Jacen Russell-Rowe",
+      "fifa_position": "FWD",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Jamie Knight-Lebel",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Jayden Nelson",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Ralph Priso",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CAN",
+      "player": "Zorhan Bassong",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CIV",
+      "player": "Clément Akpa",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "COD",
+      "player": "Simon Banza",
+      "fifa_position": "FWD",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "COL",
+      "player": "Andrés Gómez",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "COL",
+      "player": "Cucho Hernández",
+      "fifa_position": "FWD",
+      "fifa_price": 6.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "COL",
+      "player": "Juan Portilla",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "CJ dos Santos",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "Diney",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "João Paulo",
+      "fifa_position": "MID",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "Márcio da Rosa",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "Pico",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "Sidny Cabral",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CPV",
+      "player": "Stopira",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CZE",
+      "player": "Christophe Kabongo",
+      "fifa_position": "FWD",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CZE",
+      "player": "Pavel Bucha",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "CZE",
+      "player": "Tomás Ladra",
+      "fifa_position": "FWD",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Bruno Caicedo",
+      "fifa_position": "MID",
+      "fifa_price": 5.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Cristhian Loor",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Darwin Guagua",
+      "fifa_position": "MID",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Deinner Ordóñez",
+      "fifa_position": "DEF",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Ederson Castillo",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Fricio Caicedo",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "John Mercado",
+      "fifa_position": "FWD",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "José Hurtado",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Luis Fragozo",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "ECU",
+      "player": "Malcom DaCosta",
+      "fifa_position": "MID",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Aqtay Abdallah",
+      "fifa_position": "FWD",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Haissem Hassan",
+      "fifa_position": "FWD",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Hamdi Fathy",
+      "fifa_position": "MID",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Hamza Abdelkarim",
+      "fifa_position": "FWD",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Mohamed Alaa",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Mohanad Lasheen",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Mostafa Zico",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Nabil Emad Dunga",
+      "fifa_position": "MID",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Ramy Rabia",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Trezeguet",
+      "fifa_position": "FWD",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "EGY",
+      "player": "Zizo",
+      "fifa_position": "MID",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GER",
+      "player": "Jonas Urbig",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GER",
+      "player": "Lennart Karl",
+      "fifa_position": "MID",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GER",
+      "player": "Pascal Groß",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GHA",
+      "player": "Abdul Baba",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GHA",
+      "player": "Alexander Djiku",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GHA",
+      "player": "Paul Reverson",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GHA",
+      "player": "Prince Adu",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "GHA",
+      "player": "Solomon Agbasi",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "HAI",
+      "player": "Derrick Etienne",
+      "fifa_position": "FWD",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "HAI",
+      "player": "Josué Casimir",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "HAI",
+      "player": "Josué Duverger",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Amir Mohammad Razzaghinia",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Amirhossein Mahmoudi",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Aria Yousefi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Danial Eiri",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Dennis Dargahi",
+      "fifa_position": "FWD",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Ehsan Hajisafi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Hadi Habibinejad",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Hossein Kanani",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Kasra Taheri",
+      "fifa_position": "FWD",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Mohammad Khalifeh",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Omid Noorafkan",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Roozbeh Cheshmi",
+      "fifa_position": "MID",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Shahriyar Moghanlou",
+      "fifa_position": "FWD",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRA",
+      "player": "Shoja Khalilzadeh",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Ahmed Maknzi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Ali Jasim",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Ali Yousif",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Dario Naamo",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Hasan Abdulkareem",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Jussef Nasrawe",
+      "fifa_position": "MID",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Karar Nabeel",
+      "fifa_position": "MID",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Kumel Saadi",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Maytham Jabbar",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Munaf Younus",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Peter Gwargis",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "IRQ",
+      "player": "Zaid Ismael",
+      "fifa_position": "MID",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JAP",
+      "player": "Maya Yoshida",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Abdallah Al Fakhouri",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Abdallah Nasib",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Ahmad Al Juaidi",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Ahmad Assaf",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Ali Azaizeh",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Anas Badawi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Husam Abu Al Dahab",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Ibrahim Sadeh",
+      "fifa_position": "MID",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Abu Al Nadi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Abu Ghoush",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Abu Zraiq",
+      "fifa_position": "FWD",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Mohammad Al Daoud",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Nour Bani Ateyah",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Odeh Fakhoury",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "JOR",
+      "player": "Yousef Qashi",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "KOR",
+      "player": "Cho Yu-Min",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Alejandro Gómez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Alexis Gutiérrez",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Alexéi Domínguez",
+      "fifa_position": "FWD",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Antonio Rodríguez",
+      "fifa_position": "GK",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Bryan González",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Carlos Moreno",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Carlos Rodríguez",
+      "fifa_position": "MID",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Diego Lainez",
+      "fifa_position": "MID",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Efraín Álvarez",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Elías Montiel",
+      "fifa_position": "MID",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Everardo López",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Germán Berterame",
+      "fifa_position": "FWD",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Jeremy Márquez",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Jesús Angulo",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Jordán Carrillo",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Jorge Ruvalcaba",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Julián Araujo",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Kevin Castañeda",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Marcel Ruiz",
+      "fifa_position": "MID",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Ramón Juárez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Richard Ledezma",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Víctor Guzmán",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Álex Padilla",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MEX",
+      "player": "Érick Sánchez",
+      "fifa_position": "MID",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Abdelhamid Aït Boudlal",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Ahmed Tagnaouti",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Amine Sbaï",
+      "fifa_position": "FWD",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Ayoube Amaimouni-Echghouyab",
+      "fifa_position": "FWD",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "El Mehdi Al Harrar",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Gessime Yassine",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Ibrahim Gomis",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Imrân Louza",
+      "fifa_position": "MID",
+      "fifa_price": 5.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Ismaël Baouf",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Marwane Saadane",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Mohamed Chibi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Othmane Maamma",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Oussama Targhalline",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Rayane Bounida",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Sofiane Boufal",
+      "fifa_position": "MID",
+      "fifa_price": 6.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Souffian El Karouani",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Soufiane Benjdida",
+      "fifa_position": "FWD",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Soufiane Bouftini",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Soufiane El-Faouzi",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Tawfik Bentayeb",
+      "fifa_position": "FWD",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Yanis Begraoui",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Yanis Benchaouch",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "MOR",
+      "player": "Yassir Zabiri",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Jerdy Schouten",
+      "fifa_position": "MID",
+      "fifa_price": 6.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Jeremie Frimpong",
+      "fifa_position": "DEF",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Justin Bijlow",
+      "fifa_position": "GK",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Kees Smit",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Luciano Valente",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Lutsharel Geertruida",
+      "fifa_position": "DEF",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Stefan de Vrij",
+      "fifa_position": "DEF",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NED",
+      "player": "Xavi Simons",
+      "fifa_position": "MID",
+      "fifa_price": 6.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Alexander Sørloth",
+      "fifa_position": "FWD",
+      "fifa_price": 6.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "David Møller Wolfe",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Fredrik Bjørkan",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Jørgen Strand Larsen",
+      "fifa_position": "FWD",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Leo Østigård",
+      "fifa_position": "DEF",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Marcus Pedersen",
+      "fifa_position": "DEF",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Martin Ødegaard",
+      "fifa_position": "MID",
+      "fifa_price": 7.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Torbjørn Heggem",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NOR",
+      "player": "Ørjan Nyland",
+      "fifa_position": "GK",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NZL",
+      "player": "Elijah Just",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "NZL",
+      "player": "Matthew Garbett",
+      "fifa_position": "FWD",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "Amir Murillo",
+      "fifa_position": "DEF",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "Iván Anderson",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "JD Gunn",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "José Murillo",
+      "fifa_position": "DEF",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "Kadir Barría",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "Martín Krug",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAN",
+      "player": "Víctor Griffith",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Adam Bareiro",
+      "fifa_position": "FWD",
+      "fifa_price": 5.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Adrián Alcaraz",
+      "fifa_position": "FWD",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Agustín Sández",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Alan Benítez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Alan Núñez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Alcides Benítez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Alejandro Romero",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Blás Riveros",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Carlos Coronel",
+      "fifa_position": "GK",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Carlos González",
+      "fifa_position": "FWD",
+      "fifa_price": 5.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Diego González",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Diego León",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Enso González",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Hugo Cuenca",
+      "fifa_position": "MID",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Juan Espínola",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Juan José Cáceres",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Lorenzo Melgarejo",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Lucas Romero",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Mateo Gamarra",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Mathías Villasanti",
+      "fifa_position": "MID",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Maurício Magalhães Prado",
+      "fifa_position": "MID",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Robert Morales",
+      "fifa_position": "FWD",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Robert Piris Da Motta",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Rodney Redes",
+      "fifa_position": "MID",
+      "fifa_price": 4.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Ronaldo Dejesús",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Ronaldo Martínez",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Rubén Lezcano",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Santiago Rojas",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Saúl Salcedo",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Álvaro Campuzano",
+      "fifa_position": "MID",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Ángel Romero",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "PAR",
+      "player": "Óscar Romero",
+      "fifa_position": "MID",
+      "fifa_price": 4.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "POR",
+      "player": "Ricardo Velho",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "POR",
+      "player": "Trincão",
+      "fifa_position": "FWD",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Ahmed Alaa",
+      "fifa_position": "FWD",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Ahmed Fathy",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Bassam Al Rawi",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Fahad Younis",
+      "fifa_position": "GK",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Hashmi Al Hussain",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Homam El Amin",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Mahmud Abunada",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Mohammad Al Mannai",
+      "fifa_position": "MID",
+      "fifa_price": 4.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Mohammed Waad",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Mubarak Shanan",
+      "fifa_position": "FWD",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Niall Mason",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Rayyan Al Ali",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Sebastián Soria",
+      "fifa_position": "FWD",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Shehab Ellethy",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Sultan Al Brake",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "QAT",
+      "player": "Tarek Salman",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Brandon Petersen",
+      "fifa_position": "GK",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Brooklyn Poggenpoel",
+      "fifa_position": "MID",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Lebohang Maboe",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Patrick Maswanganyi",
+      "fifa_position": "MID",
+      "fifa_price": 5.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Thabiso Monyane",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Thapelo Morena",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "RSA",
+      "player": "Yaya Sithole",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Abdullah Al Hamddan",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Abdullah Al Salem",
+      "fifa_position": "FWD",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Abdulquddus Atiah",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Abdulrahman Al Sanbi",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Aiman Yahya",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Alaa Al Hejji",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Feras Al Brikan",
+      "fifa_position": "FWD",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Hassan Al Tambakti",
+      "fifa_position": "DEF",
+      "fifa_price": 4.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Hassan Kadish",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Mohamed Kanno",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Nawaf Bu Washl",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Saleh Abu Al Shamat",
+      "fifa_position": "FWD",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SAU",
+      "player": "Zakaria Hawsawi",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SCO",
+      "player": "Billy Gilmour",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SEN",
+      "player": "Idrissa Gueye",
+      "fifa_position": "MID",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SEN",
+      "player": "Ilay Camara",
+      "fifa_position": "DEF",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SEN",
+      "player": "Moustapha Mbow",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SEN",
+      "player": "Pape Sy",
+      "fifa_position": "GK",
+      "fifa_price": 3.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SWE",
+      "player": "Emil Holm",
+      "fifa_position": "DEF",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "SWE",
+      "player": "Sebastian Nanasi",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUN",
+      "player": "Abdelmouhib Chamakh",
+      "fifa_position": "GK",
+      "fifa_price": 4.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUN",
+      "player": "Mohamed Amine Ben Hmida",
+      "fifa_position": "DEF",
+      "fifa_price": 3.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Ahmetcan Kaplan",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Aral Simsir",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Atakan Karazor",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Demir Ege Tiknaz",
+      "fifa_position": "MID",
+      "fifa_price": 4.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Ersin Destanoglu",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Muhammed Sengezer",
+      "fifa_position": "GK",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Mustafa Eskihellaç",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Yusuf Akçiçek",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "TUR",
+      "player": "Yusuf Sari",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Agustín Álvarez",
+      "fifa_position": "FWD",
+      "fifa_price": 5.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Benjamín García",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Brian Barboza",
+      "fifa_position": "DEF",
+      "fifa_price": 3.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Facundo Martínez",
+      "fifa_position": "FWD",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Facundo Torres",
+      "fifa_position": "FWD",
+      "fifa_price": 5.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "José Rodríguez",
+      "fifa_position": "DEF",
+      "fifa_price": 3.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Luciano González",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Maxi Araújo",
+      "fifa_position": "MID",
+      "fifa_price": 6.4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Nicolás Fonseca",
+      "fifa_position": "MID",
+      "fifa_price": 5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "URU",
+      "player": "Pablo Alcoba",
+      "fifa_position": "MID",
+      "fifa_price": 4.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Aidan Morris",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Alexander Freeman",
+      "fifa_position": "DEF",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Giovanni Reyna",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Johnny Cardoso",
+      "fifa_position": "MID",
+      "fifa_price": 6.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Patrick Agyemang",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Patrick Schulte",
+      "fifa_position": "GK",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Tanner Tessmann",
+      "fifa_position": "MID",
+      "fifa_price": 5.6,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Timothy Weah",
+      "fifa_position": "MID",
+      "fifa_price": 5.8,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "USA",
+      "player": "Álex Zendejas",
+      "fifa_position": "MID",
+      "fifa_price": 5.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Abbosbek Fayzullaev",
+      "fifa_position": "MID",
+      "fifa_price": 6.2,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Abduvokhid Ne'matov",
+      "fifa_position": "GK",
+      "fifa_price": 4,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Avazbek O'lmasaliev",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Aziz G'aniev",
+      "fifa_position": "MID",
+      "fifa_price": 5.3,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Azizbek Amanov",
+      "fifa_position": "FWD",
+      "fifa_price": 4.9,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Bekhruz Karimov",
+      "fifa_position": "DEF",
+      "fifa_price": 3.5,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Jasurbek Jaloliddinov",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Ruslanbek Jiyanov",
+      "fifa_position": "MID",
+      "fifa_price": 4.7,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Sherzod Temirov",
+      "fifa_position": "FWD",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    },
+    {
+      "team": "UZB",
+      "player": "Umarali Rakhmonaliev",
+      "fifa_position": "MID",
+      "fifa_price": 5.1,
+      "fifa_total_points": 0
+    }
+  ]
+}

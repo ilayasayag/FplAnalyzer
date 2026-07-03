@@ -1,0 +1,171 @@
+{
+  "team": "Korea Republic",
+  "abbr": "KOR",
+  "group": "A",
+  "squadId": 27,
+  "playerCount": 27,
+  "players": [
+    {
+      "name": "Jo Hyeon-Woo",
+      "position": "GK",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kim Seung-Gyu",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Song Bum-Keun",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kim Min-Jae",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Gi-Hyuk",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Seol Young-Woo",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cho Yu-Min",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kim Moon-Hwan",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Han-Beom",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Tae-Seok",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cho Wi-Je",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kim Tae-Hyeon",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Jae-Sung",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Kang-In",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bae Jun-Ho",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hwang In-Beom",
+      "position": "MID",
+      "price": 5.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Paik Seung-Ho",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jens Castrop",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Park Jin-Seob",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kim Jin-Gyu",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lee Dong-Gyeong",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Son Heung-Min",
+      "position": "FWD",
+      "price": 7.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hwang Hee-Chan",
+      "position": "FWD",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cho Gue-Sung",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Oh Hyeon-Gyu",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yang Hyun-Jun",
+      "position": "FWD",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Eom Ji-Sung",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    }
+  ]
+}

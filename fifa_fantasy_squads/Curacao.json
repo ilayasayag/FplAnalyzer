@@ -1,0 +1,165 @@
+{
+  "team": "Curaçao",
+  "abbr": "CUW",
+  "group": "E",
+  "squadId": 14,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Eloy Room",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Trevor Doornbusch",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tyrick Bodak",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Livano Comenencia",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Leandro Bacuna",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Riechedly Bazoer",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joshua Brenet",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Armando Obispo",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Deveron Fonville",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Shurandy Sambo",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sherel Floranus",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Roshon van Eijma",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ar'Jany Martha",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Juriën Gaari",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tyrese Noslin",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Juninho Bacuna",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Godfried Roemeratoe",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kevin Felida",
+      "position": "MID",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tahith Chong",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brandley Kuwas",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sontje Hansen",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kenji Gorré",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jearl Margaritha",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jürgen Locadia",
+      "position": "FWD",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gervane Kastaneer",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jeremy Antonisse",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

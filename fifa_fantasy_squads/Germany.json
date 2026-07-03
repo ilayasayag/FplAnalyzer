@@ -1,0 +1,177 @@
+{
+  "team": "Germany",
+  "abbr": "GER",
+  "group": "E",
+  "squadId": 20,
+  "playerCount": 28,
+  "players": [
+    {
+      "name": "Manuel Neuer",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Nübel",
+      "position": "GK",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Oliver Baumann",
+      "position": "GK",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jonas Urbig",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Antonio Rüdiger",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joshua Kimmich",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jonathan Tah",
+      "position": "DEF",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nico Schlotterbeck",
+      "position": "DEF",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "David Raum",
+      "position": "DEF",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Malick Thiaw",
+      "position": "DEF",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nathaniel Brown",
+      "position": "DEF",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Waldemar Anton",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jamal Musiala",
+      "position": "MID",
+      "price": 8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Florian Wirtz",
+      "position": "MID",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Leroy Sané",
+      "position": "MID",
+      "price": 7.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jamie Leweling",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nadiem Amiri",
+      "position": "MID",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Leon Goretzka",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Angelo Stiller",
+      "position": "MID",
+      "price": 5.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pascal Groß",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Felix Nmecha",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aleksandar Pavlovic",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lennart Karl",
+      "position": "MID",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Assan Ouédraogo",
+      "position": "MID",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kai Havertz",
+      "position": "FWD",
+      "price": 7.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nick Woltemade",
+      "position": "FWD",
+      "price": 7.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Deniz Undav",
+      "position": "FWD",
+      "price": 6.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Maximilian Beier",
+      "position": "FWD",
+      "price": 6.5,
+      "totalPoints": 0
+    }
+  ]
+}

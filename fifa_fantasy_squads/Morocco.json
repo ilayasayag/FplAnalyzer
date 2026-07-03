@@ -1,0 +1,285 @@
+{
+  "team": "Morocco",
+  "abbr": "MAR",
+  "group": "C",
+  "squadId": 29,
+  "playerCount": 46,
+  "players": [
+    {
+      "name": "Yassine Bounou",
+      "position": "GK",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Munir El Kajoui",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "El Mehdi Al Harrar",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ibrahim Gomis",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yanis Benchaouch",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ahmed Tagnaouti",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Achraf Hakimi",
+      "position": "DEF",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Issa Diop",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Noussair Mazraoui",
+      "position": "DEF",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nayef Aguerd",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Zakaria El Ouahdi",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Souffian El Karouani",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Soufiane Bouftini",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anass Salah-Eddine",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Chadi Riad",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Chibi",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Youssef Belammari",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ismaël Baouf",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abdelhamid Aït Boudlal",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Redouane Halhal",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ismael Saibari",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brahim Díaz",
+      "position": "MID",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sofiane Boufal",
+      "position": "MID",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Azzedine Ounahi",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bilal El Khannouss",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sofyan Amrabat",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Imrân Louza",
+      "position": "MID",
+      "price": 5.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Neil El Aynaoui",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ayyoub Bouaddi",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Oussama Targhalline",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yanis Begraoui",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Soufiane El-Faouzi",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Samir El Mourabet",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marwane Saadane",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Othmane Maamma",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ayoub El Kaabi",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Soufiane Rahimi",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abde Ezzalzouli",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Amine Sbaï",
+      "position": "FWD",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Soufiane Benjdida",
+      "position": "FWD",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tawfik Bentayeb",
+      "position": "FWD",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Chemsdine Talbi",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ayoube Amaimouni-Echghouyab",
+      "position": "FWD",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gessime Yassine",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rayane Bounida",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yassir Zabiri",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

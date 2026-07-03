@@ -1,0 +1,165 @@
+{
+  "team": "Colombia",
+  "abbr": "COL",
+  "group": "K",
+  "squadId": 10,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Camilo Vargas",
+      "position": "GK",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "David Ospina",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Álvaro Montero",
+      "position": "GK",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Daniel Muñoz",
+      "position": "DEF",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jhon Lucumí",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dávinson Sánchez",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yerry Mina",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Déiver Machado",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Johan Mojica",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Santiago Arias",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Willer Ditta",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luis Díaz",
+      "position": "MID",
+      "price": 8.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "James Rodríguez",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jhon Arias",
+      "position": "MID",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jorge Carrascal",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Juan Fernando Quintero",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jaminton Campaz",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gustavo Puerta",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jefferson Lerma",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Richard Ríos",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Juan Portilla",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kevin Castaño",
+      "position": "MID",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cucho Hernández",
+      "position": "FWD",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jhon Córdoba",
+      "position": "FWD",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luis Suárez",
+      "position": "FWD",
+      "price": 5.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Andrés Gómez",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    }
+  ]
+}

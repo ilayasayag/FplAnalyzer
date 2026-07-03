@@ -1,0 +1,165 @@
+{
+  "team": "Spain",
+  "abbr": "ESP",
+  "group": "H",
+  "squadId": 41,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "David Raya",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Unai Simón",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joan García",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pedro Porro",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aymeric Laporte",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcos Llorente",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marc Cucurella",
+      "position": "DEF",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pau Cubarsí",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alejandro Grimaldo",
+      "position": "DEF",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Eric García",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marc Pubill",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lamine Yamal",
+      "position": "MID",
+      "price": 10,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pedri",
+      "position": "MID",
+      "price": 8.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nico Williams",
+      "position": "MID",
+      "price": 7.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dani Olmo",
+      "position": "MID",
+      "price": 7.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rodri",
+      "position": "MID",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fabián Ruiz",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gavi",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mikel Merino",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martín Zubimendi",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Álex Baena",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yéremy Pino",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mikel Oyarzabal",
+      "position": "FWD",
+      "price": 8.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ferran Torres",
+      "position": "FWD",
+      "price": 7.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Borja Iglesias",
+      "position": "FWD",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Víctor Muñoz",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

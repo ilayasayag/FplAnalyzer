@@ -1,0 +1,201 @@
+{
+  "team": "Panama",
+  "abbr": "PAN",
+  "group": "L",
+  "squadId": 33,
+  "playerCount": 32,
+  "players": [
+    {
+      "name": "Luis Mejía",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "JD Gunn",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Orlando Mosquera",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "César Samudio",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Amir Murillo",
+      "position": "DEF",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Murillo",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Córdoba",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Iván Anderson",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Éric Davis",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Edgardo Fariña",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fidel Escobar",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "César Blackman",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Andrés Andrade",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Roderick Miller",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jiovany Ramos",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martín Krug",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jorge Gutiérrez",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Adalberto Carrasquilla",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yoel Bárcenas",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Luis Rodríguez",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aníbal Godoy",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cristian Martínez",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Víctor Griffith",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Carlos Harvey",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cecilio Waterman",
+      "position": "FWD",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ismael Díaz",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "José Fajardo",
+      "position": "FWD",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tomás Rodríguez",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "César Yanis",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Azarías Londoño",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alberto Quintero",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kadir Barría",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

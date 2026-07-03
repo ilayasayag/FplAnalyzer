@@ -1,0 +1,165 @@
+{
+  "team": "England",
+  "abbr": "ENG",
+  "group": "L",
+  "squadId": 18,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Jordan Pickford",
+      "position": "GK",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dean Henderson",
+      "position": "GK",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "James Trafford",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Reece James",
+      "position": "DEF",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marc Guéhi",
+      "position": "DEF",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ezri Konsa",
+      "position": "DEF",
+      "price": 4.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nico O'Reilly",
+      "position": "DEF",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tino Livramento",
+      "position": "DEF",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "John Stones",
+      "position": "DEF",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dan Burn",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Djed Spence",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jarell Quansah",
+      "position": "DEF",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bukayo Saka",
+      "position": "MID",
+      "price": 9.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jude Bellingham",
+      "position": "MID",
+      "price": 8.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Eberechi Eze",
+      "position": "MID",
+      "price": 8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcus Rashford",
+      "position": "MID",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Morgan Rogers",
+      "position": "MID",
+      "price": 7.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anthony Gordon",
+      "position": "MID",
+      "price": 7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Declan Rice",
+      "position": "MID",
+      "price": 7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elliot Anderson",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kobbie Mainoo",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jordan Henderson",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Harry Kane",
+      "position": "FWD",
+      "price": 10.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ollie Watkins",
+      "position": "FWD",
+      "price": 7.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ivan Toney",
+      "position": "FWD",
+      "price": 7.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Noni Madueke",
+      "position": "FWD",
+      "price": 6.1,
+      "totalPoints": 0
+    }
+  ]
+}

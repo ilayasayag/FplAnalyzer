@@ -1,0 +1,38 @@
+{
+  "u_ilay_4": {
+    "uid": "u_ilay",
+    "updatedAt": "2026-06-30T07:51:26.740000+00:00",
+    "resolved": true,
+    "gw": 4,
+    "resolvedAt": "2026-06-28T15:32:10.825000+00:00",
+    "bids": [
+      {
+        "position": "DEF",
+        "playerOut": 900419,
+        "playerIn": 900243
+      },
+      {
+        "position": "DEF",
+        "playerOut": 900419,
+        "playerIn": 900239
+      },
+      {
+        "position": "DEF",
+        "playerOut": 900419,
+        "playerIn": 900837
+      },
+      {
+        "position": "FWD",
+        "playerOut": 900438,
+        "playerIn": 900127
+      },
+      {
+        "position": "FWD",
+        "playerOut": 900540,
+        "playerIn": 900929
+      }
+    ],
+    "resolvedGw": 4
+  },
+  "u_ilay_5": null
+}

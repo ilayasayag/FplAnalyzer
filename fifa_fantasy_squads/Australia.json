@@ -1,0 +1,225 @@
+{
+  "team": "Australia",
+  "abbr": "AUS",
+  "group": "D",
+  "squadId": 3,
+  "playerCount": 36,
+  "players": [
+    {
+      "name": "Mathew Ryan",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joe Gauci",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Paul Izzo",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Patrick Beach",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jacob Italiano",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Harry Souttar",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jordan Bos",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kye Rowles",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alessandro Circati",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cameron Burgess",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Milos Degenek",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aziz Behich",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jason Geria",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fran Karacic",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kai Trewin",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Herrington",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cristian Volpato",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Riley McGree",
+      "position": "MID",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ajdin Hrustic",
+      "position": "MID",
+      "price": 5.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Awer Mabil",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jackson Irvine",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Aiden O'Neill",
+      "position": "MID",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Connor Metcalfe",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alex Robertson",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Patrick Yazbek",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Paul Okon",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cameron Devlin",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mathew Leckie",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nestory Irankunda",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Martin Boyle",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohamed Touré",
+      "position": "FWD",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nishan Velupillay",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brandon Borrello",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tete Yengi",
+      "position": "FWD",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Deni Juric",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ante Suto",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

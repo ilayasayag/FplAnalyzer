@@ -1,0 +1,165 @@
+{
+  "team": "New Zealand",
+  "abbr": "NZL",
+  "group": "G",
+  "squadId": 31,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Max Crocombe",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alex Paulsen",
+      "position": "GK",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michael Woud",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Liberato Cacace",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michael Boxall",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nando Pijnaker",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tyler Bindon",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Francis de Vries",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tim Payne",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tommy Smith",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Callan Elliot",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Finn Surman",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marko Stamenic",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ryan Thomas",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sarpreet Singh",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joe Bell",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alex Rufer",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Callum McCowatt",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elijah Just",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lachlan Bayliss",
+      "position": "MID",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Chris Wood",
+      "position": "FWD",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Matthew Garbett",
+      "position": "FWD",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kosta Barbarouses",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ben Waine",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ben Old",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jesse Randall",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

@@ -1,0 +1,171 @@
+{
+  "team": "Brazil",
+  "abbr": "BRA",
+  "group": "C",
+  "squadId": 7,
+  "playerCount": 27,
+  "players": [
+    {
+      "name": "Ederson",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alisson Becker",
+      "position": "GK",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Weverton",
+      "position": "GK",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gabriel Magalhães",
+      "position": "DEF",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marquinhos",
+      "position": "DEF",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alex Sandro",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Wesley",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ibañez",
+      "position": "DEF",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Danilo",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Douglas Santos",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bremer",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Léo Pereira",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Vinícius Júnior",
+      "position": "MID",
+      "price": 10,
+      "totalPoints": 0
+    },
+    {
+      "name": "Raphinha",
+      "position": "MID",
+      "price": 8.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Neymar",
+      "position": "MID",
+      "price": 7.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bruno Guimarães",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gabriel Martinelli",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Paquetá",
+      "position": "MID",
+      "price": 6.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Casemiro",
+      "position": "MID",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Éderson",
+      "position": "MID",
+      "price": 6.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Danilo",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fabinho",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Matheus Cunha",
+      "position": "FWD",
+      "price": 7.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luiz Henrique",
+      "position": "FWD",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Igor Thiago",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rayan",
+      "position": "FWD",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Endrick",
+      "position": "FWD",
+      "price": 5.5,
+      "totalPoints": 0
+    }
+  ]
+}

@@ -1,0 +1,183 @@
+{
+  "team": "Ghana",
+  "abbr": "GHA",
+  "group": "L",
+  "squadId": 21,
+  "playerCount": 29,
+  "players": [
+    {
+      "name": "Lawrence Ati Zigi",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Benjamin Asare",
+      "position": "GK",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joseph Anang",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Paul Reverson",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Solomon Agbasi",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Djiku",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abdul Baba",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alidu Seidu",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gideon Mensah",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jerome Opoku",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abdul Mumin",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Derrick Luckassen",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kojo Peprah Oppong",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jonas Adjetey",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marvin Senaya",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Thomas Partey",
+      "position": "MID",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elisha Owusu",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ernest Nuamah",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Augustine Boakye",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Caleb Yirenkyi",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kwasi Sibo",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Antoine Semenyo",
+      "position": "FWD",
+      "price": 7.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abdul Fatawu",
+      "position": "FWD",
+      "price": 6.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Iñaki Williams",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jordan Ayew",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Brandon Thomas-Asante",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kamaldeen Sulemana",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Christopher Bonsu Baah",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Prince Adu",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

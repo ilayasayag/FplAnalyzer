@@ -1,0 +1,165 @@
+{
+  "team": "Austria",
+  "abbr": "AUT",
+  "group": "J",
+  "squadId": 4,
+  "playerCount": 26,
+  "players": [
+    {
+      "name": "Alexander Schlager",
+      "position": "GK",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Patrick Pentz",
+      "position": "GK",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Florian Wiegele",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "David Alaba",
+      "position": "DEF",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Philipp Lienhart",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Prass",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Kevin Danso",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Stefan Posch",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marco Friedl",
+      "position": "DEF",
+      "price": 4.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Phillipp Mwene",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "David Affengruber",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michael Svoboda",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcel Sabitzer",
+      "position": "MID",
+      "price": 6.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Christoph Baumgartner",
+      "position": "MID",
+      "price": 6.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Romano Schmid",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Patrick Wimmer",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Konrad Laimer",
+      "position": "MID",
+      "price": 5.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nicolas Seiwald",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Paul Wanner",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Florian Grillitsch",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Xaver Schlager",
+      "position": "MID",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alessandro Schöpf",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Carney Chukwuemeka",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marko Arnautovic",
+      "position": "FWD",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Michael Gregoritsch",
+      "position": "FWD",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sasa Kalajdzic",
+      "position": "FWD",
+      "price": 6,
+      "totalPoints": 0
+    }
+  ]
+}

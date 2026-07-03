@@ -1,0 +1,343 @@
+{
+  "source": "play.fifa.com/json/fantasy (players.json + squads.json)",
+  "teams": 48,
+  "totalPlayers": 1484,
+  "index": [
+    {
+      "team": "Algeria",
+      "abbr": "ALG",
+      "group": "J",
+      "file": "Algeria.json",
+      "players": 33
+    },
+    {
+      "team": "Argentina",
+      "abbr": "ARG",
+      "group": "J",
+      "file": "Argentina.json",
+      "players": 55
+    },
+    {
+      "team": "Australia",
+      "abbr": "AUS",
+      "group": "D",
+      "file": "Australia.json",
+      "players": 36
+    },
+    {
+      "team": "Austria",
+      "abbr": "AUT",
+      "group": "J",
+      "file": "Austria.json",
+      "players": 26
+    },
+    {
+      "team": "Belgium",
+      "abbr": "BEL",
+      "group": "G",
+      "file": "Belgium.json",
+      "players": 26
+    },
+    {
+      "team": "Bosnia and Herzegovina",
+      "abbr": "BIH",
+      "group": "B",
+      "file": "Bosnia_and_Herzegovina.json",
+      "players": 27
+    },
+    {
+      "team": "Brazil",
+      "abbr": "BRA",
+      "group": "C",
+      "file": "Brazil.json",
+      "players": 27
+    },
+    {
+      "team": "Cabo Verde",
+      "abbr": "CPV",
+      "group": "H",
+      "file": "Cabo_Verde.json",
+      "players": 26
+    },
+    {
+      "team": "Canada",
+      "abbr": "CAN",
+      "group": "B",
+      "file": "Canada.json",
+      "players": 32
+    },
+    {
+      "team": "Colombia",
+      "abbr": "COL",
+      "group": "K",
+      "file": "Colombia.json",
+      "players": 26
+    },
+    {
+      "team": "Congo DR",
+      "abbr": "COD",
+      "group": "K",
+      "file": "Congo_DR.json",
+      "players": 26
+    },
+    {
+      "team": "Côte d'Ivoire",
+      "abbr": "CIV",
+      "group": "E",
+      "file": "Cote_dIvoire.json",
+      "players": 27
+    },
+    {
+      "team": "Croatia",
+      "abbr": "CRO",
+      "group": "L",
+      "file": "Croatia.json",
+      "players": 26
+    },
+    {
+      "team": "Curaçao",
+      "abbr": "CUW",
+      "group": "E",
+      "file": "Curacao.json",
+      "players": 26
+    },
+    {
+      "team": "Czechia",
+      "abbr": "CZE",
+      "group": "A",
+      "file": "Czechia.json",
+      "players": 29
+    },
+    {
+      "team": "Ecuador",
+      "abbr": "ECU",
+      "group": "E",
+      "file": "Ecuador.json",
+      "players": 36
+    },
+    {
+      "team": "Egypt",
+      "abbr": "EGY",
+      "group": "G",
+      "file": "Egypt.json",
+      "players": 27
+    },
+    {
+      "team": "England",
+      "abbr": "ENG",
+      "group": "L",
+      "file": "England.json",
+      "players": 26
+    },
+    {
+      "team": "France",
+      "abbr": "FRA",
+      "group": "I",
+      "file": "France.json",
+      "players": 26
+    },
+    {
+      "team": "Germany",
+      "abbr": "GER",
+      "group": "E",
+      "file": "Germany.json",
+      "players": 28
+    },
+    {
+      "team": "Ghana",
+      "abbr": "GHA",
+      "group": "L",
+      "file": "Ghana.json",
+      "players": 29
+    },
+    {
+      "team": "Haiti",
+      "abbr": "HAI",
+      "group": "C",
+      "file": "Haiti.json",
+      "players": 26
+    },
+    {
+      "team": "IR Iran",
+      "abbr": "IRN",
+      "group": "G",
+      "file": "IR_Iran.json",
+      "players": 31
+    },
+    {
+      "team": "Iraq",
+      "abbr": "IRQ",
+      "group": "I",
+      "file": "Iraq.json",
+      "players": 34
+    },
+    {
+      "team": "Japan",
+      "abbr": "JPN",
+      "group": "F",
+      "file": "Japan.json",
+      "players": 27
+    },
+    {
+      "team": "Jordan",
+      "abbr": "JOR",
+      "group": "J",
+      "file": "Jordan.json",
+      "players": 30
+    },
+    {
+      "team": "Korea Republic",
+      "abbr": "KOR",
+      "group": "A",
+      "file": "Korea_Republic.json",
+      "players": 27
+    },
+    {
+      "team": "Mexico",
+      "abbr": "MEX",
+      "group": "A",
+      "file": "Mexico.json",
+      "players": 51
+    },
+    {
+      "team": "Morocco",
+      "abbr": "MAR",
+      "group": "C",
+      "file": "Morocco.json",
+      "players": 46
+    },
+    {
+      "team": "Netherlands",
+      "abbr": "NED",
+      "group": "F",
+      "file": "Netherlands.json",
+      "players": 35
+    },
+    {
+      "team": "New Zealand",
+      "abbr": "NZL",
+      "group": "G",
+      "file": "New_Zealand.json",
+      "players": 26
+    },
+    {
+      "team": "Norway",
+      "abbr": "NOR",
+      "group": "I",
+      "file": "Norway.json",
+      "players": 26
+    },
+    {
+      "team": "Panama",
+      "abbr": "PAN",
+      "group": "L",
+      "file": "Panama.json",
+      "players": 32
+    },
+    {
+      "team": "Paraguay",
+      "abbr": "PAR",
+      "group": "D",
+      "file": "Paraguay.json",
+      "players": 55
+    },
+    {
+      "team": "Portugal",
+      "abbr": "POR",
+      "group": "K",
+      "file": "Portugal.json",
+      "players": 27
+    },
+    {
+      "team": "Qatar",
+      "abbr": "QAT",
+      "group": "B",
+      "file": "Qatar.json",
+      "players": 35
+    },
+    {
+      "team": "Saudi Arabia",
+      "abbr": "KSA",
+      "group": "H",
+      "file": "Saudi_Arabia.json",
+      "players": 31
+    },
+    {
+      "team": "Scotland",
+      "abbr": "SCO",
+      "group": "C",
+      "file": "Scotland.json",
+      "players": 27
+    },
+    {
+      "team": "Senegal",
+      "abbr": "SEN",
+      "group": "I",
+      "file": "Senegal.json",
+      "players": 29
+    },
+    {
+      "team": "South Africa",
+      "abbr": "RSA",
+      "group": "A",
+      "file": "South_Africa.json",
+      "players": 32
+    },
+    {
+      "team": "Spain",
+      "abbr": "ESP",
+      "group": "H",
+      "file": "Spain.json",
+      "players": 26
+    },
+    {
+      "team": "Sweden",
+      "abbr": "SWE",
+      "group": "F",
+      "file": "Sweden.json",
+      "players": 28
+    },
+    {
+      "team": "Switzerland",
+      "abbr": "SUI",
+      "group": "B",
+      "file": "Switzerland.json",
+      "players": 26
+    },
+    {
+      "team": "Tunisia",
+      "abbr": "TUN",
+      "group": "F",
+      "file": "Tunisia.json",
+      "players": 26
+    },
+    {
+      "team": "Türkiye",
+      "abbr": "TUR",
+      "group": "D",
+      "file": "Turkiye.json",
+      "players": 35
+    },
+    {
+      "team": "Uruguay",
+      "abbr": "URU",
+      "group": "H",
+      "file": "Uruguay.json",
+      "players": 35
+    },
+    {
+      "team": "USA",
+      "abbr": "USA",
+      "group": "D",
+      "file": "USA.json",
+      "players": 31
+    },
+    {
+      "team": "Uzbekistan",
+      "abbr": "UZB",
+      "group": "K",
+      "file": "Uzbekistan.json",
+      "players": 30
+    }
+  ]
+}

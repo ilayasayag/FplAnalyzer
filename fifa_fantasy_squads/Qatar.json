@@ -1,0 +1,219 @@
+{
+  "team": "Qatar",
+  "abbr": "QAT",
+  "group": "B",
+  "squadId": 36,
+  "playerCount": 35,
+  "players": [
+    {
+      "name": "Meshaal Barsham",
+      "position": "GK",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Salah Zakaria",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Fahad Younis",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Shehab Ellethy",
+      "position": "GK",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mahmud Abunada",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Pedro Miguel",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Bassam Al Rawi",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Mendes",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Boualem Khoukhi",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tarek Salman",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sultan Al Brake",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Homam El Amin",
+      "position": "DEF",
+      "price": 3.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Niall Mason",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hashmi Al Hussain",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Issa Laye",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Rayyan Al Ali",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohammed Waad",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Abdulaziz Hatem",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Assim Madibo",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jassem Gaber",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Karim Boudiaf",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ahmed Fathy",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ayoub Al Oui",
+      "position": "MID",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohammad Al Mannai",
+      "position": "MID",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Akram Afif",
+      "position": "FWD",
+      "price": 5.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ahmed Alaa",
+      "position": "FWD",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Almoez Ali",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mohammed Muntari",
+      "position": "FWD",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sebastián Soria",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Edmílson Junior",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hassan Al Haydos",
+      "position": "FWD",
+      "price": 4.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tahsin Jamshid",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yusuf Abdurisag",
+      "position": "FWD",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ahmed Al Ganehi",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mubarak Shanan",
+      "position": "FWD",
+      "price": 4,
+      "totalPoints": 0
+    }
+  ]
+}

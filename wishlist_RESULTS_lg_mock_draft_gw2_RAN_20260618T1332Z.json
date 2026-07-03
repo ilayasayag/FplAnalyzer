@@ -1,0 +1,228 @@
+{
+  "league": "lg_mock_draft",
+  "gw": 2,
+  "_savedFromResultsDoc": true,
+  "results": [
+    {
+      "uid": "u_roy",
+      "bids": [
+        {
+          "wonByUid": null,
+          "playerIn": 900594,
+          "status": "claimed",
+          "playerOut": 900959,
+          "position": "FWD",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "uid": "u_yuval",
+      "bids": [
+        {
+          "playerOut": 900953,
+          "position": "FWD",
+          "reason": null,
+          "wonByUid": null,
+          "playerIn": 900595,
+          "status": "claimed"
+        },
+        {
+          "playerOut": 900214,
+          "position": "DEF",
+          "reason": null,
+          "wonByUid": null,
+          "playerIn": 900685,
+          "status": "claimed"
+        }
+      ]
+    },
+    {
+      "bids": [
+        {
+          "wonByUid": null,
+          "playerIn": 900332,
+          "status": "claimed",
+          "position": "FWD",
+          "reason": null,
+          "playerOut": 900229
+        },
+        {
+          "playerIn": 900369,
+          "status": "claimed",
+          "wonByUid": null,
+          "playerOut": 900527,
+          "reason": null,
+          "position": "DEF"
+        },
+        {
+          "playerIn": 900373,
+          "status": "claimed",
+          "wonByUid": null,
+          "reason": null,
+          "position": "DEF",
+          "playerOut": 900839
+        }
+      ],
+      "uid": "u_nadav"
+    },
+    {
+      "uid": "u_shay",
+      "bids": [
+        {
+          "playerIn": 900471,
+          "status": "claimed",
+          "wonByUid": null,
+          "reason": null,
+          "position": "DEF",
+          "playerOut": 900524
+        },
+        {
+          "wonByUid": null,
+          "status": "claimed",
+          "playerIn": 900763,
+          "playerOut": 901147,
+          "position": "DEF",
+          "reason": null
+        },
+        {
+          "wonByUid": null,
+          "playerIn": 900439,
+          "status": "claimed",
+          "playerOut": 901056,
+          "position": "FWD",
+          "reason": null
+        }
+      ]
+    },
+    {
+      "uid": "u_netanel",
+      "bids": [
+        {
+          "playerIn": 901197,
+          "status": "claimed",
+          "wonByUid": null,
+          "reason": null,
+          "position": "DEF",
+          "playerOut": 901042
+        },
+        {
+          "position": "GK",
+          "reason": null,
+          "playerOut": 901116,
+          "wonByUid": null,
+          "status": "claimed",
+          "playerIn": 900366
+        },
+        {
+          "wonByUid": null,
+          "playerIn": 900087,
+          "status": "claimed",
+          "playerOut": 901145,
+          "position": "DEF",
+          "reason": null
+        }
+      ]
+    }
+  ],
+  "ranAt": "2026-06-18T13:32:17.796Z",
+  "events": [
+    {
+      "uid": "u_roy",
+      "type": "claim",
+      "playerIn": 900594,
+      "playerOut": 900959,
+      "position": "FWD",
+      "seq": 0
+    },
+    {
+      "type": "claim",
+      "playerIn": 900595,
+      "uid": "u_yuval",
+      "position": "FWD",
+      "seq": 1,
+      "playerOut": 900953
+    },
+    {
+      "position": "FWD",
+      "seq": 2,
+      "playerOut": 900229,
+      "type": "claim",
+      "playerIn": 900332,
+      "uid": "u_nadav"
+    },
+    {
+      "position": "DEF",
+      "seq": 3,
+      "playerOut": 900524,
+      "type": "claim",
+      "playerIn": 900471,
+      "uid": "u_shay"
+    },
+    {
+      "playerOut": 901042,
+      "seq": 4,
+      "position": "DEF",
+      "uid": "u_netanel",
+      "playerIn": 901197,
+      "type": "claim"
+    },
+    {
+      "uid": "u_yuval",
+      "playerIn": 900685,
+      "type": "claim",
+      "playerOut": 900214,
+      "seq": 5,
+      "position": "DEF"
+    },
+    {
+      "playerOut": 900527,
+      "seq": 6,
+      "position": "DEF",
+      "uid": "u_nadav",
+      "playerIn": 900369,
+      "type": "claim"
+    },
+    {
+      "uid": "u_shay",
+      "playerIn": 900763,
+      "type": "claim",
+      "playerOut": 901147,
+      "seq": 7,
+      "position": "DEF"
+    },
+    {
+      "seq": 8,
+      "position": "GK",
+      "playerOut": 901116,
+      "playerIn": 900366,
+      "type": "claim",
+      "uid": "u_netanel"
+    },
+    {
+      "seq": 9,
+      "position": "DEF",
+      "playerOut": 900839,
+      "playerIn": 900373,
+      "type": "claim",
+      "uid": "u_nadav"
+    },
+    {
+      "playerOut": 901056,
+      "seq": 10,
+      "position": "FWD",
+      "uid": "u_shay",
+      "playerIn": 900439,
+      "type": "claim"
+    },
+    {
+      "uid": "u_netanel",
+      "type": "claim",
+      "playerIn": 900087,
+      "playerOut": 901145,
+      "position": "DEF",
+      "seq": 11
+    }
+  ],
+  "claimsExecuted": 12
+}

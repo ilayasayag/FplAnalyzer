@@ -1,0 +1,177 @@
+{
+  "team": "Sweden",
+  "abbr": "SWE",
+  "group": "F",
+  "squadId": 42,
+  "playerCount": 28,
+  "players": [
+    {
+      "name": "Kristoffer Nordfeldt",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Viktor Johansson",
+      "position": "GK",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jacob Widell Zetterström",
+      "position": "GK",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Daniel Svensson",
+      "position": "DEF",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gabriel Gudmundsson",
+      "position": "DEF",
+      "price": 4.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Carl Starfelt",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Emil Holm",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Isak Hien",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Victor Lindelöf",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gustaf Lagerbielke",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Hjalmar Ekdal",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mattias Svanberg",
+      "position": "MID",
+      "price": 6.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ken Sema",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jesper Karlström",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Yasin Ayari",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Sebastian Nanasi",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Lucas Bergvall",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Taha Ali",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Eric Smith",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Besfort Zeneli",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Elliot Stroud",
+      "position": "MID",
+      "price": 4.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Herman Johansson",
+      "position": "MID",
+      "price": 4.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Isak",
+      "position": "FWD",
+      "price": 8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Viktor Gyökeres",
+      "position": "FWD",
+      "price": 7.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Anthony Elanga",
+      "position": "FWD",
+      "price": 5.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Benjamin Nygren",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Gustaf Nilsson",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alexander Bernhardsson",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    }
+  ]
+}

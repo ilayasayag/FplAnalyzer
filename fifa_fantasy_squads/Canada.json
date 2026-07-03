@@ -1,0 +1,201 @@
+{
+  "team": "Canada",
+  "abbr": "CAN",
+  "group": "B",
+  "squadId": 9,
+  "playerCount": 32,
+  "players": [
+    {
+      "name": "Maxime Crépeau",
+      "position": "GK",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Dayne St. Clair",
+      "position": "GK",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Owen Goodman",
+      "position": "GK",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alphonso Davies",
+      "position": "DEF",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Moïse Bombito",
+      "position": "DEF",
+      "price": 4.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Derek Cornelius",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alistair Johnston",
+      "position": "DEF",
+      "price": 4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Richie Laryea",
+      "position": "DEF",
+      "price": 3.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Alfie Jones",
+      "position": "DEF",
+      "price": 3.8,
+      "totalPoints": 0
+    },
+    {
+      "name": "Joel Waterman",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Zorhan Bassong",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jamie Knight-Lebel",
+      "position": "DEF",
+      "price": 3.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Luc De Fougerolles",
+      "position": "DEF",
+      "price": 3.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ismaël Koné",
+      "position": "MID",
+      "price": 6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Marcelo Flores",
+      "position": "MID",
+      "price": 5.7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jonathan Osorio",
+      "position": "MID",
+      "price": 5.6,
+      "totalPoints": 0
+    },
+    {
+      "name": "Mathieu Choinière",
+      "position": "MID",
+      "price": 5.3,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jacob Shaffelburg",
+      "position": "MID",
+      "price": 5.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Nathan Saliba",
+      "position": "MID",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Stephen Eustaquio",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jayden Nelson",
+      "position": "MID",
+      "price": 5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ali Ahmed",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Ralph Priso",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Niko Sigur",
+      "position": "MID",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jonathan David",
+      "position": "FWD",
+      "price": 7,
+      "totalPoints": 0
+    },
+    {
+      "name": "Cyle Larin",
+      "position": "FWD",
+      "price": 6.2,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tajon Buchanan",
+      "position": "FWD",
+      "price": 5.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Promise David",
+      "position": "FWD",
+      "price": 5.4,
+      "totalPoints": 0
+    },
+    {
+      "name": "Liam Millar",
+      "position": "FWD",
+      "price": 5.1,
+      "totalPoints": 0
+    },
+    {
+      "name": "Tani Oluwaseyi",
+      "position": "FWD",
+      "price": 4.9,
+      "totalPoints": 0
+    },
+    {
+      "name": "Jacen Russell-Rowe",
+      "position": "FWD",
+      "price": 4.5,
+      "totalPoints": 0
+    },
+    {
+      "name": "Daniel Jebbison",
+      "position": "FWD",
+      "price": 4.2,
+      "totalPoints": 0
+    }
+  ]
+}
