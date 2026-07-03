@@ -287,7 +287,11 @@ function HistoryTab({ history, error, pos }) {
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.clr || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.blk || "—"}</td>
               <td className="num" style={{ padding: "10px 6px", textAlign: "right", color: "var(--ink-500)" }}>{h.rec || "—"}</td>
-              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{(pos === 2 ? h.cbit : h.cbit + h.rec) || "—"}</td>
+              {/* DefCon actions: recoveries count for MID only (DEF = CBIT,
+                  MID = CBITR). The old `pos === 2 ? cbit : cbit+rec` lumped
+                  GK/FWD into the +recoveries branch, over-reporting their
+                  count — display-only (GK/FWD earn no DefCon) but wrong (#168). */}
+              <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 700 }}>{(pos === 3 ? h.cbit + h.rec : h.cbit) || "—"}</td>
               <td className="num" style={{ padding: "10px 8px", textAlign: "right", fontWeight: 800, color: h.pts > 0 ? "var(--navy-900)" : "var(--ink-300)", fontSize: 15 }}>{h.pts}</td>
             </tr>
           ))}
