@@ -48,10 +48,19 @@ def _winner_iso(home: dict, away: dict, hi: str, ai: str, completed: bool) -> Op
     return None
 
 
-def scan_and_build_bracket(db, days_back: int = 4, days_ahead: int = 26,
+def scan_and_build_bracket(db, days_back: int = 35, days_ahead: int = 26,
                            today: Optional[datetime.date] = None) -> dict:
     """Fetch ESPN across the knockout window, build the bracket doc + upsert the
-    per-round fixtures. Returns a summary."""
+    per-round fixtures. Returns a summary.
+
+    ``days_back`` must cover the whole knockout stage from its Round-of-32
+    kickoff (~3 weeks before the Final): each round's match list is REBUILT
+    from scratch from whatever ESPN events fall in this window (see below), so
+    a completed match older than ``days_back`` silently disappears from
+    ``wc_config/wc_bracket`` on the next scan — that's what happened to South
+    Africa v Canada (played day 1) once "today" moved 5 days past it with the
+    old ``days_back=4``. 35 gives headroom past the ~21-day R32-to-Final span.
+    """
     today = today or datetime.datetime.now(timezone.utc).date()
     valid_isos = {(d.to_dict() or {}).get("isoCode", "").upper()
                   for d in db.collection("wc_teams").stream()}
