@@ -257,11 +257,18 @@ const WC_CANON_R32 = [
   ["ARG", "CPV"], ["AUS", "EGY"], ["SWI", "ALG"], ["COL", "GHA"],  // KC QF
 ];
 
-// Re-seat every round into canonical bracket order. R32 is sorted by the matchup
-// table above; each later round's matches are placed by which R32 slot their
-// (real) teams came from, with regenerated "Winner of …" placeholders for the
-// slots not yet decided — so the W1/W2, W3/W4 … feeder labels line up with the
-// tree. Falls back to the raw data if R32 isn't populated.
+// Re-seat every round into FIXED canonical bracket slots. Each round is an
+// array of exactly its bracket size (R32=16, R16=8, QF=4, SF=2, Final=1); a
+// match is placed at the slot dictated by the canonical R32 table above (later
+// rounds inherit their slot from whichever R32 slot their real team came from).
+// Slots with no data yet become "Winner of …" placeholders.
+//
+// The slots are FIXED (not a variable-length sorted list): a match briefly
+// missing from the feed leaves ONE empty slot on its correct side rather than
+// shifting every later match up a position — which is what scrambled the tree
+// (e.g. Brazil/Norway jumping to the wrong half) when South Africa/Canada
+// dropped out of the ESPN scan window. The left/right split downstream keys off
+// the slot index, so the tree shape is stable regardless of feed gaps.
 function wcCanonicalize(rounds) {
   const r32src = rounds["Round of 32"] || [];
   if (!r32src.length) return rounds;
@@ -271,12 +278,26 @@ function wcCanonicalize(rounds) {
       const [x, y] = WC_CANON_R32[i];
       if ((a === x && b === y) || (a === y && b === x)) return i;
     }
-    return 99; // unknown matchup → sorts to the end, never crashes
+    return -1; // unknown matchup → cannot be positioned in the tree
   };
-  const r32 = [...r32src].sort((m, n) => idxOf(m) - idxOf(n));
+  // Seat R32 into its 16 fixed slots. slotOf maps each real team → its slot so
+  // later rounds can be positioned by the team that advanced.
+  const r32slots = new Array(16).fill(null);
+  r32src.forEach(m => { const i = idxOf(m); if (i >= 0 && !r32slots[i]) r32slots[i] = m; });
   const slotOf = {};
-  r32.forEach((m, i) => { if (m.home) slotOf[m.home] = i; if (m.away) slotOf[m.away] = i; });
-  const out = { "Round of 32": r32 };
+  r32slots.forEach((m, i) => {
+    if (!m) return;
+    if (m.home) slotOf[m.home] = i;
+    if (m.away) slotOf[m.away] = i;
+  });
+  const placeholder = (id, s, prev) => ({
+    id, home: null, away: null, winner: null, status: "NS",
+    homeName: prev ? prev + " " + (2 * s + 1) + " Winner" : "TBD",
+    awayName: prev ? prev + " " + (2 * s + 2) + " Winner" : "TBD",
+  });
+  const out = {
+    "Round of 32": r32slots.map((m, s) => m || placeholder("R32-canon-" + s, s, null)),
+  };
   for (let ri = 1; ri < WC_BRACKET_ROUND_ORDER.length; ri++) {
     const rname = WC_BRACKET_ROUND_ORDER[ri];
     if (!(rounds[rname] && rounds[rname].length)) continue; // round not scheduled yet
@@ -289,11 +310,7 @@ function wcCanonicalize(rounds) {
     });
     const arr = [];
     for (let s = 0; s < size; s++) {
-      arr.push(bySlot[s] || {
-        id: rname + "-canon-" + s, home: null, away: null, winner: null, status: "NS",
-        homeName: prev + " " + (2 * s + 1) + " Winner",
-        awayName: prev + " " + (2 * s + 2) + " Winner",
-      });
+      arr.push(bySlot[s] || placeholder(rname + "-canon-" + s, s, prev));
     }
     out[rname] = arr;
   }
