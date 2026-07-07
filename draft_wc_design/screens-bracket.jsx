@@ -362,8 +362,16 @@ function WindowScheduleAdmin() {
   const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
 
   const setRow = (i, patch) => setRows(rs => rs.map((r, k) => k === i ? { ...r, ...patch } : r));
-  const addRow = () => setRows(rs => [...rs, { phase: "free_agents", local: "", gw: defaultGw }]);
+  const addRowForGw = (gw) => setRows(rs => [...rs, { phase: "free_agents", local: "", gw }]);
   const removeRow = (i) => setRows(rs => rs.filter((_, k) => k !== i));
+  const addGameweek = () => {
+    const gws = rows.map(r => r.gw).filter(g => g != null);
+    const suggested = gws.length ? Math.max(...gws) + 1 : (defaultGw || 1);
+    const input = window.prompt("Add a windows group for which gameweek?", String(suggested));
+    if (input == null) return;
+    const gw = Number(input);
+    if (Number.isFinite(gw)) addRowForGw(gw);
+  };
 
   const persist = async (schedule, okMsg) => {
     setSaving(true); setMsg("");
@@ -402,7 +410,16 @@ function WindowScheduleAdmin() {
     persist([], "Cleared. Reloading…");
   };
 
-  const sorted = [...rows].filter(r => r.local).sort((a, b) => a.local.localeCompare(b.local));
+  // Group transitions by GW (keeping each row's index for edits), sorted by GW
+  // then time — the admin sees each gameweek's windows + dates together.
+  const groups = {};
+  rows.forEach((r, i) => {
+    const key = r.gw == null ? "—" : String(r.gw);
+    (groups[key] = groups[key] || []).push({ r, i });
+  });
+  const groupKeys = Object.keys(groups).sort(
+    (a, b) => (a === "—" ? 1 : b === "—" ? -1 : Number(a) - Number(b))
+  );
 
   return (
     <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
@@ -416,46 +433,54 @@ function WindowScheduleAdmin() {
         {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
       </div>
 
-      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
         {rows.length === 0 && (
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add one below.</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add a gameweek below.</div>
         )}
-        {rows.map((r, i) => (
-          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
-              style={{ ...inputStyle, fontWeight: 700 }}>
-              {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
-            </select>
-            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
-            <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
-            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
-            <input type="number" value={r.gw == null ? "" : r.gw} placeholder="GW" title="Gameweek this transition guards"
-              onChange={e => setRow(i, { gw: e.target.value === "" ? null : Number(e.target.value) })}
-              style={{ ...inputStyle, width: 64 }} />
-            <button onClick={() => removeRow(i)} title="Remove"
-              style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
-          </div>
-        ))}
+        {groupKeys.map(key => {
+          const items = groups[key].slice().sort((a, b) => (a.r.local || "").localeCompare(b.r.local || ""));
+          const dated = items.filter(x => x.r.local);
+          return (
+            <div key={key} style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "white" }}>{key === "—" ? "Unassigned" : `Gameweek ${key}`}</div>
+                <button onClick={() => addRowForGw(key === "—" ? null : Number(key))} disabled={saving}
+                  style={{ padding: "5px 10px", borderRadius: 7, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>+ Add transition</button>
+              </div>
+              {items.map(({ r, i }) => (
+                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                  <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
+                    style={{ ...inputStyle, fontWeight: 700 }}>
+                    {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
+                  </select>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+                  <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
+                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+                  <button onClick={() => removeRow(i)} title="Remove"
+                    style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                </div>
+              ))}
+              {dated.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                  {dated.map((x, k) => {
+                    const lbl = (PHASES.find(p => p[0] === x.r.phase) || [null, x.r.phase])[1];
+                    return <span key={k}>{k ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {x.r.local.replace("T", " ")}</span>;
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-          <button onClick={addRow} disabled={saving}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add transition</button>
+          <button onClick={addGameweek} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add gameweek</button>
           <button onClick={save} disabled={saving || rows.length === 0}
             style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--green-500)", color: "var(--navy-900)", cursor: (saving || rows.length === 0) ? "default" : "pointer", fontSize: 12, fontWeight: 800, opacity: (saving || rows.length === 0) ? 0.6 : 1 }}>
             {saving ? "Saving…" : "Save schedule"}</button>
           <button onClick={clearAll} disabled={saving}
             style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear all</button>
         </div>
-
-        {sorted.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
-            Timeline:{" "}
-            {sorted.map((r, i) => {
-              const lbl = (PHASES.find(p => p[0] === r.phase) || [null, r.phase])[1];
-              return <span key={i}>{i ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {r.local.replace("T", " ")}</span>;
-            })}
-          </div>
-        )}
       </div>
     </div>
   );
