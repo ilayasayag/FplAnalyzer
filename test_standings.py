@@ -4,7 +4,8 @@ GAP-503/504 — standings ranking + qualification.
 `_update_standings` previously wrote the managers array in arbitrary member
 order, never set `rank`, and never set `knockedOut`/`qualified`. The client then
 rendered every row as "#1" and "Qualified". These tests pin the fixed behaviour:
-the array is sorted by H2H points (then fantasy points as a tiebreak), each
+the array is sorted by total fantasy points (H2H points only as a tiebreak) —
+this is the total-points table that decides knockout qualification — each
 manager gets a 1-based `rank`, and only the top `knockoutQualifiers` are flagged
 qualified.
 """
@@ -56,7 +57,8 @@ def test_standings_sorted_and_ranked():
     _update_standings(lid, db, gw)
     managers = _managers(db, lid)
 
-    # Sorted by hpts desc then fpts desc: u2 (3/60) > u1 (3/50) > u3 (0/40).
+    # Sorted by total fpts desc (hpts is only a tie-break): u2 (60) > u1 (50) >
+    # u3 (40). Qualification for the knockout follows this fpts order.
     assert [m["uid"] for m in managers] == ["u2", "u1", "u3"]
     assert [m["rank"] for m in managers] == [1, 2, 3]
 

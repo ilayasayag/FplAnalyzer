@@ -43,11 +43,9 @@ def seed_knockout(lid: str, db) -> dict:
     knockout_qualifiers = size_rules.get("knockoutQualifiers", league.get("knockoutQualifiers", 4))
     knockout_structure = size_rules.get("knockoutStructure", "qf" if knockout_qualifiers == 8 else "sf") # "sf" or "qf"
     
-    ko_rules = rules.get("knockout", {})
-    h2h_slots = ko_rules.get("qualificationCriteria", {}).get("h2hSlots", knockout_qualifiers // 2)
-    fpts_slots = ko_rules.get("qualificationCriteria", {}).get("fptsSlots", knockout_qualifiers - h2h_slots)
-
-    seeds = _compute_seeds(managers, knockout_qualifiers, draft_positions, h2h_slots, fpts_slots)
+    # Total-points knockout: the top ``knockout_qualifiers`` by season fpts
+    # qualify and are seeded by fpts. H2H record is only an fpts tie-break.
+    seeds = _compute_seeds(managers, knockout_qualifiers, draft_positions)
 
     if knockout_structure == "qf":
         bracket_type = "qf_start"
@@ -98,10 +96,24 @@ def seed_knockout(lid: str, db) -> dict:
     league_ref.collection("knockout").document("bracket").set(bracket)
     league_ref.update({"status": "knockout"})
 
+    # Non-qualifiers are eliminated the moment the bracket is seeded: mark them
+    # and release their entire squad to the free-agent pool so the qualifiers'
+    # knockout wishlist (this round's FA window) can pick those players up.
+    seed_uids = {s["uid"] for s in seeds}
+    eliminated = [m["uid"] for m in managers if m["uid"] not in seed_uids]
+    for uid in eliminated:
+        _eliminate_and_release(league_ref, uid, knockout_start_gw)
+
+    # Knockout wishlist pick order = SEED order (seed 1 picks first), resolved as
+    # an unlimited round-robin. This overrides the league phase's reverse-
+    # standings waiver priority.
+    _set_knockout_pick_order(league_ref, [s["uid"] for s in seeds])
+
     return {
         "leagueId": lid,
         "type": bracket_type,
         "seeds": seeds,
+        "eliminated": eliminated,
         "firstRound": matches,
         "knockoutStartGw": knockout_start_gw,
     }
@@ -208,6 +220,16 @@ def advance_knockout_bracket(lid: str, gw: int, db) -> dict:
             }
             rounds["final"] = [new_match]
 
+            # The two SF losers are eliminated: release their squads so the
+            # final's wishlist can pick those players up, and set the final pick
+            # order by seed (higher seed = winners_sorted[0] picks first).
+            for m in updated_matches:
+                loser = m["home"] if m["winner"] == m["away"] else m["away"]
+                _eliminate_and_release(league_ref, loser, gw + 1)
+            _set_knockout_pick_order(
+                league_ref, [winners_sorted[0][0], winners_sorted[1][0]]
+            )
+
         elif next_round_key == "sf" and n == 4:
             if current_round_key == "qf":
                 # SF 1: Winner of QF 0 (1v8) vs Winner of QF 1 (4v5)
@@ -308,25 +330,15 @@ def _compute_seeds(
     managers: List[Dict],
     qualifiers: int,
     draft_positions: Dict[str, int],
-    h2h_slots: int = 2,
-    fpts_slots: int = 2,
 ) -> List[Dict]:
     """
-    Seed qualifiers using overlap-resolution algorithm:
-      1. Fill h2h_slots from H2H list (best hpts, tiebreak: fpts → draft order).
-      2. Fill remaining slots from fpts-sorted list, skipping already-qualified.
-    """
-    qualified: List[Dict] = []
-    qualified_uids: set = set()
+    Seed the top ``qualifiers`` managers purely by TOTAL season fantasy points
+    (``fpts``). This is a total-points knockout: the H2H record does NOT decide
+    who qualifies — it only breaks an fpts tie. Seed 1 = highest fpts (and so
+    picks first + faces the lowest qualifying seed).
 
-    by_h2h = sorted(
-        managers,
-        key=lambda m: (
-            -m.get("hpts", 0),
-            -m.get("fpts", 0),
-            draft_positions.get(m["uid"], 99),
-        ),
-    )
+    Tie-break chain: fpts → hpts → draft order.
+    """
     by_fpts = sorted(
         managers,
         key=lambda m: (
@@ -336,26 +348,8 @@ def _compute_seeds(
         ),
     )
 
-    # Fill H2H slots
-    if h2h_slots > 0:
-        for m in by_h2h:
-            if m["uid"] not in qualified_uids:
-                qualified.append({**m, "qualifiedVia": "h2h"})
-                qualified_uids.add(m["uid"])
-            if sum(1 for q in qualified if q.get("qualifiedVia") == "h2h") == h2h_slots:
-                break
-
-    # Fill FPTS slots (skip already qualified)
-    for m in by_fpts:
-        if m["uid"] not in qualified_uids:
-            qualified.append({**m, "qualifiedVia": "fpts"})
-            qualified_uids.add(m["uid"])
-        if len(qualified) == qualifiers:
-            break
-
-    # Assign seeds in order of qualification
     seeds = []
-    for i, m in enumerate(qualified, start=1):
+    for i, m in enumerate(by_fpts[:qualifiers], start=1):
         seeds.append({
             "seed": i,
             "uid": m["uid"],
@@ -363,7 +357,7 @@ def _compute_seeds(
             "teamName": m.get("teamName", ""),
             "hpts": m.get("hpts", 0),
             "fpts": m.get("fpts", 0),
-            "qualifiedVia": m.get("qualifiedVia", "h2h"),
+            "qualifiedVia": "fpts",
         })
     return seeds
 
@@ -417,3 +411,46 @@ def _get_season_fpts(lid: str, uid: str, db) -> int:
 
 def _next_round(current: str) -> Optional[str]:
     return {"qf": "sf", "sf": "final", "final": None}.get(current)
+
+
+def _eliminate_and_release(league_ref, uid: str, gw: int) -> None:
+    """Eliminate a manager and release their ENTIRE squad to the free-agent pool.
+
+    Free agents are simply players in no squad (see WCWaiverManager.get_free_agents
+    / _get_all_owned), so emptying the eliminated manager's ``squads/{uid}.players``
+    list drops every one of their players into the pool for the next knockout
+    wishlist. The manager is flagged ``eliminated`` so the scorer skips them and
+    the UI can grey them out. Idempotent: re-running finds an already-empty squad
+    and logs nothing new.
+    """
+    league_ref.collection("members").document(uid).set(
+        {"eliminated": True, "eliminatedAtGw": gw}, merge=True
+    )
+
+    squad_ref = league_ref.collection("squads").document(uid)
+    squad_doc = squad_ref.get()
+    released = (squad_doc.to_dict() or {}).get("players", []) if squad_doc.exists else []
+    if not released:
+        return
+    squad_ref.set({"players": []}, merge=True)
+    league_ref.collection("transactions").document().set({
+        "type": "squad_released",
+        "uid": uid,
+        "playerIds": [p.get("playerId") for p in released],
+        "gw": gw,
+        "timestamp": SERVER_TIMESTAMP,
+    })
+
+
+def _set_knockout_pick_order(league_ref, uids_in_seed_order: List[str]) -> None:
+    """Set ``waiverPriority`` = seed order for the active knockout managers.
+
+    The top seed gets ``waiverPriority=1`` (picks first). The wishlist auction
+    resolves in ascending ``waiverPriority`` as an unlimited round-robin, so this
+    makes the best seed pick first — the opposite of the league phase's
+    reverse-standings (worst-first) order.
+    """
+    for priority, uid in enumerate(uids_in_seed_order, start=1):
+        league_ref.collection("members").document(uid).set(
+            {"waiverPriority": priority}, merge=True
+        )
