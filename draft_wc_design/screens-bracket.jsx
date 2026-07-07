@@ -354,21 +354,39 @@ function WindowScheduleAdmin() {
   const initial = ((window.WINDOW && window.WINDOW.scheduledOverrides) || []).map(e => ({
     phase: e.phase, local: utcToIsraelLocal(e.effectiveAt), gw: e.gw != null ? e.gw : defaultGw,
   }));
+  // Per-GW squad-lock overrides ({gwStr: IL-local}) — a SEPARATE mechanism from
+  // the phase transitions (is_lineup_locked reads lineupLockOverride, not the
+  // windowSchedule), surfaced here so every window change for a GW is editable
+  // in one place.
+  const initialLocks = Object.fromEntries(
+    Object.entries((window.WINDOW && window.WINDOW.lineupLockOverride) || {})
+      .map(([gw, iso]) => [String(gw), utcToIsraelLocal(iso)])
+  );
   const [rows, setRows] = React.useState(initial);
+  const [locks, setLocks] = React.useState(initialLocks);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
+  const setLock = (gw, local) => setLocks(ls => ({ ...ls, [String(gw)]: local }));
 
   const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
   const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
 
   const setRow = (i, patch) => setRows(rs => rs.map((r, k) => k === i ? { ...r, ...patch } : r));
-  const addRow = () => setRows(rs => [...rs, { phase: "free_agents", local: "", gw: defaultGw }]);
+  const addRowForGw = (gw) => setRows(rs => [...rs, { phase: "free_agents", local: "", gw }]);
   const removeRow = (i) => setRows(rs => rs.filter((_, k) => k !== i));
+  const addGameweek = () => {
+    const gws = rows.map(r => r.gw).filter(g => g != null);
+    const suggested = gws.length ? Math.max(...gws) + 1 : (defaultGw || 1);
+    const input = window.prompt("Add a windows group for which gameweek?", String(suggested));
+    if (input == null) return;
+    const gw = Number(input);
+    if (Number.isFinite(gw)) addRowForGw(gw);
+  };
 
-  const persist = async (schedule, okMsg) => {
+  const persist = async (body, okMsg) => {
     setSaving(true); setMsg("");
     try {
-      const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
+      const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, body);
       // A schedule already resolving to Free agents auto-runs the wishlist
       // auction server-side — report what happened instead of a silent reload.
       const ar = res && res.wishlistAutoRun;
@@ -389,20 +407,35 @@ function WindowScheduleAdmin() {
   };
   const save = () => {
     if (saving) return;
-    if (rows.some(r => !r.local)) { setMsg("Every row needs a date/time."); return; }
+    if (rows.some(r => !r.local)) { setMsg("Every transition needs a date/time."); return; }
     const schedule = rows
       .map(r => ({ phase: r.phase, effectiveAt: israelLocalToUtc(r.local), gw: r.gw != null ? Number(r.gw) : undefined }))
       .filter(e => e.effectiveAt)
       .sort((a, b) => a.effectiveAt.localeCompare(b.effectiveAt));
-    persist(schedule, "Saved. Reloading…");
+    // Per-GW lock overrides: present blank fields are dropped (revert to fixture
+    // clock); the backend replaces the whole map with what we send.
+    const lineupLockOverride = {};
+    Object.entries(locks).forEach(([gw, local]) => {
+      if (local) { const iso = israelLocalToUtc(local); if (iso) lineupLockOverride[gw] = iso; }
+    });
+    persist({ schedule, lineupLockOverride }, "Saved. Reloading…");
   };
   const clearAll = () => {
     if (saving) return;
-    if (!window.confirm("Clear the entire window schedule? The window reverts to the manual override / fixture clock.")) return;
-    persist([], "Cleared. Reloading…");
+    if (!window.confirm("Clear all phase transitions? Lineup-lock overrides are kept; the window phase reverts to the manual override / fixture clock.")) return;
+    persist({ schedule: [] }, "Cleared. Reloading…");
   };
 
-  const sorted = [...rows].filter(r => r.local).sort((a, b) => a.local.localeCompare(b.local));
+  // Group transitions by GW (keeping each row's index for edits), sorted by GW
+  // then time — the admin sees each gameweek's windows + dates together.
+  const groups = {};
+  rows.forEach((r, i) => {
+    const key = r.gw == null ? "—" : String(r.gw);
+    (groups[key] = groups[key] || []).push({ r, i });
+  });
+  const groupKeys = Object.keys(groups).sort(
+    (a, b) => (a === "—" ? 1 : b === "—" ? -1 : Number(a) - Number(b))
+  );
 
   return (
     <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
@@ -410,52 +443,72 @@ function WindowScheduleAdmin() {
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>⏱ Window schedule · Ilay only</div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2, maxWidth: 540 }}>
-            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. The phase flips the next time the window is read after each time. A <strong>Free agents</strong> entry also AUTO-RUNS the wishlist auction (cron tick, ~5 min granularity; snapshot saved first, once per GW).
+            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>, grouped by gameweek. The phase flips the next time the window is read after each time. A <strong>Free agents</strong> entry also AUTO-RUNS the wishlist auction (cron tick, ~5 min granularity; snapshot saved first, once per GW). Each GW's <strong>🔒 Lineup lock</strong> (when squads freeze) is editable here too — blank reverts to the fixture clock.
           </div>
         </div>
         {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
       </div>
 
-      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+      <div style={{ padding: "0 20px 16px", display: "flex", flexDirection: "column", gap: 14 }}>
         {rows.length === 0 && (
-          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add one below.</div>
+          <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add a gameweek below.</div>
         )}
-        {rows.map((r, i) => (
-          <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-            <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
-              style={{ ...inputStyle, fontWeight: 700 }}>
-              {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
-            </select>
-            <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
-            <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
-            <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
-            <input type="number" value={r.gw == null ? "" : r.gw} placeholder="GW" title="Gameweek this transition guards"
-              onChange={e => setRow(i, { gw: e.target.value === "" ? null : Number(e.target.value) })}
-              style={{ ...inputStyle, width: 64 }} />
-            <button onClick={() => removeRow(i)} title="Remove"
-              style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
-          </div>
-        ))}
+        {groupKeys.map(key => {
+          const items = groups[key].slice().sort((a, b) => (a.r.local || "").localeCompare(b.r.local || ""));
+          const dated = items.filter(x => x.r.local);
+          return (
+            <div key={key} style={{ border: "1px solid rgba(255,255,255,0.12)", borderRadius: 10, padding: "10px 12px" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8, gap: 8 }}>
+                <div style={{ fontSize: 13, fontWeight: 800, color: "white" }}>{key === "—" ? "Unassigned" : `Gameweek ${key}`}</div>
+                <button onClick={() => addRowForGw(key === "—" ? null : Number(key))} disabled={saving}
+                  style={{ padding: "5px 10px", borderRadius: 7, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 11, fontWeight: 700 }}>+ Add transition</button>
+              </div>
+              {items.map(({ r, i }) => (
+                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginBottom: 6 }}>
+                  <select value={r.phase} onChange={e => setRow(i, { phase: e.target.value })}
+                    style={{ ...inputStyle, fontWeight: 700 }}>
+                    {PHASES.map(([v, l]) => <option key={v} value={v} style={{ color: "black" }}>{l}</option>)}
+                  </select>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+                  <input type="datetime-local" value={r.local} onChange={e => setRow(i, { local: e.target.value })} style={inputStyle} />
+                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+                  <button onClick={() => removeRow(i)} title="Remove"
+                    style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
+                </div>
+              ))}
+              {key !== "—" && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,0.12)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>🔒 Lineup lock</span>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+                  <input type="datetime-local" value={locks[key] || ""} onChange={e => setLock(key, e.target.value)} style={inputStyle} />
+                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+                  {locks[key]
+                    ? <button onClick={() => setLock(key, "")} title="Clear this GW's lock override (revert to fixture clock)"
+                        style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 11 }}>Clear lock</button>
+                    : <span style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>no override · fixture clock</span>}
+                </div>
+              )}
+              {dated.length > 0 && (
+                <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
+                  {dated.map((x, k) => {
+                    const lbl = (PHASES.find(p => p[0] === x.r.phase) || [null, x.r.phase])[1];
+                    return <span key={k}>{k ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {x.r.local.replace("T", " ")}</span>;
+                  })}
+                </div>
+              )}
+            </div>
+          );
+        })}
 
         <div style={{ display: "flex", gap: 8, marginTop: 4, flexWrap: "wrap" }}>
-          <button onClick={addRow} disabled={saving}
-            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add transition</button>
+          <button onClick={addGameweek} disabled={saving}
+            style={{ padding: "8px 14px", borderRadius: 8, border: "1px dashed rgba(255,255,255,0.3)", background: "transparent", color: "white", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>+ Add gameweek</button>
           <button onClick={save} disabled={saving || rows.length === 0}
             style={{ padding: "8px 16px", borderRadius: 8, border: "none", background: "var(--green-500)", color: "var(--navy-900)", cursor: (saving || rows.length === 0) ? "default" : "pointer", fontSize: 12, fontWeight: 800, opacity: (saving || rows.length === 0) ? 0.6 : 1 }}>
             {saving ? "Saving…" : "Save schedule"}</button>
           <button onClick={clearAll} disabled={saving}
             style={{ padding: "8px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12, fontWeight: 700 }}>Clear all</button>
         </div>
-
-        {sorted.length > 0 && (
-          <div style={{ marginTop: 6, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
-            Timeline:{" "}
-            {sorted.map((r, i) => {
-              const lbl = (PHASES.find(p => p[0] === r.phase) || [null, r.phase])[1];
-              return <span key={i}>{i ? " → " : ""}<strong style={{ color: "white" }}>{lbl}</strong> {r.local.replace("T", " ")}</span>;
-            })}
-          </div>
-        )}
       </div>
     </div>
   );

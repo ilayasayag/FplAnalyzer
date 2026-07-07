@@ -1237,6 +1237,9 @@ function App() {
               schedule: winData.schedule || [],
               // Admin-authored timed phase overrides ([{phase, effectiveAt, gw}]).
               scheduledOverrides: winData.scheduledOverrides || [],
+              // Per-GW squad-lock overrides ({gw: iso-utc}) — shown + edited in
+              // the admin window-schedule editor alongside the phase transitions.
+              lineupLockOverride: winData.lineupLockOverride || {},
               // Last wishlist auto-run outcome — the Transfers admin banner
               // surfaces blocked/failed runs so they don't go unnoticed.
               wishlistAutoRun: winData.wishlistAutoRun || null,

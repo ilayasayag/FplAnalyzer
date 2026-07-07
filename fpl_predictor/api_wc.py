@@ -1953,6 +1953,12 @@ def get_transfer_window(lid: str):
     from fpl_predictor.game.wc_windows import TransferWindow, transfer_window_state
     state = transfer_window_state(lid, _db)
     is_none = state["phase"] == TransferWindow.NONE.value
+    # Per-GW lineup-lock overrides (leagues/{lid}.lineupLockOverride, a
+    # {gw: iso-utc} map). Surfaced so the admin window-schedule editor can show +
+    # edit each GW's squad-lock instant alongside the phase transitions — the
+    # lock is a separate mechanism (is_lineup_locked) from the windowSchedule
+    # phases, so it isn't in scheduledOverrides.
+    lock_override = (_db.collection("leagues").document(lid).get().to_dict() or {}).get("lineupLockOverride") or {}
     return _ok({
         "status": "closed" if is_none else "open",
         "window": None if is_none else {"phase": state["phase"], "gw": state["gw"]},
@@ -1962,6 +1968,7 @@ def get_transfer_window(lid: str):
         "nextPhaseStartsAt": state["nextPhaseStartsAt"],
         "schedule": state["schedule"],
         "scheduledOverrides": state.get("scheduledOverrides", []),
+        "lineupLockOverride": lock_override,
         "wishlistAutoRun": state.get("wishlistAutoRun"),
     })
 
@@ -2061,12 +2068,15 @@ def get_window_schedule(lid: str):
 def set_window_schedule(lid: str):
     """Ilay-only: set (or clear) the league's timed window schedule.
 
-    Body ``{schedule: [{phase, effectiveAt, gw?}]}`` where ``effectiveAt`` is a
-    UTC ISO-8601 string (the client converts the admin's Israel-time input to
-    UTC). Entries are validated, parsed to timestamps, sorted ascending, and
-    written to ``leagues/{lid}.windowSchedule``. An empty list / null clears it.
-    The schedule is applied LAZILY by the window resolver as the clock passes
-    each entry — there is no background job. Echoes the resolved current window.
+    Body ``{schedule: [{phase, effectiveAt, gw?}], lineupLockOverride?: {gw: iso}}``
+    where ``effectiveAt`` is a UTC ISO-8601 string (the client converts the
+    admin's Israel-time input to UTC). Entries are validated, parsed to
+    timestamps, sorted ascending, and written to ``leagues/{lid}.windowSchedule``.
+    An empty list / null clears it. The optional ``lineupLockOverride`` map
+    ({gw: iso-utc|null}) sets each GW's squad-lock instant (null drops it →
+    fixture clock). Both are applied LAZILY by the window resolver /
+    is_lineup_locked as the clock passes — there is no background job. Echoes the
+    resolved current window.
     """
     uid, err = _require_super_admin()
     if err:
@@ -2107,6 +2117,30 @@ def set_window_schedule(lid: str):
     else:
         return _err("schedule must be a list", 400)
 
+    # Optional: per-GW lineup-lock overrides ({gw: iso-utc|null}). Present keys
+    # replace the whole map (a null/empty value drops that GW's override so it
+    # reverts to the fixture clock). Stored as ISO strings — is_lineup_locked /
+    # lineup_lock_time coerce them. Absent key = leave existing overrides alone.
+    if "lineupLockOverride" in body:
+        raw_lock = body.get("lineupLockOverride")
+        if raw_lock in (None, {}, []):
+            league_ref.update({"lineupLockOverride": firestore.DELETE_FIELD})
+        elif isinstance(raw_lock, dict):
+            cleaned_lock = {}
+            for gw_key, iso in raw_lock.items():
+                if iso in (None, ""):
+                    continue
+                try:
+                    dt = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+                except (TypeError, ValueError):
+                    return _err(f"invalid lineupLockOverride[{gw_key}]: {iso}", 400)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=timezone.utc)
+                cleaned_lock[str(int(gw_key))] = dt.isoformat()
+            league_ref.update({"lineupLockOverride": cleaned_lock})
+        else:
+            return _err("lineupLockOverride must be an object", 400)
+
     from fpl_predictor.game.wc_windows import TransferWindow, current_window_from_db
     window, upcoming_gw = current_window_from_db(lid, _db)
 
@@ -2121,9 +2155,10 @@ def set_window_schedule(lid: str):
         except Exception as exc:  # surface, never fail the save itself
             auto_run = {"lid": lid, "status": "failed", "error": str(exc)}
 
-    sched = (league_ref.get().to_dict() or {}).get("windowSchedule") or []
+    league_after = league_ref.get().to_dict() or {}
     return _ok({
-        "schedule": sched,
+        "schedule": league_after.get("windowSchedule") or [],
+        "lineupLockOverride": league_after.get("lineupLockOverride") or {},
         "window": None if window == TransferWindow.NONE else {"phase": window.value, "gw": upcoming_gw},
         "wishlistAutoRun": auto_run,
     })
