@@ -776,6 +776,79 @@ function StandingsTable({ onTab }) {
   );
 }
 
+// GW6 all-against-all: every manager plays every other, so instead of H2H
+// pairings the round awards H2H points by final rank —
+//   1st +6 · 2nd +4 · 3rd +3 · 4th +2 · 5th +1 · 6th 0.
+// Mirrors compute_all_against_all_standings() in wc_scoring.py, INCLUDING the
+// tie rule: managers tied on GW score all take the higher rank's points, then
+// the next distinct score skips the consumed ranks (standard competition
+// ranking). Keep the two in lockstep — the Standings H2H Pts column is fed by
+// the backend, this board is the client-side view of the same award.
+const AAA_AWARD = [6, 4, 3, 2, 1, 0];
+function computeAAAPoints(scored) {
+  // scored: [{ uid, score:number }] → { uid: awardedPoints }.
+  const sorted = [...scored].sort((a, b) => b.score - a.score);
+  const out = {};
+  let i = 0;
+  while (i < sorted.length) {
+    let j = i;
+    while (j < sorted.length && sorted[j].score === sorted[i].score) j++;
+    const pts = i < AAA_AWARD.length ? AAA_AWARD[i] : 0;
+    for (let k = i; k < j; k++) out[sorted[k].uid] = pts;
+    i = j;
+  }
+  return out;
+}
+
+function AAABoard({ gw, isMobile, onOpen }) {
+  const managers = window.MANAGERS || MANAGERS;
+  const gwScores = (window.ALL_GW_SCORES || {})[gw];
+  const isFinal = !!gwScores;
+  const isLive = !isFinal && gw === ((window.TOURNAMENT && window.TOURNAMENT.currentGw) || 1);
+  const scoreFor = (uid) => {
+    if (gwScores && gwScores[uid] !== undefined) return gwScores[uid];
+    if (isLive) return (window.GW_TOTALS || {})[uid] || 0;
+    return null; // GW not played yet → no rank/award to show
+  };
+  const withScore = managers
+    .filter(m => scoreFor(m.uid) !== null)
+    .sort((a, b) => scoreFor(b.uid) - scoreFor(a.uid));
+  const withoutScore = managers.filter(m => scoreFor(m.uid) === null);
+  const awarded = computeAAAPoints(withScore.map(m => ({ uid: m.uid, score: scoreFor(m.uid) })));
+  const ordered = [...withScore, ...withoutScore];
+  const nameStyle = { cursor: "pointer", textDecoration: "underline", textDecorationStyle: "dotted" };
+  return (
+    <div>
+      <div className="muted" style={{ padding: isMobile ? "8px 12px" : "8px 18px", fontSize: 12, borderTop: "1px solid var(--border)" }}>
+        {isFinal
+          ? "Final all-against-all round. "
+          : isLive
+            ? "Live all-against-all — points are provisional until the round is final. "
+            : "All-against-all round — points are awarded by final rank once the GW is played. "}
+        Rank points: 1st +6 · 2nd +4 · 3rd +3 · 4th +2 · 5th +1.
+      </div>
+      {ordered.map((m) => {
+        const sc = scoreFor(m.uid);
+        const ranked = sc !== null;
+        const rank = ranked ? withScore.indexOf(m) + 1 : null;
+        const pts = ranked ? awarded[m.uid] : null;
+        const isMe = m.uid === window.ME;
+        return (
+          <div key={m.uid} style={{ display: "grid", gridTemplateColumns: isMobile ? "26px minmax(0,1fr) 48px 44px" : "44px 1fr 80px 80px", gap: isMobile ? 8 : 12, padding: isMobile ? "10px 12px" : "10px 18px", borderTop: "1px solid var(--border)", alignItems: "center", background: isMe ? "rgba(91,61,242,0.05)" : "transparent" }}>
+            <div style={{ fontFamily: "var(--font-num)", fontWeight: 800, color: "var(--ink-500)", textAlign: "center", fontSize: isMobile ? 13 : 15 }}>{ranked ? `#${rank}` : "—"}</div>
+            <div className="m-min0" style={{ display: "flex", alignItems: "center", gap: isMobile ? 6 : 10, fontWeight: ranked && rank === 1 ? 700 : 500 }}>
+              <ManagerFlag uid={m.uid} size="lg" fallback={teamById(m.flag)} />
+              <span className="m-truncate" style={nameStyle} onClick={() => onOpen(m.uid)}>{m.team}</span>
+            </div>
+            <div style={{ textAlign: "right", fontFamily: "var(--font-num)", fontWeight: 700, fontSize: isMobile ? 14 : 16, color: "var(--navy-900)" }}>{ranked ? sc : "—"}</div>
+            <div style={{ textAlign: "right", fontFamily: "var(--font-num)", fontWeight: 800, fontSize: isMobile ? 14 : 16, color: pts ? "var(--navy-900)" : "var(--ink-300)" }}>{ranked ? `+${pts}` : "—"}</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
 function ScheduleTable() {
   const gws = window.LEAGUE?.leaguePhaseGws || [1, 2, 3, 4, 5, 6];
   const [squadModal, setSquadModal] = React.useState(null); // { uid, gw }
@@ -784,15 +857,20 @@ function ScheduleTable() {
     <div className="card">
       {squadModal && <ManagerSquadModal uid={squadModal.uid} gw={squadModal.gw} onClose={() => setSquadModal(null)} />}
       {gws.map(gw => {
+        // GW6 in a 6-manager league is all-against-all (no pairings). Render it
+        // even when there's no schedule doc — mirrors is_aaa_gw in wc_scoring.py.
+        const isAAA = gw === 6 && (window.MANAGERS || MANAGERS).length === 6;
         const matches = (window.SCHEDULE || {})[gw] || [];
-        if (!matches || matches.length === 0) return null;
+        if (!isAAA && (!matches || matches.length === 0)) return null;
         return (
           <div key={gw} style={{ borderBottom: "1px solid var(--border)" }}>
             <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", alignItems: "center", background: "var(--cream)" }}>
-              <strong>Gameweek {gw}</strong>
+              <strong>Gameweek {gw}{isAAA && <span className="pill pill--gold" style={{ marginLeft: 8, fontSize: 10, verticalAlign: "middle" }}>All-Against-All</span>}</strong>
               <span className="muted" style={{ fontSize: 12 }}>{TOURNAMENT.gwDates[gw]?.wcRound || `Gameweek ${gw}`}</span>
             </div>
-            {matches.map(([a, b], i) => {
+            {isAAA
+              ? <AAABoard gw={gw} isMobile={isMobile} onOpen={(uid) => setSquadModal({ uid, gw })} />
+              : matches.map(([a, b], i) => {
               const A = managerById(a), B = managerById(b);
               if (!A || !B) return null;
               const aT = teamById(A.flag), bT = teamById(B.flag);
