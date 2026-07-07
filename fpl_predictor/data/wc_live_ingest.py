@@ -514,7 +514,7 @@ def _season_accumulate(agg: Dict[int, Dict[str, float]], pid: int, stats: dict,
     by recompute_season_stats and recompute_all_scores's single pass)."""
     a = agg.setdefault(pid, {
         "goals": 0, "assists": 0, "shotsOnTarget": 0, "shots": 0,
-        "cleanSheets": 0, "minutes": 0, "appearances": 0,
+        "cleanSheets": 0, "minutes": 0, "appearances": 0, "sixtyPlusGames": 0,
         "defconActions": 0, "defconBonus": 0, "points": 0,
     })
     st = stats or {}
@@ -528,6 +528,10 @@ def _season_accumulate(agg: Dict[int, Dict[str, float]], pid: int, stats: dict,
         a["cleanSheets"] += 1
     if mins > 0:
         a["appearances"] += 1
+    # Games where the player played a full 60+ minutes — the "effectively in the
+    # starting lineup / went the distance" count (FA sort "60+ min games").
+    if mins >= 60:
+        a["sixtyPlusGames"] += 1
     a["defconActions"] += defcon_actions or 0
     a["defconBonus"] += defcon_bonus or 0
     a["points"] += points or 0
