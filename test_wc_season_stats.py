@@ -44,9 +44,21 @@ def test_sums_across_fixtures():
     s = _season(db, 900001)
     assert s == {
         "goals": 3, "assists": 1, "shotsOnTarget": 5, "shots": 9,
-        "cleanSheets": 1, "minutes": 165, "appearances": 2,
+        "cleanSheets": 1, "minutes": 165, "appearances": 2, "sixtyPlusGames": 2,
         "defconActions": 20, "defconBonus": 2, "points": 27,
     }
+
+
+def test_sixty_plus_games_counts_only_60_plus_minute_games():
+    db = H.FakeDB()
+    _score(db, "f1", 1, 900010, {"minutes": 90}, pts=2)   # counts
+    _score(db, "f2", 2, 900010, {"minutes": 60}, pts=2)   # counts (>=60)
+    _score(db, "f3", 3, 900010, {"minutes": 45}, pts=1)   # does NOT count
+    _score(db, "f4", 4, 900010, {"minutes": 0},  pts=0)   # does NOT count
+    recompute_season_stats(db)
+    s = _season(db, 900010)
+    assert s["sixtyPlusGames"] == 2
+    assert s["appearances"] == 3  # 90/60/45 all played; 0 does not
 
 
 def test_zero_minute_player_has_no_appearance_or_cleansheet():

@@ -366,6 +366,9 @@ function WindowScheduleAdmin() {
   const [locks, setLocks] = React.useState(initialLocks);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
+  // Paginate the editor one GW at a time (← / →) so the admin focuses on a
+  // single gameweek's windows instead of a long stacked list.
+  const [gwCursor, setGwCursor] = React.useState(0);
   const setLock = (gw, local) => setLocks(ls => ({ ...ls, [String(gw)]: local }));
 
   const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
@@ -380,7 +383,12 @@ function WindowScheduleAdmin() {
     const input = window.prompt("Add a windows group for which gameweek?", String(suggested));
     if (input == null) return;
     const gw = Number(input);
-    if (Number.isFinite(gw)) addRowForGw(gw);
+    if (!Number.isFinite(gw)) return;
+    addRowForGw(gw);
+    // Jump the pager to the new GW (predict its sorted index: numeric GWs asc).
+    const numeric = groupKeys.filter(k => k !== "—").map(Number);
+    const withNew = [...new Set([...numeric, gw])].sort((a, b) => a - b);
+    setGwCursor(withNew.indexOf(gw));
   };
 
   const persist = async (body, okMsg) => {
@@ -436,6 +444,8 @@ function WindowScheduleAdmin() {
   const groupKeys = Object.keys(groups).sort(
     (a, b) => (a === "—" ? 1 : b === "—" ? -1 : Number(a) - Number(b))
   );
+  const gwIdx = Math.min(Math.max(gwCursor, 0), Math.max(groupKeys.length - 1, 0));
+  const curKey = groupKeys[gwIdx];
 
   return (
     <div className="card-dark" style={{ padding: 0, overflow: "hidden" }}>
@@ -453,7 +463,18 @@ function WindowScheduleAdmin() {
         {rows.length === 0 && (
           <div style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", padding: "6px 0" }}>No scheduled transitions. Add a gameweek below.</div>
         )}
-        {groupKeys.map(key => {
+        {groupKeys.length > 1 && (
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+            <button onClick={() => setGwCursor(i => Math.max(0, i - 1))} disabled={gwIdx === 0}
+              style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: gwIdx === 0 ? "rgba(255,255,255,0.3)" : "white", cursor: gwIdx === 0 ? "default" : "pointer", fontSize: 15, fontWeight: 800 }}>←</button>
+            <div style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.75)" }}>
+              {curKey === "—" ? "Unassigned" : `Gameweek ${curKey}`} · {gwIdx + 1} of {groupKeys.length}
+            </div>
+            <button onClick={() => setGwCursor(i => Math.min(groupKeys.length - 1, i + 1))} disabled={gwIdx === groupKeys.length - 1}
+              style={{ padding: "6px 14px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: gwIdx === groupKeys.length - 1 ? "rgba(255,255,255,0.3)" : "white", cursor: gwIdx === groupKeys.length - 1 ? "default" : "pointer", fontSize: 15, fontWeight: 800 }}>→</button>
+          </div>
+        )}
+        {[curKey].filter(Boolean).map(key => {
           const items = groups[key].slice().sort((a, b) => (a.r.local || "").localeCompare(b.r.local || ""));
           const dated = items.filter(x => x.r.local);
           return (
@@ -786,6 +807,7 @@ const FA_SORT_OPTIONS = [
   ["shotsOnTarget", "Shots on target"],
   ["cleanSheets", "Clean sheets"],
   ["minutes", "Minutes"],
+  ["sixtyPlusGames", "60+ min games"],
   ["defconActions", "DefCon actions"],
   ["dr", "FIFA draft rank"],
   ["selPct", "% Selected"],
@@ -807,6 +829,7 @@ const FA_DYNAMIC_COL = {
   shotsOnTarget: ["SoT",    p => (p.season && p.season.shotsOnTarget) || 0],
   cleanSheets:   ["CS",     p => (p.season && p.season.cleanSheets) || 0],
   minutes:       ["Mins",   p => (p.season && p.season.minutes) || 0],
+  sixtyPlusGames:["60+ Gms", p => (p.season && p.season.sixtyPlusGames) || 0],
   defconActions: ["DefCon", p => (p.season && p.season.defconActions) || 0],
   dr:            ["Draft",  p => `#${p.dr || "—"}`],
 };
@@ -1044,11 +1067,17 @@ function FreeAgentsTab({ setToast }) {
   // the /free-agents endpoint here — it returns a projected, 50-capped subset with
   // no club/points.
   const source = (window.PLAYERS || []).filter(p => mode === "all" || !ownerByPid[String(p.id)]);
-  const nations = [...new Set(source.map(p => p.teamName).filter(Boolean))].sort();
+  // When "In tournament" is on, the nations dropdown lists ONLY nations still
+  // alive in the WC — eliminated teams drop out of the picker, not just the rows.
+  const nationPool = activeOnly ? source.filter(p => isNationAlive((p.team || "").toUpperCase())) : source;
+  const nations = [...new Set(nationPool.map(p => p.teamName).filter(Boolean))].sort();
+  // If the currently-selected nation just left the list (e.g. eliminated while
+  // In-tournament is on), fall back to "all" so the table never goes blank.
+  const effNation = nations.includes(nationFilter) ? nationFilter : "all";
   const q = search.trim().toLowerCase();
   const filtered = source
     .filter(p => posFilter === "all" || p.pos === Number(posFilter))
-    .filter(p => nationFilter === "all" || p.teamName === nationFilter)
+    .filter(p => effNation === "all" || p.teamName === effNation)
     .filter(p => {
       if (ownerFilter === "all") return true;
       const o = ownerByPid[String(p.id)];
@@ -1209,8 +1238,8 @@ function FreeAgentsTab({ setToast }) {
         <div className="fa-filters" style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12, alignItems: "center" }}>
           <input value={search} onChange={e => setSearch(e.target.value)} placeholder="Search name or club…"
             style={{ flex: "1 1 200px", minWidth: 160, padding: "8px 12px", fontSize: 13, borderRadius: 8, border: "1px solid var(--border)", background: "white", color: "var(--ink-900)" }} />
-          <select value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={selStyle}>
-            <option value="all">All nations</option>
+          <select value={effNation} onChange={e => setNationFilter(e.target.value)} style={selStyle}>
+            <option value="all">All nations{activeOnly && aliveReady ? ` (${nations.length} active)` : ""}</option>
             {nations.map(n => <option key={n} value={n}>{n}</option>)}
           </select>
           <select value={sortBy} onChange={e => { setSortBy(e.target.value); setSortDir(defaultDirFor(e.target.value)); }} style={selStyle} title="Sort players by (or click a column header)">
