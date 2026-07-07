@@ -354,9 +354,19 @@ function WindowScheduleAdmin() {
   const initial = ((window.WINDOW && window.WINDOW.scheduledOverrides) || []).map(e => ({
     phase: e.phase, local: utcToIsraelLocal(e.effectiveAt), gw: e.gw != null ? e.gw : defaultGw,
   }));
+  // Per-GW squad-lock overrides ({gwStr: IL-local}) — a SEPARATE mechanism from
+  // the phase transitions (is_lineup_locked reads lineupLockOverride, not the
+  // windowSchedule), surfaced here so every window change for a GW is editable
+  // in one place.
+  const initialLocks = Object.fromEntries(
+    Object.entries((window.WINDOW && window.WINDOW.lineupLockOverride) || {})
+      .map(([gw, iso]) => [String(gw), utcToIsraelLocal(iso)])
+  );
   const [rows, setRows] = React.useState(initial);
+  const [locks, setLocks] = React.useState(initialLocks);
   const [saving, setSaving] = React.useState(false);
   const [msg, setMsg] = React.useState("");
+  const setLock = (gw, local) => setLocks(ls => ({ ...ls, [String(gw)]: local }));
 
   const PHASES = [["trade", "Trade"], ["free_agents", "Free agents"], ["next_gw_bid", "Gameweek"], ["none", "Closed"]];
   const inputStyle = { padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "rgba(255,255,255,0.08)", color: "white", fontSize: 13 };
@@ -373,10 +383,10 @@ function WindowScheduleAdmin() {
     if (Number.isFinite(gw)) addRowForGw(gw);
   };
 
-  const persist = async (schedule, okMsg) => {
+  const persist = async (body, okMsg) => {
     setSaving(true); setMsg("");
     try {
-      const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, { schedule });
+      const res = await apiCall("POST", `/leagues/${lid}/admin/window-schedule`, body);
       // A schedule already resolving to Free agents auto-runs the wishlist
       // auction server-side — report what happened instead of a silent reload.
       const ar = res && res.wishlistAutoRun;
@@ -397,17 +407,23 @@ function WindowScheduleAdmin() {
   };
   const save = () => {
     if (saving) return;
-    if (rows.some(r => !r.local)) { setMsg("Every row needs a date/time."); return; }
+    if (rows.some(r => !r.local)) { setMsg("Every transition needs a date/time."); return; }
     const schedule = rows
       .map(r => ({ phase: r.phase, effectiveAt: israelLocalToUtc(r.local), gw: r.gw != null ? Number(r.gw) : undefined }))
       .filter(e => e.effectiveAt)
       .sort((a, b) => a.effectiveAt.localeCompare(b.effectiveAt));
-    persist(schedule, "Saved. Reloading…");
+    // Per-GW lock overrides: present blank fields are dropped (revert to fixture
+    // clock); the backend replaces the whole map with what we send.
+    const lineupLockOverride = {};
+    Object.entries(locks).forEach(([gw, local]) => {
+      if (local) { const iso = israelLocalToUtc(local); if (iso) lineupLockOverride[gw] = iso; }
+    });
+    persist({ schedule, lineupLockOverride }, "Saved. Reloading…");
   };
   const clearAll = () => {
     if (saving) return;
-    if (!window.confirm("Clear the entire window schedule? The window reverts to the manual override / fixture clock.")) return;
-    persist([], "Cleared. Reloading…");
+    if (!window.confirm("Clear all phase transitions? Lineup-lock overrides are kept; the window phase reverts to the manual override / fixture clock.")) return;
+    persist({ schedule: [] }, "Cleared. Reloading…");
   };
 
   // Group transitions by GW (keeping each row's index for edits), sorted by GW
@@ -427,7 +443,7 @@ function WindowScheduleAdmin() {
         <div>
           <div style={{ fontSize: 14, fontWeight: 800, color: "white" }}>⏱ Window schedule · Ilay only</div>
           <div style={{ fontSize: 11, color: "rgba(255,255,255,0.6)", marginTop: 2, maxWidth: 540 }}>
-            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>. The phase flips the next time the window is read after each time. A <strong>Free agents</strong> entry also AUTO-RUNS the wishlist auction (cron tick, ~5 min granularity; snapshot saved first, once per GW).
+            Timed phase changes — times in <strong>Israel (IDT, UTC+3)</strong>, grouped by gameweek. The phase flips the next time the window is read after each time. A <strong>Free agents</strong> entry also AUTO-RUNS the wishlist auction (cron tick, ~5 min granularity; snapshot saved first, once per GW). Each GW's <strong>🔒 Lineup lock</strong> (when squads freeze) is editable here too — blank reverts to the fixture clock.
           </div>
         </div>
         {msg && <span style={{ fontSize: 12, fontWeight: 700, color: msg.startsWith("Failed") ? "#ff9a9a" : "var(--green-400, #5dCAA5)" }}>{msg}</span>}
@@ -460,6 +476,18 @@ function WindowScheduleAdmin() {
                     style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 12 }}>✕</button>
                 </div>
               ))}
+              {key !== "—" && (
+                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap", marginTop: 8, paddingTop: 8, borderTop: "1px dashed rgba(255,255,255,0.12)" }}>
+                  <span style={{ fontSize: 12, fontWeight: 700, color: "rgba(255,255,255,0.85)" }}>🔒 Lineup lock</span>
+                  <span style={{ color: "rgba(255,255,255,0.6)", fontSize: 12 }}>at</span>
+                  <input type="datetime-local" value={locks[key] || ""} onChange={e => setLock(key, e.target.value)} style={inputStyle} />
+                  <span style={{ color: "rgba(255,255,255,0.45)", fontSize: 11, fontWeight: 700 }}>IL</span>
+                  {locks[key]
+                    ? <button onClick={() => setLock(key, "")} title="Clear this GW's lock override (revert to fixture clock)"
+                        style={{ marginLeft: "auto", padding: "6px 10px", borderRadius: 8, border: "1px solid rgba(255,255,255,0.2)", background: "transparent", color: "rgba(255,255,255,0.8)", cursor: "pointer", fontSize: 11 }}>Clear lock</button>
+                    : <span style={{ marginLeft: "auto", fontSize: 10, color: "rgba(255,255,255,0.4)" }}>no override · fixture clock</span>}
+                </div>
+              )}
               {dated.length > 0 && (
                 <div style={{ marginTop: 4, fontSize: 11, color: "rgba(255,255,255,0.6)" }}>
                   {dated.map((x, k) => {
