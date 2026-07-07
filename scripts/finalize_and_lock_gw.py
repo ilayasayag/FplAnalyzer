@@ -52,12 +52,19 @@ for fx in fixtures:
     fx.reference.set({"dataLocked": True}, merge=True)
 print(f"set dataLocked on {len(fixtures)} fixtures")
 
-# 5. reset waiver priority from new standings
-try:
-    WCWaiverManager(db, WC2026Client(db=db)).reset_waiver_priority_to_standings(LID, admin)
-    print("waiver priority reset to reverse-standings")
-except Exception as e:
-    print("waiver reset FAILED:", repr(e))
+# 5. reset waiver priority from new standings — LEAGUE PHASE ONLY.
+#    Entering the knockout (GW == knockoutStartGw-1) and each knockout round set
+#    SEED-order pick priority inside seed_knockout / advance_knockout_bracket;
+#    the reverse-standings reset would clobber it, so skip it from then on.
+ks = league.get("knockoutStartGw", 7)
+if GW < ks - 1:
+    try:
+        WCWaiverManager(db, WC2026Client(db=db)).reset_waiver_priority_to_standings(LID, admin)
+        print("waiver priority reset to reverse-standings")
+    except Exception as e:
+        print("waiver reset FAILED:", repr(e))
+else:
+    print(f"skipped waiver reset (GW{GW} ≥ knockoutStartGw-1={ks-1}: knockout engine sets seed-order pick priority)")
 
 # 6. after
 sc_after = lref.collection("scores").document(str(GW)).get().to_dict() or {}

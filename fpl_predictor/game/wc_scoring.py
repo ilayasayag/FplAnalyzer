@@ -690,6 +690,11 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
 
     members = list(league_ref.collection("members").get())
     uid_list = [m.id for m in members]
+    # Knockout-eliminated managers have had their squad released to free agents;
+    # they don't play the remaining GWs. Skip them in scoring so we never try to
+    # auto-sub / carry-forward an empty (or released) lineup — their season fpts
+    # simply stays frozen at their pre-elimination total.
+    eliminated_uids = {m.id for m in members if (m.to_dict() or {}).get("eliminated")}
 
     scores_ref = league_ref.collection("scores").document(str(gw))
     scores_doc = scores_ref.get()
@@ -697,6 +702,8 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
 
     # Step 2: auto-subs + captain bonus
     for uid in uid_list:
+        if uid in eliminated_uids:
+            continue
         doc_id = f"{uid}_{gw}"
         lineup_ref = league_ref.collection("lineups").document(doc_id)
         lineup_doc = lineup_ref.get()
@@ -1042,9 +1049,13 @@ def _update_standings(lid: str, db, gw: Optional[int] = None):
     league_doc = league_ref.get().to_dict() or {}
     qualifiers = int(league_doc.get("knockoutQualifiers", 8) or 8)
 
+    # Rank by TOTAL fantasy points (season fpts); H2H points are only a
+    # tie-break. This is the table that decides knockout qualification — the top
+    # `qualifiers` by fpts qualify (not by H2H record). H2H points remain a
+    # displayed column, but no longer set the order.
     ranked = sorted(
         stats.values(),
-        key=lambda s: (s.get("hpts", 0), s.get("fpts", 0)),
+        key=lambda s: (s.get("fpts", 0), s.get("hpts", 0)),
         reverse=True,
     )
     for idx, s in enumerate(ranked, start=1):
