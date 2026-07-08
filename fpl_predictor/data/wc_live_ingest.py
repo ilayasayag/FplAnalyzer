@@ -950,7 +950,11 @@ def parse_whoscored_match(ws_match_id: int) -> Tuple[dict, List[Dict]]:
         if pid in sub_off:
             return sub_off[pid]
         if pid in sub_on:
-            return max(0, max_min - sub_on[pid])
+            # A player who came ON as a sub always played — floor at 1 minute so a
+            # LATE sub (on at/after the clock's current maxMinute, e.g. a 94' sub
+            # scored before stoppage elapsed) never records 0 minutes and gets
+            # wrongly auto-subbed out. Real elapsed once maxMinute advances.
+            return max(1, max_min - sub_on[pid])
         return max_min if is_starter else 0
 
     rows = []

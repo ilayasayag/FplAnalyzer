@@ -676,10 +676,21 @@ def finalize_gw(lid: str, gw: int, db, wc_client) -> Dict:
         for pdoc in score_docs:
             pid = int(pdoc.id)
             pdata = pdoc.to_dict()
+            _st = pdata.get("stats", {}) or {}
             all_player_points[pid] = all_player_points.get(pid, 0) + pdata.get("fantasyPoints", 0)
-            all_player_minutes[pid] = all_player_minutes.get(pid, 0) + (pdata.get("stats", {}).get("minutes") or 0)
+            _mins = _st.get("minutes") or 0
+            # Auto-sub guard: a player who APPEARED (came on as a sub) but whose
+            # stored minutes are 0 — a late sub scored while the clock's maxMinute
+            # still equalled their sub-on minute — must NOT be treated as a
+            # non-player. Floor their minutes at 1 so apply_auto_subs (and the
+            # captain-played check) never benches someone who actually played.
+            # (The ingest-side fix clamps this at source too; this defends every
+            # scoring path regardless of when the fixture was scored.)
+            if _mins == 0 and (_st.get("appeared") or _st.get("subIns")):
+                _mins = 1
+            all_player_minutes[pid] = all_player_minutes.get(pid, 0) + _mins
             # A player appears in at most one fixture per GW; last-write is fine.
-            all_player_stats[pid] = pdata.get("stats", {}) or {}
+            all_player_stats[pid] = _st
 
     # Get position map
     pos_map: Dict[int, int] = {}
