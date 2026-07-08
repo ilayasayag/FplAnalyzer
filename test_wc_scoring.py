@@ -189,3 +189,29 @@ def test_auto_sub_swaps_and_preserves_squad_size():
     assert set(new_starting + new_bench) == set(starting + bench)  # nobody lost
     assert 13 not in new_starting and 13 in new_bench  # subbed-out -> bench
     assert subs and subs[0]["out"] == 13
+
+
+def test_appeared_starter_with_zero_minutes_is_not_autosubbed():
+    """Regression (GW5 Medina): a late sub recorded with minutes=0 but
+    appeared=1/subIns=1 must NOT be benched. finalize_gw floors an appeared
+    player's minutes at 1 before apply_auto_subs; this mirrors that floor and
+    asserts the player is kept."""
+    from fpl_predictor.game.wc_scoring import apply_auto_subs
+    starting = [1, 2, 3, 4, 5, 6, 7, 8, 9, 13, 14]
+    bench = [10, 15, 16, 12]
+    pos = {1: 1, 2: 2, 3: 2, 4: 2, 5: 2, 6: 3, 7: 3, 8: 3, 9: 3,
+           13: 4, 14: 4, 10: 1, 15: 4, 16: 3, 12: 3}
+    stats = {p: {"minutes": 90} for p in starting + bench}
+    stats[13] = {"minutes": 0, "appeared": 1, "subIns": 1}  # late sub, 0 recorded
+
+    # Mirror finalize_gw's all_player_minutes construction (the floor).
+    minutes = {}
+    for pid, s in stats.items():
+        m = s.get("minutes") or 0
+        if m == 0 and (s.get("appeared") or s.get("subIns")):
+            m = 1
+        minutes[pid] = m
+
+    new_starting, new_bench, subs = apply_auto_subs(starting, bench, minutes, pos)
+    assert 13 in new_starting          # appeared → stays in the XI
+    assert subs == []                  # no auto-sub triggered
