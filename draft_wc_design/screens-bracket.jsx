@@ -710,7 +710,7 @@ function TransfersScreen() {
             {[
               ["auto", "Auto", "fixture clock decides"],
               ["trade", "Trade", "manager trades + wishlist"],
-              ["free_agents", "Free agents", "instant pickups + wishlist"],
+              ["free_agents", "Free agents", "instant pickups + trades + wishlist"],
               ["next_gw_bid", "Gameweek", "wishlist only · no trades"],
             ].map(([key, label, hint]) => {
               const active = key === "auto" ? !overridden : curPhase === key;
@@ -1054,12 +1054,13 @@ function FreeAgentsTab({ setToast }) {
   }
   const ownerNames = [...new Set(Object.values(ownerByPid))].sort();
 
-  // Manager↔manager trades/bids are allowed in the TRADE and gameweek
-  // (NEXT_GW_BID) windows. When open, a player owned by ANOTHER manager shows a
-  // "Trade" button that jumps to the Trades tab with a proposal pre-seeded
-  // (their squad selected, that player already ticked as the one you receive).
+  // Manager↔manager trades/bids are allowed in the TRADE, FREE_AGENTS (immediate)
+  // and gameweek (NEXT_GW_BID, as a bid) windows. When open, a player owned by
+  // ANOTHER manager shows a "Trade" button that jumps to the Trades tab with a
+  // proposal pre-seeded (their squad selected, that player already ticked as the
+  // one you receive).
   const tradePhase = (window.WINDOW && window.WINDOW.phase) || "none";
-  const canTrade = tradePhase === "trade" || tradePhase === "next_gw_bid";
+  const canTrade = tradePhase === "trade" || tradePhase === "free_agents" || tradePhase === "next_gw_bid";
 
   // Derive BOTH views from the full pool (window.PLAYERS), which carries club +
   // real points. "All players" = the whole pool (owned shown with their manager,
