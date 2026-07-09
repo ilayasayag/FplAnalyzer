@@ -46,13 +46,15 @@ class WCTradeManager:
         if league.get("status") not in ("group_phase", "knockout"):
             raise ValueError("League is not active")
 
-        # Window gate + bid-mode detection in one read. In NEXT_GW_BID (the live
-        # gameweek) a proposal is a "bid": it is parked as deferred_pending and,
-        # when the next trade window opens, is PROMOTED to a normal pending offer
-        # the target must accept (it never auto-executes). In TRADE it's a normal
-        # pending offer straight away.
+        # Window gate + bid-mode detection in one read. TRADE and FREE_AGENTS are
+        # both IMMEDIATE trade windows (a normal pending offer the target accepts
+        # straight away) — free agents and manager trades run side by side until
+        # squads lock. In NEXT_GW_BID (the live gameweek) a proposal is a "bid":
+        # parked as deferred_pending and PROMOTED to a pending offer when the next
+        # trade window opens (it never auto-executes).
         window, upcoming_gw = self._window_phase(lid)
-        if window not in (TransferWindow.TRADE, TransferWindow.NEXT_GW_BID):
+        if window not in (TransferWindow.TRADE, TransferWindow.FREE_AGENTS,
+                          TransferWindow.NEXT_GW_BID):
             raise ValueError("TRADES_BLOCKED_WINDOW_CLOSED")
         is_bid = window == TransferWindow.NEXT_GW_BID
 
@@ -331,6 +333,26 @@ class WCTradeManager:
 
         trade_ref.update({"status": "cancelled", "resolvedAt": SERVER_TIMESTAMP})
         return {"status": "cancelled"}
+
+    def cancel_open_offers_at_lock(self, lid: str) -> dict:
+        """Cancel every still-open IMMEDIATE trade offer for a league — called at
+        gameweek start (squads lock) so no pending offer lingers into the live GW
+        or mutates a locked roster. Only immediate offers (``pending`` /
+        ``awaiting_vote`` / ``awaiting_admin``) are cancelled; forward-looking
+        gameweek BIDS (``deferred_pending``) are left alone to promote at the next
+        trade-window open. Idempotent — re-running finds nothing left to cancel.
+        """
+        ref = self.db.collection("leagues").document(lid).collection("trades")
+        cancelled = []
+        for status in ("pending", "awaiting_vote", "awaiting_admin"):
+            for doc in ref.where("status", "==", status).get():
+                doc.reference.update({
+                    "status": "cancelled",
+                    "cancelReason": "gameweek_locked",
+                    "resolvedAt": SERVER_TIMESTAMP,
+                })
+                cancelled.append(doc.id)
+        return {"cancelled": cancelled}
 
     def get_trades(self, lid: str, status: Optional[str] = None) -> list:
         ref = self.db.collection("leagues").document(lid).collection("trades")
