@@ -429,7 +429,7 @@ def is_lineup_locked(db, gw: int, now: Optional[datetime] = None,
 # contract.
 PHASE_ALLOWED: Dict[TransferWindow, List[str]] = {
     TransferWindow.TRADE: ["trade", "wishlist"],
-    TransferWindow.FREE_AGENTS: ["free_agent", "wishlist"],
+    TransferWindow.FREE_AGENTS: ["free_agent", "wishlist", "trade"],
     TransferWindow.NONE: [],
     TransferWindow.NEXT_GW_BID: ["offer_trade", "wishlist"],
 }

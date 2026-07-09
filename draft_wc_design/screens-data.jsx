@@ -959,8 +959,10 @@ function TradesScreen() {
   // manager must accept. It never executes on its own.
   const phase = (window.WINDOW && window.WINDOW.phase) || "none";
   const isBidWindow = phase === "next_gw_bid";
-  const tradesOpen = phase === "trade" || isBidWindow;
-  const phaseLabel = { free_agents: "free-agents window", none: "closed window" }[phase] || "this window";
+  // Trades run alongside free agents until squads lock: TRADE and FREE_AGENTS
+  // are immediate ("Propose Trade"); NEXT_GW_BID is a queued bid ("Place Bid").
+  const tradesOpen = phase === "trade" || phase === "free_agents" || isBidWindow;
+  const phaseLabel = { none: "closed window" }[phase] || "this window";
   return (
     <div className="col" style={{ gap: 16 }}>
       {showPropose && tradesOpen && <ProposeTradeModal isBid={isBidWindow} initialTargetUid={seed?.targetUid} initialReceiveId={seed?.receiveId} onClose={() => { setShowPropose(false); setSeed(null); }} />}

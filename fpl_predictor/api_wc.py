@@ -3715,4 +3715,17 @@ def cron_window_tick():
             results.append(_wishlist_autorun.run_if_due(snap.id, source="cron"))
         except Exception as exc:
             results.append({"lid": snap.id, "status": "error", "error": str(exc)})
+        # At gameweek start (window flipped to NEXT_GW_BID → squads locked),
+        # cancel any leftover IMMEDIATE trade offer so nothing lingers into the
+        # live GW. Idempotent, so re-running each tick is harmless.
+        try:
+            from fpl_predictor.game.wc_windows import (
+                TransferWindow, current_window_from_db)
+            w, _ = current_window_from_db(snap.id, _db)
+            if w == TransferWindow.NEXT_GW_BID:
+                res = _trade_mgr.cancel_open_offers_at_lock(snap.id)
+                if res.get("cancelled"):
+                    results.append({"lid": snap.id, "tradeOffersCancelled": res["cancelled"]})
+        except Exception as exc:
+            results.append({"lid": snap.id, "tradeCancel": "error", "error": str(exc)})
     return _ok({"leagues": results})

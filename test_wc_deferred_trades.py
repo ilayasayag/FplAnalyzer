@@ -696,6 +696,40 @@ def test_propose_in_trade_window_is_normal_pending(mgr, db):
     assert res.get("targetGw") is None
 
 
+def test_propose_in_free_agents_is_immediate_offer(mgr, db):
+    # Trades run alongside free agents until squads lock — an offer proposed in
+    # FREE_AGENTS is a normal immediate pending offer (NOT a queued bid).
+    _seed_pair(db, "lg1", window="free_agents")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    assert res["status"] == "pending"
+    assert res["isBid"] is False
+
+
+def test_free_agents_trade_executes_on_accept(mgr, db):
+    _seed_pair(db, "lg1", window="free_agents")
+    res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
+    out = mgr.respond_trade("lg1", res["tradeId"], "bob", "accept")
+    assert out["status"] == "accepted"                 # executes now, not deferred
+    assert 13 in _squad_ids(db, "lg1", "alice")
+    assert 3 in _squad_ids(db, "lg1", "bob")
+
+
+def test_cancel_open_offers_at_lock_clears_pending_keeps_bids(mgr, db):
+    _seed_pair(db, "lg1", window="next_gw_bid")
+    _seed_trade(db, "lg1", "pending1", {
+        "proposerUid": "alice", "targetUid": "bob",
+        "proposerPlayers": [_trade_player(ALICE[2])],
+        "targetPlayers": [_trade_player(BOB[2])], "status": "pending"})
+    _seed_trade(db, "lg1", "bid1", {
+        "proposerUid": "alice", "targetUid": "bob",
+        "proposerPlayers": [_trade_player(ALICE[2])],
+        "targetPlayers": [_trade_player(BOB[2])], "status": "deferred_pending"})
+    res = mgr.cancel_open_offers_at_lock("lg1")
+    assert "pending1" in res["cancelled"] and "bid1" not in res["cancelled"]
+    assert _trade_doc(db, "lg1", "pending1")["status"] == "cancelled"
+    assert _trade_doc(db, "lg1", "bid1")["status"] == "deferred_pending"  # bids survive
+
+
 def test_accept_on_a_bid_is_rejected(mgr, db):
     _seed_pair(db, "lg1", window="next_gw_bid")
     res = mgr.propose_trade("lg1", "alice", "bob", [3], [13])
