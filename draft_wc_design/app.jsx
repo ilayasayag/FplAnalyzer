@@ -1440,6 +1440,7 @@ function App() {
       case "bracket":   return <BracketScreen onTab={setTab} />;
       case "fixtures":  return <FixturesScreen onTab={setTab} />;
       case "draft":     return <DraftRoomScreen onTab={setTab} />;
+      case "kodraft":   return <KnockoutDraftScreen onTab={setTab} />;
       case "players":   return <PlayerBrowserScreen onTab={setTab} />;
       case "trades":    return <TradesScreen onTab={setTab} />;
       case "audit":     return <ScoreAuditScreen onTab={setTab} />;

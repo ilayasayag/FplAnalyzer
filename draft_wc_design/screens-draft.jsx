@@ -1371,4 +1371,275 @@ function JoinForm({ onBack }) {
   );
 }
 
-Object.assign(window, { DraftRoomScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });
+// =====================================================================
+// KNOCKOUT FREE-AGENT LIVE SWAP-DRAFT (GW7) — see game/wc_ko_draft.py
+// A live, on-the-clock draft the 4 qualifiers run before the semis. Each pick
+// is a SWAP (free agent IN + squad player OUT). Straight seed order, unlimited
+// round-robin, Pass to drop out. Self-contained: polls /ko-draft/state itself
+// (only while the screen is open) and fires the cooperative auto-pass watchdog.
+// =====================================================================
+function KnockoutDraftScreen({ onTab }) {
+  const isMobile = useIsMobile();
+  const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+  const me = window.ME;
+  const [state, setState] = React.useState(null);
+  const [secondsLeft, setSecondsLeft] = React.useState(0);
+  const [pendingIn, setPendingIn] = React.useState(null); // pool player chosen to bring IN
+  const [search, setSearch] = React.useState("");
+  const [posFilter, setPosFilter] = React.useState("all");
+  const [busy, setBusy] = React.useState(false);
+  const lastAutoPassRef = React.useRef(null);
+
+  // ---- Poll /ko-draft/state (open-screen only) ------------------------------
+  React.useEffect(() => {
+    if (!lid) return;
+    let alive = true, polling = false;
+    const poll = async () => {
+      if (polling) return;
+      polling = true;
+      try {
+        const s = await apiCall("GET", `/leagues/${lid}/ko-draft/state`);
+        if (alive && s) { setState(s); window.KO_DRAFT_STATE = s; }
+      } catch (e) { /* 404 = not configured yet */ }
+      finally { polling = false; }
+    };
+    poll();
+    const t = setInterval(poll, 2500);
+    return () => { alive = false; clearInterval(t); };
+  }, [lid]);
+
+  // ---- Clock: derive from server pickDeadline, tick locally ------------------
+  React.useEffect(() => {
+    if (!state || state.status !== "active" || !state.pickDeadline) { setSecondsLeft(0); return; }
+    setSecondsLeft(Math.max(0, Math.round(state.pickDeadline - Date.now() / 1000)));
+  }, [state && state.pickDeadline, state && state.status]);
+  React.useEffect(() => {
+    const t = setInterval(() => {
+      setSecondsLeft(s => (state && state.paused) ? s : Math.max(0, s - 1));
+    }, 1000);
+    return () => clearInterval(t);
+  }, [state && state.paused]);
+
+  // ---- Cooperative auto-pass watchdog: any client fires it once per deadline -
+  React.useEffect(() => {
+    if (!lid || !state || state.status !== "active" || state.paused) return;
+    if (secondsLeft > 0 || !state.pickDeadline) return;
+    if (lastAutoPassRef.current === state.pickDeadline) return;
+    lastAutoPassRef.current = state.pickDeadline;
+    apiCall("POST", `/leagues/${lid}/ko-draft/auto-pass`).catch(() => {
+      setTimeout(() => { if (lastAutoPassRef.current === state.pickDeadline) lastAutoPassRef.current = null; }, 3000);
+    });
+  }, [secondsLeft, state && state.status, state && state.paused]);
+
+  const doSwap = async (playerIn, playerOut) => {
+    if (busy) return;
+    setBusy(true);
+    try {
+      const key = Math.random().toString(36).slice(2) + Date.now().toString(36);
+      await apiCall("POST", `/leagues/${lid}/ko-draft/pick`, { playerIn, playerOut, idempotencyKey: key });
+      setPendingIn(null);
+    } catch (e) {
+      alert("Swap failed: " + (e.error || e.detail || JSON.stringify(e)));
+    } finally { setBusy(false); }
+  };
+  const doPass = async () => {
+    if (busy) return;
+    if (!window.confirm("Pass for good? You'll be removed from the rotation and can't pick again this draft.")) return;
+    setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/pass`); }
+    catch (e) { alert("Pass failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    finally { setBusy(false); }
+  };
+  const togglePause = async () => {
+    const action = (state && state.paused) ? "resume" : "pause";
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/${action}`); }
+    catch (e) { alert("Failed: " + (e.error || e.detail || JSON.stringify(e))); }
+  };
+
+  const mgrName = uid => (managerById(uid) || { name: uid }).name;
+
+  if (!state || state.status === "pending") {
+    return (
+      <div className="card-dark" style={{ padding: 28, textAlign: "center" }}>
+        <div style={{ fontSize: 40 }}>🏆</div>
+        <h2 style={{ marginTop: 8 }}>Knockout Free-Agent Draft</h2>
+        <p className="muted" style={{ maxWidth: 520, margin: "10px auto" }}>
+          The GW7 live swap-draft isn't open yet. The league admin opens it from
+          <b> Rules Config → Knockout Free-Agent Draft</b> (choose the two eliminated
+          squads + pick order, then Start).
+        </p>
+        {window.IS_ADMIN && (
+          <button className="btn btn--primary" onClick={() => onTab("config")}>Open admin setup</button>
+        )}
+      </div>
+    );
+  }
+
+  const order = state.order || [];
+  const activePickers = state.activePickers || [];
+  const owned = new Set((state.ownedPlayerIds || []).map(Number));
+  const onClock = state.currentDrafter;
+  const complete = state.status === "complete";
+  const iAmPicker = order.includes(me);
+  // A LIVE (real) draft is admin-executed: only the super-admin (Ilay) may act,
+  // and they act ON BEHALF of whoever is on the clock. The dry run is played by
+  // the managers themselves. (window.IS_ADMIN is the UI affordance; the backend
+  // strictly enforces super-admin on every live write.)
+  const isAdmin = !!window.IS_ADMIN;
+  const actingUid = (isAdmin && onClock) ? onClock : me;
+  const actingIsMe = actingUid === me;
+  const mySquad = (state.squads && state.squads[actingUid]) || [];
+  const canAct = state.status === "active" && !state.paused && !!onClock &&
+    (isAdmin || (state.rehearsal && onClock === me));
+
+  // Pool = all players NOT held by a picker and whose nation is still alive.
+  const pool = (window.PLAYERS || []).filter(p => {
+    if (owned.has(Number(p.id))) return false;
+    if (teamById(p.team) && teamById(p.team).elim) return false;
+    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
+    return true;
+  }).sort((a, b) => (a.dr || 999) - (b.dr || 999)).slice(0, 60);
+
+  const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
+  const outCandidates = pendingIn ? mySquad.filter(p => p.position === pendingIn.pos) : [];
+
+  return (
+    <div className="col" style={{ gap: 16 }}>
+      {/* Banner */}
+      <div className="card-dark" style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+        <div style={{ fontWeight: 800, fontSize: 16 }}>Knockout Free-Agent Draft</div>
+        {state.rehearsal && (
+          <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em" }}>
+            REHEARSAL · squads not written
+          </span>
+        )}
+        {!state.rehearsal && (
+          <span style={{ background: "var(--green-400)", color: "#04240f", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>LIVE</span>
+        )}
+        <div style={{ flex: 1 }} />
+        {complete ? (
+          <span style={{ fontWeight: 800, color: "var(--green-400)" }}>✓ Draft complete</span>
+        ) : (
+          <React.Fragment>
+            <span className="muted" style={{ fontSize: 13 }}>On the clock:&nbsp;</span>
+            <b>{onClock ? mgrName(onClock) : "—"}</b>
+            <span className="mono" style={{ fontSize: 20, fontWeight: 800, marginLeft: 12, color: secondsLeft <= 10 ? "#ff8a8a" : "white" }}>
+              {state.paused ? "⏸" : `${secondsLeft}s`}
+            </span>
+          </React.Fragment>
+        )}
+        {window.IS_ADMIN && !complete && (
+          <button className="btn" style={{ marginLeft: 10 }} onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>
+        )}
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: 16 }}>
+        {/* LEFT: free-agent pool + (when picking) the OUT chooser */}
+        <div className="card-dark" style={{ padding: 16 }}>
+          {pendingIn ? (
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
+                <button className="btn" onClick={() => setPendingIn(null)}>← Back</button>
+                <div>Bring in <b>{pendingIn.name}</b> ({KO_POS_NAME[pendingIn.pos]}). Drop a {KO_POS_NAME[pendingIn.pos]}:</div>
+              </div>
+              {outCandidates.length === 0 && <div className="muted">No same-position player to drop — a swap must keep 2/5/5/3.</div>}
+              <div className="col" style={{ gap: 6 }}>
+                {outCandidates.map(p => (
+                  <div key={p.playerId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 6 }}>
+                    <div style={{ flex: 1 }}>{p.name} <span className="muted" style={{ fontSize: 12 }}>· {p.teamName || ""}</span></div>
+                    <button className="btn btn--draft" disabled={busy} onClick={() => doSwap(pendingIn.id, p.playerId)}>Swap</button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div>
+              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                <input className="input-field" placeholder="Search free agents…" value={search}
+                  onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 140, padding: 8 }} />
+                <select className="input-field" value={posFilter} onChange={e => setPosFilter(e.target.value)} style={{ padding: 8 }}>
+                  <option value="all">All</option><option value="1">GK</option><option value="2">DEF</option><option value="3">MID</option><option value="4">FWD</option>
+                </select>
+              </div>
+              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Free agents (released squads + unowned, still-alive nations)</div>
+              <div className="col" style={{ gap: 4, maxHeight: 520, overflowY: "auto" }}>
+                {pool.map(p => (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "rgba(0,0,0,0.18)", borderRadius: 6 }}>
+                    <span className="mono" style={{ fontSize: 11, width: 34, color: "rgba(255,255,255,0.6)" }}>{KO_POS_NAME[p.pos]}</span>
+                    <div style={{ flex: 1 }}>{p.name} <span className="muted" style={{ fontSize: 12 }}>· {p.teamName || p.team}</span></div>
+                    <span className="mono muted" style={{ fontSize: 12 }}>{p.pts}pt</span>
+                    <button className="btn btn--draft" disabled={!canAct || busy}
+                      title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live draft — admin only")}
+                      onClick={() => setPendingIn(p)}>Pick</button>
+                  </div>
+                ))}
+                {pool.length === 0 && <div className="muted">No available free agents match.</div>}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* RIGHT: turn order + my squad + swap log */}
+        <div className="col" style={{ gap: 16 }}>
+          {(iAmPicker || isAdmin) && !complete && (
+            <div className="card-dark" style={{ padding: 14, textAlign: "center" }}>
+              {canAct
+                ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>
+                    {actingIsMe ? "Your turn — swap or pass" : `Executing for ${mgrName(onClock)}`}
+                  </div>
+                : <div className="muted" style={{ marginBottom: 8 }}>
+                    {state.rehearsal ? `Waiting for ${onClock ? mgrName(onClock) : "…"}` : "Live draft — admin executes"}
+                  </div>}
+              <button className="btn" disabled={!canAct || busy} onClick={doPass}>
+                Pass / Done{!actingIsMe && canAct ? ` (${mgrName(onClock)})` : ""}
+              </button>
+            </div>
+          )}
+
+          <div className="card-dark" style={{ padding: 14 }}>
+            <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>Pick order (seed)</div>
+            {order.map((uid, i) => (
+              <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", opacity: activePickers.includes(uid) ? 1 : 0.4 }}>
+                <span className="mono" style={{ width: 22 }}>{i + 1}</span>
+                <span style={{ flex: 1, fontWeight: uid === onClock ? 800 : 400 }}>{mgrName(uid)}{uid === me ? " (you)" : ""}</span>
+                {uid === onClock && !complete && <span style={{ color: "var(--gold-500)", fontSize: 12 }}>● on clock</span>}
+                {!activePickers.includes(uid) && <span className="muted" style={{ fontSize: 11 }}>passed</span>}
+              </div>
+            ))}
+          </div>
+
+          {(iAmPicker || isAdmin) && (
+            <div className="card-dark" style={{ padding: 14 }}>
+              <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>
+                {actingIsMe ? "My squad" : `${mgrName(actingUid)}'s squad · on clock`} ({mySquad.length})
+              </div>
+              <div className="col" style={{ gap: 3, maxHeight: 240, overflowY: "auto" }}>
+                {mySquad.slice().sort((a, b) => a.position - b.position).map(p => (
+                  <div key={p.playerId} style={{ display: "flex", gap: 8, fontSize: 13, padding: "3px 0" }}>
+                    <span className="mono muted" style={{ width: 34 }}>{KO_POS_NAME[p.position]}</span>
+                    <span>{p.name}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          <div className="card-dark" style={{ padding: 14 }}>
+            <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>Swaps ({(state.swaps || []).length})</div>
+            <div className="col" style={{ gap: 4, maxHeight: 220, overflowY: "auto" }}>
+              {(state.swaps || []).slice().reverse().map(s => (
+                <div key={s.seq} style={{ fontSize: 12 }}>
+                  <b>{mgrName(s.uid)}</b>: {(playerById(String(s.playerIn)) || {}).name || s.playerIn} in / {(playerById(String(s.playerOut)) || {}).name || s.playerOut} out
+                </div>
+              ))}
+              {(state.swaps || []).length === 0 && <div className="muted" style={{ fontSize: 12 }}>No swaps yet.</div>}
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+Object.assign(window, { DraftRoomScreen, KnockoutDraftScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });

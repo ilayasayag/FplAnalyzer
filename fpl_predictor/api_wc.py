@@ -1049,6 +1049,222 @@ def update_watchlist(lid: str):
     return _ok({"playerIds": player_ids})
 
 
+# ---------------------------------------------------------------------------
+# §8b — Knockout free-agent LIVE swap-draft (GW7). See game/wc_ko_draft.py.
+#
+# AUTHORISATION MODEL (per Ilay): a REAL (non-rehearsal / "live") draft is the
+# only thing that eliminates squads, releases free agents and mutates real
+# rosters — so EVERY live operation is SUPER-ADMIN-ONLY (`_require_super_admin`,
+# i.e. Ilay). No one else can go live, execute a live swap, pass, pause or reset
+# a live draft. The DRY RUN (rehearsal) stays open so the managers can practise:
+# rehearsal setup is league-admin; rehearsal picks/passes are any member (the
+# engine turn-checks) and never touch squads/members.
+#
+# In a LIVE draft the super-admin executes swaps ON BEHALF of whoever is on the
+# clock (the swap is recorded + applied to THAT manager's squad). Any authed
+# super-admin caller likewise drives a rehearsal on-behalf, which is handy for
+# solo testing — see ``_ko_swap_target``.
+# ---------------------------------------------------------------------------
+
+def _require_league_admin(lid: str):
+    """Auth + this-league-admin gate (matches the draft rollback guard)."""
+    uid, err = _require_auth()
+    if err:
+        return None, err
+    snap = _db.collection("leagues").document(lid).get()
+    if not snap.exists:
+        return None, _err("League not found", 404)
+    if (snap.to_dict() or {}).get("adminUid") != uid:
+        return None, _err("Only the league admin can control the knockout draft", 403)
+    return uid, None
+
+
+def _ko_draft():
+    from .game.wc_ko_draft import KnockoutSwapDraftEngine
+    return KnockoutSwapDraftEngine(_db, _wc)
+
+
+def _ko_state_doc(lid: str) -> dict:
+    snap = (_db.collection("leagues").document(lid)
+            .collection("ko_draft").document("state").get())
+    return snap.to_dict() if snap.exists else {}
+
+
+def _ko_is_live(lid: str) -> bool:
+    """A draft is LIVE when a state doc exists with rehearsal disabled. Absent /
+    rehearsal state is NOT live, so those paths stay on the lighter gate."""
+    st = _ko_state_doc(lid)
+    return bool(st) and not bool(st.get("rehearsal", True))
+
+
+def _ko_gate(lid: str, live: bool):
+    """SETUP ops (config/start/reset): super-admin (Ilay) for anything LIVE,
+    else the league admin for rehearsal setup."""
+    return _require_super_admin() if live else _require_league_admin(lid)
+
+
+def _ko_gate_play(lid: str, live: bool):
+    """PLAY ops (pick/pass/pause/resume): super-admin for a LIVE draft, else any
+    authenticated member — the engine turn-checks the dry run."""
+    return _require_super_admin() if live else _require_auth()
+
+
+def _ko_swap_target(lid: str, caller_uid: str):
+    """Whose squad a pick/pass acts on. The super-admin executes on behalf of
+    the manager on the clock; a normal member acts only as themselves (and the
+    engine still turn-checks them)."""
+    if caller_uid == _super_admin_uid():
+        st = _ko_state_doc(lid)
+        return st.get("currentDrafter") or caller_uid
+    return caller_uid
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/config", methods=["POST"])
+def ko_draft_config(lid: str):
+    body = request.get_json(silent=True) or {}
+    rehearsal = body.get("rehearsal", True)
+    # Persisting a LIVE config (rehearsal false) is a super-admin-only act.
+    uid, err = _ko_gate(lid, live=not rehearsal)
+    if err:
+        return err
+    try:
+        result = _ko_draft().set_config(
+            lid,
+            eliminated_uids=body.get("eliminatedUids", []),
+            order=body.get("order", []),
+            rehearsal=rehearsal,
+            pick_timer=body.get("pickTimer", 60),
+        )
+        return _ok(result)
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/start", methods=["POST"])
+def ko_draft_start(lid: str):
+    # A live (non-rehearsal) start eliminates squads for real — SUPER-ADMIN ONLY,
+    # and the admin must opt in explicitly per request so a rehearsal config
+    # can't go live by accident. Effective mode = body override, else config.
+    body = request.get_json(silent=True) or {}
+    cfg = _ko_draft().get_config(lid)
+    rehearsal = body.get("rehearsal", cfg.get("rehearsal", True))
+    uid, err = _ko_gate(lid, live=not rehearsal)
+    if err:
+        return err
+    try:
+        if "rehearsal" in body:
+            _ko_draft().set_config(
+                lid,
+                eliminated_uids=cfg.get("eliminatedUids", []),
+                order=cfg.get("order", []),
+                rehearsal=rehearsal,
+                pick_timer=cfg.get("pickTimer", 60),
+            )
+        return _ok(_ko_draft().start(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/reset", methods=["POST"])
+def ko_draft_reset(lid: str):
+    uid, err = _ko_gate(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    return _ok(_ko_draft().reset(lid))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/revert", methods=["POST"])
+def ko_draft_revert(lid: str):
+    # Restores squads + member flags + standings from the pre-draft backup, so
+    # it can write real rosters -> super-admin (Ilay) only.
+    uid, err = _require_super_admin()
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().revert(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/state", methods=["GET"])
+def ko_draft_state(lid: str):
+    uid, err = _require_auth()
+    if err:
+        return err
+    return _ok(_ko_draft().get_state(lid))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/pick", methods=["POST"])
+def ko_draft_pick(lid: str):
+    # Live swaps mutate real rosters -> super-admin only, executed on behalf of
+    # the manager on the clock. Rehearsal swaps are any member (turn-checked).
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    body = request.get_json(silent=True) or {}
+    player_in = body.get("playerIn")
+    player_out = body.get("playerOut")
+    if player_in is None or player_out is None:
+        return _err("playerIn and playerOut required")
+    try:
+        result = _ko_draft().make_swap(
+            lid, _ko_swap_target(lid, uid), player_in, player_out,
+            idempotency_key=body.get("idempotencyKey"),
+        )
+        return _ok(result)
+    except ValueError as exc:
+        code = str(exc)
+        if code in ("PLAYER_ALREADY_OWNED", "PLAYER_TEAM_ELIMINATED"):
+            return _err(code, 409)
+        return _err(code)
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/pass", methods=["POST"])
+def ko_draft_pass(lid: str):
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().pass_turn(lid, _ko_swap_target(lid, uid)))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/auto-pass", methods=["POST"])
+def ko_draft_auto_pass(lid: str):
+    # Auto-pass only advances the rotation (never writes squads), but in a LIVE
+    # draft only the super-admin's client should be driving the clock.
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().auto_pass(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/pause", methods=["POST"])
+def ko_draft_pause(lid: str):
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().pause(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
+@wc_bp.route("/leagues/<lid>/ko-draft/resume", methods=["POST"])
+def ko_draft_resume(lid: str):
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().resume(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
 def _require_sim_league(lid: str):
     """Auth + simulated-only guard for the draft-simulator endpoints. These are
     mock-testing tools that mutate (and reset() wipes) squads/draft state, so
