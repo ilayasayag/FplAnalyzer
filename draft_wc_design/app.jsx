@@ -1451,7 +1451,7 @@ function App() {
   };
 
   // Use wide layout (no sidebar) on Draft, Bracket, Create, Fixtures pages
-  const wideTabs = ["draft", "bracket", "create", "fixtures"];
+  const wideTabs = ["draft", "bracket", "create", "fixtures", "kodraft"];
   const isWide = wideTabs.includes(tab);
 
   if (authLoading) {
