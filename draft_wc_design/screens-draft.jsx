@@ -1404,21 +1404,35 @@ const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
 // players (nation out) are flagged as the likely OUTs. When `selectable`, the
 // on-clock manager's players can be clicked to choose who to DROP — and once an
 // incoming player's position is chosen, off-position players grey out.
-function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats }) {
+function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats }) {
   const players = (squad || []).map(koView).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
   const elim = players.filter(p => p.isElim).length;
+  const flagSrc = (window.CUSTOM_TEAM_FLAGS || {})[uid];
   return (
     <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.6 : 1,
-      border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
-        <span className="mono" style={{ width: 20, height: 20, lineHeight: "20px", textAlign: "center",
-          borderRadius: 5, background: "rgba(255,255,255,0.12)", fontSize: 11, fontWeight: 800 }}>{seed}</span>
-        <span style={{ fontWeight: 800, fontSize: 13, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+      border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)",
+      boxShadow: isOnClock ? "0 0 22px rgba(255,199,44,0.35)" : "none" }}>
+      {/* Big manager banner (their custom heraldic flag) */}
+      <div style={{ position: "relative", height: 132, borderRadius: 10, overflow: "hidden", marginBottom: 8,
+        background: "linear-gradient(135deg, #241a4d, #0c0a3e)" }}>
+        {flagSrc && <img src={flagSrc} alt="" onError={e => { e.target.style.display = "none"; }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+        <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(12,10,62,0.05) 40%, rgba(12,10,62,0.88) 100%)" }} />
+        {/* seed medallion top-left */}
+        <span className="mono" style={{ position: "absolute", top: 8, left: 8, width: 26, height: 26, lineHeight: "26px",
+          textAlign: "center", borderRadius: "50%", background: "rgba(0,0,0,0.55)", color: "var(--gold-500)",
+          fontSize: 13, fontWeight: 800, border: "1px solid var(--gold-500)" }}>{seed}</span>
+        {/* status badges top-right */}
+        <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
+          {isOnClock && <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>ON CLOCK</span>}
+          {isActive === false && <span style={{ background: "rgba(0,0,0,0.6)", color: "rgba(255,255,255,0.8)", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>DONE</span>}
+          {elim > 0 && <span style={{ background: "rgba(230,57,70,0.85)", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>{elim} out</span>}
+        </div>
+        {/* manager name bottom */}
+        <div style={{ position: "absolute", left: 12, right: 12, bottom: 8, fontWeight: 900, fontSize: 18,
+          color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.9)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {name}{isMe ? " (you)" : ""}
-        </span>
-        {isOnClock && <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>ON CLOCK</span>}
-        {isActive === false && <span style={{ background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>DONE</span>}
-        {elim > 0 && <span style={{ background: "rgba(230,57,70,0.2)", color: "#ff8a8a", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>{elim} out</span>}
+        </div>
       </div>
       {selectable && <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
       <div className="col" style={{ gap: 1 }}>
@@ -1600,7 +1614,7 @@ function KnockoutDraftScreen({ onTab }) {
   const ready = selIn && selOut && selIn.pos === selOut.pos;
 
   const corner = (uid, i) => uid ? (
-    <KODraftSquadCard key={uid} seed={i + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
+    <KODraftSquadCard key={uid} uid={uid} seed={i + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
       isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me}
       selectable={canAct && uid === actingUid} selOutId={selOut && selOut.id} selInPos={selIn && selIn.pos}
       onSelectOut={selectOut} />
