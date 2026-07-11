@@ -610,6 +610,16 @@ const CUSTOM_TEAM_FLAGS = {
   u_nadav: "flags/u_nadav.png",
   u_shay: "flags/u_shay.png",
 };
+// Ornate heraldic banner variants shown ONLY on the KO draft squad cards
+// (screens-draft). Everywhere else — league standings, status, my-team — keeps
+// the plainer CUSTOM_TEAM_FLAGS above. Managers without a KO variant fall back
+// to their CUSTOM_TEAM_FLAGS flag at the call site.
+const KO_DRAFT_FLAGS = {
+  u_ilay: "flags/ko/u_ilay.png",
+  u_netanel: "flags/ko/u_netanel.png",
+  u_roy: "flags/ko/u_roy.png",
+  u_shay: "flags/ko/u_shay.png",
+};
 // size: sm 22x14 · lg 32x22 · xl 66x44 (page headers) · hero 144x96 (modals)
 const MANAGER_FLAG_SIZES = {
   xl:   { width: 66,  height: 44, borderRadius: 6, boxShadow: "0 1px 4px rgba(0,0,0,0.18)" },
@@ -864,4 +874,4 @@ function Skel({ w = 48, h = 16, style }) {
 }
 
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, SyncDataButton, BettingPicksModal, Skel });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, KO_DRAFT_FLAGS, SyncDataButton, BettingPicksModal, Skel });

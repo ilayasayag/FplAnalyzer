@@ -1407,7 +1407,7 @@ const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
 function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats }) {
   const players = (squad || []).map(koView).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
   const elim = players.filter(p => p.isElim).length;
-  const flagSrc = (window.CUSTOM_TEAM_FLAGS || {})[uid];
+  const flagSrc = (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   return (
     <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.6 : 1,
       border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)",
@@ -1415,7 +1415,7 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
       {/* Big manager banner (their custom heraldic flag) */}
       <div style={{ position: "relative", height: 132, borderRadius: 10, overflow: "hidden", marginBottom: 8,
         background: "linear-gradient(135deg, #241a4d, #0c0a3e)" }}>
-        {flagSrc && <img src={flagSrc + "?v=95"} alt="" onError={e => { e.target.style.display = "none"; }}
+        {flagSrc && <img src={flagSrc + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(12,10,62,0.05) 40%, rgba(12,10,62,0.88) 100%)" }} />
         {/* seed medallion top-left */}
