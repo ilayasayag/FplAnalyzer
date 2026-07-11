@@ -1415,7 +1415,7 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
       {/* Big manager banner (their custom heraldic flag) */}
       <div style={{ position: "relative", height: 132, borderRadius: 10, overflow: "hidden", marginBottom: 8,
         background: "linear-gradient(135deg, #241a4d, #0c0a3e)" }}>
-        {flagSrc && <img src={flagSrc} alt="" onError={e => { e.target.style.display = "none"; }}
+        {flagSrc && <img src={flagSrc + "?v=95"} alt="" onError={e => { e.target.style.display = "none"; }}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
         <div style={{ position: "absolute", inset: 0, background: "linear-gradient(180deg, rgba(12,10,62,0.05) 40%, rgba(12,10,62,0.88) 100%)" }} />
         {/* seed medallion top-left */}
