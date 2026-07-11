@@ -19,3 +19,16 @@ if [ -f "$HOME/.wc_cron_secret" ]; then
     >> /tmp/wc_window_tick.log 2>&1 || true
   echo "" >> /tmp/wc_window_tick.log
 fi
+
+# Auto-finalize the group-stage finale (gw == knockoutStartGw-1). Guarded +
+# idempotent server-side: a NO-OP every tick until every finale fixture is FT
+# AND fully scored (FIFA points + DefCon bookmarked), then finalizes exactly
+# once — eliminations + free-agent release + semifinal seeding. Because this
+# tick also runs the WhoScored ingest above first, DefCon is fresh before the
+# guard passes. Never re-finalizes (scores/{gw}.processed guard). See
+# OPS_RUNBOOK.md "GW6 auto-finalize".
+if [ -f "$HOME/.wc_cron_secret" ]; then
+  curl -sS -m 180 "https://fpl-analyzer-792eb.web.app/api/v1/wc/cron/auto-finalize?key=$(cat "$HOME/.wc_cron_secret")" \
+    >> /tmp/wc_auto_finalize.log 2>&1 || true
+  echo "" >> /tmp/wc_auto_finalize.log
+fi

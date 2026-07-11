@@ -3945,3 +3945,75 @@ def cron_window_tick():
         except Exception as exc:
             results.append({"lid": snap.id, "tradeCancel": "error", "error": str(exc)})
     return _ok({"leagues": results})
+
+
+def _auto_finalize_league(lid: str, ld: dict) -> dict:
+    """Guarded auto-finalize of ONE league's group-stage finale.
+
+    Only ever finalizes gw == knockoutStartGw - 1, and only when it's genuinely
+    safe. finalize_gw is NOT idempotent (standings use FieldValue.increment), so
+    the ``scores/{gw}.processed`` check is the load-bearing guard against a
+    double-count; the fixture check refuses to lock partial FIFA/DefCon data.
+    Any unmet guard returns a no-op status, so the cron can call this every tick.
+    """
+    knockout_start = int(ld.get("knockoutStartGw") or 0)
+    if knockout_start < 2:
+        return {"lid": lid, "status": "skipped", "reason": "no knockoutStartGw"}
+    gw = knockout_start - 1                                    # the group-stage finale
+    cur = int(ld.get("currentGw") or 0)
+    if cur != gw:
+        return {"lid": lid, "status": "skipped", "reason": f"currentGw={cur} != finale gw {gw}"}
+
+    league_ref = _db.collection("leagues").document(lid)
+    # Idempotency: never re-finalize a GW whose scores are already processed.
+    sdoc = league_ref.collection("scores").document(str(gw)).get()
+    if sdoc.exists and (sdoc.to_dict() or {}).get("processed"):
+        return {"lid": lid, "gw": gw, "status": "skipped", "reason": "already finalized"}
+
+    # Data-complete guard: every GW fixture must have FIFA points (processedForFantasy)
+    # AND be bookmarked (scoredFinal, i.e. DefCon locked). Never finalize partial data.
+    fixtures = list(_db.collection("wc_fixtures").where("gw", "==", gw).get())
+    if not fixtures:
+        return {"lid": lid, "gw": gw, "status": "skipped", "reason": "no fixtures for gw"}
+    not_ready = [f.id for f in fixtures
+                 if not ((f.to_dict() or {}).get("processedForFantasy")
+                         and (f.to_dict() or {}).get("scoredFinal"))]
+    if not_ready:
+        return {"lid": lid, "gw": gw, "status": "waiting",
+                "reason": f"{len(not_ready)}/{len(fixtures)} fixture(s) not fully scored",
+                "pending": not_ready[:8]}
+
+    try:
+        result = finalize_gw(lid, gw, _db, _wc)
+        league_ref.set({"autoFinalize": {"gw": gw, "status": "finalized", "at": SERVER_TIMESTAMP}}, merge=True)
+        return {"lid": lid, "gw": gw, "status": "finalized", "result": result}
+    except Exception as exc:
+        league_ref.set({"autoFinalize": {"gw": gw, "status": "error", "error": str(exc), "at": SERVER_TIMESTAMP}}, merge=True)
+        return {"lid": lid, "gw": gw, "status": "error", "error": str(exc)}
+
+
+@wc_bp.route("/cron/auto-finalize", methods=["POST", "GET"])
+def cron_auto_finalize():
+    """Secret-gated guarded auto-finalize of the group-stage finale.
+
+    Runs from the same ~10-min residential-Mac cron as ingest/window-tick, so it
+    fires automatically within one tick of the finale's last match being fully
+    scored (FIFA + DefCon) — no guessed wall-clock time. Every guard lives in
+    ``_auto_finalize_league``; an unmet guard is a safe no-op, so extra ticks
+    never double-finalize. Auth: ?key=<cron secret at wc_config/cron.secret>.
+    """
+    key = request.args.get("key") or (request.get_json(silent=True) or {}).get("key")
+    cfg = _db.collection("wc_config").document("cron").get()
+    secret = (cfg.to_dict() or {}).get("secret") if cfg.exists else None
+    if not secret or key != secret:
+        return _err("Unauthorized", 401)
+    results = []
+    for snap in _db.collection("leagues").get():
+        ld = snap.to_dict() or {}
+        if ld.get("simulated"):
+            continue
+        try:
+            results.append(_auto_finalize_league(snap.id, ld))
+        except Exception as exc:
+            results.append({"lid": snap.id, "status": "error", "error": str(exc)})
+    return _ok({"leagues": results})
