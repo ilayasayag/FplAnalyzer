@@ -626,7 +626,12 @@ const MANAGER_FLAG_SIZES = {
   hero: { width: 144, height: 96, borderRadius: 10, boxShadow: "0 3px 12px rgba(0,0,0,0.22)" },
 };
 function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
-  const src = CUSTOM_TEAM_FLAGS[uid];
+  // Once the league knockout is seeded, the surviving managers' royal KO flag
+  // becomes their official flag everywhere (window.KO_SURVIVORS is populated at
+  // bootstrap from the bracket; empty during the group phase → plain flags).
+  const survivors = window.KO_SURVIVORS;
+  const isSurvivor = survivors && typeof survivors.has === "function" && survivors.has(uid);
+  const src = (isSurvivor && KO_DRAFT_FLAGS[uid]) || CUSTOM_TEAM_FLAGS[uid];
   if (!src) return fallback ? <Flag team={fallback} size={MANAGER_FLAG_SIZES[size] ? "lg" : size} /> : null;
   const big = MANAGER_FLAG_SIZES[size];
   return (
