@@ -1404,16 +1404,28 @@ const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
 // players (nation out) are flagged as the likely OUTs. When `selectable`, the
 // on-clock manager's players can be clicked to choose who to DROP — and once an
 // incoming player's position is chosen, off-position players grey out.
-function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats }) {
-  const players = (squad || []).map(koView).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
-  const elim = players.filter(p => p.isElim).length;
+function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats, isNationAlive, aliveReady, outOnly }) {
+  // A squad player is "to replace" when their NATION is out of the World Cup.
+  // Trust the live bracket (isNationAlive) over the stale per-player flag — same
+  // source as the free-agent filter — so Morocco/Belgium etc. get flagged.
+  const outNation = (p) => {
+    if (p.isElim) return true;
+    if (!aliveReady || typeof isNationAlive !== "function") return false;
+    const iso = ((p.team && (p.team.id || p.team.code)) || "").toString().toUpperCase();
+    return !!iso && !isNationAlive(iso);
+  };
+  let players = (squad || []).map(koView).map(p => ({ ...p, out: outNation(p) }))
+    .sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
+  const elim = players.filter(p => p.out).length;
+  if (outOnly) players = players.filter(p => p.out);   // "show only players to replace"
+  const compact = !!outOnly;                            // shrink the card in that mode
   const flagSrc = (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   return (
-    <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.6 : 1,
+    <div className="card-dark" style={{ padding: compact ? 8 : 10, opacity: isActive === false ? 0.6 : 1,
       border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)",
       boxShadow: isOnClock ? "0 0 22px rgba(255,199,44,0.35)" : "none" }}>
       {/* Big manager banner (their custom heraldic flag) */}
-      <div style={{ position: "relative", height: 132, borderRadius: 10, overflow: "hidden", marginBottom: 8,
+      <div style={{ position: "relative", height: compact ? 60 : 132, borderRadius: 10, overflow: "hidden", marginBottom: 8,
         background: "linear-gradient(135deg, #241a4d, #0c0a3e)" }}>
         {flagSrc && <img src={flagSrc + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }}
           style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
@@ -1426,15 +1438,15 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
         <div style={{ position: "absolute", top: 8, right: 8, display: "flex", gap: 4 }}>
           {isOnClock && <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>ON CLOCK</span>}
           {isActive === false && <span style={{ background: "rgba(0,0,0,0.6)", color: "rgba(255,255,255,0.8)", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>DONE</span>}
-          {elim > 0 && <span style={{ background: "rgba(230,57,70,0.85)", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>{elim} out</span>}
+          {elim > 0 && <span style={{ background: "rgba(230,57,70,0.85)", color: "white", fontSize: 9, fontWeight: 800, padding: "2px 7px", borderRadius: 8 }}>{elim} to replace</span>}
         </div>
         {/* manager name bottom */}
-        <div style={{ position: "absolute", left: 12, right: 12, bottom: 8, fontWeight: 900, fontSize: 18,
+        <div style={{ position: "absolute", left: 12, right: 12, bottom: 8, fontWeight: 900, fontSize: compact ? 14 : 18,
           color: "white", textShadow: "0 2px 6px rgba(0,0,0,0.9)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
           {name}{isMe ? " (you)" : ""}
         </div>
       </div>
-      {selectable && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
+      {selectable && !compact && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
       <div className="col" style={{ gap: 2 }}>
         {players.map(p => {
           const greyed = selectable && selInPos != null && p.pos !== selInPos;
@@ -1442,20 +1454,21 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
           const clickable = selectable && !greyed;
           return (
             <div key={p.id} onClick={clickable ? () => onSelectOut(p) : undefined}
-              style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 6,
-                cursor: clickable ? "pointer" : "default", opacity: greyed ? 0.3 : (p.isElim ? 0.95 : 1),
-                border: chosen ? "1px solid var(--green-400)" : "1px solid transparent",
-                background: chosen ? "rgba(43,240,148,0.16)" : (p.isElim ? "rgba(230,57,70,0.14)" : "rgba(0,0,0,0.14)") }}>
-              <div style={{ width: 26, height: 26, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: compact ? "4px 6px" : "5px 6px", borderRadius: 6,
+                cursor: clickable ? "pointer" : "default", opacity: greyed ? 0.3 : (p.out ? 0.97 : 1),
+                border: chosen ? "1px solid var(--green-400)" : (p.out ? "1px solid rgba(230,57,70,0.5)" : "1px solid transparent"),
+                background: chosen ? "rgba(43,240,148,0.16)" : (p.out ? "rgba(230,57,70,0.16)" : "rgba(0,0,0,0.14)") }}>
+              <div style={{ width: compact ? 22 : 26, height: compact ? 22 : 26, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.out} /></div>
               <span className="mono" style={{ width: 32, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{KO_POS_NAME[p.pos]}</span>
-              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-                textDecoration: p.isElim ? "line-through" : "none" }}>{p.name}</span>
+              <span style={{ flex: 1, fontSize: compact ? 13 : 14, fontWeight: p.out ? 800 : 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                color: p.out ? "#ff9a9a" : undefined, fontStyle: p.out ? "italic" : "normal",
+                textDecoration: p.out ? "line-through" : "none" }}>{p.name}</span>
               {p.team && <span style={{ width: 20, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
-              {p.isElim && <span style={{ fontSize: 9.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
+              {p.out && <span title="Nation out of the World Cup — replace this player" style={{ fontSize: 10, color: "#ff6b6b", fontWeight: 900, whiteSpace: "nowrap" }}>⚠ OUT</span>}
             </div>
           );
         })}
-        {players.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>Released / empty</div>}
+        {players.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>{outOnly ? "No players to replace ✓" : "Released / empty"}</div>}
       </div>
     </div>
   );
@@ -1481,6 +1494,7 @@ function KnockoutDraftScreen({ onTab }) {
   // is opt-in and hides players with 0 tournament minutes.
   const [activeOnly, setActiveOnly] = React.useState(true);
   const [minutesOnly, setMinutesOnly] = React.useState(false);
+  const [outOnly, setOutOnly] = React.useState(false);  // squad cards: show only players to replace
   const [bracket, setBracket] = React.useState(_koBracketCache);
   React.useEffect(() => {
     if (_koBracketCache) return undefined;
@@ -1647,7 +1661,7 @@ function KnockoutDraftScreen({ onTab }) {
     <KODraftSquadCard key={uid} uid={uid} seed={order.indexOf(uid) + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
       isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me}
       selectable={canAct && uid === actingUid} selOutId={selOut && selOut.id} selInPos={selIn && selIn.pos}
-      onSelectOut={selectOut} />
+      onSelectOut={selectOut} isNationAlive={isNationAlive} aliveReady={aliveReady} outOnly={outOnly} />
   ) : <div key={"empty" + slot} />;
 
   return (
@@ -1667,6 +1681,10 @@ function KnockoutDraftScreen({ onTab }) {
             <span className="mono" style={{ fontSize: 20, fontWeight: 800, marginLeft: 8, color: secondsLeft <= 10 ? "#ff8a8a" : "white" }}>{state.paused ? "⏸" : `${secondsLeft}s`}</span>
           </React.Fragment>
         )}
+        <button className={"btn " + (outOnly ? "btn--primary" : "")} style={{ fontSize: 12 }}
+          title="Show only squad players whose nation is out of the World Cup" onClick={() => setOutOnly(v => !v)}>
+          {outOnly ? "✓ Players to replace" : "⚠ Players to replace"}
+        </button>
         {isAdmin && !complete && <button className="btn" onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
       </div>
 
