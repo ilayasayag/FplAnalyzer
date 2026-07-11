@@ -1637,12 +1637,18 @@ function KnockoutDraftScreen({ onTab }) {
   };
   const ready = selIn && selOut && selIn.pos === selOut.pos;
 
-  const corner = (uid, i) => uid ? (
-    <KODraftSquadCard key={uid} uid={uid} seed={i + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
+  // Personalized board order: the viewing manager sees THEIR OWN squad first
+  // (top-left slot) so they can weigh it against the free-agent list; everyone
+  // else follows in pick order. Each card's seed medallion still shows the
+  // manager's TRUE pick-order position, so the layout differs per viewer but the
+  // seeds don't. Admins/spectators not in the draft keep the plain pick order.
+  const boardOrder = order.includes(me) ? [me, ...order.filter(u => u !== me)] : order.slice();
+  const corner = (uid, slot) => uid ? (
+    <KODraftSquadCard key={uid} uid={uid} seed={order.indexOf(uid) + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
       isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me}
       selectable={canAct && uid === actingUid} selOutId={selOut && selOut.id} selInPos={selIn && selIn.pos}
       onSelectOut={selectOut} />
-  ) : <div key={"empty" + i} />;
+  ) : <div key={"empty" + slot} />;
 
   return (
     <div className="col" style={{ gap: 12 }}>
@@ -1667,7 +1673,7 @@ function KnockoutDraftScreen({ onTab }) {
       {/* Board: 4 corners + central picker */}
       <div style={{ display: "grid", gap: 12, alignItems: "start",
         gridTemplateColumns: isMobile ? "1fr" : "minmax(230px, 0.9fr) minmax(0, 2.1fr) minmax(230px, 0.9fr)" }}>
-        <div className="col" style={{ gap: 12 }}>{corner(order[0], 0)}{corner(order[2], 2)}</div>
+        <div className="col" style={{ gap: 12 }}>{corner(boardOrder[0], 0)}{corner(boardOrder[2], 2)}</div>
 
         {/* CENTER: pick banner + confirm bar + free-agent picker */}
         <div className="col" style={{ gap: 12 }}>
@@ -1797,7 +1803,7 @@ function KnockoutDraftScreen({ onTab }) {
           </div>
         </div>
 
-        <div className="col" style={{ gap: 12 }}>{corner(order[1], 1)}{corner(order[3], 3)}</div>
+        <div className="col" style={{ gap: 12 }}>{corner(boardOrder[1], 1)}{corner(boardOrder[3], 3)}</div>
       </div>
 
       {/* Bottom strip: pick order + swap log (wishlist now lives in the center column) */}
