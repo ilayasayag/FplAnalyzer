@@ -1016,8 +1016,11 @@ function App() {
               id: m.id,
               home: m.home,
               away: m.away,
-              homeSeed: m.homeSeed,
-              awaySeed: m.awaySeed,
+              homeSeed: m.homeSeed != null ? m.homeSeed : m.seedHome,
+              awaySeed: m.awaySeed != null ? m.awaySeed : m.seedAway,
+              homePoints: m.homePoints,
+              awayPoints: m.awayPoints,
+              winner: m.winner,
               gw: m.gw,
             }));
 
@@ -1045,6 +1048,19 @@ function App() {
           console.warn("Knockout bracket not seeded yet", e);
           window.BRACKET = { sf: [], final: [] };
         }
+
+        // Managers still alive in the league knockout = everyone drawn into the
+        // bracket. Empty until the SF is seeded (GW6 finalize) — that emptiness
+        // is exactly what keeps the plain group-phase flags in place. Once
+        // seeded, ManagerFlag promotes these managers to their royal KO flag
+        // everywhere (official from the knockout onward).
+        window.KO_SURVIVORS = (() => {
+          const s = new Set();
+          const add = m => { if (m && m.home) s.add(m.home); if (m && m.away) s.add(m.away); };
+          ((window.BRACKET && window.BRACKET.sf) || []).forEach(add);
+          ((window.BRACKET && window.BRACKET.final) || []).forEach(add);
+          return s;
+        })();
 
         // Fetch Schedule
         try {

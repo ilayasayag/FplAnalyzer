@@ -591,6 +591,7 @@ function LeagueScreen({ onTab }) {
           ["standings", "Standings"],
           ["schedule",  "Group Schedule"],
           ["results",   "Results"],
+          ["knockout",  "Knockout"],
         ].map(([id, label]) => (
           <button key={id}
             className={"btn " + (tab === id ? "btn--solid-dark" : "")}
@@ -604,6 +605,78 @@ function LeagueScreen({ onTab }) {
       {tab === "standings" && <StandingsTable onTab={onTab} />}
       {tab === "schedule" && <ScheduleTable />}
       {tab === "results" && <ResultsTable />}
+      {tab === "knockout" && <KnockoutPanel />}
+    </div>
+  );
+}
+
+// ---------- KNOCKOUT SEMI-FINALS (royal-flag showcase) ----------
+// Big, ceremonial view of the league semi-finals drawn 1v4 / 2v3 by FPts once
+// the group stage finalizes. Each side shows the manager's royal KO flag (the
+// same crest that's now official everywhere) + seed + live GW points if the SF
+// is under way. Placeholder until the bracket is seeded.
+function KnockoutSide({ uid, seed, points, isWinner }) {
+  const isMobile = useIsMobile();
+  const m = (typeof managerById === "function" && uid) ? managerById(uid) : null;
+  const name = (m && (m.team || m.name)) || (uid || "TBD");
+  const flag = uid && ((window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid]);
+  return (
+    <div style={{ flex: 1, minWidth: 0, textAlign: "center", opacity: isWinner === false ? 0.5 : 1 }}>
+      <div style={{ position: "relative", width: "100%", aspectRatio: "3 / 2", borderRadius: 12, overflow: "hidden",
+        border: isWinner ? "3px solid var(--gold-500)" : "1px solid var(--border)",
+        boxShadow: isWinner ? "0 0 22px rgba(255,199,44,0.45)" : "0 2px 10px rgba(0,0,0,0.12)",
+        background: "linear-gradient(135deg,#241a4d,#0c0a3e)" }}>
+        {flag && <img src={flag + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }}
+          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+        {seed != null && <span className="mono" style={{ position: "absolute", top: 8, left: 8, width: 30, height: 30, lineHeight: "30px",
+          textAlign: "center", borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "var(--gold-500)",
+          fontSize: 15, fontWeight: 800, border: "1px solid var(--gold-500)" }}>{seed}</span>}
+        {isWinner && <span style={{ position: "absolute", top: 8, right: 8, background: "var(--gold-500)", color: "var(--navy-900)",
+          fontSize: 10, fontWeight: 800, padding: "2px 8px", borderRadius: 8 }}>WINNER</span>}
+      </div>
+      <div className="h-display" style={{ fontSize: isMobile ? 16 : 20, marginTop: 8, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{name}</div>
+      {points != null && <div className="mono" style={{ fontSize: isMobile ? 22 : 30, fontWeight: 900, color: "var(--violet-600)", lineHeight: 1 }}>{points}</div>}
+    </div>
+  );
+}
+function KnockoutMatchup({ match, label }) {
+  const w = match.winner;
+  return (
+    <div className="card" style={{ padding: 20 }}>
+      <div className="h-display" style={{ fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 14, textAlign: "center" }}>{label}{match.gw ? ` · GW${match.gw}` : ""}</div>
+      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+        <KnockoutSide uid={match.home} seed={match.homeSeed} points={match.homePoints} isWinner={w ? w === match.home : undefined} />
+        <div className="h-display" style={{ fontSize: 22, fontWeight: 900, color: "var(--gold-600)", flexShrink: 0 }}>VS</div>
+        <KnockoutSide uid={match.away} seed={match.awaySeed} points={match.awayPoints} isWinner={w ? w === match.away : undefined} />
+      </div>
+    </div>
+  );
+}
+function KnockoutPanel() {
+  const sf = (window.BRACKET && window.BRACKET.sf) || [];
+  const seeded = sf.length > 0;
+  const league = window.LEAGUE || LEAGUE;
+  if (!seeded) {
+    return (
+      <div className="card" style={{ padding: 28, textAlign: "center" }}>
+        <div style={{ fontSize: 40 }}>🏆</div>
+        <div className="h-display" style={{ fontSize: 20, marginTop: 8 }}>Semi-Finals</div>
+        <p className="muted" style={{ maxWidth: 520, margin: "10px auto", fontSize: 14 }}>
+          The draw is set when the group stage finalizes{league.knockoutStartGw ? ` (GW${league.knockoutStartGw - 1})` : ""}: <strong>#1 vs #4</strong> and <strong>#2 vs #3</strong> by total fantasy points. The top four advance in their royal colours; 5th and 6th are eliminated.
+        </p>
+      </div>
+    );
+  }
+  const label = i => `Semi-Final ${i + 1}`;
+  return (
+    <div className="col" style={{ gap: 16 }}>
+      <div className="alert alert--info">
+        <div className="alert__icon" style={{ background: "var(--violet-500)", color: "white" }}>♛</div>
+        <div style={{ fontSize: 13 }}><strong>Semi-Finals.</strong> The top four by fantasy points, drawn #1 vs #4 and #2 vs #3. Winners meet in the Final.</div>
+      </div>
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: useIsMobile() ? "1fr" : "1fr 1fr" }}>
+        {sf.map((m, i) => <KnockoutMatchup key={m.id || i} match={m} label={label(i)} />)}
+      </div>
     </div>
   );
 }
@@ -1734,4 +1807,4 @@ function ScoreAuditScreen() {
   );
 }
 
-Object.assign(window, { PlayerBrowserScreen, FixturesScreen, LeagueScreen, TradesScreen, ScoreAuditScreen });
+Object.assign(window, { PlayerBrowserScreen, FixturesScreen, LeagueScreen, KnockoutPanel, TradesScreen, ScoreAuditScreen });
