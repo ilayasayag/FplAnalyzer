@@ -1398,13 +1398,17 @@ function koView(sp) {
   };
 }
 
-// One manager's full squad in a corner of the draft board. Eliminated players
-// (nation knocked out) are flagged — those are the likely OUTs.
-function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe }) {
+const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
+
+// One manager's full squad in a corner. Shows ALL 15 (no scroll). Eliminated
+// players (nation out) are flagged as the likely OUTs. When `selectable`, the
+// on-clock manager's players can be clicked to choose who to DROP — and once an
+// incoming player's position is chosen, off-position players grey out.
+function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe, selectable, selOutId, selInPos, onSelectOut, onShowStats }) {
   const players = (squad || []).map(koView).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
   const elim = players.filter(p => p.isElim).length;
   return (
-    <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.5 : 1,
+    <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.6 : 1,
       border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
         <span className="mono" style={{ width: 20, height: 20, lineHeight: "20px", textAlign: "center",
@@ -1416,25 +1420,32 @@ function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe }) {
         {isActive === false && <span style={{ background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>DONE</span>}
         {elim > 0 && <span style={{ background: "rgba(230,57,70,0.2)", color: "#ff8a8a", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>{elim} out</span>}
       </div>
-      <div className="col" style={{ gap: 1, maxHeight: 300, overflowY: "auto" }}>
-        {players.map(p => (
-          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", borderRadius: 4,
-            background: p.isElim ? "rgba(230,57,70,0.14)" : "transparent" }}>
-            <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
-            <span className="mono" style={{ width: 26, fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{KO_POS_NAME[p.pos]}</span>
-            <span style={{ flex: 1, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
-              textDecoration: p.isElim ? "line-through" : "none", opacity: p.isElim ? 0.8 : 1 }}>{p.name}</span>
-            {p.team && <span style={{ width: 16, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
-            {p.isElim && <span style={{ fontSize: 8.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
-          </div>
-        ))}
+      {selectable && <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
+      <div className="col" style={{ gap: 1 }}>
+        {players.map(p => {
+          const greyed = selectable && selInPos != null && p.pos !== selInPos;
+          const chosen = selectable && p.id === selOutId;
+          const clickable = selectable && !greyed;
+          return (
+            <div key={p.id} onClick={clickable ? () => onSelectOut(p) : undefined}
+              style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", borderRadius: 4,
+                cursor: clickable ? "pointer" : "default", opacity: greyed ? 0.3 : (p.isElim ? 0.95 : 1),
+                border: chosen ? "1px solid var(--green-400)" : "1px solid transparent",
+                background: chosen ? "rgba(43,240,148,0.16)" : (p.isElim ? "rgba(230,57,70,0.14)" : "transparent") }}>
+              <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
+              <span className="mono" style={{ width: 26, fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{KO_POS_NAME[p.pos]}</span>
+              <span style={{ flex: 1, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                textDecoration: p.isElim ? "line-through" : "none" }}>{p.name}</span>
+              {p.team && <span style={{ width: 16, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
+              {p.isElim && <span style={{ fontSize: 8.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
+            </div>
+          );
+        })}
         {players.length === 0 && <div className="muted" style={{ fontSize: 11 }}>Released / empty</div>}
       </div>
     </div>
   );
 }
-
-const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
 
 function KnockoutDraftScreen({ onTab }) {
   const isMobile = useIsMobile();
@@ -1442,16 +1453,14 @@ function KnockoutDraftScreen({ onTab }) {
   const me = window.ME;
   const [state, setState] = React.useState(null);
   const [secondsLeft, setSecondsLeft] = React.useState(0);
-  const [pendingIn, setPendingIn] = React.useState(null);
+  const [selIn, setSelIn] = React.useState(null);   // { id, name, pos } free agent to bring IN
+  const [selOut, setSelOut] = React.useState(null); // { id, name, pos } squad player to drop OUT
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
   const [nationFilter, setNationFilter] = React.useState("all");
-  const [sortBy, setSortBy] = React.useState("pts"); // pts | dr | name
+  const [sortBy, setSortBy] = React.useState("pts");
   const [busy, setBusy] = React.useState(false);
-  const lastAutoPassRef = React.useRef(null);
 
-  // Personal wishlist (client-local, per league+manager) — an ordered shortlist
-  // of who to bring in and in what priority. Persists across reloads.
   const wlKey = `ko_wl_${lid}_${me}`;
   const [wishlist, setWishlist] = React.useState(() => {
     try { return JSON.parse(localStorage.getItem(wlKey) || "[]").map(Number); } catch (e) { return []; }
@@ -1480,18 +1489,17 @@ function KnockoutDraftScreen({ onTab }) {
     const t = setInterval(() => setSecondsLeft(s => (state && state.paused) ? s : Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [state && state.paused]);
+  // No auto-pass: admin-executed draft, passing is an explicit click only.
 
-  // NOTE: no auto-pass. This draft is admin-executed (the admin swaps on behalf
-  // of whoever is on the clock), so a timed-out clock must NOT silently remove a
-  // manager from the rotation — passing is always an explicit Pass/Done click.
-  // The countdown stays as a soft visual guide only.
+  const showStats = (id) => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } }));
 
-  const doSwap = async (playerIn, playerOut) => {
-    if (busy) return; setBusy(true);
+  const doSwap = async () => {
+    if (busy || !selIn || !selOut) return;
+    setBusy(true);
     try {
       const key = Math.random().toString(36).slice(2) + Date.now().toString(36);
-      await apiCall("POST", `/leagues/${lid}/ko-draft/pick`, { playerIn, playerOut, idempotencyKey: key });
-      setPendingIn(null);
+      await apiCall("POST", `/leagues/${lid}/ko-draft/pick`, { playerIn: selIn.id, playerOut: selOut.id, idempotencyKey: key });
+      setSelIn(null); setSelOut(null);
     } catch (e) { alert("Swap failed: " + (e.error || e.detail || JSON.stringify(e))); }
     finally { setBusy(false); }
   };
@@ -1517,7 +1525,6 @@ function KnockoutDraftScreen({ onTab }) {
   const mgrName = uid => (managerById(uid) || { name: uid }).name;
   const isAdmin = !!window.IS_ADMIN;
 
-  // ---- PENDING (no active draft) --------------------------------------------
   if (!state || state.status === "pending") {
     const cfg = (state && state.config) || {};
     const canStart = isAdmin && cfg.order && cfg.order.length >= 2 && (cfg.eliminatedUids || []).length === 2;
@@ -1545,36 +1552,58 @@ function KnockoutDraftScreen({ onTab }) {
   const complete = state.status === "complete";
   const actingUid = (isAdmin && onClock) ? onClock : me;
   const actingIsMe = actingUid === me;
-  const actingSquad = (state.squads && state.squads[actingUid]) || [];
   const canAct = state.status === "active" && !state.paused && !!onClock &&
     (isAdmin || (state.rehearsal && onClock === me));
 
-  // ---- Free-agent pool: unowned + still-alive nation, filtered + sorted ------
+  // Free-agent pool: unowned by a picker + nation NOT eliminated (per-player
+  // flag from the backend — the authoritative source get_free_agents uses).
   const nations = [];
   { const seen = new Set();
-    (window.PLAYERS || []).forEach(p => { if (!seen.has(p.team)) { seen.add(p.team); const t = teamById(p.team); if (t && !t.elim) nations.push({ code: p.team, name: t.name || p.team }); } });
+    (window.PLAYERS || []).forEach(p => { if (!p.elim && !seen.has(p.team)) { const t = teamById(p.team); if (!(t && t.elim)) { seen.add(p.team); nations.push({ code: p.team, name: (t && t.name) || p.team }); } } });
     nations.sort((a, b) => a.name.localeCompare(b.name)); }
+
+  const wlRank = {}; wishlist.forEach((id, i) => { wlRank[String(id)] = i; });
   let pool = (window.PLAYERS || []).filter(p => {
     if (owned.has(Number(p.id))) return false;
+    if (p.elim) return false;
     const t = teamById(p.team); if (t && t.elim) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
     if (nationFilter !== "all" && p.team !== nationFilter) return false;
     if (search && !(p.name.toLowerCase().includes(search.toLowerCase()) || (p.club || "").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
   });
-  pool.sort(sortBy === "dr" ? (a, b) => (a.dr || 999) - (b.dr || 999)
-    : sortBy === "name" ? (a, b) => a.name.localeCompare(b.name)
-    : (a, b) => (b.pts || 0) - (a.pts || 0));
-  const poolShown = pool.slice(0, 40);
-
-  const outCandidates = pendingIn ? actingSquad.map(koView).filter(p => p.pos === pendingIn.pos)
-    .sort((a, b) => (b.isElim ? 1 : 0) - (a.isElim ? 1 : 0)) : [];
-
+  const dfc = p => (p.season && p.season.defconBonus) || 0;
+  const mins = p => (p.season && p.season.minutes) || 0;
+  const cmp = {
+    pts: (a, b) => (b.pts || 0) - (a.pts || 0),
+    sel: (a, b) => (b.selPct || 0) - (a.selPct || 0),
+    def: (a, b) => dfc(b) - dfc(a),
+    min: (a, b) => mins(b) - mins(a),
+    dr: (a, b) => (a.dr || 999) - (b.dr || 999),
+    name: (a, b) => a.name.localeCompare(b.name),
+    wl: (a, b) => { const ra = wlRank[String(a.id)] != null ? wlRank[String(a.id)] : 9999; const rb = wlRank[String(b.id)] != null ? wlRank[String(b.id)] : 9999; return ra - rb || (b.pts || 0) - (a.pts || 0); },
+  };
+  pool.sort(cmp[sortBy] || cmp.pts);
+  const poolShown = pool.slice(0, 80);
   const wlItems = wishlist.map(id => (window.PLAYER_MAP || {})[String(id)]).filter(Boolean);
+
+  const selectPoolIn = (p) => {
+    if (!canAct) return;
+    if (selIn && selIn.id === Number(p.id)) { setSelIn(null); return; }
+    setSelIn({ id: Number(p.id), name: p.name, pos: p.pos });
+  };
+  const selectOut = (p) => {
+    if (!canAct) return;
+    if (selOut && selOut.id === p.id) { setSelOut(null); return; }
+    setSelOut({ id: p.id, name: p.name, pos: p.pos });
+  };
+  const ready = selIn && selOut && selIn.pos === selOut.pos;
 
   const corner = (uid, i) => uid ? (
     <KODraftSquadCard key={uid} seed={i + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
-      isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me} />
+      isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me}
+      selectable={canAct && uid === actingUid} selOutId={selOut && selOut.id} selInPos={selIn && selIn.pos}
+      onSelectOut={selectOut} />
   ) : <div key={"empty" + i} />;
 
   return (
@@ -1599,91 +1628,94 @@ function KnockoutDraftScreen({ onTab }) {
 
       {/* Board: 4 corners + central picker */}
       <div style={{ display: "grid", gap: 12, alignItems: "start",
-        gridTemplateColumns: isMobile ? "1fr" : "minmax(200px, 0.85fr) minmax(0, 2fr) minmax(200px, 0.85fr)" }}>
-        {/* LEFT corners: seeds 1 & 3 */}
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(230px, 0.9fr) minmax(0, 2.1fr) minmax(230px, 0.9fr)" }}>
         <div className="col" style={{ gap: 12 }}>{corner(order[0], 0)}{corner(order[2], 2)}</div>
 
-        {/* CENTER: pick / free-agent picker */}
+        {/* CENTER: pick banner + confirm bar + free-agent picker */}
         <div className="col" style={{ gap: 12 }}>
           {(canAct || (isAdmin && !complete)) && (
             <div className="card-dark" style={{ padding: 12, textAlign: "center", border: canAct ? "1px solid var(--green-400)" : "1px solid rgba(255,255,255,0.08)" }}>
               {canAct
-                ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>{actingIsMe ? "Your turn — bring one in, drop one out" : `Executing for ${mgrName(onClock)}`}</div>
+                ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>{actingIsMe ? "Your turn — pick a free agent AND the player to drop" : `Executing for ${mgrName(onClock)}`}</div>
                 : <div className="muted" style={{ marginBottom: 8 }}>{state.rehearsal ? `Waiting for ${onClock ? mgrName(onClock) : "…"}` : "Live draft — admin executes"}</div>}
               <button className="btn" disabled={!canAct || busy} onClick={doPass}>Pass / Done{!actingIsMe && canAct ? ` (${mgrName(onClock)})` : ""}</button>
             </div>
           )}
 
+          {canAct && (selIn || selOut) && (
+            <div className="card-dark" style={{ padding: 12, border: ready ? "1px solid var(--green-400)" : "1px dashed rgba(255,255,255,0.25)",
+              display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
+              <div style={{ flex: 1, minWidth: 180, fontSize: 13 }}>
+                <span style={{ color: "var(--green-400)", fontWeight: 700 }}>IN:</span> {selIn ? `${selIn.name} (${KO_POS_NAME[selIn.pos]})` : "— choose a free agent"} &nbsp;·&nbsp;
+                <span style={{ color: "#ff8a8a", fontWeight: 700 }}>OUT:</span> {selOut ? `${selOut.name} (${KO_POS_NAME[selOut.pos]})` : `— choose a ${selIn ? KO_POS_NAME[selIn.pos] + " " : ""}player to drop`}
+              </div>
+              <button className="btn btn--draft" disabled={!ready || busy} onClick={doSwap}>Confirm swap</button>
+              <button className="btn" onClick={() => { setSelIn(null); setSelOut(null); }}>Clear</button>
+            </div>
+          )}
+
           <div className="card-dark" style={{ padding: 14 }}>
-            {pendingIn ? (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
-                  <button className="btn" onClick={() => setPendingIn(null)}>← Back</button>
-                  <div>Bring in <b>{pendingIn.name}</b> ({KO_POS_NAME[pendingIn.pos]}) for <b>{mgrName(actingUid)}</b> — drop a {KO_POS_NAME[pendingIn.pos]}:</div>
-                </div>
-                {outCandidates.length === 0 && <div className="muted">No same-position player to drop (a swap keeps 2/5/5/3).</div>}
-                <div className="col" style={{ gap: 6 }}>
-                  {outCandidates.map(p => (
-                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 6,
-                      background: p.isElim ? "rgba(230,57,70,0.14)" : "rgba(0,0,0,0.2)" }}>
-                      <div style={{ width: 26, height: 26 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
-                      <div style={{ flex: 1 }}>{p.name} {p.isElim && <span style={{ color: "#ff8a8a", fontWeight: 800, fontSize: 11 }}>· OUT (eliminated)</span>}</div>
-                      {p.team && <span style={{ width: 18 }}><Flag team={p.team} /></span>}
-                      <button className="btn btn--draft" disabled={busy} onClick={() => doSwap(pendingIn.id, p.id)}>Swap</button>
+            <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+              <input className="input-field" placeholder="Search name or club…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, padding: 8 }} />
+              <select className="input-field" value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={{ padding: 8, maxWidth: 160 }}>
+                <option value="all">All nations</option>
+                {nations.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
+              </select>
+              <select className="input-field" value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
+                <option value="pts">Sort: Points</option>
+                <option value="sel">Sort: % Selected</option>
+                <option value="def">Sort: DefCon</option>
+                <option value="min">Sort: Minutes</option>
+                <option value="dr">Sort: Draft rank</option>
+                <option value="wl">Sort: Wishlist order</option>
+                <option value="name">Sort: Name</option>
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+              {[["all", "All"], ["1", "GK"], ["2", "DEF"], ["3", "MID"], ["4", "FWD"]].map(([v, l]) => (
+                <button key={v} className={"btn " + (posFilter === v ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setPosFilter(v)}>{l}</button>
+              ))}
+              <div style={{ flex: 1 }} />
+              <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>{pool.length} free agents · alive nations only</span>
+            </div>
+            {/* header row */}
+            <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 8px 6px", fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: "0.04em" }}>
+              <span style={{ width: 30 }} /><span style={{ flex: 1 }}>PLAYER</span><span style={{ width: 20 }} /><span style={{ width: 34, textAlign: "center" }}>POS</span>
+              <span style={{ width: 42, textAlign: "right" }}>PTS</span><span style={{ width: 44, textAlign: "right" }}>%SEL</span><span style={{ width: 40, textAlign: "right" }}>DEF</span><span style={{ width: 70 }} />
+            </div>
+            <div className="col" style={{ gap: 2, maxHeight: 640, overflowY: "auto" }}>
+              {poolShown.map(p => {
+                const t = teamById(p.team);
+                const inWl = wishlist.includes(Number(p.id));
+                const greyed = selOut && p.pos !== selOut.pos;
+                const chosen = selIn && selIn.id === Number(p.id);
+                return (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "6px 8px", borderRadius: 6,
+                    opacity: greyed ? 0.3 : 1, border: chosen ? "1px solid var(--green-400)" : "1px solid transparent",
+                    background: chosen ? "rgba(43,240,148,0.16)" : "rgba(0,0,0,0.18)" }}>
+                    <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", textDecoration: "underline" }}
+                        onClick={() => showStats(p.id)}>{p.name}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{p.club || (t && t.name) || p.team}</div>
                     </div>
-                  ))}
-                </div>
-              </div>
-            ) : (
-              <div>
-                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                  <input className="input-field" placeholder="Search name or club…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, padding: 8 }} />
-                  <select className="input-field" value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={{ padding: 8, maxWidth: 150 }}>
-                    <option value="all">All nations</option>
-                    {nations.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
-                  </select>
-                  <select className="input-field" value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
-                    <option value="pts">Sort: Points</option>
-                    <option value="dr">Sort: Draft rank</option>
-                    <option value="name">Sort: Name</option>
-                  </select>
-                </div>
-                <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
-                  {[["all", "All"], ["1", "GK"], ["2", "DEF"], ["3", "MID"], ["4", "FWD"]].map(([v, l]) => (
-                    <button key={v} className={"btn " + (posFilter === v ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setPosFilter(v)}>{l}</button>
-                  ))}
-                  <div style={{ flex: 1 }} />
-                  <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>{pool.length} free agents</span>
-                </div>
-                <div className="col" style={{ gap: 2, maxHeight: 520, overflowY: "auto" }}>
-                  {poolShown.map(p => {
-                    const t = teamById(p.team);
-                    const inWl = wishlist.includes(Number(p.id));
-                    return (
-                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 6, background: "rgba(0,0,0,0.18)" }}>
-                        <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
-                        <div style={{ minWidth: 0, flex: 1 }}>
-                          <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
-                          <div className="muted" style={{ fontSize: 11 }}>{p.club || (t && t.name) || p.team}</div>
-                        </div>
-                        {t && <span style={{ width: 20, flexShrink: 0 }}><Flag team={t} /></span>}
-                        <span className="mono" style={{ width: 34, fontSize: 10, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>{KO_POS_NAME[p.pos]}</span>
-                        <span className="mono" style={{ width: 42, textAlign: "right", fontWeight: 700 }}>{p.pts != null ? p.pts + "pt" : "—"}</span>
-                        <button className="btn" title={inWl ? "On your wishlist" : "Add to wishlist"} style={{ padding: "4px 8px", color: inWl ? "var(--gold-500)" : undefined }} onClick={() => toggleWl(p.id)}>{inWl ? "★" : "☆"}</button>
-                        <button className="btn btn--draft" disabled={!canAct || busy} title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live — admin only")}
-                          onClick={() => setPendingIn({ id: Number(p.id), name: p.name, pos: p.pos })}>Pick</button>
-                      </div>
-                    );
-                  })}
-                  {pool.length === 0 && <div className="muted">No available free agents match.</div>}
-                  {pool.length > 40 && <div className="muted" style={{ fontSize: 11, textAlign: "center", padding: 6 }}>Showing top 40 — refine the filters to see more.</div>}
-                </div>
-              </div>
-            )}
+                    {t && <span style={{ width: 20, flexShrink: 0 }}><Flag team={t} /></span>}
+                    <span className="mono" style={{ width: 34, fontSize: 10, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>{KO_POS_NAME[p.pos]}</span>
+                    <span className="mono" style={{ width: 42, textAlign: "right", fontWeight: 700 }}>{p.pts != null ? p.pts : "—"}</span>
+                    <span className="mono muted" style={{ width: 44, textAlign: "right", fontSize: 11 }}>{p.selPct != null ? p.selPct + "%" : "—"}</span>
+                    <span className="mono muted" style={{ width: 40, textAlign: "right", fontSize: 11 }}>{dfc(p) || "—"}</span>
+                    <button className="btn" title={inWl ? "On your wishlist" : "Add to wishlist"} style={{ padding: "3px 7px", color: inWl ? "var(--gold-500)" : undefined }} onClick={() => toggleWl(p.id)}>{inWl ? "★" : "☆"}</button>
+                    <button className="btn btn--draft" disabled={!canAct || greyed || busy} title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live — admin only")}
+                      style={{ padding: "4px 12px" }} onClick={() => selectPoolIn(p)}>{chosen ? "✓ In" : "Pick"}</button>
+                  </div>
+                );
+              })}
+              {pool.length === 0 && <div className="muted">No available free agents match.</div>}
+              {pool.length > 80 && <div className="muted" style={{ fontSize: 11, textAlign: "center", padding: 6 }}>Showing top 80 — refine the filters to see more.</div>}
+            </div>
           </div>
         </div>
 
-        {/* RIGHT corners: seeds 2 & 4 */}
         <div className="col" style={{ gap: 12 }}>{corner(order[1], 1)}{corner(order[3], 3)}</div>
       </div>
 
@@ -1691,23 +1723,23 @@ function KnockoutDraftScreen({ onTab }) {
       <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr" }}>
         <div className="card-dark" style={{ padding: 12 }}>
           <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>My wishlist ({wlItems.length}) · priority order</div>
-          <div className="col" style={{ gap: 3, maxHeight: 200, overflowY: "auto" }}>
+          <div className="col" style={{ gap: 3, maxHeight: 240, overflowY: "auto" }}>
             {wlItems.map((p, i) => {
-              const t = teamById(p.team); const available = !owned.has(Number(p.id));
+              const t = teamById(p.team); const available = !owned.has(Number(p.id)) && !p.elim;
               return (
                 <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: available ? 1 : 0.45 }}>
                   <span className="mono" style={{ width: 16 }}>{i + 1}</span>
                   <div style={{ width: 18, height: 18 }}><Jersey team={t} pos={p.pos} /></div>
-                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", textDecoration: "underline" }} onClick={() => showStats(p.id)}>{p.name}</span>
                   {!available && <span className="muted" style={{ fontSize: 9 }}>taken</span>}
                   <button className="btn" style={{ padding: "1px 6px" }} disabled={i === 0} onClick={() => moveWl(i, -1)}>↑</button>
                   <button className="btn" style={{ padding: "1px 6px" }} disabled={i === wlItems.length - 1} onClick={() => moveWl(i, 1)}>↓</button>
-                  {available && canAct && <button className="btn btn--draft" style={{ padding: "1px 8px" }} onClick={() => setPendingIn({ id: Number(p.id), name: p.name, pos: p.pos })}>Pick</button>}
+                  {available && canAct && <button className="btn btn--draft" style={{ padding: "1px 8px" }} onClick={() => selectPoolIn(p)}>Pick</button>}
                   <button className="btn" style={{ padding: "1px 6px" }} onClick={() => toggleWl(p.id)}>✕</button>
                 </div>
               );
             })}
-            {wlItems.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Tap ☆ on free agents to build your shortlist.</div>}
+            {wlItems.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Tap ☆ on free agents to build your shortlist, then Sort: Wishlist order.</div>}
           </div>
         </div>
 
@@ -1725,7 +1757,7 @@ function KnockoutDraftScreen({ onTab }) {
 
         <div className="card-dark" style={{ padding: 12 }}>
           <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>Swaps ({(state.swaps || []).length})</div>
-          <div className="col" style={{ gap: 4, maxHeight: 200, overflowY: "auto" }}>
+          <div className="col" style={{ gap: 4, maxHeight: 240, overflowY: "auto" }}>
             {(state.swaps || []).slice().reverse().map(s => (
               <div key={s.seq} style={{ fontSize: 12 }}>
                 <b>{mgrName(s.uid)}</b>: {((window.PLAYER_MAP || {})[String(s.playerIn)] || {}).name || s.playerIn} in / {((window.PLAYER_MAP || {})[String(s.playerOut)] || {}).name || s.playerOut} out
@@ -1738,6 +1770,5 @@ function KnockoutDraftScreen({ onTab }) {
     </div>
   );
 }
-
 
 Object.assign(window, { DraftRoomScreen, KnockoutDraftScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });

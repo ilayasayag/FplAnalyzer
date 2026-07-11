@@ -976,6 +976,10 @@ function App() {
               club: p.club || "",
               pts: p.totalPoints || 0,
               dr: p.draftRank || 999,
+              // Authoritative per-player nation-elimination flag (same field the
+              // backend get_free_agents filters on) — the KO draft pool needs it
+              // because team-level elim isn't always populated.
+              elim: !!p.eliminated,
               // Season aggregates + FIFA ownership/price/form (Segment 6). The
               // backend recomputes seasonStats from playerScores each ingest; the
               // FIFA fields are stamped from the fantasy feed. All optional —
