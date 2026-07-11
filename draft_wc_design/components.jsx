@@ -633,7 +633,7 @@ function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
     <span className={"flag" + (size !== "sm" ? " flag--lg" : "")}
           style={big ? { ...big, ...(style || {}) } : (style || undefined)}
           title="Team flag">
-      <img src={src} alt="team flag" />
+      <img src={src + "?v=96"} alt="team flag" />
     </span>
   );
 }
