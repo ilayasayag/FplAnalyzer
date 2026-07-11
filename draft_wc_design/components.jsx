@@ -638,6 +638,29 @@ function ManagerFlag({ uid, size = "sm", fallback = null, style = null }) {
   );
 }
 
+// ---------- Shared WC knockout "alive nation" resolver ----------
+// Authoritative source is the live /wc-bracket doc — per-player `elim` flags are
+// NOT reliably set for teams knocked out in the knockout rounds, so filtering on
+// them leaks eliminated nations (e.g. Brazil) back into the pool. A nation is
+// alive iff it reached the Round of 32 AND has not lost a completed (FT) knockout
+// match. Mirrors the Transfers free-agent filter so the KO draft board hides the
+// exact same eliminated nations. Returns aliveReady=false pre-knockouts (every
+// nation counts as alive) so the group stage never hides anyone.
+function wcComputeAlive(bracket) {
+  const rounds = (bracket && bracket.rounds) || {};
+  const knockout = new Set(), eliminated = new Set();
+  (rounds["Round of 32"] || []).forEach(m => { if (m.home) knockout.add(m.home); if (m.away) knockout.add(m.away); });
+  Object.values(rounds).forEach(ms => (ms || []).forEach(m => {
+    if (m.status === "FT" && m.winner) {
+      if (m.home && m.home !== m.winner) eliminated.add(m.home);
+      if (m.away && m.away !== m.winner) eliminated.add(m.away);
+    }
+  }));
+  const ready = knockout.size > 0;
+  const isNationAlive = iso => !ready ? true : (knockout.has(iso) && !eliminated.has(iso));
+  return { aliveReady: ready, isNationAlive };
+}
+
 // ---------- Sync data (any user) ----------
 // Pulls fresh live scores on demand (POST /sync-live-scores — the same
 // self-healing scan the schedulers run, debounced 60s server-side), then
@@ -874,4 +897,4 @@ function Skel({ w = 48, h = 16, style }) {
 }
 
 // ---------- Expose globally ----------
-Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, KO_DRAFT_FLAGS, SyncDataButton, BettingPicksModal, Skel });
+Object.assign(window, { Flag, GroupChip, Jersey, PlayerSlot, Pitch, TrophyIcon, Logo, Stat, useIsMobile, ManagerFlag, CUSTOM_TEAM_FLAGS, KO_DRAFT_FLAGS, wcComputeAlive, SyncDataButton, BettingPicksModal, Skel });
