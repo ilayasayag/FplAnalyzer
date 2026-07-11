@@ -1378,49 +1378,108 @@ function JoinForm({ onBack }) {
 // round-robin, Pass to drop out. Self-contained: polls /ko-draft/state itself
 // (only while the screen is open) and fires the cooperative auto-pass watchdog.
 // =====================================================================
+// ---- KO draft: resolve a squad-player object to a renderable view (jersey,
+// flag, live nation-elimination) via the global player map ----
+function koView(sp) {
+  const pm = window.PLAYER_MAP || {};
+  const lp = pm[String(sp.playerId != null ? sp.playerId : sp.id)] || null;
+  const iso = (lp && lp.team) || sp.teamIso || sp.team ||
+    (sp.teamId ? String(sp.teamId) : null);
+  const t = (typeof teamById === "function" && iso) ? teamById(iso) : null;
+  const team = t || (iso ? { id: iso, name: sp.teamName || iso } : null);
+  const pos = sp.position || sp.pos || (lp && lp.pos) || 3;
+  const isElim = !!((lp && lp.elim) || (team && team.elim));
+  return {
+    id: Number(sp.playerId != null ? sp.playerId : sp.id),
+    name: sp.name || (lp && lp.name) || ("#" + (sp.playerId != null ? sp.playerId : sp.id)),
+    pos, team, isElim,
+    club: (lp && lp.club) || "",
+    pts: lp && lp.pts != null ? lp.pts : (sp.pts != null ? sp.pts : null),
+  };
+}
+
+// One manager's full squad in a corner of the draft board. Eliminated players
+// (nation knocked out) are flagged — those are the likely OUTs.
+function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe }) {
+  const players = (squad || []).map(koView).sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
+  const elim = players.filter(p => p.isElim).length;
+  return (
+    <div className="card-dark" style={{ padding: 10, opacity: isActive === false ? 0.5 : 1,
+      border: isOnClock ? "2px solid var(--gold-500)" : "1px solid rgba(255,255,255,0.08)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 6, marginBottom: 6 }}>
+        <span className="mono" style={{ width: 20, height: 20, lineHeight: "20px", textAlign: "center",
+          borderRadius: 5, background: "rgba(255,255,255,0.12)", fontSize: 11, fontWeight: 800 }}>{seed}</span>
+        <span style={{ fontWeight: 800, fontSize: 13, flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          {name}{isMe ? " (you)" : ""}
+        </span>
+        {isOnClock && <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>ON CLOCK</span>}
+        {elim > 0 && <span style={{ background: "rgba(230,57,70,0.2)", color: "#ff8a8a", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>{elim} out</span>}
+      </div>
+      <div className="col" style={{ gap: 1, maxHeight: 300, overflowY: "auto" }}>
+        {players.map(p => (
+          <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", borderRadius: 4,
+            background: p.isElim ? "rgba(230,57,70,0.14)" : "transparent" }}>
+            <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
+            <span className="mono" style={{ width: 26, fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{KO_POS_NAME[p.pos]}</span>
+            <span style={{ flex: 1, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              textDecoration: p.isElim ? "line-through" : "none", opacity: p.isElim ? 0.8 : 1 }}>{p.name}</span>
+            {p.team && <span style={{ width: 16, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
+            {p.isElim && <span style={{ fontSize: 8.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
+          </div>
+        ))}
+        {players.length === 0 && <div className="muted" style={{ fontSize: 11 }}>Released / empty</div>}
+      </div>
+    </div>
+  );
+}
+
+const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
+
 function KnockoutDraftScreen({ onTab }) {
   const isMobile = useIsMobile();
   const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
   const me = window.ME;
   const [state, setState] = React.useState(null);
   const [secondsLeft, setSecondsLeft] = React.useState(0);
-  const [pendingIn, setPendingIn] = React.useState(null); // pool player chosen to bring IN
+  const [pendingIn, setPendingIn] = React.useState(null);
   const [search, setSearch] = React.useState("");
   const [posFilter, setPosFilter] = React.useState("all");
+  const [nationFilter, setNationFilter] = React.useState("all");
+  const [sortBy, setSortBy] = React.useState("pts"); // pts | dr | name
   const [busy, setBusy] = React.useState(false);
   const lastAutoPassRef = React.useRef(null);
 
-  // ---- Poll /ko-draft/state (open-screen only) ------------------------------
+  // Personal wishlist (client-local, per league+manager) — an ordered shortlist
+  // of who to bring in and in what priority. Persists across reloads.
+  const wlKey = `ko_wl_${lid}_${me}`;
+  const [wishlist, setWishlist] = React.useState(() => {
+    try { return JSON.parse(localStorage.getItem(wlKey) || "[]").map(Number); } catch (e) { return []; }
+  });
+  const saveWl = (ids) => { setWishlist(ids); try { localStorage.setItem(wlKey, JSON.stringify(ids)); } catch (e) {} };
+  const toggleWl = (id) => { id = Number(id); saveWl(wishlist.includes(id) ? wishlist.filter(x => x !== id) : [...wishlist, id]); };
+  const moveWl = (i, dir) => { const j = i + dir; if (j < 0 || j >= wishlist.length) return; const n = wishlist.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; saveWl(n); };
+
   React.useEffect(() => {
     if (!lid) return;
     let alive = true, polling = false;
     const poll = async () => {
-      if (polling) return;
-      polling = true;
-      try {
-        const s = await apiCall("GET", `/leagues/${lid}/ko-draft/state`);
-        if (alive && s) { setState(s); window.KO_DRAFT_STATE = s; }
-      } catch (e) { /* 404 = not configured yet */ }
-      finally { polling = false; }
+      if (polling) return; polling = true;
+      try { const s = await apiCall("GET", `/leagues/${lid}/ko-draft/state`); if (alive && s) { setState(s); window.KO_DRAFT_STATE = s; } }
+      catch (e) {} finally { polling = false; }
     };
-    poll();
-    const t = setInterval(poll, 2500);
+    poll(); const t = setInterval(poll, 2500);
     return () => { alive = false; clearInterval(t); };
   }, [lid]);
 
-  // ---- Clock: derive from server pickDeadline, tick locally ------------------
   React.useEffect(() => {
     if (!state || state.status !== "active" || !state.pickDeadline) { setSecondsLeft(0); return; }
     setSecondsLeft(Math.max(0, Math.round(state.pickDeadline - Date.now() / 1000)));
   }, [state && state.pickDeadline, state && state.status]);
   React.useEffect(() => {
-    const t = setInterval(() => {
-      setSecondsLeft(s => (state && state.paused) ? s : Math.max(0, s - 1));
-    }, 1000);
+    const t = setInterval(() => setSecondsLeft(s => (state && state.paused) ? s : Math.max(0, s - 1)), 1000);
     return () => clearInterval(t);
   }, [state && state.paused]);
 
-  // ---- Cooperative auto-pass watchdog: any client fires it once per deadline -
   React.useEffect(() => {
     if (!lid || !state || state.status !== "active" || state.paused) return;
     if (secondsLeft > 0 || !state.pickDeadline) return;
@@ -1432,19 +1491,17 @@ function KnockoutDraftScreen({ onTab }) {
   }, [secondsLeft, state && state.status, state && state.paused]);
 
   const doSwap = async (playerIn, playerOut) => {
-    if (busy) return;
-    setBusy(true);
+    if (busy) return; setBusy(true);
     try {
       const key = Math.random().toString(36).slice(2) + Date.now().toString(36);
       await apiCall("POST", `/leagues/${lid}/ko-draft/pick`, { playerIn, playerOut, idempotencyKey: key });
       setPendingIn(null);
-    } catch (e) {
-      alert("Swap failed: " + (e.error || e.detail || JSON.stringify(e)));
-    } finally { setBusy(false); }
+    } catch (e) { alert("Swap failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    finally { setBusy(false); }
   };
   const doPass = async () => {
     if (busy) return;
-    if (!window.confirm("Pass for good? You'll be removed from the rotation and can't pick again this draft.")) return;
+    if (!window.confirm("Pass for good? This manager is removed from the rotation.")) return;
     setBusy(true);
     try { await apiCall("POST", `/leagues/${lid}/ko-draft/pass`); }
     catch (e) { alert("Pass failed: " + (e.error || e.detail || JSON.stringify(e))); }
@@ -1452,25 +1509,35 @@ function KnockoutDraftScreen({ onTab }) {
   };
   const togglePause = async () => {
     const action = (state && state.paused) ? "resume" : "pause";
-    try { await apiCall("POST", `/leagues/${lid}/ko-draft/${action}`); }
-    catch (e) { alert("Failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/${action}`); } catch (e) { alert("Failed: " + (e.error || e.detail || JSON.stringify(e))); }
+  };
+  const startRehearsal = async () => {
+    if (busy) return; setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/start`, { rehearsal: true }); }
+    catch (e) { alert("Start failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    finally { setBusy(false); }
   };
 
   const mgrName = uid => (managerById(uid) || { name: uid }).name;
+  const isAdmin = !!window.IS_ADMIN;
 
+  // ---- PENDING (no active draft) --------------------------------------------
   if (!state || state.status === "pending") {
+    const cfg = (state && state.config) || {};
+    const canStart = isAdmin && cfg.order && cfg.order.length >= 2 && (cfg.eliminatedUids || []).length === 2;
     return (
       <div className="card-dark" style={{ padding: 28, textAlign: "center" }}>
         <div style={{ fontSize: 40 }}>🏆</div>
         <h2 style={{ marginTop: 8 }}>Knockout Free-Agent Draft</h2>
-        <p className="muted" style={{ maxWidth: 520, margin: "10px auto" }}>
-          The GW7 live swap-draft isn't open yet. The league admin opens it from
-          <b> Rules Config → Knockout Free-Agent Draft</b> (choose the two eliminated
-          squads + pick order, then Start).
+        <p className="muted" style={{ maxWidth: 560, margin: "10px auto" }}>
+          The GW7 live swap-draft isn't open yet. {canStart
+            ? "A rehearsal is configured and ready — start a safe dry run (no squad changes) to see the full board."
+            : "The admin sets it up in Rules Config → Knockout Free-Agent Draft (two eliminated squads + pick order)."}
         </p>
-        {window.IS_ADMIN && (
-          <button className="btn btn--primary" onClick={() => onTab("config")}>Open admin setup</button>
-        )}
+        <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
+          {canStart && <button className="btn btn--primary" disabled={busy} onClick={startRehearsal}>▶ Start rehearsal</button>}
+          {isAdmin && <button className="btn" onClick={() => onTab("config")}>Admin setup →</button>}
+        </div>
       </div>
     );
   }
@@ -1480,166 +1547,201 @@ function KnockoutDraftScreen({ onTab }) {
   const owned = new Set((state.ownedPlayerIds || []).map(Number));
   const onClock = state.currentDrafter;
   const complete = state.status === "complete";
-  const iAmPicker = order.includes(me);
-  // A LIVE (real) draft is admin-executed: only the super-admin (Ilay) may act,
-  // and they act ON BEHALF of whoever is on the clock. The dry run is played by
-  // the managers themselves. (window.IS_ADMIN is the UI affordance; the backend
-  // strictly enforces super-admin on every live write.)
-  const isAdmin = !!window.IS_ADMIN;
   const actingUid = (isAdmin && onClock) ? onClock : me;
   const actingIsMe = actingUid === me;
-  const mySquad = (state.squads && state.squads[actingUid]) || [];
+  const actingSquad = (state.squads && state.squads[actingUid]) || [];
   const canAct = state.status === "active" && !state.paused && !!onClock &&
     (isAdmin || (state.rehearsal && onClock === me));
 
-  // Pool = all players NOT held by a picker and whose nation is still alive.
-  const pool = (window.PLAYERS || []).filter(p => {
+  // ---- Free-agent pool: unowned + still-alive nation, filtered + sorted ------
+  const nations = [];
+  { const seen = new Set();
+    (window.PLAYERS || []).forEach(p => { if (!seen.has(p.team)) { seen.add(p.team); const t = teamById(p.team); if (t && !t.elim) nations.push({ code: p.team, name: t.name || p.team }); } });
+    nations.sort((a, b) => a.name.localeCompare(b.name)); }
+  let pool = (window.PLAYERS || []).filter(p => {
     if (owned.has(Number(p.id))) return false;
-    if (teamById(p.team) && teamById(p.team).elim) return false;
-    if (search && !p.name.toLowerCase().includes(search.toLowerCase())) return false;
+    const t = teamById(p.team); if (t && t.elim) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
+    if (nationFilter !== "all" && p.team !== nationFilter) return false;
+    if (search && !(p.name.toLowerCase().includes(search.toLowerCase()) || (p.club || "").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
-  }).sort((a, b) => (a.dr || 999) - (b.dr || 999)).slice(0, 60);
+  });
+  pool.sort(sortBy === "dr" ? (a, b) => (a.dr || 999) - (b.dr || 999)
+    : sortBy === "name" ? (a, b) => a.name.localeCompare(b.name)
+    : (a, b) => (b.pts || 0) - (a.pts || 0));
+  const poolShown = pool.slice(0, 40);
 
-  const KO_POS_NAME = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" };
-  const outCandidates = pendingIn ? mySquad.filter(p => p.position === pendingIn.pos) : [];
+  const outCandidates = pendingIn ? actingSquad.map(koView).filter(p => p.pos === pendingIn.pos)
+    .sort((a, b) => (b.isElim ? 1 : 0) - (a.isElim ? 1 : 0)) : [];
+
+  const wlItems = wishlist.map(id => (window.PLAYER_MAP || {})[String(id)]).filter(Boolean);
+
+  const corner = (uid, i) => uid ? (
+    <KODraftSquadCard key={uid} seed={i + 1} name={mgrName(uid)} squad={state.squads && state.squads[uid]}
+      isOnClock={uid === onClock && !complete} isActive={activePickers.includes(uid)} isMe={uid === me} />
+  ) : <div key={"empty" + i} />;
 
   return (
-    <div className="col" style={{ gap: 16 }}>
+    <div className="col" style={{ gap: 12 }}>
       {/* Banner */}
       <div className="card-dark" style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
         <div style={{ fontWeight: 800, fontSize: 16 }}>Knockout Free-Agent Draft</div>
-        {state.rehearsal && (
-          <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800, letterSpacing: "0.06em" }}>
-            REHEARSAL · squads not written
-          </span>
-        )}
-        {!state.rehearsal && (
-          <span style={{ background: "var(--green-400)", color: "#04240f", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>LIVE</span>
-        )}
+        <span style={{ background: state.rehearsal ? "var(--gold-500)" : "var(--green-400)", color: state.rehearsal ? "var(--navy-900)" : "#04240f",
+          padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800, letterSpacing: "0.05em" }}>
+          {state.rehearsal ? "REHEARSAL · squads not written" : "LIVE"}
+        </span>
         <div style={{ flex: 1 }} />
-        {complete ? (
-          <span style={{ fontWeight: 800, color: "var(--green-400)" }}>✓ Draft complete</span>
-        ) : (
+        {complete ? <span style={{ fontWeight: 800, color: "var(--green-400)" }}>✓ Draft complete</span> : (
           <React.Fragment>
-            <span className="muted" style={{ fontSize: 13 }}>On the clock:&nbsp;</span>
+            <span className="muted" style={{ fontSize: 13 }}>On the clock:</span>
             <b>{onClock ? mgrName(onClock) : "—"}</b>
-            <span className="mono" style={{ fontSize: 20, fontWeight: 800, marginLeft: 12, color: secondsLeft <= 10 ? "#ff8a8a" : "white" }}>
-              {state.paused ? "⏸" : `${secondsLeft}s`}
-            </span>
+            <span className="mono" style={{ fontSize: 20, fontWeight: 800, marginLeft: 8, color: secondsLeft <= 10 ? "#ff8a8a" : "white" }}>{state.paused ? "⏸" : `${secondsLeft}s`}</span>
           </React.Fragment>
         )}
-        {window.IS_ADMIN && !complete && (
-          <button className="btn" style={{ marginLeft: 10 }} onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>
-        )}
+        {isAdmin && !complete && <button className="btn" onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: isMobile ? "1fr" : "1.4fr 1fr", gap: 16 }}>
-        {/* LEFT: free-agent pool + (when picking) the OUT chooser */}
-        <div className="card-dark" style={{ padding: 16 }}>
-          {pendingIn ? (
-            <div>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12 }}>
-                <button className="btn" onClick={() => setPendingIn(null)}>← Back</button>
-                <div>Bring in <b>{pendingIn.name}</b> ({KO_POS_NAME[pendingIn.pos]}). Drop a {KO_POS_NAME[pendingIn.pos]}:</div>
-              </div>
-              {outCandidates.length === 0 && <div className="muted">No same-position player to drop — a swap must keep 2/5/5/3.</div>}
-              <div className="col" style={{ gap: 6 }}>
-                {outCandidates.map(p => (
-                  <div key={p.playerId} style={{ display: "flex", alignItems: "center", gap: 10, padding: "8px 10px", background: "rgba(0,0,0,0.2)", borderRadius: 6 }}>
-                    <div style={{ flex: 1 }}>{p.name} <span className="muted" style={{ fontSize: 12 }}>· {p.teamName || ""}</span></div>
-                    <button className="btn btn--draft" disabled={busy} onClick={() => doSwap(pendingIn.id, p.playerId)}>Swap</button>
-                  </div>
-                ))}
-              </div>
-            </div>
-          ) : (
-            <div>
-              <div style={{ display: "flex", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
-                <input className="input-field" placeholder="Search free agents…" value={search}
-                  onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 140, padding: 8 }} />
-                <select className="input-field" value={posFilter} onChange={e => setPosFilter(e.target.value)} style={{ padding: 8 }}>
-                  <option value="all">All</option><option value="1">GK</option><option value="2">DEF</option><option value="3">MID</option><option value="4">FWD</option>
-                </select>
-              </div>
-              <div className="muted" style={{ fontSize: 12, marginBottom: 8 }}>Free agents (released squads + unowned, still-alive nations)</div>
-              <div className="col" style={{ gap: 4, maxHeight: 520, overflowY: "auto" }}>
-                {pool.map(p => (
-                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", background: "rgba(0,0,0,0.18)", borderRadius: 6 }}>
-                    <span className="mono" style={{ fontSize: 11, width: 34, color: "rgba(255,255,255,0.6)" }}>{KO_POS_NAME[p.pos]}</span>
-                    <div style={{ flex: 1 }}>{p.name} <span className="muted" style={{ fontSize: 12 }}>· {p.teamName || p.team}</span></div>
-                    <span className="mono muted" style={{ fontSize: 12 }}>{p.pts}pt</span>
-                    <button className="btn btn--draft" disabled={!canAct || busy}
-                      title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live draft — admin only")}
-                      onClick={() => setPendingIn(p)}>Pick</button>
-                  </div>
-                ))}
-                {pool.length === 0 && <div className="muted">No available free agents match.</div>}
-              </div>
+      {/* Board: 4 corners + central picker */}
+      <div style={{ display: "grid", gap: 12, alignItems: "start",
+        gridTemplateColumns: isMobile ? "1fr" : "minmax(200px, 0.85fr) minmax(0, 2fr) minmax(200px, 0.85fr)" }}>
+        {/* LEFT corners: seeds 1 & 3 */}
+        <div className="col" style={{ gap: 12 }}>{corner(order[0], 0)}{corner(order[2], 2)}</div>
+
+        {/* CENTER: pick / free-agent picker */}
+        <div className="col" style={{ gap: 12 }}>
+          {(canAct || (isAdmin && !complete)) && (
+            <div className="card-dark" style={{ padding: 12, textAlign: "center", border: canAct ? "1px solid var(--green-400)" : "1px solid rgba(255,255,255,0.08)" }}>
+              {canAct
+                ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>{actingIsMe ? "Your turn — bring one in, drop one out" : `Executing for ${mgrName(onClock)}`}</div>
+                : <div className="muted" style={{ marginBottom: 8 }}>{state.rehearsal ? `Waiting for ${onClock ? mgrName(onClock) : "…"}` : "Live draft — admin executes"}</div>}
+              <button className="btn" disabled={!canAct || busy} onClick={doPass}>Pass / Done{!actingIsMe && canAct ? ` (${mgrName(onClock)})` : ""}</button>
             </div>
           )}
+
+          <div className="card-dark" style={{ padding: 14 }}>
+            {pendingIn ? (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 12, flexWrap: "wrap" }}>
+                  <button className="btn" onClick={() => setPendingIn(null)}>← Back</button>
+                  <div>Bring in <b>{pendingIn.name}</b> ({KO_POS_NAME[pendingIn.pos]}) for <b>{mgrName(actingUid)}</b> — drop a {KO_POS_NAME[pendingIn.pos]}:</div>
+                </div>
+                {outCandidates.length === 0 && <div className="muted">No same-position player to drop (a swap keeps 2/5/5/3).</div>}
+                <div className="col" style={{ gap: 6 }}>
+                  {outCandidates.map(p => (
+                    <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 10px", borderRadius: 6,
+                      background: p.isElim ? "rgba(230,57,70,0.14)" : "rgba(0,0,0,0.2)" }}>
+                      <div style={{ width: 26, height: 26 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
+                      <div style={{ flex: 1 }}>{p.name} {p.isElim && <span style={{ color: "#ff8a8a", fontWeight: 800, fontSize: 11 }}>· OUT (eliminated)</span>}</div>
+                      {p.team && <span style={{ width: 18 }}><Flag team={p.team} /></span>}
+                      <button className="btn btn--draft" disabled={busy} onClick={() => doSwap(pendingIn.id, p.id)}>Swap</button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
+                  <input className="input-field" placeholder="Search name or club…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, padding: 8 }} />
+                  <select className="input-field" value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={{ padding: 8, maxWidth: 150 }}>
+                    <option value="all">All nations</option>
+                    {nations.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
+                  </select>
+                  <select className="input-field" value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
+                    <option value="pts">Sort: Points</option>
+                    <option value="dr">Sort: Draft rank</option>
+                    <option value="name">Sort: Name</option>
+                  </select>
+                </div>
+                <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+                  {[["all", "All"], ["1", "GK"], ["2", "DEF"], ["3", "MID"], ["4", "FWD"]].map(([v, l]) => (
+                    <button key={v} className={"btn " + (posFilter === v ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setPosFilter(v)}>{l}</button>
+                  ))}
+                  <div style={{ flex: 1 }} />
+                  <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>{pool.length} free agents</span>
+                </div>
+                <div className="col" style={{ gap: 2, maxHeight: 520, overflowY: "auto" }}>
+                  {poolShown.map(p => {
+                    const t = teamById(p.team);
+                    const inWl = wishlist.includes(Number(p.id));
+                    return (
+                      <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "6px 8px", borderRadius: 6, background: "rgba(0,0,0,0.18)" }}>
+                        <div style={{ width: 30, height: 30, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                        <div style={{ minWidth: 0, flex: 1 }}>
+                          <div style={{ fontWeight: 700, fontSize: 13, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</div>
+                          <div className="muted" style={{ fontSize: 11 }}>{p.club || (t && t.name) || p.team}</div>
+                        </div>
+                        {t && <span style={{ width: 20, flexShrink: 0 }}><Flag team={t} /></span>}
+                        <span className="mono" style={{ width: 34, fontSize: 10, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>{KO_POS_NAME[p.pos]}</span>
+                        <span className="mono" style={{ width: 42, textAlign: "right", fontWeight: 700 }}>{p.pts != null ? p.pts + "pt" : "—"}</span>
+                        <button className="btn" title={inWl ? "On your wishlist" : "Add to wishlist"} style={{ padding: "4px 8px", color: inWl ? "var(--gold-500)" : undefined }} onClick={() => toggleWl(p.id)}>{inWl ? "★" : "☆"}</button>
+                        <button className="btn btn--draft" disabled={!canAct || busy} title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live — admin only")}
+                          onClick={() => setPendingIn({ id: Number(p.id), name: p.name, pos: p.pos })}>Pick</button>
+                      </div>
+                    );
+                  })}
+                  {pool.length === 0 && <div className="muted">No available free agents match.</div>}
+                  {pool.length > 40 && <div className="muted" style={{ fontSize: 11, textAlign: "center", padding: 6 }}>Showing top 40 — refine the filters to see more.</div>}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
-        {/* RIGHT: turn order + my squad + swap log */}
-        <div className="col" style={{ gap: 16 }}>
-          {(iAmPicker || isAdmin) && !complete && (
-            <div className="card-dark" style={{ padding: 14, textAlign: "center" }}>
-              {canAct
-                ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>
-                    {actingIsMe ? "Your turn — swap or pass" : `Executing for ${mgrName(onClock)}`}
-                  </div>
-                : <div className="muted" style={{ marginBottom: 8 }}>
-                    {state.rehearsal ? `Waiting for ${onClock ? mgrName(onClock) : "…"}` : "Live draft — admin executes"}
-                  </div>}
-              <button className="btn" disabled={!canAct || busy} onClick={doPass}>
-                Pass / Done{!actingIsMe && canAct ? ` (${mgrName(onClock)})` : ""}
-              </button>
-            </div>
-          )}
+        {/* RIGHT corners: seeds 2 & 4 */}
+        <div className="col" style={{ gap: 12 }}>{corner(order[1], 1)}{corner(order[3], 3)}</div>
+      </div>
 
-          <div className="card-dark" style={{ padding: 14 }}>
-            <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>Pick order (seed)</div>
-            {order.map((uid, i) => (
-              <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 0", opacity: activePickers.includes(uid) ? 1 : 0.4 }}>
-                <span className="mono" style={{ width: 22 }}>{i + 1}</span>
-                <span style={{ flex: 1, fontWeight: uid === onClock ? 800 : 400 }}>{mgrName(uid)}{uid === me ? " (you)" : ""}</span>
-                {uid === onClock && !complete && <span style={{ color: "var(--gold-500)", fontSize: 12 }}>● on clock</span>}
-                {!activePickers.includes(uid) && <span className="muted" style={{ fontSize: 11 }}>passed</span>}
+      {/* Bottom strip: wishlist + pick order + swap log */}
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr" }}>
+        <div className="card-dark" style={{ padding: 12 }}>
+          <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>My wishlist ({wlItems.length}) · priority order</div>
+          <div className="col" style={{ gap: 3, maxHeight: 200, overflowY: "auto" }}>
+            {wlItems.map((p, i) => {
+              const t = teamById(p.team); const available = !owned.has(Number(p.id));
+              return (
+                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: available ? 1 : 0.45 }}>
+                  <span className="mono" style={{ width: 16 }}>{i + 1}</span>
+                  <div style={{ width: 18, height: 18 }}><Jersey team={t} pos={p.pos} /></div>
+                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                  {!available && <span className="muted" style={{ fontSize: 9 }}>taken</span>}
+                  <button className="btn" style={{ padding: "1px 6px" }} disabled={i === 0} onClick={() => moveWl(i, -1)}>↑</button>
+                  <button className="btn" style={{ padding: "1px 6px" }} disabled={i === wlItems.length - 1} onClick={() => moveWl(i, 1)}>↓</button>
+                  {available && canAct && <button className="btn btn--draft" style={{ padding: "1px 8px" }} onClick={() => setPendingIn({ id: Number(p.id), name: p.name, pos: p.pos })}>Pick</button>}
+                  <button className="btn" style={{ padding: "1px 6px" }} onClick={() => toggleWl(p.id)}>✕</button>
+                </div>
+              );
+            })}
+            {wlItems.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Tap ☆ on free agents to build your shortlist.</div>}
+          </div>
+        </div>
+
+        <div className="card-dark" style={{ padding: 12 }}>
+          <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>Pick order (seed)</div>
+          {order.map((uid, i) => (
+            <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", opacity: activePickers.includes(uid) ? 1 : 0.4 }}>
+              <span className="mono" style={{ width: 20 }}>{i + 1}</span>
+              <span style={{ flex: 1, fontWeight: uid === onClock ? 800 : 400 }}>{mgrName(uid)}{uid === me ? " (you)" : ""}</span>
+              {uid === onClock && !complete && <span style={{ color: "var(--gold-500)", fontSize: 11 }}>● on clock</span>}
+              {!activePickers.includes(uid) && <span className="muted" style={{ fontSize: 11 }}>passed</span>}
+            </div>
+          ))}
+        </div>
+
+        <div className="card-dark" style={{ padding: 12 }}>
+          <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>Swaps ({(state.swaps || []).length})</div>
+          <div className="col" style={{ gap: 4, maxHeight: 200, overflowY: "auto" }}>
+            {(state.swaps || []).slice().reverse().map(s => (
+              <div key={s.seq} style={{ fontSize: 12 }}>
+                <b>{mgrName(s.uid)}</b>: {((window.PLAYER_MAP || {})[String(s.playerIn)] || {}).name || s.playerIn} in / {((window.PLAYER_MAP || {})[String(s.playerOut)] || {}).name || s.playerOut} out
               </div>
             ))}
-          </div>
-
-          {(iAmPicker || isAdmin) && (
-            <div className="card-dark" style={{ padding: 14 }}>
-              <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>
-                {actingIsMe ? "My squad" : `${mgrName(actingUid)}'s squad · on clock`} ({mySquad.length})
-              </div>
-              <div className="col" style={{ gap: 3, maxHeight: 240, overflowY: "auto" }}>
-                {mySquad.slice().sort((a, b) => a.position - b.position).map(p => (
-                  <div key={p.playerId} style={{ display: "flex", gap: 8, fontSize: 13, padding: "3px 0" }}>
-                    <span className="mono muted" style={{ width: 34 }}>{KO_POS_NAME[p.position]}</span>
-                    <span>{p.name}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="card-dark" style={{ padding: 14 }}>
-            <div className="card-dark__title" style={{ fontSize: 14, marginBottom: 8 }}>Swaps ({(state.swaps || []).length})</div>
-            <div className="col" style={{ gap: 4, maxHeight: 220, overflowY: "auto" }}>
-              {(state.swaps || []).slice().reverse().map(s => (
-                <div key={s.seq} style={{ fontSize: 12 }}>
-                  <b>{mgrName(s.uid)}</b>: {(playerById(String(s.playerIn)) || {}).name || s.playerIn} in / {(playerById(String(s.playerOut)) || {}).name || s.playerOut} out
-                </div>
-              ))}
-              {(state.swaps || []).length === 0 && <div className="muted" style={{ fontSize: 12 }}>No swaps yet.</div>}
-            </div>
+            {(state.swaps || []).length === 0 && <div className="muted" style={{ fontSize: 12 }}>No swaps yet.</div>}
           </div>
         </div>
       </div>
     </div>
   );
 }
+
 
 Object.assign(window, { DraftRoomScreen, KnockoutDraftScreen, CreateLeagueScreen, GROUP_FIXTURES, GROUP_OPPONENTS });
