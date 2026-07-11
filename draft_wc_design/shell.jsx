@@ -11,6 +11,7 @@ const TABS = [
   { id: "bracket",    label: "Knockout" },
   { id: "fixtures",   label: "Fixtures" },
   { id: "draft",      label: "Draft Room" },
+  { id: "kodraft",    label: "KO Draft" },
   { id: "players",    label: "Players" },
   { id: "trades",     label: "Trades" },
   { id: "audit",      label: "Scoring Audit" },

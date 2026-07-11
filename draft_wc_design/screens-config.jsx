@@ -279,6 +279,8 @@ function ConfigScreen({ onTab }) {
         </button>
       </div>
 
+      <KnockoutDraftAdminCard onTab={onTab} />
+
       {message && (
         <div
           className="alert"
@@ -520,5 +522,156 @@ function ConfigScreen({ onTab }) {
   );
 }
 
+// =====================================================================
+// Knockout Free-Agent Draft — admin setup card (GW7 live swap-draft).
+// Self-contained: talks straight to /leagues/{lid}/ko-draft/*. Choose the two
+// eliminated squads + straight seed pick order, run a REHEARSAL (no squad
+// writes) or Go Live (drives the real elimination + release).
+// =====================================================================
+function KnockoutDraftAdminCard({ onTab }) {
+  const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+  const managers = (window.MANAGERS || []).slice();
+  const [eliminated, setEliminated] = React.useState([]);   // uids
+  const [order, setOrder] = React.useState([]);             // ordered uids (seed 1 first)
+  const [pickTimer, setPickTimer] = React.useState(60);
+  const [state, setState] = React.useState(null);
+  const [msg, setMsg] = React.useState(null);
+  const [busy, setBusy] = React.useState(false);
+
+  const nameOf = uid => (managers.find(m => m.uid === uid) || { name: uid }).name;
+
+  const load = React.useCallback(async () => {
+    if (!lid) return;
+    try {
+      const s = await apiCall("GET", `/leagues/${lid}/ko-draft/state`);
+      setState(s);
+      const cfg = (s && s.config) ? s.config : s;
+      if (cfg && cfg.order && cfg.order.length && !order.length) setOrder(cfg.order);
+      if (cfg && cfg.eliminatedUids && cfg.eliminatedUids.length && !eliminated.length) setEliminated(cfg.eliminatedUids);
+    } catch (e) { /* not configured yet */ }
+  }, [lid]);
+
+  React.useEffect(() => { load(); const t = setInterval(load, 4000); return () => clearInterval(t); }, [load]);
+
+  // Default the pick order to everyone who isn't eliminated (admin can reorder).
+  React.useEffect(() => {
+    const pickers = managers.map(m => m.uid).filter(u => !eliminated.includes(u));
+    setOrder(prev => {
+      const kept = prev.filter(u => pickers.includes(u));
+      const added = pickers.filter(u => !kept.includes(u));
+      return [...kept, ...added];
+    });
+  }, [eliminated.join(","), managers.map(m => m.uid).join(",")]);
+
+  const toggleElim = uid => setEliminated(e => e.includes(uid) ? e.filter(x => x !== uid) : (e.length >= 2 ? e : [...e, uid]));
+  const moveOrder = (i, dir) => setOrder(o => {
+    const j = i + dir; if (j < 0 || j >= o.length) return o;
+    const n = o.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; return n;
+  });
+
+  const saveConfig = async (rehearsal) => {
+    await apiCall("POST", `/leagues/${lid}/ko-draft/config`, {
+      eliminatedUids: eliminated, order, rehearsal, pickTimer: Number(pickTimer),
+    });
+  };
+  const start = async (rehearsal) => {
+    if (busy) return;
+    if (eliminated.length !== 2) { setMsg({ type: "error", text: "Pick exactly 2 eliminated squads." }); return; }
+    if (!rehearsal && !window.confirm("GO LIVE: this eliminates " + eliminated.map(nameOf).join(" & ") + " for real and releases their players. Continue?")) return;
+    setBusy(true); setMsg(null);
+    try {
+      await saveConfig(rehearsal);
+      await apiCall("POST", `/leagues/${lid}/ko-draft/start`, { rehearsal });
+      setMsg({ type: "success", text: rehearsal ? "Rehearsal started — open the KO Draft tab." : "LIVE draft started." });
+      load();
+    } catch (e) { setMsg({ type: "error", text: e.error || e.detail || JSON.stringify(e) }); }
+    finally { setBusy(false); }
+  };
+  const reset = async () => {
+    if (!window.confirm("Reset the knockout draft state? (Config is kept.)")) return;
+    setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/reset`); setMsg({ type: "success", text: "Draft reset." }); load(); }
+    catch (e) { setMsg({ type: "error", text: e.error || e.detail || JSON.stringify(e) }); }
+    finally { setBusy(false); }
+  };
+  const revert = async () => {
+    if (!window.confirm("REVERT THE ENTIRE DRAFT?\n\nRestores every squad, elimination and the standings to exactly how they were before this draft started, then clears the draft. Use this to fully undo a rehearsal or a live run.")) return;
+    setBusy(true);
+    try {
+      const r = await apiCall("POST", `/leagues/${lid}/ko-draft/revert`);
+      setMsg({ type: "success", text: r && r.status === "reverted" ? `Reverted — restored ${r.restoredSquads} squads.` : "Nothing to revert (no backup)." });
+      load();
+    } catch (e) { setMsg({ type: "error", text: e.error || e.detail || JSON.stringify(e) }); }
+    finally { setBusy(false); }
+  };
+
+  const running = state && state.status && state.status !== "pending";
+  const box = { background: "rgba(0,0,0,0.25)", borderRadius: 8, padding: 12 };
+
+  return (
+    <div className="card-dark" style={{ padding: 20, marginBottom: 24, border: "1px solid rgba(255,215,0,0.25)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+        <h3 style={{ margin: 0, fontSize: 18 }}>🏆 Knockout Free-Agent Draft (GW7)</h3>
+        {running && (
+          <span style={{ background: state.rehearsal ? "var(--gold-500)" : "var(--green-400)", color: "#04240f", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
+            {state.rehearsal ? "REHEARSAL RUNNING" : "LIVE"} · {state.status}
+          </span>
+        )}
+        <div style={{ flex: 1 }} />
+        {running && <button className="btn" onClick={() => onTab("kodraft")}>Open draft room →</button>}
+      </div>
+      <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
+        Choose the two eliminated squads and the straight seed pick order (seed&nbsp;1 picks first).
+        <b> Rehearsal</b> never writes squads; <b>Go&nbsp;Live</b> performs the real elimination + release.
+      </p>
+
+      {msg && <div style={{ margin: "10px 0", fontSize: 13, color: msg.type === "success" ? "#2bf094" : "#ff6b8b" }}>{msg.text}</div>}
+
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 8 }}>
+        {/* Eliminated squads */}
+        <div style={box}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Eliminated squads (pick 2)</div>
+          {managers.map(m => (
+            <label key={m.uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13, cursor: "pointer" }}>
+              <input type="checkbox" checked={eliminated.includes(m.uid)} onChange={() => toggleElim(m.uid)} />
+              {m.name}
+            </label>
+          ))}
+          {managers.length === 0 && <div className="muted" style={{ fontSize: 12 }}>No managers loaded.</div>}
+        </div>
+
+        {/* Pick order */}
+        <div style={box}>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Pick order (seed 1 first)</div>
+          {order.map((uid, i) => (
+            <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", fontSize: 13 }}>
+              <span className="mono" style={{ width: 20 }}>{i + 1}</span>
+              <span style={{ flex: 1 }}>{nameOf(uid)}</span>
+              <button className="btn" style={{ padding: "2px 8px" }} disabled={i === 0} onClick={() => moveOrder(i, -1)}>↑</button>
+              <button className="btn" style={{ padding: "2px 8px" }} disabled={i === order.length - 1} onClick={() => moveOrder(i, 1)}>↓</button>
+            </div>
+          ))}
+          <label style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 10, fontSize: 13 }}>
+            Pick timer (s)
+            <input type="number" className="input-field" style={{ width: 80, padding: 6 }} value={pickTimer} onChange={e => setPickTimer(e.target.value)} />
+          </label>
+        </div>
+      </div>
+
+      <div style={{ display: "flex", gap: 10, marginTop: 16, flexWrap: "wrap" }}>
+        <button className="btn btn--primary" disabled={busy} onClick={() => start(true)}>Start rehearsal</button>
+        <button className="btn" disabled={busy} style={{ border: "1px solid var(--green-400)" }} onClick={() => start(false)}>Go live (real eliminations)</button>
+        {running && <button className="btn" disabled={busy} onClick={reset}>Reset</button>}
+        <button className="btn" disabled={busy} style={{ border: "1px solid #ff6b8b", color: "#ff9db0" }} onClick={revert}>↩ Revert entire draft</button>
+      </div>
+      <p className="muted" style={{ fontSize: 11, marginTop: 8 }}>
+        Rehearsal is a safe dry run (no squad changes). <b>Go live</b> and every live pick are
+        restricted to the super-admin — no one else can eliminate squads, release free agents
+        or change real rosters. In a live draft you execute each swap for the manager on the clock.
+      </p>
+    </div>
+  );
+}
+
 // Bind to window context
-Object.assign(window, { ConfigScreen });
+Object.assign(window, { ConfigScreen, KnockoutDraftAdminCard });
