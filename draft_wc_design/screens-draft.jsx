@@ -1413,6 +1413,7 @@ function KODraftSquadCard({ seed, name, squad, isOnClock, isActive, isMe }) {
           {name}{isMe ? " (you)" : ""}
         </span>
         {isOnClock && <span style={{ background: "var(--gold-500)", color: "var(--navy-900)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>ON CLOCK</span>}
+        {isActive === false && <span style={{ background: "rgba(255,255,255,0.14)", color: "rgba(255,255,255,0.7)", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>DONE</span>}
         {elim > 0 && <span style={{ background: "rgba(230,57,70,0.2)", color: "#ff8a8a", fontSize: 9, fontWeight: 800, padding: "1px 6px", borderRadius: 8 }}>{elim} out</span>}
       </div>
       <div className="col" style={{ gap: 1, maxHeight: 300, overflowY: "auto" }}>
@@ -1480,15 +1481,10 @@ function KnockoutDraftScreen({ onTab }) {
     return () => clearInterval(t);
   }, [state && state.paused]);
 
-  React.useEffect(() => {
-    if (!lid || !state || state.status !== "active" || state.paused) return;
-    if (secondsLeft > 0 || !state.pickDeadline) return;
-    if (lastAutoPassRef.current === state.pickDeadline) return;
-    lastAutoPassRef.current = state.pickDeadline;
-    apiCall("POST", `/leagues/${lid}/ko-draft/auto-pass`).catch(() => {
-      setTimeout(() => { if (lastAutoPassRef.current === state.pickDeadline) lastAutoPassRef.current = null; }, 3000);
-    });
-  }, [secondsLeft, state && state.status, state && state.paused]);
+  // NOTE: no auto-pass. This draft is admin-executed (the admin swaps on behalf
+  // of whoever is on the clock), so a timed-out clock must NOT silently remove a
+  // manager from the rotation — passing is always an explicit Pass/Done click.
+  // The countdown stays as a soft visual guide only.
 
   const doSwap = async (playerIn, playerOut) => {
     if (busy) return; setBusy(true);
