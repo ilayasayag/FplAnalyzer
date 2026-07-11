@@ -1434,32 +1434,34 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
           {name}{isMe ? " (you)" : ""}
         </div>
       </div>
-      {selectable && <div className="muted" style={{ fontSize: 10, marginBottom: 4 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
-      <div className="col" style={{ gap: 1 }}>
+      {selectable && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
+      <div className="col" style={{ gap: 2 }}>
         {players.map(p => {
           const greyed = selectable && selInPos != null && p.pos !== selInPos;
           const chosen = selectable && p.id === selOutId;
           const clickable = selectable && !greyed;
           return (
             <div key={p.id} onClick={clickable ? () => onSelectOut(p) : undefined}
-              style={{ display: "flex", alignItems: "center", gap: 6, padding: "2px 4px", borderRadius: 4,
+              style={{ display: "flex", alignItems: "center", gap: 8, padding: "5px 6px", borderRadius: 6,
                 cursor: clickable ? "pointer" : "default", opacity: greyed ? 0.3 : (p.isElim ? 0.95 : 1),
                 border: chosen ? "1px solid var(--green-400)" : "1px solid transparent",
-                background: chosen ? "rgba(43,240,148,0.16)" : (p.isElim ? "rgba(230,57,70,0.14)" : "transparent") }}>
-              <div style={{ width: 20, height: 20, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
-              <span className="mono" style={{ width: 26, fontSize: 9, color: "rgba(255,255,255,0.5)" }}>{KO_POS_NAME[p.pos]}</span>
-              <span style={{ flex: 1, fontSize: 11.5, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+                background: chosen ? "rgba(43,240,148,0.16)" : (p.isElim ? "rgba(230,57,70,0.14)" : "rgba(0,0,0,0.14)") }}>
+              <div style={{ width: 26, height: 26, flexShrink: 0 }}><Jersey team={p.team} pos={p.pos} eliminated={p.isElim} /></div>
+              <span className="mono" style={{ width: 32, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.55)" }}>{KO_POS_NAME[p.pos]}</span>
+              <span style={{ flex: 1, fontSize: 14, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
                 textDecoration: p.isElim ? "line-through" : "none" }}>{p.name}</span>
-              {p.team && <span style={{ width: 16, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
-              {p.isElim && <span style={{ fontSize: 8.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
+              {p.team && <span style={{ width: 20, flexShrink: 0, display: "inline-flex" }}><Flag team={p.team} /></span>}
+              {p.isElim && <span style={{ fontSize: 9.5, color: "#ff8a8a", fontWeight: 800 }}>OUT?</span>}
             </div>
           );
         })}
-        {players.length === 0 && <div className="muted" style={{ fontSize: 11 }}>Released / empty</div>}
+        {players.length === 0 && <div className="muted" style={{ fontSize: 12.5 }}>Released / empty</div>}
       </div>
     </div>
   );
 }
+
+let _koBracketCache = null;  // shared /wc-bracket doc for the alive-nation filter
 
 function KnockoutDraftScreen({ onTab }) {
   const isMobile = useIsMobile();
@@ -1474,6 +1476,20 @@ function KnockoutDraftScreen({ onTab }) {
   const [nationFilter, setNationFilter] = React.useState("all");
   const [sortBy, setSortBy] = React.useState("pts");
   const [busy, setBusy] = React.useState(false);
+  // Free-agent pool filters (mirror the Transfers screen). "In tournament"
+  // defaults ON — only nations still alive in the WC bracket; "Played minutes"
+  // is opt-in and hides players with 0 tournament minutes.
+  const [activeOnly, setActiveOnly] = React.useState(true);
+  const [minutesOnly, setMinutesOnly] = React.useState(false);
+  const [bracket, setBracket] = React.useState(_koBracketCache);
+  React.useEffect(() => {
+    if (_koBracketCache) return undefined;
+    let cancelled = false;
+    apiCall("GET", "/wc-bracket")
+      .then(d => { _koBracketCache = d || {}; if (!cancelled) setBracket(_koBracketCache); })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, []);
 
   const wlKey = `ko_wl_${lid}_${me}`;
   const [wishlist, setWishlist] = React.useState(() => {
@@ -1569,25 +1585,33 @@ function KnockoutDraftScreen({ onTab }) {
   const canAct = state.status === "active" && !state.paused && !!onClock &&
     (isAdmin || (state.rehearsal && onClock === me));
 
-  // Free-agent pool: unowned by a picker + nation NOT eliminated (per-player
-  // flag from the backend — the authoritative source get_free_agents uses).
+  // Free-agent pool: unowned by a picker + (when "In tournament" is on) nation
+  // still alive in the live WC bracket. We trust the bracket, NOT per-player
+  // `elim` flags — those aren't reliably set for knockout-round exits, so the
+  // old flag-based filter leaked eliminated nations (e.g. Brazil) back in.
+  const { aliveReady, isNationAlive } = wcComputeAlive(bracket);
+  const alive = p => !activeOnly || !aliveReady || isNationAlive((p.team || "").toUpperCase());
+  const dfc = p => (p.season && p.season.defconBonus) || 0;
+  const mins = p => (p.min != null ? p.min : (p.season && p.season.minutes) || 0);
+
+  // Nation dropdown lists only alive nations when "In tournament" is on.
   const nations = [];
   { const seen = new Set();
-    (window.PLAYERS || []).forEach(p => { if (!p.elim && !seen.has(p.team)) { const t = teamById(p.team); if (!(t && t.elim)) { seen.add(p.team); nations.push({ code: p.team, name: (t && t.name) || p.team }); } } });
+    (window.PLAYERS || []).forEach(p => { if (!seen.has(p.team) && alive(p)) { const t = teamById(p.team); seen.add(p.team); nations.push({ code: p.team, name: (t && t.name) || p.team }); } });
     nations.sort((a, b) => a.name.localeCompare(b.name)); }
+  // If the selected nation just left the alive list, fall back to "all".
+  const effNation = (nationFilter === "all" || nations.some(n => n.code === nationFilter)) ? nationFilter : "all";
 
   const wlRank = {}; wishlist.forEach((id, i) => { wlRank[String(id)] = i; });
   let pool = (window.PLAYERS || []).filter(p => {
     if (owned.has(Number(p.id))) return false;
-    if (p.elim) return false;
-    const t = teamById(p.team); if (t && t.elim) return false;
+    if (!alive(p)) return false;
+    if (minutesOnly && mins(p) <= 0) return false;
     if (posFilter !== "all" && p.pos !== Number(posFilter)) return false;
-    if (nationFilter !== "all" && p.team !== nationFilter) return false;
+    if (effNation !== "all" && p.team !== effNation) return false;
     if (search && !(p.name.toLowerCase().includes(search.toLowerCase()) || (p.club || "").toLowerCase().includes(search.toLowerCase()))) return false;
     return true;
   });
-  const dfc = p => (p.season && p.season.defconBonus) || 0;
-  const mins = p => (p.season && p.season.minutes) || 0;
   const cmp = {
     pts: (a, b) => (b.pts || 0) - (a.pts || 0),
     sel: (a, b) => (b.selPct || 0) - (a.selPct || 0),
@@ -1671,8 +1695,8 @@ function KnockoutDraftScreen({ onTab }) {
           <div className="card-dark" style={{ padding: 14 }}>
             <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10, flexWrap: "wrap" }}>
               <input className="input-field" placeholder="Search name or club…" value={search} onChange={e => setSearch(e.target.value)} style={{ flex: 1, minWidth: 150, padding: 8 }} />
-              <select className="input-field" value={nationFilter} onChange={e => setNationFilter(e.target.value)} style={{ padding: 8, maxWidth: 160 }}>
-                <option value="all">All nations</option>
+              <select className="input-field" value={effNation} onChange={e => setNationFilter(e.target.value)} style={{ padding: 8, maxWidth: 160 }}>
+                <option value="all">All nations{activeOnly && aliveReady ? ` (${nations.length} active)` : ""}</option>
                 {nations.map(n => <option key={n.code} value={n.code}>{n.name}</option>)}
               </select>
               <select className="input-field" value={sortBy} onChange={e => setSortBy(e.target.value)} style={{ padding: 8 }}>
@@ -1685,19 +1709,28 @@ function KnockoutDraftScreen({ onTab }) {
                 <option value="name">Sort: Name</option>
               </select>
             </div>
-            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 6, marginBottom: 10, flexWrap: "wrap", alignItems: "center" }}>
               {[["all", "All"], ["1", "GK"], ["2", "DEF"], ["3", "MID"], ["4", "FWD"]].map(([v, l]) => (
                 <button key={v} className={"btn " + (posFilter === v ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }} onClick={() => setPosFilter(v)}>{l}</button>
               ))}
+              <span style={{ width: 1, height: 20, background: "rgba(255,255,255,0.15)", margin: "0 2px" }} />
+              <button className={"btn " + (activeOnly ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }}
+                title="Only nations still alive in the World Cup" onClick={() => setActiveOnly(v => !v)}>
+                {activeOnly ? "✓ " : ""}In tournament{activeOnly && aliveReady ? ` · ${nations.length}` : ""}
+              </button>
+              <button className={"btn " + (minutesOnly ? "btn--primary" : "")} style={{ padding: "4px 12px", fontSize: 12 }}
+                title="Hide players with 0 minutes so far" onClick={() => setMinutesOnly(v => !v)}>
+                {minutesOnly ? "✓ " : ""}Played minutes
+              </button>
               <div style={{ flex: 1 }} />
-              <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>{pool.length} free agents · alive nations only</span>
+              <span className="muted" style={{ fontSize: 12, alignSelf: "center" }}>{pool.length} free agents</span>
             </div>
             {/* header row */}
             <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "0 8px 6px", fontSize: 10, color: "rgba(255,255,255,0.5)", fontWeight: 700, letterSpacing: "0.04em" }}>
               <span style={{ width: 30 }} /><span style={{ flex: 1 }}>PLAYER</span><span style={{ width: 20 }} /><span style={{ width: 34, textAlign: "center" }}>POS</span>
               <span style={{ width: 42, textAlign: "right" }}>PTS</span><span style={{ width: 44, textAlign: "right" }}>%SEL</span><span style={{ width: 40, textAlign: "right" }}>DEF</span><span style={{ width: 70 }} />
             </div>
-            <div className="col" style={{ gap: 2, maxHeight: 640, overflowY: "auto" }}>
+            <div className="col" style={{ gap: 2, height: isMobile ? "auto" : 400, maxHeight: isMobile ? 640 : undefined, overflowY: "auto" }}>
               {poolShown.map(p => {
                 const t = teamById(p.team);
                 const inWl = wishlist.includes(Number(p.id));
@@ -1728,35 +1761,47 @@ function KnockoutDraftScreen({ onTab }) {
               {pool.length > 80 && <div className="muted" style={{ fontSize: 11, textAlign: "center", padding: 6 }}>Showing top 80 — refine the filters to see more.</div>}
             </div>
           </div>
+
+          {/* My wishlist — sits directly under the free-agent list, filling the
+              center column so it's large and easy to read (fixed list height above). */}
+          <div className="card-dark" style={{ padding: 14 }}>
+            <div className="card-dark__title" style={{ fontSize: 15, marginBottom: 3 }}>My wishlist ({wlItems.length}) · priority order</div>
+            <div className="muted" style={{ fontSize: 11.5, marginBottom: 10 }}>Pick/auction priority, top to bottom — reorder with ↑ ↓.</div>
+            <div className="col" style={{ gap: 4, maxHeight: 320, overflowY: "auto" }}>
+              {wlItems.map((p, i) => {
+                const t = teamById(p.team); const available = !owned.has(Number(p.id)) && alive(p);
+                return (
+                  <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "7px 8px", borderRadius: 8,
+                    background: "rgba(0,0,0,0.18)", opacity: available ? 1 : 0.5 }}>
+                    <span className="mono" style={{ width: 22, fontSize: 14, fontWeight: 800, color: "var(--gold-500)", textAlign: "center" }}>{i + 1}</span>
+                    <div style={{ width: 28, height: 28, flexShrink: 0 }}><Jersey team={t} pos={p.pos} /></div>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ fontWeight: 700, fontSize: 14, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", textDecoration: "underline" }} onClick={() => showStats(p.id)}>{p.name}</div>
+                      <div className="muted" style={{ fontSize: 11 }}>{p.club || (t && t.name) || p.team}{!available ? " · taken" : ""}</div>
+                    </div>
+                    {t && <span style={{ width: 20, flexShrink: 0 }}><Flag team={t} /></span>}
+                    <span className="mono" style={{ width: 34, fontSize: 11, fontWeight: 700, color: "rgba(255,255,255,0.6)", textAlign: "center" }}>{KO_POS_NAME[p.pos]}</span>
+                    <span className="mono" style={{ width: 40, textAlign: "right", fontWeight: 700, fontSize: 14 }} title="Total points">{p.pts != null ? p.pts : "—"}</span>
+                    <span className="mono muted" style={{ width: 34, textAlign: "right", fontSize: 11 }} title="DefCon">{dfc(p) || "—"}</span>
+                    <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
+                      <button className="btn" style={{ padding: "3px 8px" }} disabled={i === 0} onClick={() => moveWl(i, -1)}>↑</button>
+                      <button className="btn" style={{ padding: "3px 8px" }} disabled={i === wlItems.length - 1} onClick={() => moveWl(i, 1)}>↓</button>
+                      {available && canAct && <button className="btn btn--draft" style={{ padding: "3px 10px" }} onClick={() => selectPoolIn(p)}>Pick</button>}
+                      <button className="btn" style={{ padding: "3px 8px" }} title="Remove from wishlist" onClick={() => toggleWl(p.id)}>✕</button>
+                    </div>
+                  </div>
+                );
+              })}
+              {wlItems.length === 0 && <div className="muted" style={{ fontSize: 13, padding: "8px 2px" }}>Tap ☆ on free agents to build your shortlist, then use “Sort: Wishlist order”.</div>}
+            </div>
+          </div>
         </div>
 
         <div className="col" style={{ gap: 12 }}>{corner(order[1], 1)}{corner(order[3], 3)}</div>
       </div>
 
-      {/* Bottom strip: wishlist + pick order + swap log */}
-      <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr 1fr" }}>
-        <div className="card-dark" style={{ padding: 12 }}>
-          <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>My wishlist ({wlItems.length}) · priority order</div>
-          <div className="col" style={{ gap: 3, maxHeight: 240, overflowY: "auto" }}>
-            {wlItems.map((p, i) => {
-              const t = teamById(p.team); const available = !owned.has(Number(p.id)) && !p.elim;
-              return (
-                <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, opacity: available ? 1 : 0.45 }}>
-                  <span className="mono" style={{ width: 16 }}>{i + 1}</span>
-                  <div style={{ width: 18, height: 18 }}><Jersey team={t} pos={p.pos} /></div>
-                  <span style={{ flex: 1, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", cursor: "pointer", textDecoration: "underline" }} onClick={() => showStats(p.id)}>{p.name}</span>
-                  {!available && <span className="muted" style={{ fontSize: 9 }}>taken</span>}
-                  <button className="btn" style={{ padding: "1px 6px" }} disabled={i === 0} onClick={() => moveWl(i, -1)}>↑</button>
-                  <button className="btn" style={{ padding: "1px 6px" }} disabled={i === wlItems.length - 1} onClick={() => moveWl(i, 1)}>↓</button>
-                  {available && canAct && <button className="btn btn--draft" style={{ padding: "1px 8px" }} onClick={() => selectPoolIn(p)}>Pick</button>}
-                  <button className="btn" style={{ padding: "1px 6px" }} onClick={() => toggleWl(p.id)}>✕</button>
-                </div>
-              );
-            })}
-            {wlItems.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Tap ☆ on free agents to build your shortlist, then Sort: Wishlist order.</div>}
-          </div>
-        </div>
-
+      {/* Bottom strip: pick order + swap log (wishlist now lives in the center column) */}
+      <div style={{ display: "grid", gap: 12, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
         <div className="card-dark" style={{ padding: 12 }}>
           <div className="card-dark__title" style={{ fontSize: 13, marginBottom: 8 }}>Pick order (seed)</div>
           {order.map((uid, i) => (
