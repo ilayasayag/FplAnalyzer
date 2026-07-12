@@ -2677,8 +2677,12 @@ def get_knockout(lid: str):
                .collection("knockout").document(f"bracket_gw{gw}").get())
         if doc.exists:
             return _ok({"leagueId": lid, **doc.to_dict()})
-        else:
-            return _ok({"leagueId": lid, "rounds": {}})
+        # No per-GW snapshot yet (the current round hasn't been played/finalized,
+        # so bracket_gw{gw} doesn't exist) — fall back to the LIVE seeded bracket
+        # so the ongoing round (e.g. the freshly-seeded semi-finals at gw ==
+        # knockoutStartGw) renders instead of a blank panel. Past rounds keep
+        # their own snapshot; only current/future gws hit this fallback.
+        return _ok({"leagueId": lid, **(get_bracket(lid, _db) or {})})
     bracket = get_bracket(lid, _db)
     return _ok(bracket)
 
