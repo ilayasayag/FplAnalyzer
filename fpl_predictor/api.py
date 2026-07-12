@@ -117,7 +117,8 @@ AUTH_EXEMPT = {"/api/health", "/api/v1/wc/admin/seed-test-leagues",
                # they authenticate via ?key=<wc_config/cron.secret>, not a
                # Firebase token, so the global gate must let them through.
                "/api/v1/wc/cron/ingest-live-scores",
-               "/api/v1/wc/cron/window-tick"}
+               "/api/v1/wc/cron/window-tick",
+               "/api/v1/wc/cron/auto-finalize"}
 
 
 @app.before_request
