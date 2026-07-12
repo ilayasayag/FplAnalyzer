@@ -388,9 +388,11 @@ def test_swap_position_quota_violation():
         eng.make_swap(LID, "m1", player_in=900, player_out=_def_out(1))
 
 
-def test_nation_cap_violation():
+def test_no_nation_cap_in_knockout():
+    # The knockout draft intentionally has NO per-nation cap (group-stage squads
+    # already concentrate nations as teams are eliminated). A swap that pushes a
+    # nation past 3 must SUCCEED.
     db = FakeDB(); _seed(db); eng = _engine(db)
-    # Give m1 three MIDs from nation 50; add a free MID also nation 50.
     squad = db._store["leagues/lg_test/squads/m1"]["players"]
     mids = [p for p in squad if p["position"] == 3]
     for p in mids[:3]:
@@ -399,10 +401,9 @@ def test_nation_cap_violation():
     db._store["wc_players/950"] = _player_doc(950, 3, team=50)
     eng.set_config(LID, eliminated_uids=["m5", "m6"], order=["m1", "m2", "m3", "m4"])
     eng.start(LID)
-    # OUT the 4th MID (nation != 50), IN the nation-50 MID -> 4 from nation 50.
     other_mid = mids[3]["playerId"]
-    with pytest.raises(ValueError, match="NATION_QUOTA_VIOLATED"):
-        eng.make_swap(LID, "m1", player_in=950, player_out=other_mid)
+    eng.make_swap(LID, "m1", player_in=950, player_out=other_mid)  # 4 from nation 50 — allowed
+    assert 950 in eng.get_state(LID)["ownedPlayerIds"]
 
 
 def test_dropped_player_returns_to_pool():

@@ -1707,7 +1707,12 @@ function KnockoutDraftScreen({ onTab }) {
   const nextUp = (ci >= 0 && activePickers.length > 1) ? activePickers[(ci + 1) % activePickers.length] : null;
 
   return (
-    <div className="col" style={{ gap: 12 }}>
+    // Full-bleed dark "arena" background (escapes the light page shell) so the
+    // KO draft reads as an immersive room rather than dark cards on cream.
+    <div style={{ background: "radial-gradient(1100px 380px at 50% -40px, #251b60, #0c0a3e)",
+      marginLeft: "calc(50% - 50vw)", marginRight: "calc(50% - 50vw)",
+      paddingTop: 18, paddingBottom: 44, minHeight: "82vh" }}>
+    <div className="col" style={{ gap: 12, maxWidth: 1440, margin: "0 auto", padding: "0 clamp(10px, 2.5vw, 28px)" }}>
       {/* Clock card: on-the-clock + circular timer + next-up + controls */}
       <div className="card-dark" style={{ padding: isMobile ? "12px 14px" : "16px 22px",
         display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "1fr auto 1fr", alignItems: "center", gap: isMobile ? 12 : 20 }}>
@@ -1752,8 +1757,8 @@ function KnockoutDraftScreen({ onTab }) {
             <button className={"btn " + (outOnly ? "btn--primary" : "")} style={{ fontSize: 12 }}
               title="Every squad: show only players whose nation is out of the World Cup"
               onClick={() => setOutOnly(v => !v)}>{outOnly ? "✓ Players to replace" : "⚠ Players to replace"}</button>
-            {isAdmin && (state.swaps || []).length > 0 &&
-              <button className="btn" disabled={busy} title="Undo the last pick (⌘/Ctrl+Z)" onClick={doUndo}>← Undo last pick</button>}
+            {isAdmin &&
+              <button className="btn" disabled={busy || !(state.swaps || []).length} title="Undo the last pick (⌘/Ctrl+Z)" onClick={doUndo}>← Undo last pick</button>}
             {isAdmin && !complete &&
               <button className="btn" disabled={busy} onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
           </div>
@@ -1922,6 +1927,7 @@ function KnockoutDraftScreen({ onTab }) {
           </div>
         </div>
       </div>
+    </div>
     </div>
   );
 }
