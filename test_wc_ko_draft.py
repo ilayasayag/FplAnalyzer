@@ -322,6 +322,46 @@ def test_pass_then_next_can_pick():
     assert eng.get_state(LID)["currentDrafter"] == "m3"  # m1 skipped forever
 
 
+def test_undo_reverts_last_swap_and_returns_clock():
+    db, eng = _fresh()
+    eng.make_swap(LID, "m1", player_in=901, player_out=_def_out(1))
+    assert eng.get_state(LID)["currentDrafter"] == "m2"
+    res = eng.undo_last_swap(LID)
+    assert res["undone"]["playerIn"] == 901 and res["undone"]["uid"] == "m1"
+    st = eng.get_state(LID)
+    assert st["currentDrafter"] == "m1"          # clock handed back to m1
+    assert st["status"] == "active"
+    assert 901 not in st["ownedPlayerIds"]        # the pick is gone
+    assert _def_out(1) in st["ownedPlayerIds"]    # the dropped player is restored
+    assert len(st["swaps"]) == 0
+
+
+def test_undo_repeatable_to_start_then_errors():
+    db, eng = _fresh()
+    eng.make_swap(LID, "m1", player_in=901, player_out=_def_out(1))
+    eng.make_swap(LID, "m2", player_in=902, player_out=_def_out(2))
+    eng.undo_last_swap(LID)                        # undo m2
+    assert eng.get_state(LID)["currentDrafter"] == "m2"
+    eng.undo_last_swap(LID)                        # undo m1 (back to start)
+    st = eng.get_state(LID)
+    assert st["currentDrafter"] == "m1"
+    assert len(st["swaps"]) == 0
+    with pytest.raises(ValueError):
+        eng.undo_last_swap(LID)                    # nothing left to undo
+
+
+def test_undo_reopens_completed_draft():
+    db, eng = _fresh()
+    eng.make_swap(LID, "m1", player_in=901, player_out=_def_out(1))  # clock -> m2
+    eng.pass_turn(LID, "m2"); eng.pass_turn(LID, "m3")
+    eng.pass_turn(LID, "m4"); eng.pass_turn(LID, "m1")               # all passed
+    assert eng.get_state(LID)["status"] == "complete"
+    eng.undo_last_swap(LID)                        # undo m1's pick -> reopen
+    st = eng.get_state(LID)
+    assert st["status"] == "active"
+    assert st["currentDrafter"] == "m1" and "m1" in st["activePickers"]
+
+
 def test_swap_out_not_owned():
     db, eng = _fresh()
     with pytest.raises(ValueError, match="PLAYER_OUT_NOT_OWNED"):
