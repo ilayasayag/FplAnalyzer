@@ -551,24 +551,20 @@ class KnockoutSwapDraftEngine:
         }
 
     def _validate_squad(self, players: List[dict]):
-        """Squad must stay exactly 2/5/5/3 (so a swap is same-position) and
-        within the 3-per-nation cap."""
+        """Squad must stay exactly 2/5/5/3 (so a swap is same-position). NO
+        per-nation cap in the knockout draft — squads carry over from the group
+        stage where nations get concentrated as teams are eliminated, so many
+        managers already hold >3 from one nation; enforcing the cap here would
+        block legitimate swaps."""
         counts = {1: 0, 2: 0, 3: 0, 4: 0}
-        nations: Dict[int, int] = {}
         for p in players:
             counts[p["position"]] = counts.get(p["position"], 0) + 1
-            tid = p.get("teamId")
-            if tid:
-                nations[tid] = nations.get(tid, 0) + 1
         for pos, required in POSITION_QUOTA.items():
             if counts.get(pos, 0) != required:
                 raise ValueError(
                     f"POSITION_QUOTA_VIOLATED: need {required} {POS_NAMES[pos]}, "
                     f"have {counts.get(pos, 0)} — a swap must be same-position"
                 )
-        for tid, c in nations.items():
-            if c > NATION_QUOTA:
-                raise ValueError(f"NATION_QUOTA_VIOLATED: max {NATION_QUOTA} per nation")
 
     def _apply_swap_to_squad(self, lid: str, uid: str, player_in: int,
                              player_out: int, player_in_doc: dict):

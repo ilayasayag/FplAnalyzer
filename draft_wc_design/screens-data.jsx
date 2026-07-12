@@ -615,10 +615,10 @@ function LeagueScreen({ onTab }) {
 // the group stage finalizes. Each side shows the manager's royal KO flag (the
 // same crest that's now official everywhere) + seed + live GW points if the SF
 // is under way. Placeholder until the bracket is seeded.
-function KnockoutSide({ uid, seed, points, isWinner }) {
+function KnockoutSide({ uid, seed, points, isWinner, placeholder }) {
   const isMobile = useIsMobile();
   const m = (typeof managerById === "function" && uid) ? managerById(uid) : null;
-  const name = (m && (m.team || m.name)) || (uid || "TBD");
+  const name = (m && (m.team || m.name)) || (uid || placeholder || "TBD");
   const flag = uid && ((window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid]);
   return (
     <div style={{ flex: 1, minWidth: 0, textAlign: "center", opacity: isWinner === false ? 0.5 : 1 }}>
@@ -626,8 +626,10 @@ function KnockoutSide({ uid, seed, points, isWinner }) {
         border: isWinner ? "3px solid var(--gold-500)" : "1px solid var(--border)",
         boxShadow: isWinner ? "0 0 22px rgba(255,199,44,0.45)" : "0 2px 10px rgba(0,0,0,0.12)",
         background: "linear-gradient(135deg,#241a4d,#0c0a3e)" }}>
-        {flag && <img src={flag + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }}
-          style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />}
+        {flag
+          ? <img src={flag + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }}
+              style={{ width: "100%", height: "100%", objectFit: "cover", display: "block" }} />
+          : <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center", color: "rgba(255,255,255,0.35)", fontSize: 30 }}>🏆</div>}
         {seed != null && <span className="mono" style={{ position: "absolute", top: 8, left: 8, width: 30, height: 30, lineHeight: "30px",
           textAlign: "center", borderRadius: "50%", background: "rgba(0,0,0,0.6)", color: "var(--gold-500)",
           fontSize: 15, fontWeight: 800, border: "1px solid var(--gold-500)" }}>{seed}</span>}
@@ -645,15 +647,25 @@ function KnockoutMatchup({ match, label }) {
     <div className="card" style={{ padding: 20 }}>
       <div className="h-display" style={{ fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 14, textAlign: "center" }}>{label}{match.gw ? ` · GW${match.gw}` : ""}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <KnockoutSide uid={match.home} seed={match.homeSeed} points={match.homePoints} isWinner={w ? w === match.home : undefined} />
+        <KnockoutSide uid={match.home} seed={match.homeSeed} points={match.homePoints} placeholder={match.homePh} isWinner={w ? w === match.home : undefined} />
         <div className="h-display" style={{ fontSize: 22, fontWeight: 900, color: "var(--gold-600)", flexShrink: 0 }}>VS</div>
-        <KnockoutSide uid={match.away} seed={match.awaySeed} points={match.awayPoints} isWinner={w ? w === match.away : undefined} />
+        <KnockoutSide uid={match.away} seed={match.awaySeed} points={match.awayPoints} placeholder={match.awayPh} isWinner={w ? w === match.away : undefined} />
       </div>
     </div>
   );
 }
+function KnockoutLine({ title, color, children }) {
+  return (
+    <div>
+      <div className="h-display" style={{ fontSize: 15, letterSpacing: "0.06em", textTransform: "uppercase", color: color || "var(--ink-500)", marginBottom: 10 }}>{title}</div>
+      {children}
+    </div>
+  );
+}
 function KnockoutPanel() {
+  const isMobile = useIsMobile();
   const sf = (window.BRACKET && window.BRACKET.sf) || [];
+  const fin = (window.BRACKET && window.BRACKET.final) || [];
   const seeded = sf.length > 0;
   const league = window.LEAGUE || LEAGUE;
   if (!seeded) {
@@ -667,16 +679,27 @@ function KnockoutPanel() {
       </div>
     );
   }
-  const label = i => `Semi-Final ${i + 1}`;
+  // Final line: real match once winners are decided, else a placeholder pairing.
+  const finalMatch = fin[0] || null;
+  const finalGw = (finalMatch && finalMatch.gw) || (league.knockoutStartGw ? league.knockoutStartGw + 1 : null);
+  const finalDisplay = finalMatch || { id: "final", gw: finalGw, home: null, away: null,
+    homeSeed: null, awaySeed: null, homePh: "Winner SF1", awayPh: "Winner SF2" };
   return (
-    <div className="col" style={{ gap: 16 }}>
+    <div className="col" style={{ gap: 20 }}>
       <div className="alert alert--info">
         <div className="alert__icon" style={{ background: "var(--violet-500)", color: "white" }}>♛</div>
-        <div style={{ fontSize: 13 }}><strong>Semi-Finals.</strong> The top four by fantasy points, drawn #1 vs #4 and #2 vs #3. Winners meet in the Final.</div>
+        <div style={{ fontSize: 13 }}><strong>Knockout.</strong> Top four by fantasy points — #1 vs #4 and #2 vs #3. Semi-final winners meet in the Final.</div>
       </div>
-      <div style={{ display: "grid", gap: 16, gridTemplateColumns: useIsMobile() ? "1fr" : "1fr 1fr" }}>
-        {sf.map((m, i) => <KnockoutMatchup key={m.id || i} match={m} label={label(i)} />)}
-      </div>
+      <KnockoutLine title="Semi-Finals">
+        <div style={{ display: "grid", gap: 16, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
+          {sf.map((m, i) => <KnockoutMatchup key={m.id || i} match={m} label={`Semi-Final ${i + 1}`} />)}
+        </div>
+      </KnockoutLine>
+      <KnockoutLine title="Final" color="var(--gold-600)">
+        <div style={{ maxWidth: 560, margin: "0 auto" }}>
+          <KnockoutMatchup match={finalDisplay} label="Final" />
+        </div>
+      </KnockoutLine>
     </div>
   );
 }
