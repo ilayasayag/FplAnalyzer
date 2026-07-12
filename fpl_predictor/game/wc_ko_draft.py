@@ -283,6 +283,8 @@ class KnockoutSwapDraftEngine:
                 "playerIn": player_in,
                 "playerOut": player_out,
                 "playerInObj": self._player_obj(player_in, player_in_doc),
+                # Stored so undo can restore the dropped player to a live squad.
+                "playerOutObj": squad_map.get(player_out),
                 "key": idempotency_key,
                 "ts": time.time(),
             }
@@ -394,6 +396,60 @@ class KnockoutSwapDraftEngine:
             remaining = int(state.get("pickTimer", DEFAULT_PICK_TIMER))
         ref.update({"paused": False, "pickDeadline": time.time() + remaining, "pausedRemaining": None})
         return {"paused": False, "secondsRemaining": round(remaining)}
+
+    # ------------------------------------------------------------------
+    # Undo (Ctrl+Z) — step back one swap, repeatable to the start
+    # ------------------------------------------------------------------
+
+    def undo_last_swap(self, lid: str) -> dict:
+        """Undo the most recent swap: pop it from the log, hand the clock back to
+        the manager who made it, reopen the rotation if the draft had completed,
+        and (live only) reverse the real-squad mutation. Repeatable back to the
+        start of the draft. Admin-only at the API layer."""
+        state_ref = self._state_ref(lid)
+
+        def _do(txn):
+            snap = state_ref.get(transaction=txn) if txn is not None else state_ref.get()
+            if not snap.exists:
+                raise ValueError("Draft not found")
+            state = snap.to_dict()
+            swaps = list(state.get("swaps", []))
+            if not swaps:
+                raise ValueError("Nothing to undo")
+            last = swaps.pop()
+            uid = last.get("uid")
+            order = list(state.get("order", []))
+            active = list(state.get("activePickers", []))
+            if uid not in active:
+                # Reopen the rotation (e.g. the draft had completed) and slot the
+                # undone manager back in, preserving seed order.
+                active = [u for u in order if u in active or u == uid] or [uid]
+            update = {
+                "swaps": swaps,
+                "seq": max(0, int(state.get("seq", 0)) - 1),
+                "status": "active",
+                "activePickers": active,
+                "currentDrafter": uid,
+                "paused": False,
+                "completedAt": None,
+                "pickDeadline": time.time() + int(state.get("pickTimer", DEFAULT_PICK_TIMER)),
+            }
+            if txn is not None:
+                txn.update(state_ref, update)
+            else:
+                state_ref.update(update)
+            return {"last": last, "rehearsal": bool(state.get("rehearsal", True))}
+
+        r = self._run_txn(_do)
+        last = r["last"]
+        # Live only: reverse the mirror — drop playerIn, restore playerOut.
+        if not r.get("rehearsal", True):
+            self._reverse_swap_on_squad(
+                lid, last.get("uid"), int(last.get("playerIn")),
+                int(last.get("playerOut")), last.get("playerOutObj"))
+        return {"status": "ok", "undone": {
+            "uid": last.get("uid"), "playerIn": last.get("playerIn"),
+            "playerOut": last.get("playerOut"), "seq": last.get("seq")}}
 
     # ------------------------------------------------------------------
     # State read (frontend)
@@ -540,6 +596,34 @@ class KnockoutSwapDraftEngine:
                 snapshot = squad_ref.get(transaction=txn)
                 update = _write(snapshot.to_dict() or {})
                 txn.update(squad_ref, update)
+
+            _claim(self.db.transaction())
+        else:
+            snapshot = squad_ref.get()
+            squad_ref.update(_write(snapshot.to_dict() or {}))
+
+    def _reverse_swap_on_squad(self, lid: str, uid: str, player_in: int,
+                               player_out: int, player_out_obj: dict = None):
+        """Live-mode inverse of ``_apply_swap_to_squad`` (undo): drop ``player_in``
+        and restore ``player_out``. Uses the swap's stored ``playerOutObj`` when
+        present, else rebuilds it from ``wc_players``."""
+        squad_ref = self._league_ref(lid).collection("squads").document(uid)
+        restore = player_out_obj or self._player_obj(
+            player_out, self._get_wc_player(player_out) or {})
+
+        def _write(current: dict):
+            players = [p for p in current.get("players", []) if p["playerId"] != player_in]
+            if not any(p.get("playerId") == player_out for p in players):
+                players.append(restore)
+            return {"players": players}
+
+        if hasattr(self.db, "transaction"):
+            from google.cloud.firestore_v1 import transactional
+
+            @transactional
+            def _claim(txn):
+                snapshot = squad_ref.get(transaction=txn)
+                txn.update(squad_ref, _write(snapshot.to_dict() or {}))
 
             _claim(self.db.transaction())
         else:

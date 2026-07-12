@@ -1414,11 +1414,14 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
     const iso = ((p.team && (p.team.id || p.team.code)) || "").toString().toUpperCase();
     return !!iso && !isNationAlive(iso);
   };
+  // Per-squad "reduce" toggle (this card only) OR the board-wide outOnly toggle.
+  const [reduced, setReduced] = React.useState(false);
   let players = (squad || []).map(koView).map(p => ({ ...p, out: outNation(p) }))
     .sort((a, b) => a.pos - b.pos || a.name.localeCompare(b.name));
   const elim = players.filter(p => p.out).length;
-  if (outOnly) players = players.filter(p => p.out);   // "show only players to replace"
-  const compact = !!outOnly;                            // shrink the card in that mode
+  const showOut = outOnly || reduced;                   // show only players to replace
+  if (showOut) players = players.filter(p => p.out);
+  const compact = !!showOut;                            // shrink the card in that mode
   const flagSrc = (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   return (
     <div className="card-dark" style={{ padding: compact ? 8 : 10, opacity: isActive === false ? 0.6 : 1,
@@ -1446,6 +1449,16 @@ function KODraftSquadCard({ uid, seed, name, squad, isOnClock, isActive, isMe, s
           {name}{isMe ? " (you)" : ""}
         </div>
       </div>
+      {/* Per-squad reduce: collapse THIS card to only its players-to-replace.
+          Hidden when the board-wide toggle already reduces everything. */}
+      {!outOnly && elim > 0 && (
+        <button className="btn" style={{ fontSize: 10.5, padding: "3px 8px", marginBottom: 6, width: "100%",
+          background: reduced ? "rgba(230,57,70,0.25)" : "rgba(255,255,255,0.06)",
+          color: reduced ? "#ffb3b3" : "rgba(255,255,255,0.75)" }}
+          onClick={() => setReduced(v => !v)}>
+          {reduced ? "↕ Show full squad" : `⚠ Reduce to ${elim} to replace`}
+        </button>
+      )}
       {selectable && !compact && <div className="muted" style={{ fontSize: 11.5, marginBottom: 6 }}>Click a player to drop them{selInPos ? ` (${KO_POS_NAME[selInPos]} only)` : ""}</div>}
       <div className="col" style={{ gap: 2 }}>
         {players.map(p => {
@@ -1555,6 +1568,30 @@ function KnockoutDraftScreen({ onTab }) {
     catch (e) { alert("Pass failed: " + (e.error || e.detail || JSON.stringify(e))); }
     finally { setBusy(false); }
   };
+  const doUndo = async () => {
+    if (busy || !state || !(state.swaps || []).length) return;
+    const last = state.swaps[state.swaps.length - 1];
+    const who = last ? mgrName(last.uid) : "the last pick";
+    if (!window.confirm(`Undo the last pick?\n\nIt's removed and ${who} goes back on the clock with a fresh timer. Repeat to step further back.`)) return;
+    setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/undo`); setSelIn(null); setSelOut(null); }
+    catch (e) { alert("Undo failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    finally { setBusy(false); }
+  };
+  // Ctrl/Cmd+Z undoes the last pick (admin only). Ref keeps the listener stable.
+  const doUndoRef = React.useRef(doUndo); doUndoRef.current = doUndo;
+  React.useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
+        const tag = (e.target && e.target.tagName) || "";
+        if (tag === "INPUT" || tag === "TEXTAREA") return;   // don't hijack text editing
+        if (!window.IS_ADMIN) return;
+        e.preventDefault(); doUndoRef.current();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
   const togglePause = async () => {
     const action = (state && state.paused) ? "resume" : "pause";
     try { await apiCall("POST", `/leagues/${lid}/ko-draft/${action}`); } catch (e) { alert("Failed: " + (e.error || e.detail || JSON.stringify(e))); }
@@ -1664,28 +1701,63 @@ function KnockoutDraftScreen({ onTab }) {
       onSelectOut={selectOut} isNationAlive={isNationAlive} aliveReady={aliveReady} outOnly={outOnly} />
   ) : <div key={"empty" + slot} />;
 
+  // Clock helpers: mm:ss, and the next picker after the one on the clock.
+  const fmtClock = (s) => `${Math.floor(Math.max(0, s) / 60)}:${String(Math.max(0, s) % 60).padStart(2, "0")}`;
+  const ci = onClock ? activePickers.indexOf(onClock) : -1;
+  const nextUp = (ci >= 0 && activePickers.length > 1) ? activePickers[(ci + 1) % activePickers.length] : null;
+
   return (
     <div className="col" style={{ gap: 12 }}>
-      {/* Banner */}
-      <div className="card-dark" style={{ padding: "12px 18px", display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <div style={{ fontWeight: 800, fontSize: 16 }}>Knockout Free-Agent Draft</div>
-        <span style={{ background: state.rehearsal ? "var(--gold-500)" : "var(--green-400)", color: state.rehearsal ? "var(--navy-900)" : "#04240f",
-          padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800, letterSpacing: "0.05em" }}>
-          {state.rehearsal ? "REHEARSAL · squads not written" : "LIVE"}
-        </span>
-        <div style={{ flex: 1 }} />
-        {complete ? <span style={{ fontWeight: 800, color: "var(--green-400)" }}>✓ Draft complete</span> : (
-          <React.Fragment>
-            <span className="muted" style={{ fontSize: 13 }}>On the clock:</span>
-            <b>{onClock ? mgrName(onClock) : "—"}</b>
-            <span className="mono" style={{ fontSize: 20, fontWeight: 800, marginLeft: 8, color: secondsLeft <= 10 ? "#ff8a8a" : "white" }}>{state.paused ? "⏸" : `${secondsLeft}s`}</span>
-          </React.Fragment>
-        )}
-        <button className={"btn " + (outOnly ? "btn--primary" : "")} style={{ fontSize: 12 }}
-          title="Show only squad players whose nation is out of the World Cup" onClick={() => setOutOnly(v => !v)}>
-          {outOnly ? "✓ Players to replace" : "⚠ Players to replace"}
-        </button>
-        {isAdmin && !complete && <button className="btn" onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
+      {/* Clock card: on-the-clock + circular timer + next-up + controls */}
+      <div className="card-dark" style={{ padding: isMobile ? "12px 14px" : "16px 22px",
+        display: "grid", gridTemplateColumns: isMobile ? "1fr auto" : "1fr auto 1fr", alignItems: "center", gap: isMobile ? 12 : 20 }}>
+        <div style={{ minWidth: 0 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+            <span style={{ fontWeight: 800, fontSize: 14 }}>Knockout Free-Agent Draft</span>
+            <span style={{ background: state.rehearsal ? "var(--gold-500)" : "var(--green-400)", color: state.rehearsal ? "var(--navy-900)" : "#04240f",
+              padding: "2px 9px", borderRadius: 12, fontSize: 10, fontWeight: 800, letterSpacing: "0.05em" }}>
+              {state.rehearsal ? "REHEARSAL" : "LIVE"}
+            </span>
+          </div>
+          <div style={{ fontSize: 11, fontWeight: 800, color: "var(--green-400)", letterSpacing: "0.08em", textTransform: "uppercase", marginTop: 10 }}>
+            {complete ? "Draft complete" : "On the clock"}
+          </div>
+          <div className="h-display" style={{ fontSize: isMobile ? 22 : 34, fontWeight: 900, color: "white", lineHeight: 1.05, marginTop: 2,
+            whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+            {complete ? "✓ All done" : (onClock ? mgrName(onClock) : "—")}
+          </div>
+        </div>
+        {/* circular timer */}
+        <div style={{ width: isMobile ? 84 : 118, height: isMobile ? 84 : 118, borderRadius: "50%",
+          border: "5px solid " + (complete ? "var(--green-400)" : (state.paused ? "var(--gold-500)" : (secondsLeft <= 15 ? "var(--red-500)" : "var(--green-400)"))),
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+          <div className="mono" style={{ fontSize: state.paused ? (isMobile ? 14 : 20) : (isMobile ? 24 : 34), fontWeight: 800, color: "white", lineHeight: 1 }}>
+            {complete ? "—" : (state.paused ? "PAUSED" : fmtClock(secondsLeft))}
+          </div>
+          <div style={{ fontSize: 9, fontWeight: 800, color: "rgba(255,255,255,0.55)", letterSpacing: "0.1em", marginTop: 3 }}>
+            {complete ? "" : (state.paused ? `(${fmtClock(secondsLeft)})` : "SECONDS")}
+          </div>
+        </div>
+        {/* next-up + controls */}
+        <div style={{ textAlign: isMobile ? "left" : "right", ...(isMobile ? { gridColumn: "1 / -1" } : {}) }}>
+          {!complete && (
+            <React.Fragment>
+              <div style={{ fontSize: 10, fontWeight: 800, color: "rgba(255,255,255,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Next up</div>
+              <div style={{ fontSize: 15, fontWeight: 700, color: "rgba(255,255,255,0.6)", marginTop: 2, marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.04em" }}>
+                {nextUp ? mgrName(nextUp) : "—"}
+              </div>
+            </React.Fragment>
+          )}
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: isMobile ? "flex-start" : "flex-end" }}>
+            <button className={"btn " + (outOnly ? "btn--primary" : "")} style={{ fontSize: 12 }}
+              title="Every squad: show only players whose nation is out of the World Cup"
+              onClick={() => setOutOnly(v => !v)}>{outOnly ? "✓ Players to replace" : "⚠ Players to replace"}</button>
+            {isAdmin && (state.swaps || []).length > 0 &&
+              <button className="btn" disabled={busy} title="Undo the last pick (⌘/Ctrl+Z)" onClick={doUndo}>← Undo last pick</button>}
+            {isAdmin && !complete &&
+              <button className="btn" disabled={busy} onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
+          </div>
+        </div>
       </div>
 
       {/* Board: 4 corners + central picker */}

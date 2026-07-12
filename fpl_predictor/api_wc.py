@@ -1265,6 +1265,19 @@ def ko_draft_resume(lid: str):
         return _err(str(exc))
 
 
+@wc_bp.route("/leagues/<lid>/ko-draft/undo", methods=["POST"])
+def ko_draft_undo(lid: str):
+    # Undo pops the last swap and (live only) reverses the real-squad mutation,
+    # so it carries the same authority as a pick: super-admin in a live draft.
+    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    if err:
+        return err
+    try:
+        return _ok(_ko_draft().undo_last_swap(lid))
+    except ValueError as exc:
+        return _err(str(exc))
+
+
 def _require_sim_league(lid: str):
     """Auth + simulated-only guard for the draft-simulator endpoints. These are
     mock-testing tools that mutate (and reset() wipes) squads/draft state, so
