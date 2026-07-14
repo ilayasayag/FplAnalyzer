@@ -660,32 +660,76 @@ function KnockoutMatchup({ match, label }) {
 }
 // ---- All-squads list view (GW points per player) ----
 const KO_POS_ORDER = [[1, "GK"], [2, "DEF"], [3, "MID"], [4, "FWD"]];
+// A single player row (list view) — clickable → GW breakdown modal.
+function KOPlayerRow({ id, points, benchNo }) {
+  const p = (window.PLAYER_MAP || {})[String(id)];
+  if (!p) return null;
+  const t = (typeof teamById === "function") ? teamById(p.team) : null;
+  const label = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" }[p.pos] || "";
+  return (
+    <div title="View full GW breakdown"
+      onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } }))}
+      style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
+      <span className="mono" style={{ width: 30, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{label}</span>
+      {t && <span style={{ width: 18, flexShrink: 0 }}><Flag team={t} /></span>}
+      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationColor: "var(--ink-300)" }}>{p.name}</span>
+      {benchNo != null && <span className="mono" style={{ fontSize: 9, fontWeight: 800, color: "var(--ink-400)" }}>#{benchNo}</span>}
+      <span className="mono" style={{ width: 34, textAlign: "right", fontWeight: 800, fontSize: 13, color: points != null ? "var(--ink-900)" : "var(--ink-400)" }}>{points != null ? points : "–"}</span>
+    </div>
+  );
+}
 function KnockoutSquadsList({ seededUids, gw }) {
   const isMobile = useIsMobile();
   const lid = (window.LEAGUE || LEAGUE || {}).id;
+  const [view, setView] = React.useState("pitch");           // pitch | list
   const [pointsById, setPointsById] = React.useState(null);
+  const [lineups, setLineups] = React.useState({});          // uid -> {starting,bench,formation}
+  const key = seededUids.join(",");
   React.useEffect(() => {
     if (!lid || !gw) return;
     let dead = false;
     apiCall("GET", `/leagues/${lid}/gw-player-points/${gw}`)
       .then(r => { if (!dead) setPointsById((r && r.points) || {}); })
       .catch(() => { if (!dead) setPointsById({}); });
+    seededUids.forEach(uid => {
+      apiCall("GET", `/leagues/${lid}/lineup/${uid}/${gw}`)
+        .then(r => { if (!dead && r) setLineups(prev => ({ ...prev, [uid]: { starting: r.starting || [], bench: r.bench || [], formation: r.formation || [1, 4, 4, 2] } })); })
+        .catch(() => {});
+    });
     return () => { dead = true; };
-  }, [lid, gw]);
+  }, [lid, gw, key]);
   const pmap = window.PLAYER_MAP || {};
-  const squadOf = (uid) => {
-    const ids = (window.SQUADS_BY_UID || {})[uid] || [];
-    return ids.map(id => pmap[String(id)]).filter(Boolean);
-  };
   const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
   const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  // Order a lineup GK→DEF→MID→FWD and derive the formation from real positions,
+  // so the pitch lays out correctly regardless of stored order.
+  const ordered = (uid) => {
+    const lu = lineups[uid];
+    if (!lu) return null;
+    const posOf = id => (pmap[String(id)] ? pmap[String(id)].pos : 3);
+    const byPos = { 1: [], 2: [], 3: [], 4: [] };
+    (lu.starting || []).forEach(id => (byPos[posOf(id)] || byPos[3]).push(id));
+    return {
+      starting: [...byPos[1], ...byPos[2], ...byPos[3], ...byPos[4]],
+      bench: lu.bench || [],
+      formation: [Math.max(1, byPos[1].length), byPos[2].length, byPos[3].length, byPos[4].length],
+    };
+  };
+  const toggle = (v, label) => (
+    <button className={"btn " + (view === v ? "btn--primary" : "")}
+      style={{ padding: "6px 16px", fontSize: 12, background: view === v ? undefined : "transparent", color: view === v ? undefined : "var(--ink-700)" }}
+      onClick={() => setView(v)}>{label}</button>
+  );
   return (
-    <KnockoutLine title={`Squads · GW${gw} points`}>
+    <KnockoutLine title={`Lineups · GW${gw} points`}>
+      <div style={{ display: "inline-flex", padding: 4, background: "var(--card-2, rgba(0,0,0,0.06))", borderRadius: 999, marginBottom: 12 }}>
+        {toggle("pitch", "Pitch View")}{toggle("list", "List View")}
+      </div>
       <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
         {seededUids.map(uid => {
-          const players = squadOf(uid).slice().sort((a, b) => (a.pos - b.pos) || a.name.localeCompare(b.name));
+          const lu = ordered(uid);
           const flag = flagOf(uid);
           return (
             <div key={uid} className="card" style={{ padding: 14 }}>
@@ -699,28 +743,16 @@ function KnockoutSquadsList({ seededUids, gw }) {
                   <div className="mono" style={{ fontSize: 22, fontWeight: 900, color: "var(--violet-600)", lineHeight: 1 }}>{total(uid) != null ? total(uid) : "—"}</div>
                 </div>
               </div>
-              {KO_POS_ORDER.map(([pos, plabel]) => {
-                const row = players.filter(p => p.pos === pos);
-                if (!row.length) return null;
-                return (
-                  <div key={pos} style={{ marginBottom: 4 }}>
-                    {row.map(p => {
-                      const t = (typeof teamById === "function") ? teamById(p.team) : null;
-                      return (
-                        <div key={p.id} title="View full GW breakdown"
-                          onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(p.id) } }))}
-                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
-                          <span className="mono" style={{ width: 30, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{plabel}</span>
-                          {t && <span style={{ width: 18, flexShrink: 0 }}><Flag team={t} /></span>}
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationColor: "var(--ink-300)" }}>{p.name}</span>
-                          <span className="mono" style={{ width: 34, textAlign: "right", fontWeight: 800, fontSize: 13, color: ppts(p.id) != null ? "var(--ink-900)" : "var(--ink-400)" }}>{ppts(p.id) != null ? ppts(p.id) : "–"}</span>
-                        </div>
-                      );
-                    })}
+              {!lu ? <div className="muted" style={{ fontSize: 12 }}>Lineup loading…</div>
+                : view === "pitch" ? (
+                  <Pitch lineup={lu} mode="points" pointsById={pointsById || {}} />
+                ) : (
+                  <div>
+                    {lu.starting.map(id => <KOPlayerRow key={id} id={id} points={ppts(id)} />)}
+                    {lu.bench.length > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "8px 0 2px" }}>Bench</div>}
+                    {lu.bench.map((id, i) => <KOPlayerRow key={id} id={id} points={ppts(id)} benchNo={i + 1} />)}
                   </div>
-                );
-              })}
-              {players.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Squad not loaded.</div>}
+                )}
             </div>
           );
         })}
