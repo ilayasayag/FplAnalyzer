@@ -728,11 +728,13 @@ function KnockoutSquadsList({ seededUids, gw }) {
           this card width, clipping the FWD row. Give it a fixed min-height (fits
           4 rows of slots) + a comfortable max-width so it doesn't stretch huge on
           wide screens. Injected here so it ships with the versioned jsx. */}
-      <style>{`.ko-lineup-pitch{max-width:640px;margin:0 auto}.ko-lineup-pitch .pitch{min-height:520px}`}</style>
+      <style>{`.ko-lineup-pitch .pitch{aspect-ratio:auto;width:100%;min-height:520px}`}</style>
       <div style={{ display: "inline-flex", padding: 4, background: "var(--card-2, rgba(0,0,0,0.06))", borderRadius: 999, marginBottom: 12 }}>
         {toggle("pitch", "Pitch View")}{toggle("list", "List View")}
       </div>
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: (view === "pitch" || isMobile) ? "1fr" : "1fr 1fr" }}>
+      {/* Two lineups side-by-side (both views) — the seed order pairs each
+          semi-final's two managers in the same row for a 1-v-1 bracket feel. */}
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
         {seededUids.map(uid => {
           const lu = ordered(uid);
           const flag = flagOf(uid);
