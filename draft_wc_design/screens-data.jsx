@@ -569,7 +569,7 @@ function FixturesScreen() {
 
 // ---------- LEAGUE STANDINGS ----------
 function LeagueScreen({ onTab }) {
-  const [tab, setTab] = React.useState("standings");
+  const [tab, setTab] = React.useState("knockout");   // Knockout is the default League view
   const isMobile = useIsMobile();
   // Phase pill derives from the league config, not a hardcoded "Knockout
   // Phase" (same derivation as the shell identity card).
@@ -643,15 +643,87 @@ function KnockoutSide({ uid, seed, points, isWinner, placeholder }) {
 }
 function KnockoutMatchup({ match, label }) {
   const w = match.winner;
+  // Live GW points per manager from window.GW_TOTALS (scores/{gw}.results),
+  // falling back to the bracket's stored points once the round is finalized.
+  const tot = window.GW_TOTALS || {};
+  const pts = (uid, stored) => stored != null ? stored : (uid && tot[uid] != null ? tot[uid] : null);
   return (
     <div className="card" style={{ padding: 20 }}>
       <div className="h-display" style={{ fontSize: 14, letterSpacing: "0.05em", textTransform: "uppercase", color: "var(--ink-500)", marginBottom: 14, textAlign: "center" }}>{label}{match.gw ? ` · GW${match.gw}` : ""}</div>
       <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
-        <KnockoutSide uid={match.home} seed={match.homeSeed} points={match.homePoints} placeholder={match.homePh} isWinner={w ? w === match.home : undefined} />
+        <KnockoutSide uid={match.home} seed={match.homeSeed} points={pts(match.home, match.homePoints)} placeholder={match.homePh} isWinner={w ? w === match.home : undefined} />
         <div className="h-display" style={{ fontSize: 22, fontWeight: 900, color: "var(--gold-600)", flexShrink: 0 }}>VS</div>
-        <KnockoutSide uid={match.away} seed={match.awaySeed} points={match.awayPoints} placeholder={match.awayPh} isWinner={w ? w === match.away : undefined} />
+        <KnockoutSide uid={match.away} seed={match.awaySeed} points={pts(match.away, match.awayPoints)} placeholder={match.awayPh} isWinner={w ? w === match.away : undefined} />
       </div>
     </div>
+  );
+}
+// ---- All-squads list view (GW points per player) ----
+const KO_POS_ORDER = [[1, "GK"], [2, "DEF"], [3, "MID"], [4, "FWD"]];
+function KnockoutSquadsList({ seededUids, gw }) {
+  const isMobile = useIsMobile();
+  const lid = (window.LEAGUE || LEAGUE || {}).id;
+  const [pointsById, setPointsById] = React.useState(null);
+  React.useEffect(() => {
+    if (!lid || !gw) return;
+    let dead = false;
+    apiCall("GET", `/leagues/${lid}/gw-player-points/${gw}`)
+      .then(r => { if (!dead) setPointsById((r && r.points) || {}); })
+      .catch(() => { if (!dead) setPointsById({}); });
+    return () => { dead = true; };
+  }, [lid, gw]);
+  const pmap = window.PLAYER_MAP || {};
+  const squadOf = (uid) => {
+    const ids = (window.SQUADS_BY_UID || {})[uid] || [];
+    return ids.map(id => pmap[String(id)]).filter(Boolean);
+  };
+  const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
+  const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
+  const total = uid => (window.GW_TOTALS || {})[uid];
+  const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  return (
+    <KnockoutLine title={`Squads · GW${gw} points`}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
+        {seededUids.map(uid => {
+          const players = squadOf(uid).slice().sort((a, b) => (a.pos - b.pos) || a.name.localeCompare(b.name));
+          const flag = flagOf(uid);
+          return (
+            <div key={uid} className="card" style={{ padding: 14 }}>
+              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10 }}>
+                {flag && <img src={flag + "?v=96"} alt="" style={{ width: 40, height: 27, borderRadius: 4, objectFit: "cover", flexShrink: 0 }} onError={e => { e.target.style.display = "none"; }} />}
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div className="h-display" style={{ fontSize: 16, fontWeight: 800, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{mgr(uid).team || mgr(uid).name}</div>
+                </div>
+                <div style={{ textAlign: "right" }}>
+                  <div style={{ fontSize: 10, fontWeight: 800, color: "var(--ink-500)", textTransform: "uppercase" }}>GW{gw}</div>
+                  <div className="mono" style={{ fontSize: 22, fontWeight: 900, color: "var(--violet-600)", lineHeight: 1 }}>{total(uid) != null ? total(uid) : "—"}</div>
+                </div>
+              </div>
+              {KO_POS_ORDER.map(([pos, plabel]) => {
+                const row = players.filter(p => p.pos === pos);
+                if (!row.length) return null;
+                return (
+                  <div key={pos} style={{ marginBottom: 4 }}>
+                    {row.map(p => {
+                      const t = (typeof teamById === "function") ? teamById(p.team) : null;
+                      return (
+                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)" }}>
+                          <span className="mono" style={{ width: 30, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{plabel}</span>
+                          {t && <span style={{ width: 18, flexShrink: 0 }}><Flag team={t} /></span>}
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                          <span className="mono" style={{ width: 34, textAlign: "right", fontWeight: 800, fontSize: 13, color: ppts(p.id) != null ? "var(--ink-900)" : "var(--ink-400)" }}>{ppts(p.id) != null ? ppts(p.id) : "–"}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                );
+              })}
+              {players.length === 0 && <div className="muted" style={{ fontSize: 12 }}>Squad not loaded.</div>}
+            </div>
+          );
+        })}
+      </div>
+    </KnockoutLine>
   );
 }
 function KnockoutLine({ title, color, children }) {
@@ -700,6 +772,10 @@ function KnockoutPanel() {
           <KnockoutMatchup match={finalDisplay} label="Final" />
         </div>
       </KnockoutLine>
+      {/* Bottom: every semifinalist's full squad with this GW's points per player. */}
+      <KnockoutSquadsList
+        seededUids={sf.flatMap(m => [m.home, m.away]).filter(Boolean)}
+        gw={(sf[0] && sf[0].gw) || league.knockoutStartGw} />
     </div>
   );
 }
