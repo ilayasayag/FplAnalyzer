@@ -724,10 +724,15 @@ function KnockoutSquadsList({ seededUids, gw }) {
   );
   return (
     <KnockoutLine title={`Lineups · GW${gw} points`}>
+      {/* The shared .pitch is aspect-ratio 16/11 — too short for the full XI at
+          this card width, clipping the FWD row. Give it a fixed min-height (fits
+          4 rows of slots) + a comfortable max-width so it doesn't stretch huge on
+          wide screens. Injected here so it ships with the versioned jsx. */}
+      <style>{`.ko-lineup-pitch{max-width:640px;margin:0 auto}.ko-lineup-pitch .pitch{min-height:520px}`}</style>
       <div style={{ display: "inline-flex", padding: 4, background: "var(--card-2, rgba(0,0,0,0.06))", borderRadius: 999, marginBottom: 12 }}>
         {toggle("pitch", "Pitch View")}{toggle("list", "List View")}
       </div>
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: (view === "pitch" || isMobile) ? "1fr" : "1fr 1fr" }}>
         {seededUids.map(uid => {
           const lu = ordered(uid);
           const flag = flagOf(uid);
@@ -745,7 +750,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
               </div>
               {!lu ? <div className="muted" style={{ fontSize: 12 }}>Lineup loading…</div>
                 : view === "pitch" ? (
-                  <Pitch lineup={lu} mode="points" pointsById={pointsById || {}} />
+                  <div className="ko-lineup-pitch"><Pitch lineup={lu} mode="points" pointsById={pointsById || {}} /></div>
                 ) : (
                   <div>
                     {lu.starting.map(id => <KOPlayerRow key={id} id={id} points={ppts(id)} />)}
