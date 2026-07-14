@@ -707,10 +707,12 @@ function KnockoutSquadsList({ seededUids, gw }) {
                     {row.map(p => {
                       const t = (typeof teamById === "function") ? teamById(p.team) : null;
                       return (
-                        <div key={p.id} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)" }}>
+                        <div key={p.id} title="View full GW breakdown"
+                          onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(p.id) } }))}
+                          style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
                           <span className="mono" style={{ width: 30, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{plabel}</span>
                           {t && <span style={{ width: 18, flexShrink: 0 }}><Flag team={t} /></span>}
-                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{p.name}</span>
+                          <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationColor: "var(--ink-300)" }}>{p.name}</span>
                           <span className="mono" style={{ width: 34, textAlign: "right", fontWeight: 800, fontSize: 13, color: ppts(p.id) != null ? "var(--ink-900)" : "var(--ink-400)" }}>{ppts(p.id) != null ? ppts(p.id) : "–"}</span>
                         </div>
                       );
