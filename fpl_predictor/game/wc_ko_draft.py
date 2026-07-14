@@ -205,6 +205,9 @@ class KnockoutSwapDraftEngine:
             "pickDeadline": time.time() + pick_timer,
             "paused": False,
             "swaps": [],
+            # Ordered history of EVERY turn (swap OR pass) so undo can step the
+            # clock back one turn regardless of whether a pick was made.
+            "actions": [],
             "seq": 0,
             "startedAt": SERVER_TIMESTAMP,
             "completedAt": None,
@@ -289,9 +292,13 @@ class KnockoutSwapDraftEngine:
                 "ts": time.time(),
             }
             swaps.append(swap)
+            actions = list(state.get("actions", []))
+            actions.append({"type": "swap", "uid": uid, "playerIn": player_in,
+                            "playerOut": player_out, "seq": seq})
             next_drafter = self._next_drafter(state.get("activePickers", []), uid)
             update = {
                 "swaps": swaps,
+                "actions": actions,
                 "seq": seq,
                 "currentDrafter": next_drafter,
                 "pickDeadline": time.time() + int(state.get("pickTimer", DEFAULT_PICK_TIMER)),
@@ -330,7 +337,9 @@ class KnockoutSwapDraftEngine:
             active = list(state.get("activePickers", []))
             next_drafter = self._next_drafter(active, uid)
             active = [u for u in active if u != uid]
-            update = {"activePickers": active}
+            actions = list(state.get("actions", []))
+            actions.append({"type": "pass", "uid": uid})
+            update = {"activePickers": active, "actions": actions}
             if not active:
                 update["status"] = "complete"
                 update["currentDrafter"] = None
@@ -413,20 +422,20 @@ class KnockoutSwapDraftEngine:
             if not snap.exists:
                 raise ValueError("Draft not found")
             state = snap.to_dict()
-            swaps = list(state.get("swaps", []))
-            if not swaps:
+            actions = list(state.get("actions", []))
+            if not actions:
                 raise ValueError("Nothing to undo")
-            last = swaps.pop()
+            last = actions.pop()
             uid = last.get("uid")
+            is_swap = last.get("type") == "swap"
             order = list(state.get("order", []))
             active = list(state.get("activePickers", []))
+            # Put the undone manager back on the clock, re-activating them and
+            # reopening a completed draft — preserving seed order.
             if uid not in active:
-                # Reopen the rotation (e.g. the draft had completed) and slot the
-                # undone manager back in, preserving seed order.
                 active = [u for u in order if u in active or u == uid] or [uid]
             update = {
-                "swaps": swaps,
-                "seq": max(0, int(state.get("seq", 0)) - 1),
+                "actions": actions,
                 "status": "active",
                 "activePickers": active,
                 "currentDrafter": uid,
@@ -434,22 +443,30 @@ class KnockoutSwapDraftEngine:
                 "completedAt": None,
                 "pickDeadline": time.time() + int(state.get("pickTimer", DEFAULT_PICK_TIMER)),
             }
+            if is_swap:
+                swaps = list(state.get("swaps", []))
+                if swaps:
+                    popped = swaps.pop()
+                    last["playerOutObj"] = popped.get("playerOutObj")  # for the live reverse
+                update["swaps"] = swaps
+                update["seq"] = max(0, int(state.get("seq", 0)) - 1)
             if txn is not None:
                 txn.update(state_ref, update)
             else:
                 state_ref.update(update)
-            return {"last": last, "rehearsal": bool(state.get("rehearsal", True))}
+            return {"last": last, "isSwap": is_swap, "rehearsal": bool(state.get("rehearsal", True))}
 
         r = self._run_txn(_do)
         last = r["last"]
-        # Live only: reverse the mirror — drop playerIn, restore playerOut.
-        if not r.get("rehearsal", True):
+        # Live only: a swap also mirrored to the real squad — reverse it (drop
+        # playerIn, restore playerOut). A pass never touched a squad.
+        if r.get("isSwap") and not r.get("rehearsal", True):
             self._reverse_swap_on_squad(
                 lid, last.get("uid"), int(last.get("playerIn")),
                 int(last.get("playerOut")), last.get("playerOutObj"))
         return {"status": "ok", "undone": {
-            "uid": last.get("uid"), "playerIn": last.get("playerIn"),
-            "playerOut": last.get("playerOut"), "seq": last.get("seq")}}
+            "type": last.get("type"), "uid": last.get("uid"),
+            "playerIn": last.get("playerIn"), "playerOut": last.get("playerOut")}}
 
     # ------------------------------------------------------------------
     # State read (frontend)
@@ -476,6 +493,8 @@ class KnockoutSwapDraftEngine:
             "pickDeadline": state.get("pickDeadline"),
             "paused": bool(state.get("paused", False)),
             "swaps": swaps,
+            # Turns that can be undone (swaps + passes) — drives the Undo button.
+            "actionCount": len(state.get("actions", [])),
             "squads": squads,
             "ownedPlayerIds": owned,
         }

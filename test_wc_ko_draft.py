@@ -350,6 +350,21 @@ def test_undo_repeatable_to_start_then_errors():
         eng.undo_last_swap(LID)                    # nothing left to undo
 
 
+def test_undo_reverses_a_pass_even_with_no_pick():
+    # B: undo must step the clock back a turn even when the last action was a
+    # PASS (no swap made). m1 passes -> clock m2; undo brings m1 back on clock.
+    db, eng = _fresh()
+    assert eng.get_state(LID)["currentDrafter"] == "m1"
+    eng.pass_turn(LID, "m1")
+    st = eng.get_state(LID)
+    assert st["currentDrafter"] == "m2" and "m1" not in st["activePickers"]
+    res = eng.undo_last_swap(LID)
+    assert res["undone"]["type"] == "pass" and res["undone"]["uid"] == "m1"
+    st = eng.get_state(LID)
+    assert st["currentDrafter"] == "m1" and "m1" in st["activePickers"]
+    assert st["actionCount"] == 0
+
+
 def test_undo_reopens_completed_draft():
     db, eng = _fresh()
     eng.make_swap(LID, "m1", player_in=901, player_out=_def_out(1))  # clock -> m2
