@@ -1569,10 +1569,8 @@ function KnockoutDraftScreen({ onTab }) {
     finally { setBusy(false); }
   };
   const doUndo = async () => {
-    if (busy || !state || !(state.swaps || []).length) return;
-    const last = state.swaps[state.swaps.length - 1];
-    const who = last ? mgrName(last.uid) : "the last pick";
-    if (!window.confirm(`Undo the last pick?\n\nIt's removed and ${who} goes back on the clock with a fresh timer. Repeat to step further back.`)) return;
+    if (busy || !state || !((state.actionCount || 0) > 0)) return;
+    if (!window.confirm(`Undo the last turn?\n\nThe last pick or pass is reversed and that manager goes back on the clock with a fresh timer. Repeat to step further back.`)) return;
     setBusy(true);
     try { await apiCall("POST", `/leagues/${lid}/ko-draft/undo`); setSelIn(null); setSelOut(null); }
     catch (e) { alert("Undo failed: " + (e.error || e.detail || JSON.stringify(e))); }
@@ -1596,10 +1594,23 @@ function KnockoutDraftScreen({ onTab }) {
     const action = (state && state.paused) ? "resume" : "pause";
     try { await apiCall("POST", `/leagues/${lid}/ko-draft/${action}`); } catch (e) { alert("Failed: " + (e.error || e.detail || JSON.stringify(e))); }
   };
-  const startRehearsal = async () => {
-    if (busy) return; setBusy(true);
-    try { await apiCall("POST", `/leagues/${lid}/ko-draft/start`, { rehearsal: true }); }
+  const startDraft = async (rehearsal) => {
+    if (busy) return;
+    const msg = rehearsal
+      ? "Start a REHEARSAL? Safe dry run — no real squad changes are written."
+      : "Start the REAL knockout draft?\n\nPicks are written to real squads and this is the live event. Start from the first pick.";
+    if (!window.confirm(msg)) return;
+    setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/start`, { rehearsal: !!rehearsal }); }
     catch (e) { alert("Start failed: " + (e.error || e.detail || JSON.stringify(e))); }
+    finally { setBusy(false); }
+  };
+  const resetDraft = async () => {
+    if (busy) return;
+    if (!window.confirm("Reset the draft to scratch?\n\nEvery pick is wiped and the board returns to the pre-draft screen. The setup (pick order + eliminated squads) is kept so you can start again.")) return;
+    setBusy(true);
+    try { await apiCall("POST", `/leagues/${lid}/ko-draft/reset`); setSelIn(null); setSelOut(null); }
+    catch (e) { alert("Reset failed: " + (e.error || e.detail || JSON.stringify(e))); }
     finally { setBusy(false); }
   };
 
@@ -1614,12 +1625,13 @@ function KnockoutDraftScreen({ onTab }) {
         <div style={{ fontSize: 40 }}>🏆</div>
         <h2 style={{ marginTop: 8 }}>Knockout Free-Agent Draft</h2>
         <p className="muted" style={{ maxWidth: 560, margin: "10px auto" }}>
-          The GW7 live swap-draft isn't open yet. {canStart
-            ? "A rehearsal is configured and ready — start a safe dry run (no squad changes) to see the full board."
+          The knockout swap-draft isn't running yet. {canStart
+            ? "Setup is ready — start the REAL draft (picks written to squads) or a safe rehearsal (no squad changes)."
             : "The admin sets it up in Rules Config → Knockout Free-Agent Draft (two eliminated squads + pick order)."}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
-          {canStart && <button className="btn btn--primary" disabled={busy} onClick={startRehearsal}>▶ Start rehearsal</button>}
+          {canStart && <button className="btn btn--primary" disabled={busy} onClick={() => startDraft(false)}>▶ Start draft</button>}
+          {canStart && <button className="btn" disabled={busy} onClick={() => startDraft(true)}>Start rehearsal</button>}
           {isAdmin && <button className="btn" onClick={() => onTab("config")}>Admin setup →</button>}
         </div>
       </div>
@@ -1758,9 +1770,11 @@ function KnockoutDraftScreen({ onTab }) {
               title="Every squad: show only players whose nation is out of the World Cup"
               onClick={() => setOutOnly(v => !v)}>{outOnly ? "✓ Players to replace" : "⚠ Players to replace"}</button>
             {isAdmin &&
-              <button className="btn" disabled={busy || !(state.swaps || []).length} title="Undo the last pick (⌘/Ctrl+Z)" onClick={doUndo}>← Undo last pick</button>}
+              <button className="btn" disabled={busy || !((state.actionCount || 0) > 0)} title="Undo the last turn — pick OR pass (⌘/Ctrl+Z)" onClick={doUndo}>← Undo last pick</button>}
             {isAdmin && !complete &&
               <button className="btn" disabled={busy} onClick={togglePause}>{state.paused ? "Resume" : "Pause"}</button>}
+            {isAdmin &&
+              <button className="btn" disabled={busy} title="Wipe all picks and return to the pre-draft screen" onClick={resetDraft}>⟲ Reset draft</button>}
           </div>
         </div>
       </div>
