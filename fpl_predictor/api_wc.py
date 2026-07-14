@@ -2700,6 +2700,24 @@ def get_knockout(lid: str):
     return _ok(bracket)
 
 
+@wc_bp.route("/leagues/<lid>/gw-player-points/<int:gw>", methods=["GET"])
+def gw_player_points(lid: str, gw: int):
+    """Read-only: ``{playerId: fantasyPoints}`` for every player scored in ``gw``,
+    assembled LIVE from the fixtures' ``playerScores`` (works mid-GW, before the
+    finalize gw_history snapshot exists). Powers the Knockout all-squads points
+    view. No writes."""
+    uid, err = _require_auth()
+    if err:
+        return err
+    pts = {}
+    for f in _db.collection("wc_fixtures").where("gw", "==", gw).get():
+        for ps in (_db.collection("wc_fixtures").document(f.id)
+                   .collection("playerScores").get()):
+            d = ps.to_dict() or {}
+            pts[str(ps.id)] = (pts.get(str(ps.id)) or 0) + (d.get("fantasyPoints") or 0)
+    return _ok({"gw": gw, "points": pts})
+
+
 # ---------------------------------------------------------------------------
 # §13 — Transactions log
 # ---------------------------------------------------------------------------
