@@ -820,8 +820,8 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-team__name{font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .vs-team__score{font-family:var(--font-mono,ui-monospace,monospace);font-weight:900;font-size:30px;line-height:1.05;color:#ffd76a}
         .vs-mid{font-weight:900;font-size:13px;color:rgba(255,255,255,.55);letter-spacing:.1em}
-        .vs-pitch{position:relative;width:100%;aspect-ratio:5/6;border-radius:8px;overflow:hidden;background:radial-gradient(120% 85% at 50% 50%,#901d40 0%,#7a1634 55%,#5e1029 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
-        .vs-pitch__stripes{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.075) 0,rgba(255,255,255,.075) 8.33%,rgba(0,0,0,.07) 8.33%,rgba(0,0,0,.07) 16.66%)}
+        .vs-pitch{position:relative;width:100%;aspect-ratio:5/6;border-radius:8px;overflow:hidden;background:#7a1634;box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
+        .vs-pitch__stripes{position:absolute;inset:0;background:repeating-linear-gradient(90deg,#7a1634 0,#7a1634 8.33%,#6a1230 8.33%,#6a1230 16.66%)}
         .vs-pitch__lines{position:absolute;inset:8px;border:2px solid rgba(255,255,255,.6);border-radius:4px}
         .vs-pitch__circle{position:absolute;left:50%;top:50%;width:20%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.6);border-radius:50%}
         .vs-pitch__spot{position:absolute;left:50%;top:50%;width:5px;height:5px;background:#fff;border-radius:50%;transform:translate(-50%,-50%)}
