@@ -820,8 +820,8 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-team__name{font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
         .vs-team__score{font-family:var(--font-mono,ui-monospace,monospace);font-weight:900;font-size:30px;line-height:1.05;color:#ffd76a}
         .vs-mid{font-weight:900;font-size:13px;color:rgba(255,255,255,.55);letter-spacing:.1em}
-        .vs-pitch{position:relative;width:100%;min-height:660px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#8d1b3d 0%,#7a1533 50%,#66102b 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
-        .vs-pitch__stripes{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.055) 0,rgba(255,255,255,.055) 8.33%,rgba(0,0,0,.05) 8.33%,rgba(0,0,0,.05) 16.66%)}
+        .vs-pitch{position:relative;width:100%;aspect-ratio:5/6;border-radius:8px;overflow:hidden;background:radial-gradient(120% 85% at 50% 50%,#901d40 0%,#7a1634 55%,#5e1029 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
+        .vs-pitch__stripes{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.075) 0,rgba(255,255,255,.075) 8.33%,rgba(0,0,0,.07) 8.33%,rgba(0,0,0,.07) 16.66%)}
         .vs-pitch__lines{position:absolute;inset:8px;border:2px solid rgba(255,255,255,.6);border-radius:4px}
         .vs-pitch__circle{position:absolute;left:50%;top:50%;width:20%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.6);border-radius:50%}
         .vs-pitch__spot{position:absolute;left:50%;top:50%;width:5px;height:5px;background:#fff;border-radius:50%;transform:translate(-50%,-50%)}
@@ -831,17 +831,17 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-pitch__pen--bot{bottom:8px;border-bottom:none}
         .vs-rows{position:absolute;inset:0;display:grid;grid-template-rows:repeat(8,1fr);padding:10px 6px}
         .vs-row{display:flex;justify-content:space-around;align-items:center}
-        .vs-slot{display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;width:60px;transition:transform .12s ease}
+        .vs-slot{display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;width:74px;transition:transform .12s ease}
         .vs-slot:hover{transform:translateY(-3px) scale(1.07);z-index:4}
-        .vs-slot__jersey{width:46px;height:40px;display:flex;align-items:center;justify-content:center}
-        .vs-slot__name{max-width:66px;font-size:9px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+        .vs-slot__jersey{width:60px;height:54px;display:flex;align-items:center;justify-content:center}
+        .vs-slot__name{max-width:84px;font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
         .vs-slot__pts{font-size:10px;font-weight:900;color:#0c0a3e;background:#ffd76a;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center}
         .vs-slot--elim{opacity:.5;filter:grayscale(.7)}
         @media (max-width:720px){
-          .vs-pitch{min-height:520px}
-          .vs-slot{width:48px}
-          .vs-slot__jersey{width:38px;height:33px}
-          .vs-slot__name{font-size:8px;max-width:54px}
+          .vs-pitch{aspect-ratio:5/6;min-height:560px}
+          .vs-slot{width:58px}
+          .vs-slot__jersey{width:48px;height:43px}
+          .vs-slot__name{font-size:9px;max-width:64px}
           .vs-team__score{font-size:24px}
           .vs-team__name{font-size:13px}
         }
