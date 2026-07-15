@@ -2702,19 +2702,43 @@ def get_knockout(lid: str):
 
 @wc_bp.route("/leagues/<lid>/gw-player-points/<int:gw>", methods=["GET"])
 def gw_player_points(lid: str, gw: int):
-    """Read-only: ``{playerId: fantasyPoints}`` plus the raw per-player ``stats``
-    blob and a ``final`` (fixture reached FT) flag for every player scored in
-    ``gw``, assembled LIVE from the fixtures' ``playerScores`` (works mid-GW,
-    before the finalize gw_history snapshot exists). Powers the Knockout
-    all-squads points/stats view. No writes."""
+    """Read-only: ``{playerId: fantasyPoints}``, the raw per-player ``stats``
+    blob, and ``teamStatus`` ({teamIso: FT|LIVE|NS}) for ``gw``, assembled LIVE
+    from the fixtures' ``playerScores`` (works mid-GW, before the finalize
+    gw_history snapshot exists). Powers the Knockout all-squads points/stats
+    view. No writes.
+
+    ``teamStatus`` is keyed by TEAM, not player, on purpose: a benched player
+    has no playerScores doc at all, so a per-player flag could never tell
+    "his match is still live" from "his match ended and he never came on".
+    The client resolves a player's state via his team's fixture.
+
+    ``final`` (per-player) is retained for backward compatibility with clients
+    deployed before teamStatus existed."""
     uid, err = _require_auth()
     if err:
         return err
+    team_map = _wc.get_team_map(_db)
+
+    def _iso_of(side: dict) -> str:
+        iso = (side.get("isoCode") or "").strip().upper()
+        if not iso and side.get("id") is not None:
+            resolved = team_map.get(int(side["id"]))
+            iso = _team_display_iso(resolved) if resolved else ""
+        return iso
+
     pts = {}
     stats = {}
     final = {}
+    team_status = {}
     for f in _db.collection("wc_fixtures").where("gw", "==", gw).get():
-        is_final = (f.to_dict() or {}).get("status") == "FT"
+        fd = f.to_dict() or {}
+        status = fd.get("status") or "NS"
+        is_final = status == "FT"
+        for side in ("homeTeam", "awayTeam"):
+            iso = _iso_of(fd.get(side) or {})
+            if iso:
+                team_status[iso] = status
         for ps in (_db.collection("wc_fixtures").document(f.id)
                    .collection("playerScores").get()):
             d = ps.to_dict() or {}
@@ -2724,7 +2748,8 @@ def gw_player_points(lid: str, gw: int):
             if s:
                 stats[pid] = s
             final[pid] = is_final
-    return _ok({"gw": gw, "points": pts, "stats": stats, "final": final})
+    return _ok({"gw": gw, "points": pts, "stats": stats, "final": final,
+                "teamStatus": team_status})
 
 
 # ---------------------------------------------------------------------------
