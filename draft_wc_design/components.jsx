@@ -272,8 +272,68 @@ function getNextFixtureOpponentIso(teamIso, gw = null) {
   return null;
 }
 
+// ---------- DefCon tier/color helpers (List View table + Pitch View badge) ----------
+// Coloring thresholds so managers can see at a glance how close a defender/
+// midfielder is to the +2 DefCon bonus. DEF = CBIT sum, MID = CBITR sum
+// (ball recoveries count for MID only) — mirrors the position-aware split in
+// player-stats-modal.jsx.
+const DEFCON_TIERS = {
+  2: [{ min: 10, tier: 3 }, { min: 7, tier: 2 }, { min: 4, tier: 1 }, { min: 0, tier: 0 }], // DEF
+  3: [{ min: 12, tier: 3 }, { min: 8, tier: 2 }, { min: 4, tier: 1 }, { min: 0, tier: 0 }], // MID
+};
+const DEFCON_TIER_STYLE = [
+  { color: "var(--ink-900)", fontWeight: 600 },                                                              // 0 · black
+  { color: "#8a6d00", fontWeight: 700 },                                                                      // 1 · yellow
+  { color: "#1f9d5c", fontWeight: 800 },                                                                      // 2 · light green
+  { color: "#0b7a3e", fontWeight: 900, background: "rgba(0,217,107,0.16)", borderRadius: 5, padding: "1px 7px" }, // 3 · green bold
+];
+function defconTier(pos, val) {
+  const ladder = DEFCON_TIERS[pos];
+  if (!ladder) return 0;
+  return (ladder.find(t => val >= t.min) || ladder[ladder.length - 1]).tier;
+}
+// Sum the raw defensive-actions stats into the same CBIT/CBITR total the
+// engine scores on. `rec` (ball recoveries) counts for MID only (#168).
+function defconValue(pos, s) {
+  const tk = s.tackles || {};
+  const cbit = (tk.total || 0) + (tk.interceptions || 0) + (tk.blocks || 0) + (s.clearances || 0);
+  return pos === 3 ? cbit + (s.ballRecoveries || 0) : cbit;
+}
+// GK/FWD earn no DefCon, so the DEF column would just be a dash for them —
+// instead it doubles up the shots-on-target (FWD) / saves (GK) count from
+// the S column, colored using the same "did this earn a bonus" green logic
+// (GK: +1 per 3 saves; FWD shots don't score, so they never light up green).
+function shotsOrSaves(pos, s) {
+  return pos === 1 ? (s.saves || 0) : (s.shotsOnTarget || 0);
+}
+function bonusEarnedStyle(pos, val) {
+  const earned = pos === 1 && val >= 3;
+  return earned ? DEFCON_TIER_STYLE[3] : DEFCON_TIER_STYLE[0];
+}
+// Single entry point: given a player + their raw GW stats blob, return the
+// {value, style} to show in a DefCon badge/column, or null with no stats yet.
+function defconBadgeInfo(pos, s) {
+  if (!s) return null;
+  const isDefconPos = pos === 2 || pos === 3;
+  const value = isDefconPos ? defconValue(pos, s) : shotsOrSaves(pos, s);
+  const style = isDefconPos ? DEFCON_TIER_STYLE[defconTier(pos, value)] : bonusEarnedStyle(pos, value);
+  return { value, style };
+}
+// The value at which the DefCon ring reads 100% full — matches the tier-3
+// (green bold) entry point for that position.
+const DEFCON_MAX = { 2: 10, 3: 12 };
+// % progress toward the DefCon bonus ceiling, for the Match View loading
+// ring — DEF/MID only. GK/FWD have no fixed ceiling (GK's +1-per-3-saves
+// repeats forever; FWD shots don't score at all), so they don't get a ring.
+function defconPercent(pos, s) {
+  if (!s || (pos !== 2 && pos !== 3)) return null;
+  const val = defconValue(pos, s);
+  const pct = Math.max(0, Math.min(100, (val / DEFCON_MAX[pos]) * 100));
+  return { pct, color: DEFCON_TIER_STYLE[defconTier(pos, val)].color };
+}
+
 // ---------- Player Slot (used on pitch) ----------
-function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick }) {
+function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick, defBadge = null }) {
   // null outside a FixtureGwContext provider → viewed-GW map (legacy behavior).
   // Read before the empty-slot return so the hook runs on every render.
   const fixtureGw = React.useContext(FixtureGwContext);
@@ -326,6 +386,15 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
             {benchOrder}
           </span>
         )}
+        {/* Opt-in DefCon badge (Knockout Pitch View only — Pitch.statsById).
+            Every other Pitch caller leaves this prop unset, so nothing changes
+            there. Labelled "DC" (not "DEF") to avoid reading as the position
+            tag right above it. */}
+        {defBadge != null && (
+          <span className="player-slot__defbadge" style={{ color: defBadge.style.color, borderColor: defBadge.style.color }} title="DefCon contribution this GW">
+            DC {defBadge.value}
+          </span>
+        )}
       </div>
       <div className="player-slot__name">{p.name}</div>
       <div className="player-slot__fixture">{displayInfo}</div>
@@ -335,7 +404,7 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null }) {
+function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null, statsById = null }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -349,6 +418,15 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
   // gw_history snapshot). A player with no snapshot entry didn't feature that
   // GW → PlayerSlot renders 0 (no season-total fallback; see VT-PointsNoStats).
   const ptsOf = (id) => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : undefined;
+  // Optional DefCon badge — only rendered when the caller passes statsById
+  // (currently just the Knockout list's Pitch View); every other Pitch call
+  // site leaves this null and PlayerSlot renders nothing extra.
+  const defBadgeOf = (id) => {
+    if (!statsById) return null;
+    const p = (window.PLAYER_MAP || {})[String(id)];
+    if (!p) return null;
+    return defconBadgeInfo(p.pos, statsById[String(id)] || null);
+  };
   const isPlayerDisabled = (id) => {
     if (mode !== "pick" || selected === null) return false;
     return !isSwapLegal(lineup, selected, id);
@@ -368,16 +446,16 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
           </div>
         </div>
       </div>
@@ -388,7 +466,7 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} />
+              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />
             </div>
           ))}
         </div>

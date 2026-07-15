@@ -658,40 +658,109 @@ function KnockoutMatchup({ match, label }) {
     </div>
   );
 }
-// ---- All-squads list view (GW points per player) ----
+// ---- All-squads list view (GW points + full stat line per player) ----
+// DefCon tier/color helpers (defconValue, defconTier, DEFCON_TIER_STYLE,
+// shotsOrSaves, bonusEarnedStyle) now live in components.jsx — shared with
+// the Pitch View's DefCon badge.
 const KO_POS_ORDER = [[1, "GK"], [2, "DEF"], [3, "MID"], [4, "FWD"]];
+const KO_STAT_TH_STYLE = { padding: "5px 6px", textAlign: "right", fontSize: 9, fontWeight: 800, letterSpacing: "0.06em", color: "var(--ink-500)", textTransform: "uppercase" };
+const KO_STAT_TD_STYLE = { padding: "5px 6px", textAlign: "right", fontSize: 12 };
+// Header row for the per-manager stat table (List View only). One merged
+// column does triple duty — DEF for defenders/mids, SV (saves) for keepers,
+// SH (shots on target) for forwards — rather than a separate always-dash
+// column per position.
+function KOStatHeader() {
+  return (
+    <tr>
+      <th style={{ padding: "5px 6px 5px 0", textAlign: "left" }}></th>
+      <th style={KO_STAT_TH_STYLE}>MIN</th>
+      <th style={KO_STAT_TH_STYLE}>GS</th>
+      <th style={KO_STAT_TH_STYLE}>A</th>
+      <th style={KO_STAT_TH_STYLE}>CS</th>
+      <th style={KO_STAT_TH_STYLE}>GC</th>
+      <th style={KO_STAT_TH_STYLE}>YC</th>
+      <th style={KO_STAT_TH_STYLE} title="Defensive Contribution for DEF/MID: tackles+interceptions+blocks+clearances (DEF ≥7 bonus, ≥10 max) plus ball recoveries for MID (≥8 bonus, ≥12 max). Saves for GK (+1 per 3). Shots on target for FWD (informational — no bonus).">
+        DEF<span style={{ color: "var(--ink-300)", fontWeight: 700 }}>/SV/SH</span>
+      </th>
+      <th style={{ ...KO_STAT_TH_STYLE, fontWeight: 900 }}>PTS</th>
+    </tr>
+  );
+}
 // A single player row (list view) — clickable → GW breakdown modal.
-function KOPlayerRow({ id, points, benchNo }) {
+function KOPlayerRow({ id, points, stats, benchNo }) {
   const p = (window.PLAYER_MAP || {})[String(id)];
   if (!p) return null;
   const t = (typeof teamById === "function") ? teamById(p.team) : null;
   const label = { 1: "GK", 2: "DEF", 3: "MID", 4: "FWD" }[p.pos] || "";
+  const s = stats || null;
+  const dash = <span style={{ color: "var(--ink-300)" }}>—</span>;
+  const badge = defconBadgeInfo(p.pos, s);
+  const defVal = badge ? badge.value : null;
+  const defStyle = badge ? badge.style : { color: "var(--ink-300)" };
+  // GK/FWD's merged column is really their saves/shots count, not DefCon —
+  // a small unit suffix keeps that legible without a second column.
+  const defUnit = p.pos === 1 ? "sv" : p.pos === 4 ? "sh" : "";
   return (
-    <div title="View full GW breakdown"
+    <tr title="View full GW breakdown"
       onClick={() => window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } }))}
-      style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
-      <span className="mono" style={{ width: 30, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{label}</span>
-      {t && <span style={{ width: 18, flexShrink: 0 }}><Flag team={t} /></span>}
-      <span style={{ flex: 1, minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationColor: "var(--ink-300)" }}>{p.name}</span>
-      {benchNo != null && <span className="mono" style={{ fontSize: 9, fontWeight: 800, color: "var(--ink-400)" }}>#{benchNo}</span>}
-      <span className="mono" style={{ width: 34, textAlign: "right", fontWeight: 800, fontSize: 13, color: points != null ? "var(--ink-900)" : "var(--ink-400)" }}>{points != null ? points : "–"}</span>
-    </div>
+      style={{ borderBottom: "1px solid var(--border)", cursor: "pointer" }}>
+      <td style={{ padding: "5px 6px 5px 0" }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 6, minWidth: 130 }}>
+          <span className="mono" style={{ width: 26, flexShrink: 0, fontSize: 10, fontWeight: 700, color: "var(--ink-500)" }}>{label}</span>
+          {t && <span style={{ width: 16, flexShrink: 0 }}><Flag team={t} /></span>}
+          <span style={{ minWidth: 0, fontSize: 13, fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", textDecoration: "underline", textDecorationColor: "var(--ink-300)" }}>{p.name}</span>
+          {benchNo != null && <span className="mono" style={{ fontSize: 9, fontWeight: 800, color: "var(--ink-400)", flexShrink: 0 }}>#{benchNo}</span>}
+        </div>
+      </td>
+      <td className="num" style={KO_STAT_TD_STYLE}>{s ? (s.minutes || "—") : dash}</td>
+      <td className="num" style={KO_STAT_TD_STYLE}>{s ? (s.goals || 0) : dash}</td>
+      <td className="num" style={KO_STAT_TD_STYLE}>{s ? (s.assists || 0) : dash}</td>
+      <td className="num" style={KO_STAT_TD_STYLE}>{s ? (s.cleanSheet ? "✓" : "—") : dash}</td>
+      <td className="num" style={{ ...KO_STAT_TD_STYLE, color: s && s.goalsConceded > 0 ? "var(--red-500)" : undefined }}>{s ? (s.goalsConceded || "—") : dash}</td>
+      <td className="num" style={{ ...KO_STAT_TD_STYLE, color: s && s.yellowCards ? "var(--gold-600, #8a6d00)" : undefined }}>{s ? (s.yellowCards ? "1" : "—") : dash}</td>
+      <td className="num" style={{ ...KO_STAT_TD_STYLE, ...defStyle }}>
+        {s ? (defVal ? <>{defVal}{defUnit && <span style={{ fontSize: 9, fontWeight: 700, marginLeft: 1 }}>{defUnit}</span>}</> : "—") : dash}
+      </td>
+      <td className="num" style={{ padding: "5px 6px", textAlign: "right", fontWeight: 800, fontSize: 13, color: points != null ? "var(--ink-900)" : "var(--ink-400)" }}>{points != null ? points : "–"}</td>
+    </tr>
   );
 }
 // One player on the shared "Match" pitch — small jersey + name + GW points.
 // Clicking opens the same player-stats modal the list/pitch rows use.
-function VersusMiniSlot({ id, points }) {
+// The points badge itself doubles as a DefCon "loading" ring while the
+// player's match is still live: a thin arc fills toward the +2 bonus
+// threshold (color-coded, no number shown — just how full it is), with the
+// points value still printed in the center. Once their fixture reaches FT
+// the outcome is locked in (they either got the bonus or they didn't), so
+// the ring drops and it reverts to the plain solid badge — gold if final,
+// green while still live for positions with no DefCon ring (GK/FWD).
+function VersusMiniSlot({ id, points, stats, isFinal }) {
   const p = (typeof playerById === "function") ? playerById(id) : null;
   if (!p) return <div className="vs-slot" />;
   const t = (typeof teamById === "function") ? teamById(p.team) : null;
   const isElim = p.elim || (t && t.elim);
+  const finalized = isFinal === true;
+  const ring = finalized ? null : defconPercent(p.pos, stats || null);
+  const C = 2 * Math.PI * 12.5;
+  const badgeStyle = finalized ? { background: "#ffd76a", color: "#0c0a3e" }
+    : ring ? { background: "transparent", color: "#fff" }
+    : { background: "#00e87b", color: "#0c0a3e" };
   return (
     <div className={"vs-slot" + (isElim ? " vs-slot--elim" : "")}
       title={p.name}
       onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } })); }}>
       <div className="vs-slot__jersey"><Jersey team={t} pos={p.pos} eliminated={isElim} /></div>
       <div className="vs-slot__name">{p.name}</div>
-      <div className="vs-slot__pts">{points != null ? points : 0}</div>
+      <div className={"vs-slot__pts" + (ring ? " vs-slot__pts--ring" : "")} style={badgeStyle}>
+        {ring && (
+          <svg className="vs-slot__pts-ring" viewBox="0 0 30 30">
+            <circle className="vs-slot__pts-ring-track" cx="15" cy="15" r="12.5" />
+            <circle cx="15" cy="15" r="12.5" fill="none" strokeWidth="3" strokeLinecap="round"
+              stroke={ring.color} strokeDasharray={`${(ring.pct / 100) * C} ${C}`} transform="rotate(-90 15 15)" />
+          </svg>
+        )}
+        <span className="vs-slot__pts-num">{points != null ? points : 0}</span>
+      </div>
     </div>
   );
 }
@@ -701,17 +770,19 @@ function VersusMiniSlot({ id, points }) {
 // line), the away team mirrors it on the bottom half. Maroon WC pitch, smaller
 // jerseys. All styling is scoped under .vs-* (injected in KnockoutSquadsList) so
 // the side-by-side Pitch View and List View are untouched.
-function VersusPitch({ homeUid, awayUid, home, away, pointsById, gw, label, isMobile }) {
+function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, finalById, gw, label, isMobile }) {
   const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
   const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  const pstats = id => (statsById && statsById[String(id)]) || null;
+  const pfinal = id => (finalById && finalById[String(id)] != null) ? finalById[String(id)] : null;
   const rowsOf = lu => {
     const [g, d, m, f] = lu.formation;
     const s = lu.starting;
     return { gk: s.slice(0, 1), def: s.slice(1, 1 + d), mid: s.slice(1 + d, 1 + d + m), fwd: s.slice(1 + d + m, 1 + d + m + f) };
   };
-  const row = (ids, key) => <div className="vs-row" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} />)}</div>;
+  const row = (ids, key) => <div className="vs-row" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} stats={pstats(id)} isFinal={pfinal(id)} />)}</div>;
   const teamCell = (uid, awaySide) => {
     const flag = flagOf(uid);
     return (
@@ -760,14 +831,16 @@ function KnockoutSquadsList({ seededUids, gw }) {
   const lid = (window.LEAGUE || LEAGUE || {}).id;
   const [view, setView] = React.useState("versus");          // versus | pitch | list
   const [pointsById, setPointsById] = React.useState(null);
+  const [statsById, setStatsById] = React.useState({});       // playerId -> raw GW stats blob (List View only)
+  const [finalById, setFinalById] = React.useState({});       // playerId -> true once their fixture is FT (Match View pts color)
   const [lineups, setLineups] = React.useState({});          // uid -> {starting,bench,formation}
   const key = seededUids.join(",");
   React.useEffect(() => {
     if (!lid || !gw) return;
     let dead = false;
     apiCall("GET", `/leagues/${lid}/gw-player-points/${gw}`)
-      .then(r => { if (!dead) setPointsById((r && r.points) || {}); })
-      .catch(() => { if (!dead) setPointsById({}); });
+      .then(r => { if (!dead) { setPointsById((r && r.points) || {}); setStatsById((r && r.stats) || {}); setFinalById((r && r.final) || {}); } })
+      .catch(() => { if (!dead) { setPointsById({}); setStatsById({}); setFinalById({}); } });
     seededUids.forEach(uid => {
       apiCall("GET", `/leagues/${lid}/lineup/${uid}/${gw}`)
         .then(r => { if (!dead && r) setLineups(prev => ({ ...prev, [uid]: { starting: r.starting || [], bench: r.bench || [], formation: r.formation || [1, 4, 4, 2] } })); })
@@ -780,6 +853,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
   const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  const pstats = id => (statsById && statsById[String(id)]) || null;
   // Order a lineup GK→DEF→MID→FWD and derive the formation from real positions,
   // so the pitch lays out correctly regardless of stored order.
   const ordered = (uid) => {
@@ -835,8 +909,15 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-slot:hover{transform:translateY(-3px) scale(1.07);z-index:4}
         .vs-slot__jersey{width:60px;height:54px;display:flex;align-items:center;justify-content:center}
         .vs-slot__name{max-width:84px;font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
-        .vs-slot__pts{font-size:10px;font-weight:900;color:#0c0a3e;background:#ffd76a;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center}
+        .vs-slot__pts{position:relative;font-size:10px;font-weight:900;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center;transition:background .2s ease}
         .vs-slot--elim{opacity:.5;filter:grayscale(.7)}
+        /* The points badge doubles as a DefCon "loading" ring while a player's
+           match is still live (DEF/MID only) — see VersusMiniSlot. Once
+           finalized it's just the plain solid pill above. */
+        .vs-slot__pts--ring{width:30px;height:30px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;min-width:0}
+        .vs-slot__pts-ring{position:absolute;inset:0;width:100%;height:100%}
+        .vs-slot__pts-ring-track{fill:none;stroke:rgba(255,255,255,.28);stroke-width:3}
+        .vs-slot__pts-num{position:relative;z-index:1}
         @media (max-width:720px){
           .vs-pitch{aspect-ratio:5/6;min-height:660px}
           .vs-slot{width:58px}
@@ -855,7 +936,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
           {pairs.map((pr, i) => (
             <VersusPitch key={i} homeUid={pr[0]} awayUid={pr[1]}
               home={ordered(pr[0])} away={ordered(pr[1])}
-              pointsById={pointsById || {}} gw={gw}
+              pointsById={pointsById || {}} statsById={statsById || {}} finalById={finalById || {}} gw={gw}
               label={`Semi-Final ${i + 1}`} isMobile={isMobile} />
           ))}
         </div>
@@ -880,12 +961,23 @@ function KnockoutSquadsList({ seededUids, gw }) {
               </div>
               {!lu ? <div className="muted" style={{ fontSize: 12 }}>Lineup loading…</div>
                 : view === "pitch" ? (
-                  <div className="ko-lineup-pitch"><Pitch lineup={lu} mode="points" pointsById={pointsById || {}} /></div>
+                  <div className="ko-lineup-pitch"><Pitch lineup={lu} mode="points" pointsById={pointsById || {}} statsById={statsById || {}} /></div>
                 ) : (
-                  <div>
-                    {lu.starting.map(id => <KOPlayerRow key={id} id={id} points={ppts(id)} />)}
-                    {lu.bench.length > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "8px 0 2px" }}>Bench</div>}
-                    {lu.bench.map((id, i) => <KOPlayerRow key={id} id={id} points={ppts(id)} benchNo={i + 1} />)}
+                  <div className="table-scroll">
+                    <table className="table-clean" style={{ width: "100%", minWidth: 440 }}>
+                      <thead><KOStatHeader /></thead>
+                      <tbody>
+                        {lu.starting.map(id => <KOPlayerRow key={id} id={id} points={ppts(id)} stats={pstats(id)} />)}
+                      </tbody>
+                    </table>
+                    {lu.bench.length > 0 && <div style={{ fontSize: 10, fontWeight: 800, color: "var(--ink-400)", letterSpacing: "0.08em", textTransform: "uppercase", margin: "10px 0 2px" }}>Bench</div>}
+                    {lu.bench.length > 0 && (
+                      <table className="table-clean" style={{ width: "100%", minWidth: 440 }}>
+                        <tbody>
+                          {lu.bench.map((id, i) => <KOPlayerRow key={id} id={id} points={ppts(id)} stats={pstats(id)} benchNo={i + 1} />)}
+                        </tbody>
+                      </table>
+                    )}
                   </div>
                 )}
             </div>

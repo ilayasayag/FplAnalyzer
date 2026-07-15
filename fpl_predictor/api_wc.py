@@ -2702,20 +2702,29 @@ def get_knockout(lid: str):
 
 @wc_bp.route("/leagues/<lid>/gw-player-points/<int:gw>", methods=["GET"])
 def gw_player_points(lid: str, gw: int):
-    """Read-only: ``{playerId: fantasyPoints}`` for every player scored in ``gw``,
-    assembled LIVE from the fixtures' ``playerScores`` (works mid-GW, before the
-    finalize gw_history snapshot exists). Powers the Knockout all-squads points
-    view. No writes."""
+    """Read-only: ``{playerId: fantasyPoints}`` plus the raw per-player ``stats``
+    blob and a ``final`` (fixture reached FT) flag for every player scored in
+    ``gw``, assembled LIVE from the fixtures' ``playerScores`` (works mid-GW,
+    before the finalize gw_history snapshot exists). Powers the Knockout
+    all-squads points/stats view. No writes."""
     uid, err = _require_auth()
     if err:
         return err
     pts = {}
+    stats = {}
+    final = {}
     for f in _db.collection("wc_fixtures").where("gw", "==", gw).get():
+        is_final = (f.to_dict() or {}).get("status") == "FT"
         for ps in (_db.collection("wc_fixtures").document(f.id)
                    .collection("playerScores").get()):
             d = ps.to_dict() or {}
-            pts[str(ps.id)] = (pts.get(str(ps.id)) or 0) + (d.get("fantasyPoints") or 0)
-    return _ok({"gw": gw, "points": pts})
+            pid = str(ps.id)
+            pts[pid] = (pts.get(pid) or 0) + (d.get("fantasyPoints") or 0)
+            s = d.get("stats") or {}
+            if s:
+                stats[pid] = s
+            final[pid] = is_final
+    return _ok({"gw": gw, "points": pts, "stats": stats, "final": final})
 
 
 # ---------------------------------------------------------------------------
