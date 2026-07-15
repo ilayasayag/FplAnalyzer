@@ -678,10 +678,87 @@ function KOPlayerRow({ id, points, benchNo }) {
     </div>
   );
 }
+// One player on the shared "Match" pitch — small jersey + name + GW points.
+// Clicking opens the same player-stats modal the list/pitch rows use.
+function VersusMiniSlot({ id, points }) {
+  const p = (typeof playerById === "function") ? playerById(id) : null;
+  if (!p) return <div className="vs-slot" />;
+  const t = (typeof teamById === "function") ? teamById(p.team) : null;
+  const isElim = p.elim || (t && t.elim);
+  return (
+    <div className={"vs-slot" + (isElim ? " vs-slot--elim" : "")}
+      title={p.name}
+      onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } })); }}>
+      <div className="vs-slot__jersey"><Jersey team={t} pos={p.pos} eliminated={isElim} /></div>
+      <div className="vs-slot__name">{p.name}</div>
+      <div className="vs-slot__pts">{points != null ? points : 0}</div>
+    </div>
+  );
+}
+
+// Two lineups on ONE pitch, facing off like a real match: the home team fills
+// the top half (GK at the top goal → defence → midfield → attack at the halfway
+// line), the away team mirrors it on the bottom half. Maroon WC pitch, smaller
+// jerseys. All styling is scoped under .vs-* (injected in KnockoutSquadsList) so
+// the side-by-side Pitch View and List View are untouched.
+function VersusPitch({ homeUid, awayUid, home, away, pointsById, gw, label, isMobile }) {
+  const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
+  const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
+  const total = uid => (window.GW_TOTALS || {})[uid];
+  const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  const rowsOf = lu => {
+    const [g, d, m, f] = lu.formation;
+    const s = lu.starting;
+    return { gk: s.slice(0, 1), def: s.slice(1, 1 + d), mid: s.slice(1 + d, 1 + d + m), fwd: s.slice(1 + d + m, 1 + d + m + f) };
+  };
+  const row = (ids, key) => <div className="vs-row" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} />)}</div>;
+  const teamCell = (uid, awaySide) => {
+    const flag = flagOf(uid);
+    return (
+      <div className={"vs-team" + (awaySide ? " vs-team--away" : "")}>
+        {flag && <img src={flag + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }} />}
+        <div style={{ minWidth: 0 }}>
+          <div className="vs-team__name">{mgr(uid).team || mgr(uid).name}</div>
+          <div className="vs-team__score">{total(uid) != null ? total(uid) : "—"}</div>
+        </div>
+      </div>
+    );
+  };
+  const H = home ? rowsOf(home) : null;
+  const A = away ? rowsOf(away) : null;
+  return (
+    <div className="vs-board">
+      <div className="vs-label">{label} · GW{gw}</div>
+      <div className="vs-scorebar">
+        {teamCell(homeUid, false)}
+        <div className="vs-mid">VS</div>
+        {teamCell(awayUid, true)}
+      </div>
+      {(!H || !A) ? (
+        <div style={{ color: "rgba(255,255,255,.7)", fontSize: 12, textAlign: "center", padding: "48px 0" }}>Lineups loading…</div>
+      ) : (
+        <div className="vs-pitch">
+          <div className="vs-pitch__stripes" />
+          <div className="vs-pitch__lines" />
+          <div className="vs-pitch__pen vs-pitch__pen--top" />
+          <div className="vs-pitch__pen vs-pitch__pen--bot" />
+          <div className="vs-pitch__half" />
+          <div className="vs-pitch__circle" />
+          <div className="vs-pitch__spot" />
+          <div className="vs-rows">
+            {/* Home: GK (top goal) → attack (halfway). Away mirrors below. */}
+            {row(H.gk, "hg")}{row(H.def, "hd")}{row(H.mid, "hm")}{row(H.fwd, "hf")}
+            {row(A.fwd, "af")}{row(A.mid, "am")}{row(A.def, "ad")}{row(A.gk, "ag")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 function KnockoutSquadsList({ seededUids, gw }) {
   const isMobile = useIsMobile();
   const lid = (window.LEAGUE || LEAGUE || {}).id;
-  const [view, setView] = React.useState("pitch");           // pitch | list
+  const [view, setView] = React.useState("versus");          // versus | pitch | list
   const [pointsById, setPointsById] = React.useState(null);
   const [lineups, setLineups] = React.useState({});          // uid -> {starting,bench,formation}
   const key = seededUids.join(",");
@@ -722,18 +799,69 @@ function KnockoutSquadsList({ seededUids, gw }) {
       style={{ padding: "6px 16px", fontSize: 12, background: view === v ? undefined : "transparent", color: view === v ? undefined : "var(--ink-700)" }}
       onClick={() => setView(v)}>{label}</button>
   );
+  // Match View pairs the seeds two-by-two (each semi-final's two managers) onto
+  // one shared pitch. Pitch/List views keep the per-manager cards.
+  const pairs = [];
+  for (let i = 0; i < seededUids.length; i += 2) pairs.push(seededUids.slice(i, i + 2));
   return (
     <KnockoutLine title={`Lineups · GW${gw} points`}>
       {/* The shared .pitch is aspect-ratio 16/11 — too short for the full XI at
           this card width, clipping the FWD row. Give it a fixed min-height (fits
-          4 rows of slots) + a comfortable max-width so it doesn't stretch huge on
-          wide screens. Injected here so it ships with the versioned jsx. */}
-      <style>{`.ko-lineup-pitch .pitch{aspect-ratio:auto;width:100%;min-height:520px}`}</style>
+          4 rows of slots). Plus the .vs-* Match-View pitch (two teams, one field).
+          Injected here so it ships with the versioned jsx. */}
+      <style>{`
+        .ko-lineup-pitch .pitch{aspect-ratio:auto;width:100%;min-height:520px}
+        .vs-board{background:linear-gradient(180deg,#2a0512,#180309);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:14px 14px 16px;overflow:hidden}
+        .vs-label{text-align:center;font-size:10px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;color:rgba(255,255,255,.5);margin-bottom:8px}
+        .vs-scorebar{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px;margin-bottom:12px}
+        .vs-team{display:flex;align-items:center;gap:10px;min-width:0}
+        .vs-team--away{flex-direction:row-reverse;text-align:right}
+        .vs-team img{width:46px;height:31px;border-radius:4px;object-fit:cover;flex-shrink:0;box-shadow:0 2px 6px rgba(0,0,0,.45)}
+        .vs-team__name{font-weight:800;font-size:15px;color:#fff;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .vs-team__score{font-family:var(--font-mono,ui-monospace,monospace);font-weight:900;font-size:30px;line-height:1.05;color:#ffd76a}
+        .vs-mid{font-weight:900;font-size:13px;color:rgba(255,255,255,.55);letter-spacing:.1em}
+        .vs-pitch{position:relative;width:100%;min-height:660px;border-radius:8px;overflow:hidden;background:linear-gradient(180deg,#8d1b3d 0%,#7a1533 50%,#66102b 100%);box-shadow:inset 0 0 0 2px rgba(255,255,255,.28)}
+        .vs-pitch__stripes{position:absolute;inset:0;background:repeating-linear-gradient(90deg,rgba(255,255,255,.055) 0,rgba(255,255,255,.055) 8.33%,rgba(0,0,0,.05) 8.33%,rgba(0,0,0,.05) 16.66%)}
+        .vs-pitch__lines{position:absolute;inset:8px;border:2px solid rgba(255,255,255,.6);border-radius:4px}
+        .vs-pitch__circle{position:absolute;left:50%;top:50%;width:20%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.6);border-radius:50%}
+        .vs-pitch__spot{position:absolute;left:50%;top:50%;width:5px;height:5px;background:#fff;border-radius:50%;transform:translate(-50%,-50%)}
+        .vs-pitch__half{position:absolute;left:8px;right:8px;top:50%;border-top:2px solid rgba(255,255,255,.6)}
+        .vs-pitch__pen{position:absolute;left:22%;width:56%;height:14%;border:2px solid rgba(255,255,255,.6)}
+        .vs-pitch__pen--top{top:8px;border-top:none}
+        .vs-pitch__pen--bot{bottom:8px;border-bottom:none}
+        .vs-rows{position:absolute;inset:0;display:grid;grid-template-rows:repeat(8,1fr);padding:10px 6px}
+        .vs-row{display:flex;justify-content:space-around;align-items:center}
+        .vs-slot{display:flex;flex-direction:column;align-items:center;gap:1px;cursor:pointer;width:60px;transition:transform .12s ease}
+        .vs-slot:hover{transform:translateY(-3px) scale(1.07);z-index:4}
+        .vs-slot__jersey{width:46px;height:40px;display:flex;align-items:center;justify-content:center}
+        .vs-slot__name{max-width:66px;font-size:9px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
+        .vs-slot__pts{font-size:10px;font-weight:900;color:#0c0a3e;background:#ffd76a;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center}
+        .vs-slot--elim{opacity:.5;filter:grayscale(.7)}
+        @media (max-width:720px){
+          .vs-pitch{min-height:520px}
+          .vs-slot{width:48px}
+          .vs-slot__jersey{width:38px;height:33px}
+          .vs-slot__name{font-size:8px;max-width:54px}
+          .vs-team__score{font-size:24px}
+          .vs-team__name{font-size:13px}
+        }
+      `}</style>
       <div style={{ display: "inline-flex", padding: 4, background: "var(--card-2, rgba(0,0,0,0.06))", borderRadius: 999, marginBottom: 12 }}>
-        {toggle("pitch", "Pitch View")}{toggle("list", "List View")}
+        {toggle("versus", "Match View")}{toggle("pitch", "Pitch View")}{toggle("list", "List View")}
       </div>
-      {/* Two lineups side-by-side (both views) — the seed order pairs each
-          semi-final's two managers in the same row for a 1-v-1 bracket feel. */}
+      {view === "versus" ? (
+        // Both semi-finals as head-to-head matches on a shared maroon pitch.
+        <div style={{ display: "grid", gap: 16 }}>
+          {pairs.map((pr, i) => (
+            <VersusPitch key={i} homeUid={pr[0]} awayUid={pr[1]}
+              home={ordered(pr[0])} away={ordered(pr[1])}
+              pointsById={pointsById || {}} gw={gw}
+              label={`Semi-Final ${i + 1}`} isMobile={isMobile} />
+          ))}
+        </div>
+      ) : (
+      /* Two lineups side-by-side — the seed order pairs each semi-final's two
+         managers in the same row for a 1-v-1 bracket feel. */
       <div style={{ display: "grid", gap: 14, gridTemplateColumns: isMobile ? "1fr" : "1fr 1fr" }}>
         {seededUids.map(uid => {
           const lu = ordered(uid);
@@ -764,6 +892,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
           );
         })}
       </div>
+      )}
     </KnockoutLine>
   );
 }
