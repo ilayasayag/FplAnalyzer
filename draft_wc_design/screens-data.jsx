@@ -727,13 +727,12 @@ function KOPlayerRow({ id, points, stats, benchNo }) {
 }
 // One player on the shared "Match" pitch — small jersey + name + GW points.
 // Clicking opens the same player-stats modal the list/pitch rows use.
-// The points badge itself doubles as a DefCon "loading" ring while the
-// player's match is still live: a thin arc fills toward the +2 bonus
-// threshold (color-coded, no number shown — just how full it is), with the
-// points value still printed in the center. Once their fixture reaches FT
-// the outcome is locked in (they either got the bonus or they didn't), so
-// the ring drops and it reverts to the plain solid badge — gold if final,
-// green while still live for positions with no DefCon ring (GK/FWD).
+// The yellow points circle stays exactly as-is; while the player's match is
+// still LIVE and they can still earn DefCon (DEF/MID), a colored progress
+// ring is drawn hugging that circle, filling toward the +2 bonus threshold
+// (no number — just how full it is). Once their fixture reaches FT the
+// outcome is locked (bonus earned or not), so the ring drops and it's back
+// to the plain yellow circle. GK/FWD have no DefCon, so no ring ever.
 function VersusMiniSlot({ id, points, stats, isFinal }) {
   const p = (typeof playerById === "function") ? playerById(id) : null;
   if (!p) return <div className="vs-slot" />;
@@ -741,22 +740,19 @@ function VersusMiniSlot({ id, points, stats, isFinal }) {
   const isElim = p.elim || (t && t.elim);
   const finalized = isFinal === true;
   const ring = finalized ? null : defconPercent(p.pos, stats || null);
-  const C = 2 * Math.PI * 12.5;
-  const badgeStyle = finalized ? { background: "#ffd76a", color: "#0c0a3e" }
-    : ring ? { background: "transparent", color: "#fff" }
-    : { background: "#00e87b", color: "#0c0a3e" };
+  const C = 2 * Math.PI * 15;
   return (
     <div className={"vs-slot" + (isElim ? " vs-slot--elim" : "")}
       title={p.name}
       onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } })); }}>
       <div className="vs-slot__jersey"><Jersey team={t} pos={p.pos} eliminated={isElim} /></div>
       <div className="vs-slot__name">{p.name}</div>
-      <div className={"vs-slot__pts" + (ring ? " vs-slot__pts--ring" : "")} style={badgeStyle}>
+      <div className={"vs-slot__pts" + (ring ? " vs-slot__pts--ring" : "")}>
         {ring && (
-          <svg className="vs-slot__pts-ring" viewBox="0 0 30 30">
-            <circle className="vs-slot__pts-ring-track" cx="15" cy="15" r="12.5" />
-            <circle cx="15" cy="15" r="12.5" fill="none" strokeWidth="3" strokeLinecap="round"
-              stroke={ring.color} strokeDasharray={`${(ring.pct / 100) * C} ${C}`} transform="rotate(-90 15 15)" />
+          <svg className="vs-slot__pts-ring" viewBox="0 0 34 34" aria-hidden="true">
+            <circle className="vs-slot__pts-ring-track" cx="17" cy="17" r="15" />
+            <circle cx="17" cy="17" r="15" fill="none" strokeWidth="3" strokeLinecap="round"
+              stroke={ring.color} strokeDasharray={`${(ring.pct / 100) * C} ${C}`} transform="rotate(-90 17 17)" />
           </svg>
         )}
         <span className="vs-slot__pts-num">{points != null ? points : 0}</span>
@@ -909,14 +905,14 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-slot:hover{transform:translateY(-3px) scale(1.07);z-index:4}
         .vs-slot__jersey{width:60px;height:54px;display:flex;align-items:center;justify-content:center}
         .vs-slot__name{max-width:84px;font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
-        .vs-slot__pts{position:relative;font-size:10px;font-weight:900;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center;transition:background .2s ease}
+        .vs-slot__pts{position:relative;font-size:10px;font-weight:900;color:#0c0a3e;background:#ffd76a;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center}
         .vs-slot--elim{opacity:.5;filter:grayscale(.7)}
-        /* The points badge doubles as a DefCon "loading" ring while a player's
-           match is still live (DEF/MID only) — see VersusMiniSlot. Once
-           finalized it's just the plain solid pill above. */
-        .vs-slot__pts--ring{width:30px;height:30px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;min-width:0}
-        .vs-slot__pts-ring{position:absolute;inset:0;width:100%;height:100%}
-        .vs-slot__pts-ring-track{fill:none;stroke:rgba(255,255,255,.28);stroke-width:3}
+        /* Live DefCon (DEF/MID only) — the yellow points circle stays; a colored
+           progress ring is drawn hugging it, overflowing slightly so it reads as
+           a ring AROUND the circle, not inside it. See VersusMiniSlot. */
+        .vs-slot__pts--ring{width:26px;height:26px;border-radius:50%;padding:0;display:flex;align-items:center;justify-content:center;min-width:0;overflow:visible}
+        .vs-slot__pts-ring{position:absolute;top:50%;left:50%;width:34px;height:34px;transform:translate(-50%,-50%);pointer-events:none}
+        .vs-slot__pts-ring-track{fill:none;stroke:rgba(12,10,62,.18);stroke-width:3}
         .vs-slot__pts-num{position:relative;z-index:1}
         @media (max-width:720px){
           .vs-pitch{aspect-ratio:5/6;min-height:660px}
