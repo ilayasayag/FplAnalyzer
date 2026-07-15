@@ -727,19 +727,28 @@ function KOPlayerRow({ id, points, stats, benchNo }) {
 }
 // One player on the shared "Match" pitch — small jersey + name + GW points.
 // Clicking opens the same player-stats modal the list/pitch rows use.
-// The yellow points circle stays exactly as-is; while the player's match is
-// still LIVE and they can still earn DefCon (DEF/MID), a colored progress
-// ring is drawn hugging that circle, filling toward the +2 bonus threshold
-// (no number — just how full it is). Once their fixture reaches FT the
-// outcome is locked (bonus earned or not), so the ring drops and it's back
-// to the plain yellow circle. GK/FWD have no DefCon, so no ring ever.
-function VersusMiniSlot({ id, points, stats, isFinal }) {
+//
+// The points circle is a רמזור (traffic light) on the player's GW state,
+// driven by his TEAM's fixture status (`teamStatus`) — never by his own score
+// doc, because a benched player has no score doc at all:
+//   green  = his match is FT — points locked in, nothing left to play for
+//   yellow = his match is LIVE and he's on the pitch — still accumulating
+//   red    = his match is LIVE but he isn't playing — nothing coming
+// While he's playing (yellow) and can still earn DefCon (DEF/MID), a colored
+// progress ring hugs the circle, filling toward the +2 threshold (no number,
+// just how full). Rings therefore only ever appear on yellow circles: FT is
+// already decided, and a benched player has no stats to show.
+function VersusMiniSlot({ id, points, stats, teamStatus }) {
   const p = (typeof playerById === "function") ? playerById(id) : null;
   if (!p) return <div className="vs-slot" />;
   const t = (typeof teamById === "function") ? teamById(p.team) : null;
   const isElim = p.elim || (t && t.elim);
-  const finalized = isFinal === true;
-  const ring = finalized ? null : defconPercent(p.pos, stats || null);
+  const playing = !!(stats && (stats.minutes || 0) > 0);
+  const live = teamStatus === "LIVE";
+  // "idle" = not started / this player's nation isn't in this GW — neither
+  // playing nor benched, so it stays neutral rather than lying in red.
+  const tone = teamStatus === "FT" ? "final" : live ? (playing ? "playing" : "bench") : "idle";
+  const ring = (live && playing) ? defconPercent(p.pos, stats) : null;
   const C = 2 * Math.PI * 15;
   return (
     <div className={"vs-slot" + (isElim ? " vs-slot--elim" : "")}
@@ -747,7 +756,7 @@ function VersusMiniSlot({ id, points, stats, isFinal }) {
       onClick={e => { e.stopPropagation(); window.dispatchEvent(new CustomEvent("show-player-stats", { detail: { id: String(id) } })); }}>
       <div className="vs-slot__jersey"><Jersey team={t} pos={p.pos} eliminated={isElim} /></div>
       <div className="vs-slot__name">{p.name}</div>
-      <div className={"vs-slot__pts" + (ring ? " vs-slot__pts--ring" : "")}>
+      <div className={`vs-slot__pts vs-slot__pts--${tone}` + (ring ? " vs-slot__pts--ring" : "")}>
         {ring && (
           <svg className="vs-slot__pts-ring" viewBox="0 0 34 34" aria-hidden="true">
             <circle className="vs-slot__pts-ring-track" cx="17" cy="17" r="15" />
@@ -766,19 +775,24 @@ function VersusMiniSlot({ id, points, stats, isFinal }) {
 // line), the away team mirrors it on the bottom half. Maroon WC pitch, smaller
 // jerseys. All styling is scoped under .vs-* (injected in KnockoutSquadsList) so
 // the side-by-side Pitch View and List View are untouched.
-function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, finalById, gw, label, isMobile }) {
+function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, statusByTeam, gw, label, isMobile }) {
   const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
   const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
   const pstats = id => (statsById && statsById[String(id)]) || null;
-  const pfinal = id => (finalById && finalById[String(id)] != null) ? finalById[String(id)] : null;
+  // A player's traffic-light state comes from HIS TEAM's fixture status —
+  // benched players have no score doc, so nothing player-keyed would resolve.
+  const pstatus = id => {
+    const pl = (typeof playerById === "function") ? playerById(id) : null;
+    return (pl && statusByTeam) ? (statusByTeam[pl.team] || null) : null;
+  };
   const rowsOf = lu => {
     const [g, d, m, f] = lu.formation;
     const s = lu.starting;
     return { gk: s.slice(0, 1), def: s.slice(1, 1 + d), mid: s.slice(1 + d, 1 + d + m), fwd: s.slice(1 + d + m, 1 + d + m + f) };
   };
-  const row = (ids, key) => <div className="vs-row" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} stats={pstats(id)} isFinal={pfinal(id)} />)}</div>;
+  const row = (ids, key) => <div className="vs-row" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} stats={pstats(id)} teamStatus={pstatus(id)} />)}</div>;
   const teamCell = (uid, awaySide) => {
     const flag = flagOf(uid);
     return (
@@ -828,15 +842,15 @@ function KnockoutSquadsList({ seededUids, gw }) {
   const [view, setView] = React.useState("versus");          // versus | pitch | list
   const [pointsById, setPointsById] = React.useState(null);
   const [statsById, setStatsById] = React.useState({});       // playerId -> raw GW stats blob (List View only)
-  const [finalById, setFinalById] = React.useState({});       // playerId -> true once their fixture is FT (Match View pts color)
+  const [statusByTeam, setStatusByTeam] = React.useState({}); // teamIso -> FT|LIVE|NS (Match View traffic light)
   const [lineups, setLineups] = React.useState({});          // uid -> {starting,bench,formation}
   const key = seededUids.join(",");
   React.useEffect(() => {
     if (!lid || !gw) return;
     let dead = false;
     apiCall("GET", `/leagues/${lid}/gw-player-points/${gw}`)
-      .then(r => { if (!dead) { setPointsById((r && r.points) || {}); setStatsById((r && r.stats) || {}); setFinalById((r && r.final) || {}); } })
-      .catch(() => { if (!dead) { setPointsById({}); setStatsById({}); setFinalById({}); } });
+      .then(r => { if (!dead) { setPointsById((r && r.points) || {}); setStatsById((r && r.stats) || {}); setStatusByTeam((r && r.teamStatus) || {}); } })
+      .catch(() => { if (!dead) { setPointsById({}); setStatsById({}); setStatusByTeam({}); } });
     seededUids.forEach(uid => {
       apiCall("GET", `/leagues/${lid}/lineup/${uid}/${gw}`)
         .then(r => { if (!dead && r) setLineups(prev => ({ ...prev, [uid]: { starting: r.starting || [], bench: r.bench || [], formation: r.formation || [1, 4, 4, 2] } })); })
@@ -906,6 +920,12 @@ function KnockoutSquadsList({ seededUids, gw }) {
         .vs-slot__jersey{width:60px;height:54px;display:flex;align-items:center;justify-content:center}
         .vs-slot__name{max-width:84px;font-size:10px;font-weight:700;color:#fff;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px rgba(0,0,0,.75)}
         .vs-slot__pts{position:relative;font-size:10px;font-weight:900;color:#0c0a3e;background:#ffd76a;border-radius:8px;padding:0 6px;line-height:15px;min-width:18px;text-align:center}
+        /* רמזור on the points circle — see VersusMiniSlot.
+           green = FT (locked) · yellow = playing · red = live but benched. */
+        .vs-slot__pts--final{background:#00e87b;color:#0c0a3e}
+        .vs-slot__pts--playing{background:#ffd76a;color:#0c0a3e}
+        .vs-slot__pts--bench{background:#ff4d6d;color:#fff}
+        .vs-slot__pts--idle{background:rgba(255,255,255,.82);color:#0c0a3e}
         .vs-slot--elim{opacity:.5;filter:grayscale(.7)}
         /* Live DefCon (DEF/MID only) — the yellow points circle stays; a colored
            progress ring is drawn hugging it, overflowing slightly so it reads as
@@ -932,7 +952,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
           {pairs.map((pr, i) => (
             <VersusPitch key={i} homeUid={pr[0]} awayUid={pr[1]}
               home={ordered(pr[0])} away={ordered(pr[1])}
-              pointsById={pointsById || {}} statsById={statsById || {}} finalById={finalById || {}} gw={gw}
+              pointsById={pointsById || {}} statsById={statsById || {}} statusByTeam={statusByTeam || {}} gw={gw}
               label={`Semi-Final ${i + 1}`} isMobile={isMobile} />
           ))}
         </div>
