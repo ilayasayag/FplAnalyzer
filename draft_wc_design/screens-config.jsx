@@ -523,16 +523,18 @@ function ConfigScreen({ onTab }) {
 }
 
 // =====================================================================
-// Knockout Free-Agent Draft — admin setup card (GW7 live swap-draft).
-// Self-contained: talks straight to /leagues/{lid}/ko-draft/*. Choose the two
-// eliminated squads + straight seed pick order, run a REHEARSAL (no squad
-// writes) or Go Live (drives the real elimination + release).
+// Knockout Free-Agent Draft — admin setup card (live swap-draft, any KO round).
+// Self-contained: talks straight to /leagues/{lid}/ko-draft/*. Choose the
+// eliminated squads + pick order, run a REHEARSAL (no squad writes) or Go Live
+// (drives the real elimination + release). The eliminated count is per-round
+// (2 at the semis, 4 at the final) — the only hard rule is >=2 pickers left.
 // =====================================================================
 function KnockoutDraftAdminCard({ onTab }) {
   const lid = (typeof LEAGUE !== "undefined") ? LEAGUE.id : null;
+  const koGw = (window.LEAGUE || {}).currentGw || (window.TOURNAMENT || {}).currentGw || null;
   const managers = (window.MANAGERS || []).slice();
   const [eliminated, setEliminated] = React.useState([]);   // uids
-  const [order, setOrder] = React.useState([]);             // ordered uids (seed 1 first)
+  const [order, setOrder] = React.useState([]);             // ordered uids (index 0 picks first)
   const [pickTimer, setPickTimer] = React.useState(60);
   const [state, setState] = React.useState(null);
   const [msg, setMsg] = React.useState(null);
@@ -563,7 +565,12 @@ function KnockoutDraftAdminCard({ onTab }) {
     });
   }, [eliminated.join(","), managers.map(m => m.uid).join(",")]);
 
-  const toggleElim = uid => setEliminated(e => e.includes(uid) ? e.filter(x => x !== uid) : (e.length >= 2 ? e : [...e, uid]));
+  // How many squads may be eliminated depends on the ROUND, not a fixed 2: the
+  // semis drop the 2 non-qualifiers (4 pickers), the final drops 4 (2 pickers).
+  // The engine's only real constraint is "at least 2 pickers", so cap the
+  // eliminations at members-2 and let every round in between just work.
+  const maxElim = Math.max(0, managers.length - 2);
+  const toggleElim = uid => setEliminated(e => e.includes(uid) ? e.filter(x => x !== uid) : (e.length >= maxElim ? e : [...e, uid]));
   const moveOrder = (i, dir) => setOrder(o => {
     const j = i + dir; if (j < 0 || j >= o.length) return o;
     const n = o.slice(); const t = n[i]; n[i] = n[j]; n[j] = t; return n;
@@ -576,7 +583,9 @@ function KnockoutDraftAdminCard({ onTab }) {
   };
   const start = async (rehearsal) => {
     if (busy) return;
-    if (eliminated.length !== 2) { setMsg({ type: "error", text: "Pick exactly 2 eliminated squads." }); return; }
+    // The engine requires >=2 pickers; the eliminated count is whatever the
+    // round leaves over (2 at the semis, 4 at the final).
+    if (order.length < 2) { setMsg({ type: "error", text: "Need at least 2 squads in the pick order." }); return; }
     if (!rehearsal && !window.confirm("GO LIVE: this eliminates " + eliminated.map(nameOf).join(" & ") + " for real and releases their players. Continue?")) return;
     setBusy(true); setMsg(null);
     try {
@@ -611,7 +620,7 @@ function KnockoutDraftAdminCard({ onTab }) {
   return (
     <div className="card-dark" style={{ padding: 20, marginBottom: 24, border: "1px solid rgba(255,215,0,0.25)" }}>
       <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
-        <h3 style={{ margin: 0, fontSize: 18 }}>🏆 Knockout Free-Agent Draft (GW7)</h3>
+        <h3 style={{ margin: 0, fontSize: 18 }}>🏆 Knockout Free-Agent Draft{koGw ? ` (GW${koGw})` : ""}</h3>
         {running && (
           <span style={{ background: state.rehearsal ? "var(--gold-500)" : "var(--green-400)", color: "#04240f", padding: "3px 10px", borderRadius: 12, fontSize: 11, fontWeight: 800 }}>
             {state.rehearsal ? "REHEARSAL RUNNING" : "LIVE"} · {state.status}
@@ -621,7 +630,7 @@ function KnockoutDraftAdminCard({ onTab }) {
         {running && <button className="btn" onClick={() => onTab("kodraft")}>Open draft room →</button>}
       </div>
       <p className="muted" style={{ fontSize: 13, marginTop: 6 }}>
-        Choose the two eliminated squads and the straight seed pick order (seed&nbsp;1 picks first).
+        Choose the eliminated squads and the pick order (first in the list picks first).
         <b> Rehearsal</b> never writes squads; <b>Go&nbsp;Live</b> performs the real elimination + release.
       </p>
 
@@ -630,7 +639,7 @@ function KnockoutDraftAdminCard({ onTab }) {
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 14, marginTop: 8 }}>
         {/* Eliminated squads */}
         <div style={box}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Eliminated squads (pick 2)</div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Eliminated squads <span className="muted" style={{ fontWeight: 500 }}>({eliminated.length}/{maxElim} max · {order.length} left picking)</span></div>
           {managers.map(m => (
             <label key={m.uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "4px 0", fontSize: 13, cursor: "pointer" }}>
               <input type="checkbox" checked={eliminated.includes(m.uid)} onChange={() => toggleElim(m.uid)} />
@@ -642,7 +651,7 @@ function KnockoutDraftAdminCard({ onTab }) {
 
         {/* Pick order */}
         <div style={box}>
-          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Pick order (seed 1 first)</div>
+          <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Pick order <span className="muted" style={{ fontWeight: 500 }}>(first picks first)</span></div>
           {order.map((uid, i) => (
             <div key={uid} style={{ display: "flex", alignItems: "center", gap: 8, padding: "3px 0", fontSize: 13 }}>
               <span className="mono" style={{ width: 20 }}>{i + 1}</span>

@@ -1627,7 +1627,7 @@ function KnockoutDraftScreen({ onTab }) {
         <p className="muted" style={{ maxWidth: 560, margin: "10px auto" }}>
           The knockout swap-draft isn't running yet. {canStart
             ? "Setup is ready — start the REAL draft (picks written to squads) or a safe rehearsal (no squad changes)."
-            : "The admin sets it up in Rules Config → Knockout Free-Agent Draft (two eliminated squads + pick order)."}
+            : "The admin sets it up in Rules Config → Knockout Free-Agent Draft (eliminated squads + pick order)."}
         </p>
         <div style={{ display: "flex", gap: 10, justifyContent: "center", flexWrap: "wrap" }}>
           {canStart && <button className="btn btn--primary" disabled={busy} onClick={() => startDraft(false)}>▶ Start draft</button>}
