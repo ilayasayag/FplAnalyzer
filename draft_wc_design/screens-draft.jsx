@@ -1645,8 +1645,11 @@ function KnockoutDraftScreen({ onTab }) {
   const complete = state.status === "complete";
   const actingUid = (isAdmin && onClock) ? onClock : me;
   const actingIsMe = actingUid === me;
+  // The admin acts on any turn (executing on behalf); a manager acts on their
+  // OWN turn — in a live draft too, so Roy can pick from his own device. The
+  // backend turn-checks and only lets a non-admin touch their own squad.
   const canAct = state.status === "active" && !state.paused && !!onClock &&
-    (isAdmin || (state.rehearsal && onClock === me));
+    (isAdmin || onClock === me);
 
   // Free-agent pool: unowned by a picker + (when "In tournament" is on) nation
   // still alive in the live WC bracket. We trust the bracket, NOT per-player
@@ -1790,7 +1793,7 @@ function KnockoutDraftScreen({ onTab }) {
             <div className="card-dark" style={{ padding: 12, textAlign: "center", border: canAct ? "1px solid var(--green-400)" : "1px solid rgba(255,255,255,0.08)" }}>
               {canAct
                 ? <div style={{ fontWeight: 800, color: "var(--green-400)", marginBottom: 8 }}>{actingIsMe ? "Your turn — pick a free agent AND the player to drop" : `Executing for ${mgrName(onClock)}`}</div>
-                : <div className="muted" style={{ marginBottom: 8 }}>{state.rehearsal ? `Waiting for ${onClock ? mgrName(onClock) : "…"}` : "Live draft — admin executes"}</div>}
+                : <div className="muted" style={{ marginBottom: 8 }}>{(!state.rehearsal && isAdmin) ? "Live draft — you execute for the manager on the clock" : `Waiting for ${onClock ? mgrName(onClock) : "…"}`}</div>}
               <button className="btn" disabled={!canAct || busy} onClick={doPass}>Pass / Done{!actingIsMe && canAct ? ` (${mgrName(onClock)})` : ""}</button>
             </div>
           )}
@@ -1867,7 +1870,7 @@ function KnockoutDraftScreen({ onTab }) {
                     <span className="mono muted" style={{ width: 44, textAlign: "right", fontSize: 11 }}>{p.selPct != null ? p.selPct + "%" : "—"}</span>
                     <span className="mono muted" style={{ width: 40, textAlign: "right", fontSize: 11 }}>{dfc(p) || "—"}</span>
                     <button className="btn" title={inWl ? "On your wishlist" : "Add to wishlist"} style={{ padding: "3px 7px", color: inWl ? "var(--gold-500)" : undefined }} onClick={() => toggleWl(p.id)}>{inWl ? "★" : "☆"}</button>
-                    <button className="btn btn--draft" disabled={!canAct || greyed || busy} title={canAct ? "" : (state.rehearsal ? "Wait for your turn" : "Live — admin only")}
+                    <button className="btn btn--draft" disabled={!canAct || greyed || busy} title={canAct ? "" : "Wait for your turn"}
                       style={{ padding: "4px 12px" }} onClick={() => selectPoolIn(p)}>{chosen ? "✓ In" : "Pick"}</button>
                   </div>
                 );
