@@ -333,7 +333,7 @@ function defconPercent(pos, s) {
 }
 
 // ---------- Player Slot (used on pitch) ----------
-function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick, defBadge = null }) {
+function PlayerSlot({ playerId, points, mode = "points", disabled = false, selected = false, onBench = false, benchOrder = null, onClick, defBadge = null, ptsFill = null }) {
   // null outside a FixtureGwContext provider → viewed-GW map (legacy behavior).
   // Read before the empty-slot return so the hook runs on every render.
   const fixtureGw = React.useContext(FixtureGwContext);
@@ -397,14 +397,24 @@ function PlayerSlot({ playerId, points, mode = "points", disabled = false, selec
         )}
       </div>
       <div className="player-slot__name">{p.name}</div>
-      <div className="player-slot__fixture">{displayInfo}</div>
+      {/* Points bar. When ptsFill is supplied (Knockout Pitch View only) it
+          becomes a live "meter": a traffic-light fill (green=locked/FT,
+          gold=playing, red=live-but-benched) that for DEF/MID fills by their
+          DefCon progress %. Every other caller leaves ptsFill null → plain bar. */}
+      <div className="player-slot__fixture" style={ptsFill ? { position: "relative", overflow: "hidden" } : undefined}>
+        {ptsFill && ptsFill.pct > 0 && (
+          <span aria-hidden="true" style={{ position: "absolute", left: 0, top: 0, bottom: 0,
+            width: `${ptsFill.pct}%`, background: ptsFill.color, opacity: 0.5, transition: "width .3s ease" }} />
+        )}
+        <span style={ptsFill ? { position: "relative", zIndex: 1 } : undefined}>{displayInfo}</span>
+      </div>
     </div>
   );
 }
 
 // ---------- Pitch ----------
 // formation: [GK, DEF, MID, FWD]
-function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null, statsById = null }) {
+function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, pointsById = null, statsById = null, statusByTeam = null }) {
   if (!lineup) return null;
   const { starting, bench, formation } = lineup;
   const [_gk, nDef, nMid, nFwd] = formation;
@@ -427,6 +437,27 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
     if (!p) return null;
     return defconBadgeInfo(p.pos, statsById[String(id)] || null);
   };
+  // Opt-in points-bar meter (Knockout Pitch View only — needs statusByTeam).
+  // Mirrors the Match View slot's traffic light: green=FT (locked), gold=playing
+  // (fills by DefCon % for DEF/MID), red=live-but-benched; idle/no-status → plain
+  // bar. Every other Pitch caller leaves statusByTeam null → null → no change.
+  const ptsFillOf = (id) => {
+    if (!statusByTeam) return null;
+    const p = (window.PLAYER_MAP || {})[String(id)];
+    if (!p) return null;
+    const status = statusByTeam[p.team] || null;
+    if (!status) return null;
+    const s = statsById ? (statsById[String(id)] || null) : null;
+    const playing = !!(s && (s.minutes || 0) > 0);
+    const live = status === "LIVE";
+    const tone = status === "FT" ? "final" : live ? (playing ? "playing" : "bench") : "idle";
+    if (tone === "idle") return null;
+    const ring = (typeof defconPercent === "function") ? defconPercent(p.pos, s) : null; // DEF/MID + stats
+    const toneColor = tone === "final" ? "#00e87b" : tone === "bench" ? "#ff4d6d" : "#ffd76a";
+    return (tone === "playing" && ring)
+      ? { pct: ring.pct, color: ring.color, tone }
+      : { pct: 100, color: toneColor, tone };
+  };
   const isPlayerDisabled = (id) => {
     if (mode !== "pick" || selected === null) return false;
     return !isSwapLegal(lineup, selected, id);
@@ -446,16 +477,16 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
 
         <div className="pitch__rows">
           <div className="pitch__row">
-            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
+            {gk.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} ptsFill={ptsFillOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
+            {def.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} ptsFill={ptsFillOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
+            {mid.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} ptsFill={ptsFillOf(id)} />)}
           </div>
           <div className="pitch__row">
-            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />)}
+            {fwd.map(id => <PlayerSlot key={id} playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} ptsFill={ptsFillOf(id)} />)}
           </div>
         </div>
       </div>
@@ -466,7 +497,7 @@ function Pitch({ lineup, mode = "points", selected = null, onPlayerClick, points
         <div className="bench-row__slots">
           {bench.map((id, i) => (
             <div key={id} className="bench-row__slot">
-              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} />
+              <PlayerSlot playerId={id} points={ptsOf(id)} mode={mode} disabled={isPlayerDisabled(id)} selected={selected === id} onBench={true} benchOrder={i} onClick={() => onPlayerClick?.(id)} defBadge={defBadgeOf(id)} ptsFill={ptsFillOf(id)} />
             </div>
           ))}
         </div>
