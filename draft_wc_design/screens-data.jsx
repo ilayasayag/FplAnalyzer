@@ -1778,6 +1778,37 @@ function TradeCard({ trade, direction }) {
   );
 }
 
+// Order a fielded XI GK→DEF→MID→FWD and derive the formation from the players'
+// real positions — so the pitch lays out correctly regardless of stored order.
+// Used for both the frozen snapshot and a live (not-yet-finalized) lineup.
+function _squadPitchOrder(starting, bench) {
+  const posOf = (rawId) => {
+    const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+    const p = playerById(id);
+    return p ? p.pos : 3;
+  };
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  (starting || []).forEach(id => { (byPos[posOf(id)] || byPos[3]).push(id); });
+  const ordered = [...byPos[1], ...byPos[2], ...byPos[3], ...byPos[4]];
+  const formation = [Math.max(1, byPos[1].length), byPos[2].length, byPos[3].length, byPos[4].length];
+  return { starting: ordered, bench: bench || [], formation };
+}
+// Last-resort lineup when no saved XI exists (a squad, no lineup for this GW):
+// lay the 15 out in a default-valid shape so the pitch still renders. Mirrors
+// app.jsx's _lineupFromSquad.
+function _squadPitchDefault(ids) {
+  const byPos = { 1: [], 2: [], 3: [], 4: [] };
+  (ids || []).forEach(rawId => {
+    const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
+    const p = playerById(id);
+    if (p && byPos[p.pos]) byPos[p.pos].push(String(rawId));
+  });
+  const nd = Math.min(byPos[2].length, 4), nm = Math.min(byPos[3].length, 4), nf = Math.min(byPos[4].length, 2);
+  const starting = [...byPos[1].slice(0, 1), ...byPos[2].slice(0, nd), ...byPos[3].slice(0, nm), ...byPos[4].slice(0, nf)];
+  const bench = [...byPos[1].slice(1), ...byPos[2].slice(nd), ...byPos[3].slice(nm), ...byPos[4].slice(nf)];
+  return { starting, bench, formation: [1, nd, nm, nf] };
+}
+
 // ---------- MANAGER SQUAD MODAL ----------
 function ManagerSquadModal({ uid, gw, onClose }) {
   const m = managerById(uid);
@@ -1791,18 +1822,34 @@ function ManagerSquadModal({ uid, gw, onClose }) {
   const [snap, setSnap] = React.useState(undefined);       // undefined=loading, null=no snapshot
   const [fallbackIds, setFallbackIds] = React.useState(null);
   const [lineupsHidden, setLineupsHidden] = React.useState(false); // 403: pre-lock, not my squad
+  const [liveLineup, setLiveLineup] = React.useState(null); // real fielded XI for a not-yet-finalized GW
+  const [liveData, setLiveData] = React.useState(null);     // {points,stats,status} — live pitch meters
 
   React.useEffect(() => {
     let cancelled = false;
     setSnap(undefined);
     setFallbackIds(null);
     setLineupsHidden(false);
+    setLiveLineup(null);
+    setLiveData(null);
     const lid = window.LEAGUE && window.LEAGUE.id;
     if (!lid) { setSnap(null); return; }
     const loadCurrentSquad = () => {
       apiCall("GET", `/leagues/${lid}/squads/${uid}`)
         .then(res => { if (!cancelled) setFallbackIds((res.players || []).map(p => String(p.playerId))); })
         .catch(() => { if (!cancelled) setFallbackIds(uid === window.ME ? (window.MY_SQUAD_IDS || []) : []); });
+      // No frozen snapshot (GW not finalized) → still render the pitch from the
+      // real fielded XI for this GW when it's readable (own squad, or once it
+      // locks; opponents pre-lock 403 → we fall back to the squad list below).
+      apiCall("GET", `/leagues/${lid}/lineup/${uid}/${gw}`)
+        .then(r => { if (!cancelled && r && Array.isArray(r.starting) && r.starting.length)
+          setLiveLineup({ starting: r.starting.map(String), bench: (r.bench || []).map(String), formation: r.formation || [1, 4, 4, 2] }); })
+        .catch(() => {});
+      // Live per-player points + DefCon meter data (same feed as the Knockout
+      // pitch view) so the current-GW pitch lights up as matches unfold.
+      apiCall("GET", `/leagues/${lid}/gw-player-points/${gw}`)
+        .then(r => { if (!cancelled && r) setLiveData({ points: r.points || {}, stats: r.stats || {}, status: r.teamStatus || {} }); })
+        .catch(() => {});
     };
     apiCall("GET", `/leagues/${lid}/gw-history/${uid}?gw=${gw}`)
       .then(s => {
@@ -1850,17 +1897,18 @@ function ManagerSquadModal({ uid, gw, onClose }) {
     const ids = (snap.players || []).map(pl => pl.id);
     const starting = (Array.isArray(snap.starting) && snap.starting.length) ? snap.starting : ids.slice(0, 11);
     const bench = Array.isArray(snap.bench) ? snap.bench : ids.slice(11);
-    const posOf = (rawId) => {
-      const id = typeof rawId === "number" ? rawId : (isNaN(Number(rawId)) ? rawId : Number(rawId));
-      const p = playerById(id);
-      return p ? p.pos : 3;
-    };
-    const byPosRow = { 1: [], 2: [], 3: [], 4: [] };
-    starting.forEach(id => { (byPosRow[posOf(id)] || byPosRow[3]).push(id); });
-    const ordered = [...byPosRow[1], ...byPosRow[2], ...byPosRow[3], ...byPosRow[4]];
-    const formation = [Math.max(1, byPosRow[1].length), byPosRow[2].length, byPosRow[3].length, byPosRow[4].length];
-    return { starting: ordered, bench, formation };
+    return _squadPitchOrder(starting, bench);
   }, [snap]);
+
+  // No frozen snapshot → still render a pitch: prefer the real fielded XI for
+  // this GW; if none is readable, lay the squad out in a default shape. Only the
+  // pre-lock-hidden / loading / empty states skip the pitch entirely.
+  const livePitchLineup = React.useMemo(() => {
+    if (hasSnap) return null;
+    if (liveLineup && liveLineup.starting.length) return _squadPitchOrder(liveLineup.starting, liveLineup.bench);
+    if (fallbackIds && fallbackIds.length) return _squadPitchDefault(fallbackIds);
+    return null;
+  }, [hasSnap, liveLineup, fallbackIds]);
 
   // Group by position
   const byPos = { 1: [], 2: [], 3: [], 4: [] };
@@ -1907,6 +1955,16 @@ function ManagerSquadModal({ uid, gw, onClose }) {
         ) : lineupsHidden ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>
             Lineups are hidden until they lock for GW{gw}. Check back at kickoff.
+          </div>
+        ) : livePitchLineup ? (
+          /* No frozen snapshot yet (current / not-finalized GW) → same pitch
+             style, driven by the live fielded XI. Live points + DefCon meters
+             light up as matches unfold (green=FT, gold=playing, red=benched). */
+          <div className="squad-modal-pitch" style={{ padding: isMobile ? "12px 10px 20px" : "16px 20px 24px" }}>
+            <Pitch lineup={livePitchLineup} mode="points"
+              pointsById={(liveData && liveData.points) || null}
+              statsById={(liveData && liveData.stats) || null}
+              statusByTeam={(liveData && liveData.status) || null} />
           </div>
         ) : players === null ? (
           <div style={{ padding: 40, textAlign: "center", color: "var(--ink-500)" }}>Loading squad…</div>
