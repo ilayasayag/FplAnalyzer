@@ -770,12 +770,91 @@ function VersusMiniSlot({ id, points, stats, teamStatus }) {
   );
 }
 
+// The FINAL's ceremonial pitch: a HORIZONTAL field split left/right, each half
+// backed by that finalist's royal KO flag (home left, away right) with a dark
+// scrim so jerseys stay legible. Home lines up GK(far-left)→DEF→MID→FWD toward
+// the halfway line; the away XI mirrors it FWD→…→GK to the far right. Reuses the
+// shared VersusMiniSlot; styling is scoped under .vf-* (injected in
+// KnockoutSquadsList). Only used for the Final — semis keep the maroon pitch.
+function VersusFinalPitch({ homeUid, awayUid, home, away, pointsById, statsById, statusByTeam, gw, label, isMobile }) {
+  const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
+  const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
+  const total = uid => (window.GW_TOTALS || {})[uid];
+  const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
+  const pstats = id => (statsById && statsById[String(id)]) || null;
+  const pstatus = id => {
+    const pl = (typeof playerById === "function") ? playerById(id) : null;
+    return (pl && statusByTeam) ? (statusByTeam[pl.team] || null) : null;
+  };
+  const rowsOf = lu => {
+    const [g, d, m, f] = lu.formation;
+    const s = lu.starting;
+    return { gk: s.slice(0, 1), def: s.slice(1, 1 + d), mid: s.slice(1 + d, 1 + d + m), fwd: s.slice(1 + d + m, 1 + d + m + f) };
+  };
+  const col = (ids, key) => <div className="vf-col" key={key}>{ids.map(id => <VersusMiniSlot key={id} id={id} points={ppts(id)} stats={pstats(id)} teamStatus={pstatus(id)} />)}</div>;
+  const teamCell = (uid, awaySide) => {
+    const flag = flagOf(uid);
+    return (
+      <div className={"vs-team" + (awaySide ? " vs-team--away" : "")}>
+        {flag && <img src={flag + "?v=96"} alt="" onError={e => { e.target.style.display = "none"; }} />}
+        <div style={{ minWidth: 0 }}>
+          <div className="vs-team__name">{mgr(uid).team || mgr(uid).name}</div>
+          <div className="vs-team__score">{total(uid) != null ? total(uid) : "—"}</div>
+        </div>
+      </div>
+    );
+  };
+  const H = home ? rowsOf(home) : null;
+  const A = away ? rowsOf(away) : null;
+  const homeFlag = flagOf(homeUid);
+  const awayFlag = flagOf(awayUid);
+  return (
+    <div className="vf-board">
+      <div className="vs-label">{label} · GW{gw}</div>
+      <div className="vs-scorebar">
+        {teamCell(homeUid, false)}
+        <div className="vs-mid">VS</div>
+        {teamCell(awayUid, true)}
+      </div>
+      {(!H || !A) ? (
+        <div style={{ color: "rgba(255,255,255,.7)", fontSize: 12, textAlign: "center", padding: "48px 0" }}>Lineups loading…</div>
+      ) : (
+        <div className="vf-pitch">
+          <div className="vf-half vf-half--home" style={homeFlag ? { backgroundImage: `url(${homeFlag}?v=96)` } : undefined} />
+          <div className="vf-half vf-half--away" style={awayFlag ? { backgroundImage: `url(${awayFlag}?v=96)` } : undefined} />
+          <div className="vf-lines" />
+          <div className="vf-halfline" />
+          <div className="vf-circle" />
+          <div className="vf-spot" />
+          <div className="vf-pen vf-pen--l" />
+          <div className="vf-pen vf-pen--r" />
+          <div className="vf-six vf-six--l" />
+          <div className="vf-six vf-six--r" />
+          <div className="vf-pspot vf-pspot--l" />
+          <div className="vf-pspot vf-pspot--r" />
+          <div className="vf-grid">
+            {/* Home: GK far-left → attack at halfway. Away mirrors to the right. */}
+            {col(H.gk, "hg")}{col(H.def, "hd")}{col(H.mid, "hm")}{col(H.fwd, "hf")}
+            {col(A.fwd, "af")}{col(A.mid, "am")}{col(A.def, "ad")}{col(A.gk, "ag")}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
 // Two lineups on ONE pitch, facing off like a real match: the home team fills
 // the top half (GK at the top goal → defence → midfield → attack at the halfway
 // line), the away team mirrors it on the bottom half. Maroon WC pitch, smaller
 // jerseys. All styling is scoped under .vs-* (injected in KnockoutSquadsList) so
 // the side-by-side Pitch View and List View are untouched.
-function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, statusByTeam, gw, label, isMobile }) {
+function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, statusByTeam, gw, label, isMobile, isFinal }) {
+  // The Final gets a ceremonial horizontal pitch: each finalist's royal flag
+  // fills their half (home left, away right). Semis keep the maroon field.
+  if (isFinal) return (
+    <VersusFinalPitch homeUid={homeUid} awayUid={awayUid} home={home} away={away}
+      pointsById={pointsById} statsById={statsById} statusByTeam={statusByTeam}
+      gw={gw} label={label} isMobile={isMobile} />
+  );
   const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
@@ -836,10 +915,52 @@ function VersusPitch({ homeUid, awayUid, home, away, pointsById, statsById, stat
     </div>
   );
 }
-function KnockoutSquadsList({ seededUids, gw }) {
+// Staging-channel demo data. GW8 is 0/NS in prod so the live points bars would
+// read plain; on the staging hostname ONLY we synthesize a spread of team
+// statuses + DefCon stats so the Match/Pitch bars can be felt (green FT, gold
+// playing filling by %, red live-benched). The hostname guard means it can never
+// fire on prod, so it's safe to ship.
+const _KO_IS_STAGING = (typeof location !== "undefined") && /--staging/.test((location && location.hostname) || "");
+function _koStagingMock(uids, lineups, pmap) {
+  const ids = [], teams = [];
+  (uids || []).forEach(u => {
+    const lu = lineups[u]; if (!lu) return;
+    (lu.starting || []).concat(lu.bench || []).forEach(id => {
+      ids.push(id);
+      const p = pmap[String(id)]; if (p && teams.indexOf(p.team) < 0) teams.push(p.team);
+    });
+  });
+  const status = {};
+  teams.forEach((t, i) => { status[t] = ["FT", "LIVE", "FT", "LIVE", "FT"][i % 5]; });
+  const points = {}, stats = {};
+  ids.forEach((id, i) => {
+    const p = pmap[String(id)]; if (!p) return;
+    const benched = (i % 6 === 0);                    // a few "didn't play" → red on LIVE teams
+    const min = benched ? 0 : 55 + (i * 17) % 40;
+    const b = (i * 5) % 13;                            // 0..12 DefCon spread
+    stats[String(id)] = {
+      minutes: min, goals: (i % 9 === 0 ? 1 : 0), assists: (i % 11 === 0 ? 1 : 0),
+      cleanSheet: p.pos <= 2 && (i % 3 === 0), goalsConceded: (i % 4 === 0 ? 1 : 0), yellowCards: (i % 6 === 0 ? 1 : 0),
+      saves: p.pos === 1 ? (i % 5) : 0, shotsOnTarget: p.pos === 4 ? (i % 4) : 0,
+      tackles: { total: b % 5, interceptions: (b + 1) % 4, blocks: b % 2 }, clearances: b % 3, ballRecoveries: (b + 2) % 6,
+    };
+    points[String(id)] = min === 0 ? 0 : (1 + (i * 3) % 9);
+  });
+  return { points, stats, status };
+}
+function KnockoutSquadsList({ rounds }) {
   const isMobile = useIsMobile();
   const lid = (window.LEAGUE || LEAGUE || {}).id;
   const [view, setView] = React.useState("versus");          // versus | pitch | list
+  // Which knockout round the lineups browser shows. Defaults to the LAST round
+  // (the Final / latest GW); the ‹ › arrows step back to the semis (GW7) and
+  // forward again. `rounds` is [semis, final?] built in KnockoutPanel.
+  const safeRounds = (rounds && rounds.length) ? rounds
+    : [{ gw: null, uids: [], matchLabel: () => "", roundName: "", isFinal: false }];
+  const [roundIdx, setRoundIdx] = React.useState(safeRounds.length - 1);
+  const round = safeRounds[Math.min(roundIdx, safeRounds.length - 1)];
+  const gw = round.gw;
+  const seededUids = round.uids || [];
   const [pointsById, setPointsById] = React.useState(null);
   const [statsById, setStatsById] = React.useState({});       // playerId -> raw GW stats blob (List View only)
   const [statusByTeam, setStatusByTeam] = React.useState({}); // teamIso -> FT|LIVE|NS (Match View traffic light)
@@ -862,8 +983,18 @@ function KnockoutSquadsList({ seededUids, gw }) {
   const mgr = uid => (typeof managerById === "function" ? managerById(uid) : null) || { name: uid };
   const flagOf = uid => (window.KO_DRAFT_FLAGS || {})[uid] || (window.CUSTOM_TEAM_FLAGS || {})[uid];
   const total = uid => (window.GW_TOTALS || {})[uid];
-  const ppts = id => (pointsById && pointsById[String(id)] != null) ? pointsById[String(id)] : null;
-  const pstats = id => (statsById && statsById[String(id)]) || null;
+  // Staging-only demo overlay: GW8 is 0/NS in prod, so the live bars would all
+  // read plain. On the staging channel ONLY we synthesize a spread of statuses +
+  // DefCon so the bars can be felt. Real (prod) data always wins — never on prod.
+  const mock = React.useMemo(
+    () => (_KO_IS_STAGING ? _koStagingMock(seededUids, lineups, pmap) : null),
+    [key, gw, Object.keys(lineups).length]
+  );
+  const effPoints = mock ? mock.points : (pointsById || {});
+  const effStats = mock ? mock.stats : (statsById || {});
+  const effStatus = mock ? mock.status : (statusByTeam || {});
+  const ppts = id => (effPoints && effPoints[String(id)] != null) ? effPoints[String(id)] : null;
+  const pstats = id => (effStats && effStats[String(id)]) || null;
   // Order a lineup GK→DEF→MID→FWD and derive the formation from real positions,
   // so the pitch lays out correctly regardless of stored order.
   const ordered = (uid) => {
@@ -887,8 +1018,25 @@ function KnockoutSquadsList({ seededUids, gw }) {
   // one shared pitch. Pitch/List views keep the per-manager cards.
   const pairs = [];
   for (let i = 0; i < seededUids.length; i += 2) pairs.push(seededUids.slice(i, i + 2));
+  // ‹ › round nav — only shown once more than one round exists (i.e. the Final
+  // is seeded). Bounded so you can't step past the semis or the final.
+  const navBtn = (dir, disabled) => (
+    <button aria-label={dir < 0 ? "Previous round" : "Next round"} disabled={disabled}
+      onClick={() => setRoundIdx(i => Math.min(safeRounds.length - 1, Math.max(0, i + dir)))}
+      style={{ width: 28, height: 28, borderRadius: 8, padding: 0, flexShrink: 0, fontSize: 16, lineHeight: "24px",
+        border: "1px solid var(--border)", background: "var(--card-2, rgba(0,0,0,0.05))",
+        color: disabled ? "var(--ink-300)" : "var(--ink-700)", cursor: disabled ? "default" : "pointer",
+        opacity: disabled ? 0.45 : 1 }}>{dir < 0 ? "‹" : "›"}</button>
+  );
+  const titleNode = (
+    <span style={{ display: "inline-flex", alignItems: "center", gap: 10 }}>
+      {safeRounds.length > 1 && navBtn(-1, roundIdx <= 0)}
+      <span>Lineups · GW{gw} points{round.roundName ? ` · ${round.roundName}` : ""}</span>
+      {safeRounds.length > 1 && navBtn(1, roundIdx >= safeRounds.length - 1)}
+    </span>
+  );
   return (
-    <KnockoutLine title={`Lineups · GW${gw} points`}>
+    <KnockoutLine title={titleNode}>
       {/* The shared .pitch is aspect-ratio 16/11 — too short for the full XI at
           this card width, clipping the FWD row. Give it a fixed min-height (fits
           4 rows of slots). Plus the .vs-* Match-View pitch (two teams, one field).
@@ -942,6 +1090,43 @@ function KnockoutSquadsList({ seededUids, gw }) {
           .vs-team__score{font-size:24px}
           .vs-team__name{font-size:13px}
         }
+        /* ---- FINAL: horizontal flag pitch (VersusFinalPitch) ---- */
+        .vf-board{background:linear-gradient(180deg,#241a08,#140b02);border:1px solid rgba(255,215,106,0.28);border-radius:14px;padding:14px 14px 16px;overflow:hidden;box-shadow:0 0 26px rgba(255,199,44,0.14)}
+        .vf-pitch{position:relative;width:100%;aspect-ratio:16/9;border-radius:8px;overflow:hidden;box-shadow:inset 0 0 0 2px rgba(255,255,255,.55)}
+        .vf-half{position:absolute;top:0;bottom:0;width:50%;background-size:cover;background-position:center;background-repeat:no-repeat}
+        .vf-half--home{left:0}
+        .vf-half--away{right:0}
+        /* Dark veil (the richer look) so the busy crest recedes while the white
+           pitch lines + players stay crisp. Tune the last number 0..1 to taste. */
+        .vf-half::after{content:"";position:absolute;inset:0;background:rgba(9,4,2,.38)}
+        /* Full football-pitch markings: boundary, halfway, centre circle+spot,
+           penalty areas, six-yard boxes and penalty spots on both goals. */
+        .vf-lines{position:absolute;inset:8px;border:2px solid rgba(255,255,255,.92);border-radius:4px;pointer-events:none}
+        .vf-halfline{position:absolute;left:50%;top:8px;bottom:8px;border-left:2px solid rgba(255,255,255,.92)}
+        .vf-circle{position:absolute;left:50%;top:50%;width:15%;aspect-ratio:1;transform:translate(-50%,-50%);border:2px solid rgba(255,255,255,.92);border-radius:50%}
+        .vf-spot{position:absolute;left:50%;top:50%;width:6px;height:6px;background:rgba(255,255,255,.92);border-radius:50%;transform:translate(-50%,-50%)}
+        .vf-pen{position:absolute;top:24%;height:52%;width:12%;border:2px solid rgba(255,255,255,.92)}
+        .vf-pen--l{left:8px;border-left:none}
+        .vf-pen--r{right:8px;border-right:none}
+        .vf-six{position:absolute;top:37%;height:26%;width:5.5%;border:2px solid rgba(255,255,255,.92)}
+        .vf-six--l{left:8px;border-left:none}
+        .vf-six--r{right:8px;border-right:none}
+        .vf-pspot{position:absolute;top:50%;width:5px;height:5px;background:rgba(255,255,255,.92);border-radius:50%;transform:translateY(-50%)}
+        .vf-pspot--l{left:15.5%}
+        .vf-pspot--r{right:15.5%}
+        .vf-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(8,1fr);align-items:center;padding:10px 4px;z-index:1;box-sizing:border-box}
+        /* min-width:0 lets the 8 tracks shrink below their content so the away
+           columns never overflow the pitch (names ellipsize instead). */
+        .vf-col{display:flex;flex-direction:column;justify-content:space-around;align-items:center;height:100%;gap:3px;min-width:0}
+        .vf-grid .vs-slot{width:100%;max-width:92px;padding:0 1px;box-sizing:border-box}
+        .vf-grid .vs-slot__jersey{width:44px;height:40px}
+        .vf-grid .vs-slot__name{max-width:100%;font-size:9px}
+        @media (max-width:720px){
+          .vf-pitch{aspect-ratio:1/1}
+          .vf-grid{padding:6px 1px}
+          .vf-grid .vs-slot__jersey{width:30px;height:27px}
+          .vf-grid .vs-slot__name{font-size:7.5px}
+        }
       `}</style>
       <div style={{ display: "inline-flex", padding: 4, background: "var(--card-2, rgba(0,0,0,0.06))", borderRadius: 999, marginBottom: 12 }}>
         {toggle("versus", "Match View")}{toggle("pitch", "Pitch View")}{toggle("list", "List View")}
@@ -952,8 +1137,9 @@ function KnockoutSquadsList({ seededUids, gw }) {
           {pairs.map((pr, i) => (
             <VersusPitch key={i} homeUid={pr[0]} awayUid={pr[1]}
               home={ordered(pr[0])} away={ordered(pr[1])}
-              pointsById={pointsById || {}} statsById={statsById || {}} statusByTeam={statusByTeam || {}} gw={gw}
-              label={`Semi-Final ${i + 1}`} isMobile={isMobile} />
+              pointsById={effPoints} statsById={effStats} statusByTeam={effStatus} gw={gw}
+              label={round.matchLabel ? round.matchLabel(i) : `Semi-Final ${i + 1}`}
+              isFinal={round.isFinal} isMobile={isMobile} />
           ))}
         </div>
       ) : (
@@ -977,7 +1163,7 @@ function KnockoutSquadsList({ seededUids, gw }) {
               </div>
               {!lu ? <div className="muted" style={{ fontSize: 12 }}>Lineup loading…</div>
                 : view === "pitch" ? (
-                  <div className="ko-lineup-pitch"><Pitch lineup={lu} mode="points" pointsById={pointsById || {}} statsById={statsById || {}} /></div>
+                  <div className="ko-lineup-pitch"><Pitch lineup={lu} mode="points" pointsById={effPoints} statsById={effStats} statusByTeam={effStatus} /></div>
                 ) : (
                   <div className="table-scroll">
                     <table className="table-clean" style={{ width: "100%", minWidth: 440 }}>
@@ -1034,6 +1220,26 @@ function KnockoutPanel() {
   const finalGw = (finalMatch && finalMatch.gw) || (league.knockoutStartGw ? league.knockoutStartGw + 1 : null);
   const finalDisplay = finalMatch || { id: "final", gw: finalGw, home: null, away: null,
     homeSeed: null, awaySeed: null, homePh: "Winner SF1", awayPh: "Winner SF2" };
+  // Rounds for the lineups browser: the semis, then the Final once it has two
+  // real finalists. The Final (latest GW) is the DEFAULT; ‹ › steps back to the
+  // semis. Falls back to just the semis before the final is seeded.
+  const koRounds = [];
+  if (sf.length) koRounds.push({
+    key: "sf",
+    gw: (sf[0] && sf[0].gw) || league.knockoutStartGw,
+    uids: sf.flatMap(m => [m.home, m.away]).filter(Boolean),
+    matchLabel: (i) => `Semi-Final ${i + 1}`,
+    roundName: "Semi-Finals",
+    isFinal: false,
+  });
+  if (finalMatch && finalMatch.home && finalMatch.away) koRounds.push({
+    key: "final",
+    gw: finalGw,
+    uids: [finalMatch.home, finalMatch.away],
+    matchLabel: () => "Final",
+    roundName: "Final",
+    isFinal: true,
+  });
   return (
     <div className="col" style={{ gap: 20 }}>
       <div className="alert alert--info">
@@ -1050,10 +1256,9 @@ function KnockoutPanel() {
           <KnockoutMatchup match={finalDisplay} label="Final" />
         </div>
       </KnockoutLine>
-      {/* Bottom: every semifinalist's full squad with this GW's points per player. */}
-      <KnockoutSquadsList
-        seededUids={sf.flatMap(m => [m.home, m.away]).filter(Boolean)}
-        gw={(sf[0] && sf[0].gw) || league.knockoutStartGw} />
+      {/* Bottom: the lineups browser — Final (GW8) by default, ‹ › back to the
+          semis (GW7). Match / Pitch / List views for whichever round is shown. */}
+      <KnockoutSquadsList rounds={koRounds} />
     </div>
   );
 }
