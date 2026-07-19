@@ -1054,16 +1054,18 @@ def update_watchlist(lid: str):
 #
 # AUTHORISATION MODEL (per Ilay): a REAL (non-rehearsal / "live") draft is the
 # only thing that eliminates squads, releases free agents and mutates real
-# rosters — so EVERY live operation is SUPER-ADMIN-ONLY (`_require_super_admin`,
-# i.e. Ilay). No one else can go live, execute a live swap, pass, pause or reset
-# a live draft. The DRY RUN (rehearsal) stays open so the managers can practise:
-# rehearsal setup is league-admin; rehearsal picks/passes are any member (the
-# engine turn-checks) and never touch squads/members.
+# rosters — so every live SETUP/CONTROL op is SUPER-ADMIN-ONLY
+# (`_require_super_admin`, i.e. Ilay): start, config, reset, revert, pause,
+# resume, undo, auto-pass. No one else can go live or steer the clock.
 #
-# In a LIVE draft the super-admin executes swaps ON BEHALF of whoever is on the
-# clock (the swap is recorded + applied to THAT manager's squad). Any authed
-# super-admin caller likewise drives a rehearsal on-behalf, which is handy for
-# solo testing — see ``_ko_swap_target``.
+# The two ON-THE-CLOCK ops — pick + pass — are the exception: they take a plain
+# `_require_auth` so the manager ON THE CLOCK can drive them from their OWN
+# device (this is what "Roy picks from his phone" needs). This is safe because
+# the engine turn-checks (`uid != currentDrafter` -> rejected) and a non-super
+# caller's swap target is ALWAYS themselves (`_ko_swap_target`), so a member can
+# only ever pick/pass on their own turn, onto their own squad. The super-admin
+# still executes ON BEHALF of whoever is on the clock (swap recorded + applied to
+# THAT manager's squad) — handy for a fallback or solo rehearsal testing.
 # ---------------------------------------------------------------------------
 
 def _require_league_admin(lid: str):
@@ -1196,9 +1198,11 @@ def ko_draft_state(lid: str):
 
 @wc_bp.route("/leagues/<lid>/ko-draft/pick", methods=["POST"])
 def ko_draft_pick(lid: str):
-    # Live swaps mutate real rosters -> super-admin only, executed on behalf of
-    # the manager on the clock. Rehearsal swaps are any member (turn-checked).
-    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    # On-the-clock op: any authed caller. The engine turn-checks and a non-super
+    # caller's target is themselves (`_ko_swap_target`), so a manager can only
+    # swap their own squad on their own turn; the super-admin executes on behalf
+    # of whoever is on the clock. Live vs rehearsal is decided in the engine.
+    uid, err = _require_auth()
     if err:
         return err
     body = request.get_json(silent=True) or {}
@@ -1221,7 +1225,9 @@ def ko_draft_pick(lid: str):
 
 @wc_bp.route("/leagues/<lid>/ko-draft/pass", methods=["POST"])
 def ko_draft_pass(lid: str):
-    uid, err = _ko_gate_play(lid, live=_ko_is_live(lid))
+    # On-the-clock op — same auth as pick: the manager on the clock passes from
+    # their own device (turn-checked), or the super-admin passes on their behalf.
+    uid, err = _require_auth()
     if err:
         return err
     try:
