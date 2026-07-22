@@ -142,15 +142,38 @@ print("  expected H2H + bonus:")
 for m in matches:
     h, a = m.get("home"), m.get("away")
     print(f"    {h}({pts_by.get(h,0)}) {exp_h2h.get(h,'?')} vs {a}({pts_by.get(a,0)}) {exp_h2h.get(a,'?')}")
-print(f"  מצטיין מחזור (+1): {bonus_uids}  | expected hpts: { {u: exp_hpts[u] for u in members} }")
+print(f"  מצטיין מחזור (+1): {bonus_uids}  | expected hpts THIS GW: { {u: exp_hpts[u] for u in members} }")
 if finalized:
     stored_h2h = sc.get("h2hResults", {}) or {}
     st_doc = db.collection("leagues").document(LID).collection("standings").document("current").get().to_dict() or {}
     st_hpts = {m["uid"]: m.get("hpts", 0) for m in st_doc.get("managers", [])}
-    h2h_ok = all(stored_h2h.get(u, {}).get("result") == exp_h2h.get(u) for u in members) and st_hpts == exp_hpts
+    # standings hpts are CUMULATIVE across the season, so recompute expected by
+    # summing EVERY finalized scores/{g} doc (standings/current always reflects
+    # all of them, even when this script is re-run on an older GW): W=3/D=1/L=0
+    # per stored h2h result + 1 to that GW's top scorer(s). This GW's stored
+    # results are separately checked against exp_h2h above.
+    cum_hpts = {u: 0 for u in members}
+    cum_gws = []
+    for sg_doc in db.collection("leagues").document(LID).collection("scores").stream():
+        sg = sg_doc.to_dict() or {}
+        if not sg.get("processed"): continue
+        cum_gws.append(sg_doc.id)
+        g_pts = {u: (sg.get("results") or {}).get(u, {}).get("points", 0) for u in members}
+        for u, r in (sg.get("h2hResults") or {}).items():
+            if u in cum_hpts: cum_hpts[u] += {"W": 3, "D": 1, "L": 0}.get((r or {}).get("result"), 0)
+        g_top = max(g_pts.values()) if g_pts else 0
+        if g_top > 0:
+            for u in members:
+                if g_pts[u] == g_top: cum_hpts[u] += 1
+    res_ok = all(stored_h2h.get(u, {}).get("result") == exp_h2h.get(u) for u in members)
+    h2h_ok = res_ok and st_hpts == cum_hpts
     results["H2H"] = h2h_ok
+    print(f"  expected CUMULATIVE hpts (finalized GWs {sorted(cum_gws, key=lambda x: int(x) if x.isdigit() else 0)}): {cum_hpts}")
     print(f"  stored vs expected -> {PASS if h2h_ok else FAIL}")
-    if not h2h_ok: print(f"    stored hpts={st_hpts}")
+    if not h2h_ok:
+        if not res_ok:
+            print(f"    this-GW results: stored={ {u: stored_h2h.get(u, {}).get('result') for u in members} }")
+        print(f"    standings hpts={st_hpts}")
 else:
     results["H2H"] = None
     print("  -> PREVIEW only (run finalize_gw to apply; re-run this to verify)")
