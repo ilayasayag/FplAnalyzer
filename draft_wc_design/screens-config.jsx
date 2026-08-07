@@ -2,152 +2,56 @@
 // WC26 — Screens: Rules & Config Page (Ultra Configurable Rules)
 // =====================================================================
 
-function ConfigScreen({ onTab }) {
+function useConfigScreen() {
   const isMobile = useIsMobile();
   const [loading, setLoading] = React.useState(true);
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState(null); // { type: 'success'|'error', text: '' }
-  
-  // Scoring points state
+
   const [scoring, setScoring] = React.useState({
-    appearUnder60: 1,
-    appear60Plus: 2,
-    goalGk: 10,
-    goalDef: 6,
-    goalMid: 5,
-    goalFwd: 4,
-    assistPoints: 3,
-    csGk: 4,
-    csDef: 4,
-    csMid: 1,
-    csFwd: 0,
-    gcPenGk: -1,
-    gcPenDef: -1,
-    gcPenMid: 0,
-    gcPenFwd: 0,
-    yellowCardPoints: -1,
-    redCardPoints: -3,
-    ownGoalPoints: -2,
-    penaltyMissPoints: -2,
-    penaltySavePoints: 5,
-    savesPerPointGk: 3
+    appearUnder60: 1, appear60Plus: 2, goalGk: 10, goalDef: 6, goalMid: 5, goalFwd: 4,
+    assistPoints: 3, csGk: 4, csDef: 4, csMid: 1, csFwd: 0,
+    gcPenGk: -1, gcPenDef: -1, gcPenMid: 0, gcPenFwd: 0,
+    yellowCardPoints: -1, redCardPoints: -3, ownGoalPoints: -2,
+    penaltyMissPoints: -2, penaltySavePoints: 5, savesPerPointGk: 3,
   });
+  const [squadLimit, setSquadLimit] = React.useState({ totalPlayers: 15, gk: 2, def: 5, mid: 5, fwd: 3 });
+  const [leagueSize, setLeagueSize] = React.useState({ minManagers: 6, maxManagers: 10, optimalMin: 6, optimalMax: 10 });
+  const [bonus, setBonus] = React.useState({ gwTopScorerH2HBonus: 1 });
+  const [knockout, setKnockout] = React.useState({ qualifiersCount: 4, h2hSlots: 2, fptsSlots: 2, structure: "sf" });
+  const [leaguePhase, setLeaguePhase] = React.useState({ format: "h2h", customGameWeeksCount: "" });
 
-  // Squad size limitations state
-  const [squadLimit, setSquadLimit] = React.useState({
-    totalPlayers: 15,
-    gk: 2,
-    def: 5,
-    mid: 5,
-    fwd: 3
-  });
-
-  // League manager boundaries state
-  const [leagueSize, setLeagueSize] = React.useState({
-    minManagers: 6,
-    maxManagers: 10,
-    optimalMin: 6,
-    optimalMax: 10
-  });
-
-  // Standing bonus points state
-  const [bonus, setBonus] = React.useState({
-    gwTopScorerH2HBonus: 1
-  });
-
-  // Knockout promotions & slots criteria state
-  const [knockout, setKnockout] = React.useState({
-    qualifiersCount: 4,
-    h2hSlots: 2,
-    fptsSlots: 2,
-    structure: "sf"
-  });
-
-  // League phase settings
-  const [leaguePhase, setLeaguePhase] = React.useState({
-    format: "h2h",
-    customGameWeeksCount: ""
-  });
-
-  // Load tournament config rules on mount
   React.useEffect(() => {
     const fetchConfig = async () => {
       try {
         const data = await apiCall("GET", "/config");
         if (data && data.rules) {
           const r = data.rules;
-          
-          // Map scoring rules
           const sc = r.scoring || {};
           const goal = sc.goalPoints || {};
           const cs = sc.csPoints || {};
           const gc = sc.gcPointsPer2 || {};
-          
           setScoring({
-            appearUnder60: sc.appearUnder60 ?? 1,
-            appear60Plus: sc.appear60Plus ?? 2,
-            goalGk: goal["1"] ?? 10,
-            goalDef: goal["2"] ?? 6,
-            goalMid: goal["3"] ?? 5,
-            goalFwd: goal["4"] ?? 4,
+            appearUnder60: sc.appearUnder60 ?? 1, appear60Plus: sc.appear60Plus ?? 2,
+            goalGk: goal["1"] ?? 10, goalDef: goal["2"] ?? 6, goalMid: goal["3"] ?? 5, goalFwd: goal["4"] ?? 4,
             assistPoints: sc.assistPoints ?? 3,
-            csGk: cs["1"] ?? 4,
-            csDef: cs["2"] ?? 4,
-            csMid: cs["3"] ?? 1,
-            csFwd: cs["4"] ?? 0,
-            gcPenGk: gc["1"] ?? -1,
-            gcPenDef: gc["2"] ?? -1,
-            gcPenMid: gc["3"] ?? 0,
-            gcPenFwd: gc["4"] ?? 0,
-            yellowCardPoints: sc.yellowCardPoints ?? -1,
-            redCardPoints: sc.redCardPoints ?? -3,
-            ownGoalPoints: sc.ownGoalPoints ?? -2,
-            penaltyMissPoints: sc.penaltyMissPoints ?? -2,
-            penaltySavePoints: sc.penaltySavePoints ?? 5,
-            savesPerPointGk: sc.savesPerPointGk ?? 3
+            csGk: cs["1"] ?? 4, csDef: cs["2"] ?? 4, csMid: cs["3"] ?? 1, csFwd: cs["4"] ?? 0,
+            gcPenGk: gc["1"] ?? -1, gcPenDef: gc["2"] ?? -1, gcPenMid: gc["3"] ?? 0, gcPenFwd: gc["4"] ?? 0,
+            yellowCardPoints: sc.yellowCardPoints ?? -1, redCardPoints: sc.redCardPoints ?? -3,
+            ownGoalPoints: sc.ownGoalPoints ?? -2, penaltyMissPoints: sc.penaltyMissPoints ?? -2,
+            penaltySavePoints: sc.penaltySavePoints ?? 5, savesPerPointGk: sc.savesPerPointGk ?? 3,
           });
-
-          // Map squad limit
           const sq = r.squadLimit || {};
-          setSquadLimit({
-            totalPlayers: sq.totalPlayers ?? 15,
-            gk: sq.gk ?? 2,
-            def: sq.def ?? 5,
-            mid: sq.mid ?? 5,
-            fwd: sq.fwd ?? 3
-          });
-
-          // Map league manager boundaries
+          setSquadLimit({ totalPlayers: sq.totalPlayers ?? 15, gk: sq.gk ?? 2, def: sq.def ?? 5, mid: sq.mid ?? 5, fwd: sq.fwd ?? 3 });
           const lz = r.leagueSize || {};
-          setLeagueSize({
-            minManagers: lz.minManagers ?? 6,
-            maxManagers: Math.min(lz.maxManagers ?? 10, 10),
-            optimalMin: lz.optimalMin ?? 6,
-            optimalMax: lz.optimalMax ?? 10
-          });
-
-          // Map standing bonus points
+          setLeagueSize({ minManagers: lz.minManagers ?? 6, maxManagers: Math.min(lz.maxManagers ?? 10, 10), optimalMin: lz.optimalMin ?? 6, optimalMax: lz.optimalMax ?? 10 });
           const bn = r.bonus || {};
-          setBonus({
-            gwTopScorerH2HBonus: bn.gwTopScorerH2HBonus ?? 1
-          });
-
-          // Map knockout promotions & slots criteria
+          setBonus({ gwTopScorerH2HBonus: bn.gwTopScorerH2HBonus ?? 1 });
           const ko = r.knockout || {};
           const qCrit = ko.qualificationCriteria || {};
-          setKnockout({
-            qualifiersCount: ko.qualifiersCount ?? 4,
-            h2hSlots: qCrit.h2hSlots ?? 2,
-            fptsSlots: qCrit.fptsSlots ?? 2,
-            structure: ko.structure ?? "sf"
-          });
-
-          // Map league phase format
+          setKnockout({ qualifiersCount: ko.qualifiersCount ?? 4, h2hSlots: qCrit.h2hSlots ?? 2, fptsSlots: qCrit.fptsSlots ?? 2, structure: ko.structure ?? "sf" });
           const lp = r.leaguePhase || {};
-          setLeaguePhase({
-            format: lp.format ?? "h2h",
-            customGameWeeksCount: lp.customGameWeeksCount ?? ""
-          });
+          setLeaguePhase({ format: lp.format ?? "h2h", customGameWeeksCount: lp.customGameWeeksCount ?? "" });
         }
       } catch (err) {
         console.error("Failed to load rules config:", err);
@@ -163,85 +67,36 @@ function ConfigScreen({ onTab }) {
     e.preventDefault();
     setSaving(true);
     setMessage(null);
-
-    // Build the rules structure exactly matching our proposed plan
     const updatedRules = {
       scoring: {
-        appearUnder60: Number(scoring.appearUnder60),
-        appear60Plus: Number(scoring.appear60Plus),
-        goalPoints: {
-          "1": Number(scoring.goalGk),
-          "2": Number(scoring.goalDef),
-          "3": Number(scoring.goalMid),
-          "4": Number(scoring.goalFwd)
-        },
+        appearUnder60: Number(scoring.appearUnder60), appear60Plus: Number(scoring.appear60Plus),
+        goalPoints: { "1": Number(scoring.goalGk), "2": Number(scoring.goalDef), "3": Number(scoring.goalMid), "4": Number(scoring.goalFwd) },
         assistPoints: Number(scoring.assistPoints),
-        csPoints: {
-          "1": Number(scoring.csGk),
-          "2": Number(scoring.csDef),
-          "3": Number(scoring.csMid),
-          "4": Number(scoring.csFwd)
-        },
-        gcPointsPer2: {
-          "1": Number(scoring.gcPenGk),
-          "2": Number(scoring.gcPenDef),
-          "3": Number(scoring.gcPenMid),
-          "4": Number(scoring.gcPenFwd)
-        },
-        yellowCardPoints: Number(scoring.yellowCardPoints),
-        redCardPoints: Number(scoring.redCardPoints),
-        ownGoalPoints: Number(scoring.ownGoalPoints),
-        penaltyMissPoints: Number(scoring.penaltyMissPoints),
-        penaltySavePoints: Number(scoring.penaltySavePoints),
-        savesPerPointGk: Number(scoring.savesPerPointGk)
+        csPoints: { "1": Number(scoring.csGk), "2": Number(scoring.csDef), "3": Number(scoring.csMid), "4": Number(scoring.csFwd) },
+        gcPointsPer2: { "1": Number(scoring.gcPenGk), "2": Number(scoring.gcPenDef), "3": Number(scoring.gcPenMid), "4": Number(scoring.gcPenFwd) },
+        yellowCardPoints: Number(scoring.yellowCardPoints), redCardPoints: Number(scoring.redCardPoints),
+        ownGoalPoints: Number(scoring.ownGoalPoints), penaltyMissPoints: Number(scoring.penaltyMissPoints),
+        penaltySavePoints: Number(scoring.penaltySavePoints), savesPerPointGk: Number(scoring.savesPerPointGk),
       },
-      squadLimit: {
-        totalPlayers: Number(squadLimit.totalPlayers),
-        gk: Number(squadLimit.gk),
-        def: Number(squadLimit.def),
-        mid: Number(squadLimit.mid),
-        fwd: Number(squadLimit.fwd)
-      },
-      leagueSize: {
-        minManagers: Number(leagueSize.minManagers),
-        maxManagers: Number(leagueSize.maxManagers),
-        optimalMin: Number(leagueSize.optimalMin),
-        optimalMax: Number(leagueSize.optimalMax)
-      },
-      bonus: {
-        gwTopScorerH2HBonus: Number(bonus.gwTopScorerH2HBonus)
-      },
-      leaguePhase: {
-        format: leaguePhase.format,
-        customGameWeeksCount: leaguePhase.customGameWeeksCount ? Number(leaguePhase.customGameWeeksCount) : null
-      },
-      knockout: {
-        qualifiersCount: Number(knockout.qualifiersCount),
-        qualificationCriteria: {
-          h2hSlots: Number(knockout.h2hSlots),
-          fptsSlots: Number(knockout.fptsSlots)
-        },
-        structure: knockout.structure
-      },
+      squadLimit: { totalPlayers: Number(squadLimit.totalPlayers), gk: Number(squadLimit.gk), def: Number(squadLimit.def), mid: Number(squadLimit.mid), fwd: Number(squadLimit.fwd) },
+      leagueSize: { minManagers: Number(leagueSize.minManagers), maxManagers: Number(leagueSize.maxManagers), optimalMin: Number(leagueSize.optimalMin), optimalMax: Number(leagueSize.optimalMax) },
+      bonus: { gwTopScorerH2HBonus: Number(bonus.gwTopScorerH2HBonus) },
+      leaguePhase: { format: leaguePhase.format, customGameWeeksCount: leaguePhase.customGameWeeksCount ? Number(leaguePhase.customGameWeeksCount) : null },
+      knockout: { qualifiersCount: Number(knockout.qualifiersCount), qualificationCriteria: { h2hSlots: Number(knockout.h2hSlots), fptsSlots: Number(knockout.fptsSlots) }, structure: knockout.structure },
       leagueSizeRules: {
         "6": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
         "7": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
         "8": { "knockoutStartGw": 7, "leaguePhaseGws": [1,2,3,4,5,6], "knockoutQualifiers": 4, "knockoutStructure": "sf" },
         "9": { "knockoutStartGw": 4, "leaguePhaseGws": [1,2,3], "knockoutQualifiers": 8, "knockoutStructure": "qf" },
-        "10": { "knockoutStartGw": 4, "leaguePhaseGws": [1,2,3], "knockoutQualifiers": 8, "knockoutStructure": "qf" }
-      }
+        "10": { "knockoutStartGw": 4, "leaguePhaseGws": [1,2,3], "knockoutQualifiers": 8, "knockoutStructure": "qf" },
+      },
     };
-
     try {
       const response = await apiCall("POST", "/config", { rules: updatedRules });
       if (response && response.status === "ok") {
         setMessage({ type: "success", text: "Tournament rules saved and propagated successfully!" });
-        
-        // Refresh local tournament context variables
         TOURNAMENT.rules = updatedRules;
-        try {
-          window.location.reload(); // Refresh the app to pull all values instantly
-        } catch(e) {}
+        try { window.location.reload(); } catch(e) {}
       } else {
         setMessage({ type: "error", text: "Failed to persist configuration rules" });
       }
@@ -252,6 +107,12 @@ function ConfigScreen({ onTab }) {
       setSaving(false);
     }
   };
+
+  return { isMobile, loading, saving, message, scoring, setScoring, squadLimit, setSquadLimit, leagueSize, setLeagueSize, bonus, setBonus, knockout, setKnockout, leaguePhase, setLeaguePhase, handleSave };
+}
+
+function ConfigScreen({ onTab }) {
+  const { isMobile, loading, saving, message, scoring, setScoring, squadLimit, setSquadLimit, leagueSize, setLeagueSize, bonus, setBonus, knockout, setKnockout, leaguePhase, setLeaguePhase, handleSave } = useConfigScreen();
 
   if (loading) {
     return (
