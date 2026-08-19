@@ -1,0 +1,514 @@
+<meta charset="utf-8">
+<title>War Room 26/27</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{
+  --bg:#F4F4EF; --surface:#FFFFFF; --surface2:#EDEEE5; --ink:#1F241F; --muted:#68705F;
+  --line:#DDDFD2; --accent:#0E6E5C; --accent-ink:#FFFFFF;
+  --gkp:#C29127; --def:#3B8455; --mid:#2F6DB3; --fwd:#B3423A;
+  --steal:#156C3F; --reach:#A64A1B; --danger:#9E2B25;
+  --chip-ink:#FFFFFF; --row-taken:#9AA192;
+}
+:root:not([data-theme="light"]){}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#131713; --surface:#1C211D; --surface2:#232923; --ink:#E6E8E0; --muted:#9AA192;
+    --line:#2C332C; --accent:#3FA98E; --accent-ink:#0E1512;
+    --gkp:#BD8B1F; --def:#1FA173; --mid:#4E8FE0; --fwd:#D05A50;
+    --steal:#3FBF7F; --reach:#E08A4E; --danger:#E06A5F;
+    --chip-ink:#0E1512; --row-taken:#5A625A;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#131713; --surface:#1C211D; --surface2:#232923; --ink:#E6E8E0; --muted:#9AA192;
+  --line:#2C332C; --accent:#3FA98E; --accent-ink:#0E1512;
+  --gkp:#BD8B1F; --def:#1FA173; --mid:#4E8FE0; --fwd:#D05A50;
+  --steal:#3FBF7F; --reach:#E08A4E; --danger:#E06A5F;
+  --chip-ink:#0E1512; --row-taken:#5A625A;
+}
+*{box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);margin:0;
+  font:15px/1.45 system-ui,-apple-system,"Segoe UI",sans-serif}
+.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace;font-variant-numeric:tabular-nums}
+header{position:sticky;top:0;z-index:20;background:var(--bg);border-bottom:1px solid var(--line);padding:10px 18px 0}
+.mast{display:flex;align-items:baseline;gap:14px;flex-wrap:wrap}
+.mast h1{font-family:"Futura","Avenir Next","Trebuchet MS",system-ui,sans-serif;
+  font-size:24px;letter-spacing:.04em;margin:0;text-transform:uppercase}
+.mast h1 em{color:var(--accent);font-style:normal}
+.mast .sub{color:var(--muted);font-size:13px}
+.cfg{display:flex;gap:10px;align-items:center;margin-left:auto;flex-wrap:wrap}
+.cfg label{font-size:11px;text-transform:uppercase;letter-spacing:.08em;color:var(--muted)}
+.cfg select,.cfg button, .searchbar input{background:var(--surface);color:var(--ink);
+  border:1px solid var(--line);border-radius:6px;padding:5px 8px;font:inherit}
+.cfg button{cursor:pointer}
+.cfg button:hover{border-color:var(--accent)}
+nav{display:flex;gap:2px;margin-top:8px}
+nav button{background:none;border:none;border-bottom:3px solid transparent;color:var(--muted);
+  padding:8px 14px;font:inherit;font-weight:600;cursor:pointer}
+nav button.on{color:var(--ink);border-bottom-color:var(--accent)}
+nav button:focus-visible,.cfg :focus-visible,td button:focus-visible{outline:2px solid var(--accent);outline-offset:1px}
+main{padding:16px 18px 60px;max-width:1500px;margin:0 auto}
+section[hidden]{display:none}
+.pos{display:inline-block;min-width:34px;text-align:center;border-radius:5px;padding:1px 5px;
+  font-size:11px;font-weight:700;color:var(--chip-ink)}
+.pos.GKP{background:var(--gkp)} .pos.DEF{background:var(--def)}
+.pos.MID{background:var(--mid)} .pos.FWD{background:var(--fwd)} .pos.UNK{background:var(--muted)}
+.badge{display:inline-block;border-radius:5px;padding:1px 6px;font-size:11px;font-weight:700;border:1px solid}
+.badge.steal{color:var(--steal);border-color:var(--steal)}
+.badge.reach{color:var(--reach);border-color:var(--reach)}
+.badge.inj{color:var(--danger);border-color:var(--danger)}
+.badge.est{color:var(--muted);border-color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(430px,3fr) minmax(300px,2fr);gap:16px;align-items:start}
+@media(max-width:960px){.grid{grid-template-columns:1fr}}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px}
+.card h2{margin:0 0 8px;font-size:13px;text-transform:uppercase;letter-spacing:.1em;color:var(--muted)}
+.clock{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.clock .big{font-family:"Futura","Avenir Next",system-ui,sans-serif;font-size:21px;font-weight:700}
+.clock .mine{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font-size:10.5px;text-transform:uppercase;letter-spacing:.07em;color:var(--muted);
+  text-align:left;padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap;position:sticky;top:0;background:var(--surface)}
+th.sortable{cursor:pointer} th.sortable:hover{color:var(--ink)}
+td{padding:4px 8px;border-bottom:1px solid var(--line);white-space:nowrap;vertical-align:middle}
+tr.taken td{color:var(--row-taken)} tr.taken td .name{text-decoration:line-through}
+tr.mine td{background:color-mix(in oklab,var(--accent) 10%,transparent)}
+td .name{font-weight:600}
+td button.pick{background:var(--accent);color:var(--accent-ink);border:none;border-radius:5px;
+  padding:2px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+td button.pick:hover{filter:brightness(1.1)}
+.tablewrap{overflow-x:auto;max-height:70vh;overflow-y:auto;border:1px solid var(--line);border-radius:8px}
+.searchbar{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap;align-items:center}
+.searchbar input{min-width:200px;flex:1}
+.pfilter{display:flex;gap:4px}
+.pfilter button{background:var(--surface2);border:1px solid var(--line);color:var(--muted);
+  border-radius:6px;padding:4px 9px;font:inherit;font-size:12px;font-weight:700;cursor:pointer}
+.pfilter button.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.roster-slots{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:10px}
+.rslot{background:var(--surface2);border-radius:8px;padding:8px;text-align:center}
+.rslot .n{font-size:19px;font-weight:800}
+.rslot .cap{font-size:11px;color:var(--muted)}
+.mylist{list-style:none;margin:0;padding:0}
+.mylist li{display:flex;gap:8px;align-items:center;padding:3px 0;border-bottom:1px dashed var(--line);font-size:13.5px}
+.mylist .fr{margin-left:auto;color:var(--muted)}
+.vona{width:100%;font-size:13px}
+.alert{border-left:3px solid var(--reach);padding:6px 10px;background:var(--surface2);
+  border-radius:0 7px 7px 0;margin:6px 0;font-size:13px}
+.alert b{color:var(--reach)}
+.note{color:var(--muted);font-size:12.5px}
+.log{max-height:200px;overflow-y:auto;font-size:12.5px}
+.log div{padding:2px 0;border-bottom:1px dashed var(--line)}
+.charts{display:grid;grid-template-columns:repeat(auto-fit,minmax(340px,1fr));gap:16px}
+.chart svg{width:100%;height:auto;display:block}
+.chart .axis{stroke:var(--line)} .chart .grid-l{stroke:var(--line);stroke-dasharray:2 3}
+.chart text{fill:var(--muted);font:10.5px ui-monospace,monospace}
+.chart text.lbl{fill:var(--ink);font-weight:600;font-size:10px}
+#tip{position:fixed;pointer-events:none;background:var(--ink);color:var(--bg);border-radius:6px;
+  padding:5px 9px;font-size:12px;display:none;z-index:50;max-width:240px;white-space:normal}
+.method{max-width:75ch}
+.method h3{margin:22px 0 6px;font-size:16px}
+.method table{font-size:13px}
+.method td,.method th{white-space:normal}
+.method code{background:var(--surface2);border-radius:4px;padding:1px 5px;font-size:12.5px}
+.kbd{border:1px solid var(--line);border-bottom-width:2px;border-radius:4px;padding:0 5px;font-size:12px;background:var(--surface2)}
+footer{color:var(--muted);font-size:12px;padding:0 18px 30px;max-width:1500px;margin:0 auto}
+@media (prefers-reduced-motion: no-preference){
+  tr.flash td{animation:fl .6s ease-out}
+  @keyframes fl{from{background:color-mix(in oklab,var(--accent) 25%,transparent)}}
+}
+</style>
+
+<header>
+  <div class="mast">
+    <h1>War Room <em>26/27</em></h1>
+    <span class="sub">FPL draft · GW1 kicks off Fri 21 Aug · 3-league consensus ADP × Draft Fantasy projections</span>
+    <div class="cfg">
+      <label>Teams <select id="cfgN"></select></label>
+      <label>My slot <select id="cfgSlot"></select></label>
+      <label>Rounds <select id="cfgR"><option>15</option><option>16</option><option>14</option></select></label>
+      <button id="undoBtn" title="Undo last pick">↩ Undo</button>
+      <button id="resetBtn" title="Clear all picks">Reset draft</button>
+    </div>
+  </div>
+  <nav>
+    <button data-tab="room" class="on">Draft Room</button>
+    <button data-tab="board">Big Board</button>
+    <button data-tab="cliffs">Cliffs</button>
+    <button data-tab="method">Method &amp; Sources</button>
+  </nav>
+</header>
+
+<main>
+<section id="tab-room">
+  <div class="card clock" id="clockCard"></div>
+  <div class="grid">
+    <div>
+      <div class="card">
+        <h2>Suggestions — if you pick now</h2>
+        <div class="tablewrap" style="max-height:44vh"><table id="suggT"></table></div>
+        <p class="note">Pick score = Edge + urgency bonus (position cliff before your next pick) − club-stack / injury penalties. Full formula in Method.</p>
+      </div>
+      <div class="card">
+        <h2>Mark picks <span class="note">(search, then click Pick — assigns to the team on the clock)</span></h2>
+        <div class="searchbar">
+          <input id="q" type="search" placeholder="Search player / club…  (press /)">
+          <div class="pfilter" id="pf"></div>
+          <button id="unlisted" class="mono" title="The team on the clock drafted someone not in this dataset" style="background:var(--surface2);border:1px solid var(--line);border-radius:6px;padding:4px 9px;cursor:pointer;color:var(--muted)">+ unlisted</button>
+        </div>
+        <div class="tablewrap" style="max-height:38vh"><table id="pickT"></table></div>
+      </div>
+      <div class="card"><h2>Pick log</h2><div class="log" id="log"></div></div>
+    </div>
+    <div>
+      <div class="card">
+        <h2>My roster</h2>
+        <div class="roster-slots" id="slots"></div>
+        <ul class="mylist" id="mine"></ul>
+        <p class="note" id="stackNote"></p>
+      </div>
+      <div class="card">
+        <h2>Position urgency (VONA to your next pick)</h2>
+        <table class="vona" id="vonaT"></table>
+      </div>
+      <div class="card">
+        <h2>Cliff alerts</h2>
+        <div id="alerts"></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="tab-board" hidden>
+  <div class="card">
+    <div class="searchbar">
+      <input id="bq" type="search" placeholder="Search player / club…">
+      <div class="pfilter" id="bpf"></div>
+      <label class="note"><input type="checkbox" id="hideTaken"> hide drafted</label>
+    </div>
+    <div class="tablewrap"><table id="bigT"></table></div>
+    <p class="note">Sort by any header. Δ = market ADP rank − model value rank: <span class="badge steal">STEAL</span> falls past his value, <span class="badge reach">REACH</span> goes above it. <span class="badge est">EST</span> = not in the Draft Fantasy 240 — value estimated from where the market drafts him. ADP is the mean fractional round across the three boards (undrafted counts as last round + 1).</p>
+  </div>
+</section>
+
+<section id="tab-cliffs" hidden>
+  <div class="card">
+    <h2>Positional scarcity — Edge vs positional rank</h2>
+    <p class="note">Each dot is a player (Draft Fantasy Edge, i.e. points above best undrafted alternative). Vertical dashes mark tier breaks; the horizontal rule is replacement level (Edge 0). Hollow dots are already drafted in your live draft — the curve you can still buy is what remains. Hover any dot.</p>
+    <div class="charts" id="charts"></div>
+  </div>
+</section>
+
+<section id="tab-method" hidden>
+  <div class="card method" id="methodBody"></div>
+</section>
+</main>
+<div id="tip"></div>
+<footer>Built 19 Aug 2026 · data inlined &amp; self-contained (survives even if every other copy is lost) · draft state autosaves locally in this browser.</footer>
+
+<script>
+const MODEL = __MODEL_JSON__;
+const P = MODEL.players;
+const byName = Object.fromEntries(P.map(p=>[p.name,p]));
+const POSN = {GKP:"GKP",DEF:"DEF",MID:"MID",FWD:"FWD"};
+const CAPS = {GKP:2,DEF:5,MID:5,FWD:3};
+const POS_ORDER = ["GKP","DEF","MID","FWD"];
+
+let S = {N:8, slot:1, rounds:15, picks:[], posFilter:null, bPosFilter:null,
+         sortKey:"score", sortDir:1, bSort:"valueRank", bDir:1, hideTaken:false};
+try{ const s = localStorage.getItem("warroom2627"); if(s) S = Object.assign(S, JSON.parse(s)); }catch(e){}
+function save(){ try{ localStorage.setItem("warroom2627", JSON.stringify(S)); }catch(e){} }
+
+// ---------- math ----------
+function erf(x){const s=x<0?-1:1;x=Math.abs(x);const t=1/(1+.3275911*x);
+  const y=1-(((((1.061405429*t-1.453152027)*t)+1.421413741)*t-.284496736)*t+.254829592)*t*Math.exp(-x*x);
+  return s*y}
+const cdf = z => .5*(1+erf(z/Math.SQRT2));
+const takenSet = () => new Set(S.picks.map(p=>p.name).filter(n=>n!=="__unlisted__"));
+const adpOverall = p => (p.adpFr-1)*S.N + 1;
+const sigmaOverall = p => Math.max(0.8, p.adpSigma)*S.N;
+const pAvail = (p,t) => cdf((adpOverall(p)-t)/sigmaOverall(p));
+function snakeSlot(t){const r=Math.ceil(t/S.N),i=(t-1)%S.N;return r%2===1? i+1 : S.N-i}
+function myPicksAfter(t){const out=[];for(let k=t;k<=S.N*S.rounds;k++)if(snakeSlot(k)===S.slot)out.push(k);return out}
+const fmtFr = fr => "R"+Math.floor(fr)+"."+Math.round((fr%1)*10);
+const posOf = p => POSN[p.pos]||"UNK";
+
+function myRoster(){const t=[];S.picks.forEach((pk,i)=>{if(snakeSlot(i+1)===S.slot&&pk.name!=="__unlisted__")t.push(byName[pk.name])});return t}
+function clubCounts(list){const m={};list.forEach(p=>{if(p&&p.club&&p.club!=="?")m[p.club]=(m[p.club]||0)+1});return m}
+function posCounts(list){const m={GKP:0,DEF:0,MID:0,FWD:0};list.forEach(p=>{if(p&&m[p.pos]!=null)m[p.pos]++});return m}
+
+function available(){const tk=takenSet();return P.filter(p=>!tk.has(p.name))}
+
+function vona(){
+  const cur = S.picks.length+1;
+  const mine = myPicksAfter(cur);
+  const nowMine = snakeSlot(cur)===S.slot;
+  const next = nowMine ? (mine[1]||mine[0]) : mine[0];
+  const av = available();
+  const out = {};
+  for(const pos of POS_ORDER){
+    const list = av.filter(p=>p.pos===pos).sort((a,b)=>b.edge-a.edge);
+    const bestNow = list[0]||null;
+    const likely = list.find(p=>next!=null && pAvail(p,next)>=.5) || null;
+    out[pos]={bestNow, likely, urgency: bestNow&&likely? Math.max(0,bestNow.edge-likely.edge): 0, next};
+  }
+  return out;
+}
+
+function suggScore(p, V, roster, clubs){
+  const pc = posCounts(roster);
+  if(pc[p.pos]>=CAPS[p.pos]) return null;             // position full
+  let s = p.edge, parts=[["Edge",p.edge]];
+  const v = V[p.pos];
+  if(v.bestNow && p.edge >= v.bestNow.edge-3 && v.urgency>0){ s+=.9*v.urgency; parts.push(["cliff",+(0.9*v.urgency).toFixed(1)]) }
+  const cc = clubs[p.club]||0;
+  if(cc>=3){ s-=8*(cc-2); parts.push(["stack","-"+8*(cc-2)]) }
+  if(p.injury==="Injured"){ s-=15; parts.push(["injured",-15]) }
+  if(p.injury==="Doubtful"){ s-=6; parts.push(["doubtful",-6]) }
+  // late-draft need: if remaining picks barely cover empty slots, boost needed positions
+  const remaining = myPicksAfter(S.picks.length+1).length;
+  const needed = POS_ORDER.reduce((a,q)=>a+Math.max(0, (q==="GKP"?1:CAPS[q]-2) - pc[q] ),0);
+  const mustFill = POS_ORDER.filter(q=>pc[q]===0).length;
+  if(remaining<=mustFill+1 && pc[p.pos]===0){ s+=25; parts.push(["must-fill",25]) }
+  return {s, parts};
+}
+
+// ---------- rendering ----------
+const $=id=>document.getElementById(id);
+function chip(p){return `<span class="pos ${posOf(p)}">${p.pos==="GKP"?"GK":p.pos}</span>`}
+function badge(p){
+  let b="";
+  if(!p.est && p.delta>=25) b+=` <span class="badge steal">STEAL +${p.delta}</span>`;
+  if(!p.est && p.delta<=-25) b+=` <span class="badge reach">REACH ${p.delta}</span>`;
+  if(p.injury) b+=` <span class="badge inj">${p.injury.toUpperCase()}</span>`;
+  if(p.est) b+=` <span class="badge est">EST</span>`;
+  return b;
+}
+function fixStr(p){return p.fixtures? p.fixtures.slice(0,3).join(" ") : "—"}
+
+function renderClock(){
+  const cur=S.picks.length+1, total=S.N*S.rounds;
+  const done = cur>total;
+  const slot=done?null:snakeSlot(cur), mine=slot===S.slot;
+  const nextMine=myPicksAfter(cur)[mine?1:0];
+  $("clockCard").innerHTML = done
+    ? `<span class="big">Draft complete</span><span class="note">${total} picks made.</span>`
+    : `<span class="big ${mine?"mine":""}">${mine?"YOU are on the clock":"Team "+slot+" on the clock"}</span>
+       <span class="mono">pick ${cur}/${total} · ${fmtFr((cur-1)/S.N+1)}</span>
+       <span class="note">your next: ${nextMine?("pick "+nextMine+" ("+fmtFr((nextMine-1)/S.N+1)+")"):"—"}</span>`;
+}
+
+function renderSugg(){
+  const roster=myRoster(), clubs=clubCounts(roster), V=vona();
+  const rows = available().map(p=>{const r=suggScore(p,V,roster,clubs);return r?{p,score:r.s,parts:r.parts}:null})
+    .filter(Boolean).sort((a,b)=>b.score-a.score).slice(0,14);
+  const next=V.GKP.next;
+  $("suggT").innerHTML = `<tr><th></th><th>Player</th><th></th><th>Edge</th><th>Score</th><th>P(back)</th><th>ADP</th><th>Next 3</th><th></th></tr>`+
+    rows.map(({p,score,parts})=>{
+      const pb = next!=null? Math.round(pAvail(p,next)*100)+"%":"—";
+      return `<tr title="${parts.map(x=>x[0]+" "+x[1]).join(" · ")}">
+        <td>${chip(p)}</td><td><span class="name">${p.name}</span> <span class="note">${p.club}</span></td>
+        <td>${badge(p)}</td>
+        <td class="mono">${p.edge.toFixed(0)}</td><td class="mono"><b>${score.toFixed(0)}</b></td>
+        <td class="mono">${pb}</td><td class="mono">${fmtFr(p.adpFr)}</td>
+        <td class="mono note">${fixStr(p)}</td>
+        <td><button class="pick" data-n="${p.name}">Pick</button></td></tr>`}).join("");
+}
+
+function renderPickSearch(){
+  const q=($("q").value||"").toLowerCase();
+  const tk=takenSet();
+  let list = P.filter(p=>!tk.has(p.name));
+  if(S.posFilter) list=list.filter(p=>p.pos===S.posFilter);
+  if(q) list=list.filter(p=>p.name.toLowerCase().includes(q)||p.club.toLowerCase().includes(q));
+  list=list.slice(0,30);
+  $("pickT").innerHTML=`<tr><th></th><th>Player</th><th>ADP</th><th>Edge</th><th></th><th></th></tr>`+
+    list.map(p=>`<tr><td>${chip(p)}</td><td><span class="name">${p.name}</span> <span class="note">${p.club}</span></td>
+      <td class="mono">${fmtFr(p.adpFr)}</td><td class="mono">${p.edge.toFixed(0)}</td><td>${badge(p)}</td>
+      <td><button class="pick" data-n="${p.name}">Pick</button></td></tr>`).join("");
+}
+
+function renderRoster(){
+  const roster=myRoster(), pc=posCounts(roster), clubs=clubCounts(roster);
+  $("slots").innerHTML=POS_ORDER.map(pos=>`<div class="rslot"><div class="n" style="color:var(--${pos.toLowerCase()==="gkp"?"gkp":pos.toLowerCase()})">${pc[pos]}<span class="cap">/${CAPS[pos]}</span></div><div class="cap">${pos}</div></div>`).join("");
+  const picksMine=[];S.picks.forEach((pk,i)=>{if(snakeSlot(i+1)===S.slot)picksMine.push({pk,i})});
+  $("mine").innerHTML=picksMine.map(({pk,i})=>{
+    if(pk.name==="__unlisted__")return `<li><span class="pos UNK">?</span> unlisted pick <span class="fr mono">${fmtFr(i/S.N+1)}</span></li>`;
+    const p=byName[pk.name];
+    return `<li>${chip(p)} <b>${p.name}</b> <span class="note">${p.club}</span><span class="fr mono">${fmtFr(i/S.N+1)} · ${p.edge.toFixed(0)}</span></li>`}).join("")||`<li class="note">no picks yet</li>`;
+  const heavy=Object.entries(clubs).filter(([c,n])=>n>=3);
+  const tot=roster.reduce((a,p)=>a+(p?p.edge:0),0);
+  $("stackNote").innerHTML=`Team Edge total: <b class="mono">${tot.toFixed(0)}</b>`+
+    (heavy.length?` · ⚠ club stacks: ${heavy.map(([c,n])=>c+"×"+n).join(", ")}`:"");
+}
+
+function renderVona(){
+  const V=vona();
+  $("vonaT").innerHTML=`<tr><th>Pos</th><th>Best now</th><th>Likely at your next</th><th>Drop</th></tr>`+
+    POS_ORDER.map(pos=>{const v=V[pos];
+      return `<tr><td><span class="pos ${pos}">${pos==="GKP"?"GK":pos}</span></td>
+      <td>${v.bestNow?`${v.bestNow.name} <span class="mono note">${v.bestNow.edge.toFixed(0)}</span>`:"—"}</td>
+      <td>${v.likely?`${v.likely.name} <span class="mono note">${v.likely.edge.toFixed(0)}</span>`:"—"}</td>
+      <td class="mono">${v.urgency>0?"<b>−"+v.urgency.toFixed(0)+"</b>":"0"}</td></tr>`}).join("");
+}
+
+function renderAlerts(){
+  const V=vona(); const next=V.GKP.next; const roster=myRoster(); const pc=posCounts(roster);
+  const av=available();
+  const hot=av.filter(p=>!p.est && p.delta>=20 && p.valueRank<=90 && next!=null && pAvail(p,next)<.45 && pc[p.pos]<CAPS[p.pos])
+    .sort((a,b)=>b.edge-a.edge).slice(0,5);
+  const cliffs=POS_ORDER.filter(pos=>V[pos].urgency>=12 && pc[pos]<CAPS[pos]);
+  $("alerts").innerHTML=(cliffs.length?cliffs.map(pos=>`<div class="alert"><b>${pos} cliff</b>: ${V[pos].bestNow.name} (Edge ${V[pos].bestNow.edge.toFixed(0)}) likely gone before your next pick — drop of ${V[pos].urgency.toFixed(0)} to ${V[pos].likely?V[pos].likely.name:"replacement"}.</div>`).join(""):"")+
+    (hot.length?hot.map(p=>`<div class="alert"><b>Steal window closing</b>: ${p.name} (${p.pos}, value #${p.valueRank}, market ${fmtFr(p.adpFr)}) — ${Math.round(pAvail(p,next)*100)}% chance he's back at your next pick.</div>`).join(""):"")||
+    `<p class="note">Nothing burning. Take best value.</p>`;
+}
+
+function renderLog(){
+  $("log").innerHTML=S.picks.map((pk,i)=>{
+    const slot=snakeSlot(i+1);const nm=pk.name==="__unlisted__"?"(unlisted)":pk.name;
+    return `<div class="mono">${String(i+1).padStart(3)} ${fmtFr(i/S.N+1)} · T${slot}${slot===S.slot?"★":""} — ${nm}</div>`}).reverse().join("")||`<p class="note">no picks yet</p>`;
+}
+
+// ---------- big board ----------
+const BCOLS=[["valueRank","V#"],["name","Player"],["pos","Pos"],["club","Club"],["tier","Tier"],["xp","xP"],["edge","Edge"],["adpFr","ADP"],["delta","Δ"],["draftedIn","Boards"],["fix","Next 3"]];
+function renderBoard(){
+  const q=($("bq").value||"").toLowerCase(); const tk=takenSet();
+  let list=[...P];
+  if(S.bPosFilter)list=list.filter(p=>p.pos===S.bPosFilter);
+  if(q)list=list.filter(p=>p.name.toLowerCase().includes(q)||p.club.toLowerCase().includes(q));
+  if(S.hideTaken)list=list.filter(p=>!tk.has(p.name));
+  const k=S.bSort;
+  list.sort((a,b)=>{const av=a[k]??1e9,bv=b[k]??1e9;return (av>bv?1:av<bv?-1:0)*S.bDir});
+  $("bigT").innerHTML=`<tr>${BCOLS.map(([kk,l])=>`<th class="sortable" data-k="${kk}">${l}${S.bSort===kk?(S.bDir>0?" ↑":" ↓"):""}</th>`).join("")}</tr>`+
+    list.map(p=>{const taken=tk.has(p.name);
+      return `<tr class="${taken?"taken":""}">
+      <td class="mono">${p.valueRank}</td>
+      <td><span class="name">${p.name}</span>${badge(p)}</td>
+      <td>${chip(p)}</td><td>${p.club}</td>
+      <td class="mono">${p.tier??"—"}</td><td class="mono">${p.xp?.toFixed(0)??"—"}</td>
+      <td class="mono"><b>${p.edge.toFixed(1)}</b></td>
+      <td class="mono">${fmtFr(p.adpFr)} <span class="note">${Object.entries(p.adpByBoard).map(([b,f])=>b+":"+fmtFr(f)).join(" ")||"undrafted"}</span></td>
+      <td class="mono">${p.delta>0?"+":""}${p.delta}</td>
+      <td class="mono">${p.draftedIn}/3</td>
+      <td class="mono note">${fixStr(p)}</td></tr>`}).join("");
+}
+
+// ---------- cliffs ----------
+function renderCliffs(){
+  const tk=takenSet();
+  $("charts").innerHTML=POS_ORDER.map(pos=>{
+    const list=P.filter(p=>p.pos===pos&&!p.est).sort((a,b)=>b.edge-a.edge);
+    const W=460,H=250,ml=38,mr=10,mt=14,mb=26;
+    const n=Math.min(list.length,pos==="GKP"?20:pos==="FWD"?30:42);
+    const pts=list.slice(0,n);
+    const ymax=Math.max(...pts.map(p=>p.edge)),ymin=Math.min(...pts.map(p=>p.edge),0);
+    const X=i=>ml+(W-ml-mr)*(i)/(n-1), Y=v=>mt+(H-mt-mb)*(1-(v-ymin)/(ymax-ymin));
+    const colr=`var(--${pos==="GKP"?"gkp":pos.toLowerCase()})`;
+    let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${pos} edge by positional rank">`;
+    // grid + zero line
+    svg+=`<line class="axis" x1="${ml}" y1="${H-mb}" x2="${W-mr}" y2="${H-mb}"/>`;
+    if(ymin<0&&ymax>0)svg+=`<line class="grid-l" x1="${ml}" y1="${Y(0)}" x2="${W-mr}" y2="${Y(0)}"/><text x="${W-mr}" y="${Y(0)-3}" text-anchor="end">replacement</text>`;
+    // tier breaks
+    for(let i=1;i<n;i++)if(pts[i].tier!==pts[i-1].tier)svg+=`<line class="grid-l" x1="${(X(i)+X(i-1))/2}" y1="${mt}" x2="${(X(i)+X(i-1))/2}" y2="${H-mb}"/>`;
+    // path
+    svg+=`<path d="M${pts.map((p,i)=>`${X(i).toFixed(1)},${Y(p.edge).toFixed(1)}`).join("L")}" fill="none" stroke="${colr}" stroke-width="2"/>`;
+    // dots
+    pts.forEach((p,i)=>{const taken=tk.has(p.name);
+      svg+=`<circle cx="${X(i).toFixed(1)}" cy="${Y(p.edge).toFixed(1)}" r="4.2" fill="${taken?"var(--surface)":colr}" stroke="${colr}" stroke-width="1.6" data-tip="${p.name} · Edge ${p.edge.toFixed(1)} · xP ${p.xp.toFixed(0)} · ADP ${fmtFr(p.adpFr)}${taken?" · DRAFTED":""}"/>`});
+    // labels: top1 + biggest drop edges
+    let drops=[];for(let i=1;i<n;i++)drops.push([pts[i-1].edge-pts[i].edge,i-1]);
+    drops.sort((a,b)=>b[0]-a[0]);
+    const lb=new Set([0,...drops.slice(0,2).map(d=>d[1])]);
+    lb.forEach(i=>{svg+=`<text class="lbl" x="${Math.min(X(i)+5,W-70)}" y="${Math.max(Y(pts[i].edge)-7,10)}">${pts[i].name}</text>`});
+    // x ticks
+    [1,10,20,30,40].filter(t=>t<=n).forEach(t=>{svg+=`<text x="${X(t-1)}" y="${H-8}" text-anchor="middle">${t}</text>`});
+    // y ticks
+    [ymin,0,ymax].filter((v,i,a)=>a.indexOf(v)===i).forEach(v=>{svg+=`<text x="${ml-4}" y="${Y(v)+3}" text-anchor="end">${v.toFixed(0)}</text>`});
+    svg+=`</svg>`;
+    const avail=pts.filter(p=>!tk.has(p.name)).length;
+    return `<div class="chart card" style="margin:0"><h2><span class="pos ${pos}">${pos==="GKP"?"GK":pos}</span> ${avail}/${n} shown still available</h2>${svg}</div>`;
+  }).join("");
+}
+
+// ---------- method ----------
+function methodHTML(){
+  return `
+  <h3>What this is</h3>
+  <p>A live draft board for the 2026/27 FPL draft that blends <b>model value</b> (Draft Fantasy's projections) with <b>market behaviour</b> (real ADP from three completed drafts), so on every pick you can buy the biggest edge the room will actually let you have.</p>
+  <h3>Sources</h3>
+  <table><tr><th>Source</th><th>Contributes</th><th>As of</th></tr>
+  <tr><td>Draft Fantasy cheat sheet (240 players)</td><td>Season xP, Edge (points above best undrafted alternative), tiers, injury flags, first-5 fixtures</td><td>19 Aug 2026</td></tr>
+  <tr><td>Board A — 8-team league, 15 rds</td><td>ADP</td><td>Aug 2026</td></tr>
+  <tr><td>Board B — 10-team league, 15 rds</td><td>ADP</td><td>Aug 2026</td></tr>
+  <tr><td>Board C — 14-team league (official app), 16 rds</td><td>ADP + position/club cross-check</td><td>Aug 2026</td></tr>
+  <tr><td>premierleague.com</td><td>GW1–2 fixtures, 26/27 managers</td><td>19 Aug 2026</td></tr>
+  <tr><td>Draft FC — "Value-Based Drafting" (video)</td><td>VBD/VOR/VONA methodology, cliff framing</td><td>1 Aug 2026</td></tr></table>
+  <h3>How the numbers are made</h3>
+  <p><b>ADP.</b> Each board is snake-corrected to overall picks, then normalised to a <i>fractional round</i> <code>fr = (overall−1)/teams + 1</code> so an 8-, 10- and 14-team draft speak the same language. Consensus ADP is the mean across the three boards, imputing <code>lastRound+1</code> where a player went undrafted. Availability at pick <code>t</code> is <code>Φ((adp−t)/σ)</code> with σ from the cross-board spread (floor 0.8 rounds).</p>
+  <p><b>Value.</b> Edge comes straight from Draft Fantasy (their VOR baseline). The old project's independent rebuild converged on the same anchors — Haaland +149, B.Fernandes +117, Gabriel +116 — which is why this board treats their table as trustworthy. Players outside their 240 (69 of 309) get Edge interpolated from where the market drafts them, flagged <span class="badge est">EST</span>.</p>
+  <p><b>Pick score.</b> <code>score = Edge + 0.9·urgency − stack − injury (+ must-fill)</code> where <i>urgency</i> is the positional VONA drop: best-available Edge now minus the best Edge ≥50% likely to survive to your next pick (only credited to players at the top of their position). Stack = −8 per player beyond 2 from one club; injured −15, doubtful −6; a +25 must-fill kicks in when your remaining picks barely cover empty slots.</p>
+  <h3>Read the market, then punish it</h3>
+  <p>The three boards say managers still draft last season's names. The model's biggest disagreements: <b>market reaches</b> — Isak (goes ~5th overall, model #117 post-move), Wirtz, Palmer round 2, Tzolis round 3, Ødegaard, Pedro Porro. <b>Market steals</b> — Senesi (model #15, goes round 7–11), Muñoz, Mukiele, Stach, Truffert, Rúben Dias, Richarlison, Welbeck. The pattern: DefCon-heavy defenders and rotation-proof mid-tier forwards are systematically underpriced; brand-name attackers on new clubs are overpriced. Draft accordingly: take the consensus board's beloved names only at value, and hoover the DefCon defenders a round before their tier cliff.</p>
+  <h3>Strategy defaults (from the VBD method)</h3>
+  <ul>
+  <li>Rounds 1–6: strict value — biggest Edge on the board, position only via VONA urgency.</li>
+  <li>GK: the curve is flat after the top 3 — Raya/Donnarumma are worth a mid pick, otherwise wait; never two GKs before round 12.</li>
+  <li>Rounds 7+: structure over projection — fill starting slots, watch the cliff alerts, avoid 4-stacks.</li>
+  <li>Last 2 rounds: ignore this board's season numbers; draft GW1–2 fixtures (the Next-3 column).</li>
+  </ul>
+  <h3>Known soft spots</h3>
+  <ul>
+  <li>Boards transcribed by eye from screenshots — a handful of deep-round names/clubs may be off; ~10 ambiguous club labels were resolved against Draft Fantasy.</li>
+  <li>Only 3 ADP samples; σ floors at 0.8 rounds to avoid false confidence. A player's ADP in <i>your</i> room can differ wildly — watch the room.</li>
+  <li>Edge for the 69 EST players is market-implied, not projected.</li>
+  <li>Injury flags cover only what Draft Fantasy publishes (Ekitiké out, Mukiele doubtful). Re-check team news on draft day — RotoWire/FFS were not re-fetched.</li>
+  <li>The LöfLife Reddit cheat sheet remains unfetched (blocked in-session) — one missing independent opinion.</li>
+  <li>Draft Fantasy's xP is one model; where it disagrees violently with the market (Isak), the truth may be in between.</li>
+  </ul>`;
+}
+
+// ---------- events ----------
+function rerenderRoom(){renderClock();renderSugg();renderPickSearch();renderRoster();renderVona();renderAlerts();renderLog();save()}
+function rerenderAll(){rerenderRoom();renderBoard();renderCliffs()}
+document.addEventListener("click",e=>{
+  const b=e.target.closest("button");if(!b)return;
+  if(b.dataset.tab){document.querySelectorAll("nav button").forEach(x=>x.classList.toggle("on",x===b));
+    for(const t of ["room","board","cliffs","method"])$("tab-"+t).hidden=t!==b.dataset.tab;return}
+  if(b.classList.contains("pick")){S.picks.push({name:b.dataset.n});rerenderAll();return}
+  if(b.id==="unlisted"){S.picks.push({name:"__unlisted__"});rerenderAll();return}
+  if(b.id==="undoBtn"){S.picks.pop();rerenderAll();return}
+  if(b.id==="resetBtn"){if(confirm("Clear all "+S.picks.length+" picks?")){S.picks=[];rerenderAll()}return}
+  if(b.parentElement&&b.parentElement.id==="pf"){S.posFilter=S.posFilter===b.dataset.p?null:b.dataset.p;drawPF();renderPickSearch();return}
+  if(b.parentElement&&b.parentElement.id==="bpf"){S.bPosFilter=S.bPosFilter===b.dataset.p?null:b.dataset.p;drawPF();renderBoard();return}
+});
+document.addEventListener("click",e=>{
+  const th=e.target.closest("th.sortable");if(!th)return;
+  const k=th.dataset.k;if(k==="fix")return;
+  if(S.bSort===k)S.bDir*=-1;else{S.bSort=k;S.bDir=1}
+  renderBoard();
+});
+$("q").addEventListener("input",renderPickSearch);
+$("bq").addEventListener("input",renderBoard);
+$("hideTaken").addEventListener("change",e=>{S.hideTaken=e.target.checked;renderBoard()});
+document.addEventListener("keydown",e=>{if(e.key==="/"&&document.activeElement.tagName!=="INPUT"){e.preventDefault();$("q").focus()}});
+// tooltip for chart dots
+document.addEventListener("mousemove",e=>{
+  const t=e.target.closest("[data-tip]");const tip=$("tip");
+  if(t){tip.textContent=t.dataset.tip;tip.style.display="block";
+    tip.style.left=Math.min(e.clientX+12,innerWidth-250)+"px";tip.style.top=(e.clientY+14)+"px"}
+  else tip.style.display="none";
+});
+function drawPF(){
+  $("pf").innerHTML=POS_ORDER.map(p=>`<button data-p="${p}" class="${S.posFilter===p?"on":""}">${p==="GKP"?"GK":p}</button>`).join("");
+  $("bpf").innerHTML=POS_ORDER.map(p=>`<button data-p="${p}" class="${S.bPosFilter===p?"on":""}">${p==="GKP"?"GK":p}</button>`).join("");
+}
+function drawCfg(){
+  $("cfgN").innerHTML=[6,8,10,12,14,16].map(n=>`<option ${n===S.N?"selected":""}>${n}</option>`).join("");
+  $("cfgSlot").innerHTML=Array.from({length:S.N},(_,i)=>`<option ${i+1===S.slot?"selected":""}>${i+1}</option>`).join("");
+  $("cfgR").value=S.rounds;
+}
+$("cfgN").addEventListener("change",e=>{S.N=+e.target.value;S.slot=Math.min(S.slot,S.N);drawCfg();rerenderAll()});
+$("cfgSlot").addEventListener("change",e=>{S.slot=+e.target.value;rerenderAll()});
+$("cfgR").addEventListener("change",e=>{S.rounds=+e.target.value;rerenderAll()});
+
+$("methodBody").innerHTML=methodHTML();
+drawCfg();drawPF();rerenderAll();
+</script>
