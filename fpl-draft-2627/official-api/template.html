@@ -242,8 +242,32 @@ const PL = M.players, CLUB = M.clubs, FDR = M.fdr6, FIX = M.fix3;
 const SHAPE = M.meta.squad, POSO = ["GKP","DEF","MID","FWD"];
 const STARTERS = {GKP:1,DEF:4,MID:4,FWD:2};   // official min_play; 11 of 15
 const CLUBCAP = 3;
-const XPCAL = {FWD:{top:262,repl:113,R:25,a:.85},MID:{top:258,repl:141,R:41,a:1},
-               DEF:{top:252,repl:136,R:41,a:1},GKP:{top:162,repl:130,R:17,a:.35}};
+const CURVE = M.curve;                       // real per-position xP, rank-ordered
+const RSLOT = {GKP:16,DEF:40,MID:40,FWD:24}; // rostered in an 8-team league
+function xpAt(pos,r){
+  const c=CURVE[pos]||[];
+  if(!c.length) return 100;
+  if(r<=c.length) return c[r-1];
+  const tail=c[c.length-1];                  // beyond the table, decay gently
+  return Math.max(35,tail-(r-c.length)*1.4);
+}
+const XPCAL={};POSO.forEach(p=>{const c=CURVE[p]||[100];
+  XPCAL[p]={repl:c[Math.min(RSLOT[p],c.length-1)]||c[c.length-1]};});
+// What the field ACTUALLY drafts each round, from the 15 transcribed leagues
+// (% of that round's picks). Remaining-need assumes every position drains at the
+// same rate; it does not - almost nobody takes a keeper before round 8.
+const FLOW={1:[0,6,53,41],2:[4,8,43,44],3:[3,21,46,30],4:[6,32,42,20],5:[3,32,42,23],
+ 6:[9,41,32,17],7:[5,40,33,23],8:[8,41,33,18],9:[5,47,31,18],10:[9,43,29,19],
+ 11:[15,46,19,17],12:[13,41,18,27],13:[17,47,16,20],14:[27,45,17,12],15:[53,17,16,14]};
+function drain(pos,fromPick,gap){
+  // expected number of `pos` taken in the next `gap` picks, using real behaviour
+  const k=POSO.indexOf(pos);let n=0;
+  for(let p=fromPick;p<fromPick+gap;p++){
+    const r=Math.min(15,Math.max(1,Math.floor((p-1)/S.n)+1));
+    n+=(FLOW[r][k]||0)/100;
+  }
+  return n;
+}
 const PCOL = {GKP:"var(--gkp)",DEF:"var(--def)",MID:"var(--mid)",FWD:"var(--fwd)"};
 
 let S={n:8,slot:0,picks:[],auto:false,pos:"ALL",q:"",base:"VOR",
@@ -276,10 +300,8 @@ function refresh(){
   RANKED=PL.map((p,i)=>({i,p,r:srcRank(p)})).sort((a,b)=>a.r-b.r);
   XP=new Array(PL.length).fill(0);
   POSO.forEach(pos=>{
-    const c=XPCAL[pos];let k=0;
-    RANKED.forEach(x=>{if(x.p.p!==pos)return;k++;
-      XP[x.i]= k<=c.R ? c.repl+(c.top-c.repl)*((Math.pow(k,-c.a)-Math.pow(c.R,-c.a))/(1-Math.pow(c.R,-c.a)))
-                      : Math.max(40,c.repl-(k-c.R)*1.6);});
+    let k=0;
+    RANKED.forEach(x=>{if(x.p.p!==pos)return;k++;XP[x.i]=xpAt(pos,k);});
   });
 }
 function risk(p){
@@ -297,7 +319,7 @@ function bases(av,gap){
   POSO.forEach(pos=>{const L=av[pos];
     if(!L||!L.length){o[pos]=XPCAL[pos].repl;return;}
     let k = S.base==="VOR"?n[pos] : S.base==="VOLS"?Math.round(n[pos]*.75)
-          : Math.max(1,Math.round(gap*n[pos]/Math.max(1,t)));
+          : Math.max(1,Math.round(drain(pos,cur(),gap)));
     o[pos]=L[Math.min(Math.max(k,0),L.length-1)].xp;});
   return o;
 }
@@ -309,11 +331,14 @@ function suggest(s,k){
   PL.forEach((p,i)=>{if(!t.has(i)&&p.av!=="gone")av[p.p].push({p,i,xp:XP[i]});});
   POSO.forEach(q=>av[q].sort((a,b)=>b.xp-a.xp));
   const B=bases(av,gap);
+  const LG=lgNeed();
   const ph=R>=13?2:(R>=7?1:0), fxW=[5,13,30][ph];
   const out=[];
   POSO.forEach(pos=>{
     if(nd[pos]<=0)return;
     const L=av[pos];
+    // how many at this position the league is expected to take before my next pick
+    const go=Math.max(0,Math.round(drain(pos,c0+1,gap)));
     L.forEach((x,idx)=>{
       if(idx>6)return;
       if((cl[x.p.c]||0)>=CLUBCAP)return;
@@ -321,12 +346,18 @@ function suggest(s,k){
       const bench=(SHAPE[pos]-nd[pos])>=STARTERS[pos];
       if(bench)e*=.22;
       const nxt=L[idx+1],cliff=nxt?x.xp-nxt.xp:0;
+      // VONA: what this pick is worth NOW versus what I could get at this
+      // position at my next turn. Raw edge alone just rewards whatever the
+      // room is neglecting, forever - urgency is what allocates positions.
+      const later=L[Math.min(idx+Math.max(1,go),L.length-1)];
+      let urg=Math.max(0,x.xp-(later?later.xp:x.xp))*Math.min(1,go);
+      if(bench)urg*=.22;
       const ease=3.35-d3(x.p.c),rk=risk(x.p);
-      let sc=e+ease*fxW-rk*.9;
+      let sc=e*.55+urg*1.35+ease*fxW-rk*.9;
       const held=cl[x.p.c]||0; if(held>=2)sc-=ph>=1?20:9;
       const wait=nx&&x.p.adp&&x.p.adp*S.n/8>nx+1.5; if(wait)sc-=7;
       const must=nd[pos]>=left; if(must)sc+=250;
-      out.push({x,pos,sc,e,cliff,ease,rk,bench,held,wait,must,nx,ph});
+      out.push({x,pos,sc,e,urg,cliff,ease,rk,bench,held,wait,must,nx,ph});
     });
   });
   out.forEach(o=>{if(!isFinite(o.sc))o.sc=-1e9;});
@@ -347,6 +378,8 @@ function verdict(p,e){
 }
 function drivers(r){
   const d=[],p=r.x.p;
+  if(r.urg>=12)d.push(["bad","lose "+Math.round(r.urg)+" if you wait"]);
+  else if(r.urg<=3&&r.e>=15)d.push(["mut","position holds"]);
   if(r.cliff>=18)d.push(["bad","drop "+Math.round(r.cliff)+" after him"]);
   if(r.e>=15)d.push(["good",sgn(r.e)+" vs repl"]);
   if(r.must)d.push(["bad","must fill "+r.pos]);
@@ -391,15 +424,14 @@ function cliffChart(){
   [80,140,200,260].forEach(v=>{g+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="var(--rule)"/>
    <text x="${L-6}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${v}</text>`;});
   POSO.forEach(pos=>{
-    const c=XPCAL[pos],mine=nd[pos]>0;
-    const xp=r=>r<=c.R?c.repl+(c.top-c.repl)*((Math.pow(r,-c.a)-Math.pow(c.R,-c.a))/(1-Math.pow(c.R,-c.a))):Math.max(40,c.repl-(r-c.R)*1.6);
+    const mine=nd[pos]>0, xp=r=>xpAt(pos,r);
     let d="";for(let r=1;r<=mx;r++)d+=(r===1?"M":"L")+x(r).toFixed(1)+" "+y(xp(r)).toFixed(1)+" ";
     g+=`<path d="${d}" fill="none" stroke="${PCOL[pos]}" stroke-width="${mine?2.4:1.3}" opacity="${mine?1:.35}"/>`;
     let gone=0;PL.forEach((p,i)=>{if(t.has(i)&&p.p===pos)gone++;});
     const nr=Math.min(gone+1,mx);
     LB.push({pos,y:y(xp(20)),mine});
     if(!mine)return;
-    const go=Math.max(1,Math.round(r0.gap*q.n[pos]/Math.max(1,q.t))),fr=Math.min(nr+go,mx);
+    const go=Math.max(1,Math.round(drain(pos,cur()+1,r0.gap))),fr=Math.min(nr+go,mx);
     const drop=xp(nr)-xp(fr);
     if(drop>best){best=drop;ann={pos,nr,fr,drop,xp};}
     g+=`<line x1="${x(nr)}" y1="${y(xp(nr))}" x2="${x(fr)}" y2="${y(xp(fr))}" stroke="${PCOL[pos]}" stroke-width="6" opacity=".22"/>`;
@@ -449,7 +481,7 @@ function render(){
     POSO.forEach(pos=>{if(r.nd[pos]<=0)return;
       const L=[];PL.forEach((p,i)=>{if(!t.has(i)&&p.p===pos&&p.av!=="gone")L.push(XP[i]);});
       L.sort((a,b)=>b-a);if(!L.length)return;
-      const go=Math.max(1,Math.round(r.gap*q.n[pos]/Math.max(1,q.t)));
+      const go=Math.max(1,Math.round(drain(pos,cur()+1,r.gap)));
       rows.push({pos,drop:L[0]-L[Math.min(go,L.length-1)]});});
     rows.sort((a,b)=>b.drop-a.drop);
     el("prio").innerHTML=rows.length?`<div class="prio"><span class="pk">Priority</span>
@@ -465,7 +497,9 @@ function render(){
   const ab={GKP:[],DEF:[],MID:[],FWD:[]};a.forEach(x=>ab[x.p.p].push({p:x.p,i:x.i,xp:XP[x.i]}));
   POSO.forEach(q2=>ab[q2].sort((m,n)=>n.xp-m.xp));
   const PB=bases(ab,8);
-  a.forEach(x=>x.e=XP[x.i]-PB[x.p.p]);
+  // subtract availability risk so ruled-out players stop heading the board;
+  // the suggestion engine already does this, the board did not
+  a.forEach(x=>x.e=XP[x.i]-PB[x.p.p]-risk(x.p)*0.9);
   a.sort((x,y)=>y.e-x.e);
   el("poolsub").innerHTML=`${a.length} left &middot; edge over ${S.base}`;
   el("pool").innerHTML=a.length?a.slice(0,90).map(x=>{
@@ -514,18 +548,28 @@ function render(){
 function pick(i){if(done()||i==null)return;const n=cur();S.picks.push({n,r:rnd(n),s:slotOf(n),i});}
 function bot(s){
   const t=taken(),nd=need(s),cl=clubs(s),R=rnd(cur()),left=15-squad(s).length;
-  const ord=PL.map((p,i)=>({p,i})).filter(x=>!t.has(x.i)&&x.p.av!=="gone")
-    .sort((a,b)=>(a.p.dr||999)-(b.p.dr||999));
-  const e=[];
-  for(const x of ord){
-    if(nd[x.p.p]<=0)continue;
-    if((cl[x.p.c]||0)>=CLUBCAP)continue;
-    if(x.p.p==="GKP"){if(nd.GKP===2&&R<4)continue;if(nd.GKP===1&&R<12)continue;}
-    if(POSO.some(q=>nd[q]>=left&&q!==x.p.p)&&nd[x.p.p]<left)continue;
-    e.push(x);if(e.length>=3)break;}
-  if(!e.length)for(const x of ord){if(nd[x.p.p]>0){e.push(x);break;}}
-  if(!e.length)return null;
-  const r=Math.random();return (e[r<.62?0:r<.87?1:2]||e[0]).i;
+  const pos_of={};RANKED.forEach((x,k)=>{pos_of[x.i]=k;});
+  const avail=p=>PL.map((q,i)=>({q,i}))
+    .filter(x=>!t.has(x.i)&&x.q.av!=="gone"&&x.q.p===p&&nd[p]>0&&(cl[x.q.c]||0)<CLUBCAP)
+    .sort((a,b)=>(pos_of[a.i]??9999)-(pos_of[b.i]??9999));
+  // Pick the POSITION from what the field actually does in this round (15 real
+  // leagues), then the best player there. Ranking alone made the room ignore
+  // defenders entirely, which left them on the board and skewed every suggestion.
+  let cand=POSO.map((p,k)=>({p,w:(FLOW[Math.min(15,R)][k]||0)}))
+    .filter(x=>x.w>0&&nd[x.p]>0&&avail(x.p).length);
+  // anything that must be filled with the picks remaining overrides the flow
+  const force=POSO.filter(p=>nd[p]>=left&&avail(p).length);
+  if(force.length)cand=force.map(p=>({p,w:1}));
+  if(!cand.length){
+    for(const p of POSO){const a=avail(p);if(a.length)return a[0].i;}
+    return null;
+  }
+  const tot=cand.reduce((a,x)=>a+x.w,0);
+  let r=Math.random()*tot,chosen=cand[cand.length-1].p;
+  for(const x of cand){r-=x.w;if(r<=0){chosen=x.p;break;}}
+  const list=avail(chosen);
+  const j=Math.random();
+  return (list[j<.7?0:j<.9?1:2]||list[0]).i;
 }
 function runBots(){let g=0;while(!done()&&slotOf(cur())!==S.slot&&g++<400){const i=bot(slotOf(cur()));if(i==null)break;pick(i);}}
 /* ---- live sync from the official draft feed ---- */

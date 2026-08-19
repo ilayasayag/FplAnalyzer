@@ -191,7 +191,23 @@ print(f"  {len(flag)} flagged in the draftable pool")
 for p in sorted(flag, key=lambda p: p["dr"])[:14]:
     print(f"  {p['n'][:20]:20} {p['c']:4} {p['av']:5} ch={p['ch']}  {p['news'][:58]}")
 
+# The value curve is Draft Fantasy's ACTUAL per-position xP, not a fitted shape.
+# A power law fitted to the endpoints crashed MID#8 to +12 when the real value is
+# +39, which made rank-2 defenders dominate once the elite midfielders had gone.
+curve = defaultdict(list)
+for r in (src or []):
+    curve[r[3]].append(r[5])
+for k in curve:
+    curve[k].sort(reverse=True)
+print("\nvalue curve (real Draft Fantasy xP):")
+for k in ("GKP", "DEF", "MID", "FWD"):
+    v = curve.get(k, [])
+    if v:
+        print(f"  {k}: n={len(v):3}  #1 {v[0]:.0f}  #8 {v[7]:.0f}  "
+              f"#{min(40,len(v))} {v[min(39,len(v)-1)]:.0f}")
+
 out = {
+    "curve": {k: [round(x, 1) for x in v] for k, v in curve.items()},
     "meta": {
         "built": boot.get("events", {}).get("data", [{}])[0].get("deadline_time", ""),
         "source": "draft.premierleague.com/api/bootstrap-static",
