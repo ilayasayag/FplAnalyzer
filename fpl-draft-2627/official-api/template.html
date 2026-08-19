@@ -159,6 +159,19 @@ select option{background:var(--surface);color:var(--ink)}
 .legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;font-weight:600;color:var(--muted);
  padding:8px 13px;border-top:1px solid var(--rule)}
 .legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px}
+.dep{display:grid;grid-template-columns:38px 1fr 70px auto;gap:9px;align-items:center;
+ padding:7px 13px;border-bottom:1px solid var(--rule);font-size:11.5px}
+.dep:last-of-type{border-bottom:none}
+.dep.thin{background:var(--badB)}
+.dep.mid{background:var(--warnB)}
+.dep.done{opacity:.5}
+.depn{color:var(--ink2)}.depn b{font-weight:800;color:var(--ink)}
+.depbar{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;display:block}
+.depbar span{display:block;height:100%;border-radius:3px}
+.deps{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.deps b{color:var(--ink2);font-weight:700}
+.depnote{font-size:10.5px;color:var(--muted);line-height:1.5;padding:8px 13px;
+ border-top:1px solid var(--rule)}
 </style>
 
 <div class="wrap">
@@ -217,6 +230,10 @@ select option{background:var(--surface);color:var(--ink)}
    <div class="ph"><h3>Cliff map</h3><span class="s">what waiting costs</span></div>
    <div class="chartbox"><div id="cliff"></div></div>
    <div class="legend" id="cleg"></div>
+  </div>
+  <div class="panel sect">
+   <div class="ph"><h3>Who is left</h3><span class="s">free players vs what you are being told to take</span></div>
+   <div id="depth"></div>
   </div>
   <div class="panel sect">
    <div class="ph"><h3>Your squad</h3><span class="s" id="msub"></span></div>
@@ -417,16 +434,27 @@ function row(p,i,o){
   </button></li>`;
 }
 function cliffChart(){
-  const W=520,H=230,L=44,R=48,T=12,B=26,mx=22,y0=40,y1=280;
+  const W=520,H=270,L=46,R=50,T=30,B=40,mx=22,y0=40,y1=280;
   const x=r=>L+(r-1)/(mx-1)*(W-L-R), y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
-  const t=taken(),nd=need(S.slot),r0=suggest(S.slot,1),q=lgNeed();
+  const t=taken(),nd=need(S.slot),r0=suggest(S.slot,1);
   let g="",LB=[],ann=null,best=-1;
+  // where we are, stated plainly on the chart itself
+  g+=`<text x="${L}" y="14" font-size="11" font-weight="800" fill="var(--ink)">
+      Round ${rnd(cur())} &#183; pick ${cur()} of ${TOT()}</text>`;
+  g+=`<text x="${W-R}" y="14" text-anchor="end" font-size="10" fill="var(--muted)">
+      your next pick ${r0.nx||"\u2014"}${r0.nx?` (${r0.gap} away)`:""}</text>`;
+  g+=`<text x="${L}" y="26" font-size="9.5" fill="var(--muted)">projected points</text>`;
   [80,140,200,260].forEach(v=>{g+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="var(--rule)"/>
    <text x="${L-6}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${v}</text>`;});
+  [1,5,10,15,20].forEach(r=>{g+=`<text x="${x(r)}" y="${H-22}" text-anchor="middle" font-size="9"
+    fill="var(--muted)">${r}</text>`;});
+  g+=`<text x="${(L+W-R)/2}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--muted)">
+      how many at that position are already gone &#8594;</text>`;
+  const marks=[];
   POSO.forEach(pos=>{
     const mine=nd[pos]>0, xp=r=>xpAt(pos,r);
     let d="";for(let r=1;r<=mx;r++)d+=(r===1?"M":"L")+x(r).toFixed(1)+" "+y(xp(r)).toFixed(1)+" ";
-    g+=`<path d="${d}" fill="none" stroke="${PCOL[pos]}" stroke-width="${mine?2.4:1.3}" opacity="${mine?1:.35}"/>`;
+    g+=`<path d="${d}" fill="none" stroke="${PCOL[pos]}" stroke-width="${mine?2.4:1.3}" opacity="${mine?1:.3}"/>`;
     let gone=0;PL.forEach((p,i)=>{if(t.has(i)&&p.p===pos)gone++;});
     const nr=Math.min(gone+1,mx);
     LB.push({pos,y:y(xp(20)),mine});
@@ -434,15 +462,23 @@ function cliffChart(){
     const go=Math.max(1,Math.round(drain(pos,cur()+1,r0.gap))),fr=Math.min(nr+go,mx);
     const drop=xp(nr)-xp(fr);
     if(drop>best){best=drop;ann={pos,nr,fr,drop,xp};}
-    g+=`<line x1="${x(nr)}" y1="${y(xp(nr))}" x2="${x(fr)}" y2="${y(xp(fr))}" stroke="${PCOL[pos]}" stroke-width="6" opacity=".22"/>`;
+    g+=`<line x1="${x(nr)}" y1="${y(xp(nr))}" x2="${x(fr)}" y2="${y(xp(fr))}" stroke="${PCOL[pos]}" stroke-width="6" opacity=".25"/>`;
     g+=`<circle cx="${x(fr)}" cy="${y(xp(fr))}" r="3.2" fill="var(--surface)" stroke="${PCOL[pos]}" stroke-width="2"/>`;
     g+=`<circle cx="${x(nr)}" cy="${y(xp(nr))}" r="4.5" fill="${PCOL[pos]}" stroke="var(--surface)" stroke-width="2"/>`;
+    marks.push({pos,x:x(nr),y:y(xp(nr)),drop});
   });
   LB.sort((a,b)=>a.y-b.y);
   for(let i=1;i<LB.length;i++)if(LB[i].y-LB[i-1].y<11)LB[i].y=LB[i-1].y+11;
-  LB.forEach(l=>{g+=`<text x="${W-R+7}" y="${l.y+3}" font-size="9.5" font-weight="800" fill="${PCOL[l.pos]}" opacity="${l.mine?1:.45}">${l.pos}</text>`;});
-  if(ann&&ann.drop>2){const m=(x(ann.nr)+x(ann.fr))/2,my=(y(ann.xp(ann.nr))+y(ann.xp(ann.fr)))/2;
-    g+=`<text x="${m}" y="${my-11}" text-anchor="middle" font-size="10" font-weight="800" fill="${PCOL[ann.pos]}">&minus;${ann.drop.toFixed(0)} if you wait</text>`;}
+  LB.forEach(l=>{g+=`<text x="${W-R+7}" y="${l.y+3}" font-size="9.5" font-weight="800" fill="${PCOL[l.pos]}" opacity="${l.mine?1:.4}">${l.pos}</text>`;});
+  if(ann&&ann.drop>2){
+    // place the callout above the marker, nudged clear of the other lines
+    const mxp=(x(ann.nr)+x(ann.fr))/2;
+    let myp=Math.min(y(ann.xp(ann.nr)),y(ann.xp(ann.fr)))-12;
+    marks.forEach(m=>{if(m.pos!==ann.pos&&Math.abs(m.x-mxp)<70&&Math.abs(m.y-myp)<12)myp=m.y-20;});
+    g+=`<text x="${mxp}" y="${Math.max(T+10,myp)}" text-anchor="middle" font-size="10.5"
+      font-weight="800" fill="${PCOL[ann.pos]}" stroke="var(--surface)" stroke-width="3"
+      paint-order="stroke">&minus;${ann.drop.toFixed(0)} ${ann.pos} if you wait</text>`;
+  }
   return `<svg viewBox="0 0 ${W} ${H}" class="cv">${g}</svg>`;
 }
 function render(){
@@ -510,6 +546,34 @@ function render(){
     :`<li class="empty">Nothing matches.</li>`;
   // cliff + meters + squads
   el("cliff").innerHTML=cliffChart();
+  // pool depth - how many genuinely startable players remain at each position
+  {
+    const tk=taken(), r1=suggest(S.slot,6), nd2=need(S.slot);
+    const sug=new Set(r1.list.map(z=>z.x.i));
+    const av={};POSO.forEach(p=>av[p]=[]);
+    PL.forEach((p,i)=>{if(!tk.has(i)&&p.av!=="gone")av[p.p].push({p,i,xp:XP[i]});});
+    POSO.forEach(p=>av[p].sort((a,b)=>b.xp-a.xp));
+    const B2=bases(av,r1.gap);
+    el("depth").innerHTML=POSO.map(pos=>{
+      const L=av[pos], repl=B2[pos];
+      const good=L.filter(z=>z.xp-repl>=25).length;      // clearly startable
+      const ok=L.filter(z=>z.xp-repl>=8).length;         // usable
+      const mySug=L.findIndex(z=>sug.has(z.i));
+      const top=L[0];
+      const w=Math.min(100,good*7);
+      const cls=nd2[pos]<=0?"done":good<=2?"thin":good<=6?"mid":"deep";
+      return `<div class="dep ${cls}">
+        <span class="pos ${pos}">${pos}</span>
+        <span class="depn">${nd2[pos]<=0?`<b>full</b>`
+          :`<b>${good}</b> clearly startable &#183; ${ok} usable`}</span>
+        <span class="depbar"><span style="width:${w}%;background:${PCOL[pos]}"></span></span>
+        <span class="deps">${nd2[pos]<=0?"&mdash;"
+          :top?`best left <b>${top.p.n}</b> ${sgn(top.xp-repl)}${mySug===0?" &#9679; suggested":""}`:"none"}</span>
+      </div>`;}).join("")
+      +`<div class="depnote">"Clearly startable" means 25+ projected points above the
+        ${S.base} replacement at that position. When a row goes thin, that is the position
+        to take next &mdash; it is the same signal driving the suggestions.</div>`;
+  }
   el("cleg").innerHTML=POSO.map(p=>`<span><i style="background:${PCOL[p]}"></i>${p}</span>`).join("")
     +`<span><b>&#9679;</b> best now</span><span><b>&#9675;</b> at your next pick</span>`;
   el("msub").textContent=`${sq.length}/15`;
@@ -568,6 +632,13 @@ function bot(s){
   let r=Math.random()*tot,chosen=cand[cand.length-1].p;
   for(const x of cand){r-=x.w;if(r<=0){chosen=x.p;break;}}
   const list=avail(chosen);
+  // Positional flow describes the mass of picks, but nobody passes on an elite
+  // player just because his position is unfashionable this round. If the best
+  // player on the whole board is well clear of the flow position's best, take him.
+  let bestAny=null;
+  for(const p of POSO){const A=avail(p);if(A.length&&(!bestAny||(pos_of[A[0].i]??9999)<(pos_of[bestAny.i]??9999)))bestAny=A[0];}
+  if(bestAny&&list.length&&(pos_of[list[0].i]??9999)-(pos_of[bestAny.i]??9999)>=10) return bestAny.i;
+  if(bestAny&&!list.length) return bestAny.i;
   const j=Math.random();
   return (list[j<.7?0:j<.9?1:2]||list[0]).i;
 }
