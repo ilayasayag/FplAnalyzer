@@ -1,0 +1,4684 @@
+{
+"ARS": {
+"rows": [
+{
+"id": 1,
+"n": "Raya",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3330,
+"ppg": 4.4,
+"dr": 59
+},
+{
+"id": 4,
+"n": "Gabriel",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2750,
+"ppg": 6.5,
+"dr": 7
+},
+{
+"id": 11,
+"n": "Mosquera",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 986,
+"ppg": 2.0,
+"dr": 179
+},
+{
+"id": 10,
+"n": "White",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 699,
+"ppg": 3.8,
+"dr": 172
+},
+{
+"id": 554,
+"n": "Tzolis",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 55
+},
+{
+"id": 15,
+"n": "\u00d8degaard",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1363,
+"ppg": 3.1,
+"dr": 44
+},
+{
+"id": 8,
+"n": "Calafiori",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1697,
+"ppg": 4.2,
+"dr": 132
+},
+{
+"id": 13,
+"n": "Rice",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3093,
+"ppg": 5.1,
+"dr": 13
+},
+{
+"id": 7,
+"n": "Lewis-Skelly",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 697,
+"ppg": 1.4,
+"dr": 184
+},
+{
+"id": 16,
+"n": "Madueke",
+"p": "MID",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1205,
+"ppg": 2.8,
+"dr": 45
+},
+{
+"id": 25,
+"n": "Gy\u00f6keres",
+"p": "FWD",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2217,
+"ppg": 3.6,
+"dr": 17
+},
+{
+"id": 9,
+"n": "Hincapie",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1787,
+"ppg": 3.5,
+"dr": 141
+},
+{
+"id": 12,
+"n": "Saka",
+"p": "MID",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2218,
+"ppg": 5.1,
+"dr": 3
+},
+{
+"id": 452,
+"n": "Bruno G.",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2456,
+"ppg": 5.3,
+"dr": 25
+},
+{
+"id": 14,
+"n": "Eze",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1885,
+"ppg": 3.4,
+"dr": 41
+},
+{
+"id": 26,
+"n": "Havertz",
+"p": "FWD",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 577,
+"ppg": 3.0,
+"dr": 22
+}
+],
+"note": "OneFPL: Tzolis left, defence reshaped without Saliba/Timber. ESPN 18 Aug: Saka and Rice start after the Community Shield, Mosquera replaces Saliba, Guimaraes doubtful."
+},
+"AVL": {
+"rows": [
+{
+"id": 36,
+"n": "Maatsen",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1590,
+"ppg": 1.8,
+"dr": 429
+},
+{
+"id": 34,
+"n": "Pau",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1673,
+"ppg": 3.0,
+"dr": 425
+},
+{
+"id": 32,
+"n": "Cash",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3016,
+"ppg": 3.3,
+"dr": 402
+},
+{
+"id": 47,
+"n": "Kamara",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 1410,
+"ppg": 3.4,
+"dr": 274
+},
+{
+"id": 41,
+"n": "Buend\u00eda",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1753,
+"ppg": 2.8,
+"dr": 81
+},
+{
+"id": 45,
+"n": "McGinn",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2136,
+"ppg": 3.4,
+"dr": 135
+},
+{
+"id": 28,
+"n": "Martinez",
+"p": "GKP",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2835,
+"ppg": 3.8,
+"dr": 235
+},
+{
+"id": 46,
+"n": "Barkley",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 844,
+"ppg": 2.7,
+"dr": 278
+},
+{
+"id": 160,
+"n": "Garnacho",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1261,
+"ppg": 2.3,
+"dr": 97
+},
+{
+"id": 55,
+"n": "Watkins",
+"p": "FWD",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2833,
+"ppg": 4.5,
+"dr": 10
+},
+{
+"id": 597,
+"n": "Suzuki",
+"p": "GKP",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 396
+},
+{
+"id": 33,
+"n": "Mings",
+"p": "DEF",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1322,
+"ppg": 2.9,
+"dr": 432
+},
+{
+"id": 37,
+"n": "Lindel\u00f6f",
+"p": "DEF",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 942,
+"ppg": 1.7,
+"dr": 443
+},
+{
+"id": 31,
+"n": "Konsa",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3035,
+"ppg": 2.9,
+"dr": 408
+},
+{
+"id": 54,
+"n": "Gomes",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Calf injury - Unknown return date",
+"mins": 2207,
+"ppg": 3.0,
+"dr": 144
+},
+{
+"id": 53,
+"n": "Manzambi",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Knee injury - Unknown return date",
+"mins": 0,
+"ppg": 0.0,
+"dr": 106
+},
+{
+"id": 56,
+"n": "Abraham",
+"p": "FWD",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Knock - 75% chance of playing",
+"mins": 278,
+"ppg": 1.9,
+"dr": 187
+}
+],
+"note": "ESPN: severe squad depletion, a 19-year-old may debut out of necessity."
+},
+"BHA": {
+"rows": [
+{
+"id": 115,
+"n": "De Cuyper",
+"p": "DEF",
+"v": 6,
+"src": [
+"RotoWire 20 Aug",
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1404,
+"ppg": 2.8,
+"dr": 416
+},
+{
+"id": 109,
+"n": "Verbruggen",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3420,
+"ppg": 3.4,
+"dr": 398
+},
+{
+"id": 113,
+"n": "F.Kad\u0131o\u011flu",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3130,
+"ppg": 3.2,
+"dr": 401
+},
+{
+"id": 504,
+"n": "Vuskovic",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 382
+},
+{
+"id": 124,
+"n": "Gro\u00df",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1636,
+"ppg": 4.1,
+"dr": 153
+},
+{
+"id": 123,
+"n": "Hinshelwood",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1736,
+"ppg": 3.4,
+"dr": 85
+},
+{
+"id": 127,
+"n": "Gomez",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2117,
+"ppg": 3.0,
+"dr": 247
+},
+{
+"id": 125,
+"n": "Georginio",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1776,
+"ppg": 2.7,
+"dr": 142
+},
+{
+"id": 114,
+"n": "Boscagli",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 799,
+"ppg": 3.2,
+"dr": 436
+},
+{
+"id": 130,
+"n": "Wieffer",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1901,
+"ppg": 3.6,
+"dr": 250
+},
+{
+"id": 129,
+"n": "Ayari",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1921,
+"ppg": 3.4,
+"dr": 138
+},
+{
+"id": 116,
+"n": "Dunk",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2837,
+"ppg": 3.0,
+"dr": 409
+},
+{
+"id": 131,
+"n": "Baleba",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Ankle injury - Expected back 23 Aug",
+"mins": 1646,
+"ppg": 1.8,
+"dr": 279
+},
+{
+"id": 122,
+"n": "Minteh",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Leg injury - Expected back 28 Nov",
+"mins": 2389,
+"ppg": 3.4,
+"dr": 75
+}
+],
+"note": "OneFPL: Minteh injured, De Cuyper possibly advanced."
+},
+"BOU": {
+"rows": [
+{
+"id": 57,
+"n": "Petrovi\u0107",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3420,
+"ppg": 3.3,
+"dr": 399
+},
+{
+"id": 61,
+"n": "Truffert",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3378,
+"ppg": 4.3,
+"dr": 112
+},
+{
+"id": 60,
+"n": "Hill",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2102,
+"ppg": 3.8,
+"dr": 130
+},
+{
+"id": 555,
+"n": "Silva",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 383
+},
+{
+"id": 64,
+"n": "Smith",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1073,
+"ppg": 2.6,
+"dr": 427
+},
+{
+"id": 69,
+"n": "Scott",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2848,
+"ppg": 3.7,
+"dr": 69
+},
+{
+"id": 68,
+"n": "Tavernier",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2732,
+"ppg": 4.0,
+"dr": 67
+},
+{
+"id": 70,
+"n": "Kluivert",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 945,
+"ppg": 2.0,
+"dr": 100
+},
+{
+"id": 67,
+"n": "Rayan",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1110,
+"ppg": 4.5,
+"dr": 47
+},
+{
+"id": 79,
+"n": "Evanilson",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2741,
+"ppg": 3.2,
+"dr": 76
+},
+{
+"id": 71,
+"n": "Cook",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 872,
+"ppg": 2.2,
+"dr": 294
+},
+{
+"id": 73,
+"n": "Adams",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Unspecified injury - 75% chance of playing",
+"mins": 1769,
+"ppg": 3.1,
+"dr": 259
+}
+],
+"note": "OneFPL: Kluivert and Tavernier secure, defence unsettled."
+},
+"BRE": {
+"rows": [
+{
+"id": 82,
+"n": "Kelleher",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3330,
+"ppg": 3.9,
+"dr": 226
+},
+{
+"id": 84,
+"n": "Collins",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2971,
+"ppg": 3.7,
+"dr": 120
+},
+{
+"id": 87,
+"n": "Ajer",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1805,
+"ppg": 2.8,
+"dr": 419
+},
+{
+"id": 88,
+"n": "Kayode",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3258,
+"ppg": 3.1,
+"dr": 403
+},
+{
+"id": 86,
+"n": "Lewis-Potter",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1960,
+"ppg": 3.2,
+"dr": 125
+},
+{
+"id": 97,
+"n": "Jensen",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2239,
+"ppg": 2.7,
+"dr": 137
+},
+{
+"id": 98,
+"n": "Janelt",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1434,
+"ppg": 3.0,
+"dr": 262
+},
+{
+"id": 94,
+"n": "Schade",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2744,
+"ppg": 3.6,
+"dr": 73
+},
+{
+"id": 95,
+"n": "O.Dango",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2271,
+"ppg": 4.2,
+"dr": 37
+},
+{
+"id": 106,
+"n": "Thiago",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3282,
+"ppg": 4.8,
+"dr": 9
+},
+{
+"id": 556,
+"n": "Sangar\u00e9",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 215
+},
+{
+"id": 102,
+"n": "Yarmoliuk",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2652,
+"ppg": 2.8,
+"dr": 245
+}
+],
+"note": "OneFPL: Thiago, Schade and Ouattara; van den Berg a doubt."
+},
+"CHE": {
+"rows": [
+{
+"id": 140,
+"n": "S\u00e1nchez",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3040,
+"ppg": 3.2,
+"dr": 240
+},
+{
+"id": 200,
+"n": "Lacroix",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3085,
+"ppg": 4.4,
+"dr": 61
+},
+{
+"id": 149,
+"n": "Colwill",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 225,
+"ppg": 2.7,
+"dr": 322
+},
+{
+"id": 152,
+"n": "Palestra",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 203
+},
+{
+"id": 159,
+"n": "Caicedo",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2796,
+"ppg": 3.3,
+"dr": 131
+},
+{
+"id": 156,
+"n": "Neto",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2629,
+"ppg": 3.7,
+"dr": 38
+},
+{
+"id": 154,
+"n": "Palmer",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1954,
+"ppg": 4.4,
+"dr": 4
+},
+{
+"id": 40,
+"n": "Rogers",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3280,
+"ppg": 4.6,
+"dr": 15
+},
+{
+"id": 165,
+"n": "Jo\u00e3o Pedro",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2658,
+"ppg": 5.1,
+"dr": 14
+},
+{
+"id": 142,
+"n": "James",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1957,
+"ppg": 4.0,
+"dr": 126
+},
+{
+"id": 161,
+"n": "Lavia",
+"p": "MID",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 374,
+"ppg": 1.1,
+"dr": 312
+},
+{
+"id": 148,
+"n": "Hato",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1139,
+"ppg": 0.9,
+"dr": 449
+},
+{
+"id": 155,
+"n": "Enzo",
+"p": "MID",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3114,
+"ppg": 4.4,
+"dr": 24
+}
+],
+"note": "OneFPL and ESPN both describe Alonso moving to a back three; RotoWire keeps a four."
+},
+"COV": {
+"rows": [
+{
+"id": 175,
+"n": "van Ewijk",
+"p": "DEF",
+"v": 6,
+"src": [
+"RotoWire 20 Aug",
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 551
+},
+{
+"id": 110,
+"n": "Rushworth",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 486
+},
+{
+"id": 176,
+"n": "Dasilva",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 552
+},
+{
+"id": 173,
+"n": "Thomas",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 549
+},
+{
+"id": 182,
+"n": "Amenda",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 558
+},
+{
+"id": 104,
+"n": "Onyeka",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 88,
+"ppg": 2.0,
+"dr": 316
+},
+{
+"id": 184,
+"n": "Grimes",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 343
+},
+{
+"id": 574,
+"n": "Yirenkyi",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 390
+},
+{
+"id": 190,
+"n": "Tchaouna",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 207
+},
+{
+"id": 185,
+"n": "Sakamoto",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 344
+},
+{
+"id": 195,
+"n": "Simms",
+"p": "FWD",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 347
+},
+{
+"id": 188,
+"n": "Torp",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 206
+},
+{
+"id": 186,
+"n": "Mason-Clark",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 205
+},
+{
+"id": 194,
+"n": "Thomas-Asante",
+"p": "FWD",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 346
+},
+{
+"id": 193,
+"n": "Wright",
+"p": "FWD",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Thigh injury - Unknown return date",
+"mins": 0,
+"ppg": 0.0,
+"dr": 208
+}
+],
+"note": "OneFPL: Awoniyi and Simms compete at striker."
+},
+"CRY": {
+"rows": [
+{
+"id": 222,
+"n": "Strand Larsen",
+"p": "FWD",
+"v": 6,
+"src": [
+"RotoWire 20 Aug",
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2301,
+"ppg": 2.1,
+"dr": 92
+},
+{
+"id": 198,
+"n": "Henderson",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Ankle injury - 75% chance of playing",
+"mins": 3330,
+"ppg": 3.5,
+"dr": 228
+},
+{
+"id": 202,
+"n": "Richards",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2825,
+"ppg": 3.9,
+"dr": 230
+},
+{
+"id": 203,
+"n": "Canvot",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1331,
+"ppg": 3.6,
+"dr": 263
+},
+{
+"id": 206,
+"n": "Chadi Riad",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 550,
+"ppg": 2.2,
+"dr": 447
+},
+{
+"id": 204,
+"n": "Mitchell",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3253,
+"ppg": 3.6,
+"dr": 397
+},
+{
+"id": 214,
+"n": "Kamada",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1899,
+"ppg": 2.4,
+"dr": 268
+},
+{
+"id": 210,
+"n": "Wharton",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 2552,
+"ppg": 3.3,
+"dr": 129
+},
+{
+"id": 241,
+"n": "McNeil",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1161,
+"ppg": 2.4,
+"dr": 167
+},
+{
+"id": 208,
+"n": "Sarr",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2173,
+"ppg": 4.2,
+"dr": 39
+},
+{
+"id": 207,
+"n": "Mingueza",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 494
+},
+{
+"id": 201,
+"n": "Mu\u00f1oz",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2400,
+"ppg": 4.7,
+"dr": 115
+}
+],
+"note": "OneFPL: back three, Mitchell as wing-back."
+},
+"EVE": {
+"rows": [
+{
+"id": 226,
+"n": "Pickford",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3420,
+"ppg": 3.6,
+"dr": 116
+},
+{
+"id": 233,
+"n": "Mykolenko",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2959,
+"ppg": 2.9,
+"dr": 412
+},
+{
+"id": 230,
+"n": "Branthwaite",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 678,
+"ppg": 3.2,
+"dr": 183
+},
+{
+"id": 229,
+"n": "Tarkowski",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3330,
+"ppg": 4.6,
+"dr": 58
+},
+{
+"id": 232,
+"n": "O'Brien",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3118,
+"ppg": 3.1,
+"dr": 236
+},
+{
+"id": 247,
+"n": "Hackney",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 209
+},
+{
+"id": 237,
+"n": "Ndiaye",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2781,
+"ppg": 4.0,
+"dr": 71
+},
+{
+"id": 236,
+"n": "Dewsbury-Hall",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2629,
+"ppg": 4.9,
+"dr": 35
+},
+{
+"id": 246,
+"n": "R\u00f6hl",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 675,
+"ppg": 2.2,
+"dr": 298
+},
+{
+"id": 249,
+"n": "Barry",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1898,
+"ppg": 2.5,
+"dr": 139
+},
+{
+"id": 244,
+"n": "Armstrong",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 524,
+"ppg": 1.6,
+"dr": 306
+},
+{
+"id": 209,
+"n": "Johnson",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1710,
+"ppg": 1.9,
+"dr": 95
+}
+],
+"note": "OneFPL: Pickford fit, Ndiaye key, Garner's fitness open."
+},
+"FUL": {
+"rows": [
+{
+"id": 250,
+"n": "Leno",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3420,
+"ppg": 3.2,
+"dr": 400
+},
+{
+"id": 254,
+"n": "Robinson",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1487,
+"ppg": 3.0,
+"dr": 424
+},
+{
+"id": 257,
+"n": "Bassey",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2532,
+"ppg": 3.4,
+"dr": 407
+},
+{
+"id": 255,
+"n": "J.Cuenca",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 935,
+"ppg": 2.6,
+"dr": 438
+},
+{
+"id": 261,
+"n": "Iwobi",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2420,
+"ppg": 3.6,
+"dr": 136
+},
+{
+"id": 264,
+"n": "Bobb",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1030,
+"ppg": 1.8,
+"dr": 177
+},
+{
+"id": 258,
+"n": "Castagne",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1838,
+"ppg": 2.0,
+"dr": 426
+},
+{
+"id": 265,
+"n": "Berge",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2904,
+"ppg": 2.6,
+"dr": 252
+},
+{
+"id": 570,
+"n": "Palacios",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 216
+},
+{
+"id": 268,
+"n": "King",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1290,
+"ppg": 2.0,
+"dr": 162
+},
+{
+"id": 262,
+"n": "Smith Rowe",
+"p": "MID",
+"v": 2,
+"src": [
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1909,
+"ppg": 2.2,
+"dr": 151
+},
+{
+"id": 569,
+"n": "Gonzalo",
+"p": "FWD",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 110
+},
+{
+"id": 256,
+"n": "Tete",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1791,
+"ppg": 3.7,
+"dr": 417
+},
+{
+"id": 263,
+"n": "Kevin",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1030,
+"ppg": 1.9,
+"dr": 169
+},
+{
+"id": 271,
+"n": "Muniz",
+"p": "FWD",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 987,
+"ppg": 1.7,
+"dr": 181
+}
+],
+"note": "OneFPL: Garcia leads the striker race."
+},
+"HUL": {
+"rows": [
+{
+"id": 282,
+"n": "Giles",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 570
+},
+{
+"id": 279,
+"n": "Ajayi",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 567
+},
+{
+"id": 280,
+"n": "Coyle",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 568
+},
+{
+"id": 290,
+"n": "Slater",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 499
+},
+{
+"id": 289,
+"n": "Crooks",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 498
+},
+{
+"id": 286,
+"n": "Belloumi",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 353
+},
+{
+"id": 295,
+"n": "McBurnie",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 210
+},
+{
+"id": 571,
+"n": "Tzolakis",
+"p": "GKP",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 523
+},
+{
+"id": 277,
+"n": "Egan",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 565
+},
+{
+"id": 577,
+"n": "Stroud",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 386
+},
+{
+"id": 576,
+"n": "Hjert\u00f8-Dahl",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 387
+},
+{
+"id": 274,
+"n": "Butland",
+"p": "GKP",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Arm injury - Unknown return date",
+"mins": 0,
+"ppg": 0.0,
+"dr": 496
+},
+{
+"id": 586,
+"n": "Mendy",
+"p": "DEF",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 596
+},
+{
+"id": 292,
+"n": "\u00d6m\u00fcr",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 355
+},
+{
+"id": 287,
+"n": "Millar",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 354
+}
+],
+"note": "OneFPL: Tzolakis in the goalkeeping race; Hughes out."
+},
+"IPS": {
+"rows": [
+{
+"id": 564,
+"n": "Scherpen",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 514
+},
+{
+"id": 305,
+"n": "Davis",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 578
+},
+{
+"id": 306,
+"n": "Greaves",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 579
+},
+{
+"id": 304,
+"n": "O'Shea",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 577
+},
+{
+"id": 563,
+"n": "Maeda",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 214
+},
+{
+"id": 309,
+"n": "N\u00fa\u00f1ez",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 358
+},
+{
+"id": 315,
+"n": "Fatawu",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 212
+},
+{
+"id": 316,
+"n": "Emersonn",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 213
+},
+{
+"id": 259,
+"n": "Diop",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 812,
+"ppg": 2.4,
+"dr": 531
+},
+{
+"id": 267,
+"n": "Luki\u0107",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1730,
+"ppg": 2.6,
+"dr": 269
+},
+{
+"id": 308,
+"n": "Furlong",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 581
+},
+{
+"id": 572,
+"n": "Florentino",
+"p": "MID",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 385
+},
+{
+"id": 324,
+"n": "Mehmeti",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 366
+},
+{
+"id": 321,
+"n": "Walle Egeli",
+"p": "FWD",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 507
+}
+],
+"note": "OneFPL: Scherpen; Diop and Greaves at centre-back."
+},
+"LEE": {
+"rows": [
+{
+"id": 329,
+"n": "Rodon",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2952,
+"ppg": 3.1,
+"dr": 406
+},
+{
+"id": 327,
+"n": "Bijol",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1888,
+"ppg": 4.0,
+"dr": 246
+},
+{
+"id": 332,
+"n": "Justin",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1893,
+"ppg": 3.2,
+"dr": 414
+},
+{
+"id": 330,
+"n": "Bogle",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2795,
+"ppg": 2.8,
+"dr": 411
+},
+{
+"id": 338,
+"n": "Ampadu",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3119,
+"ppg": 3.8,
+"dr": 118
+},
+{
+"id": 335,
+"n": "Stach",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2369,
+"ppg": 4.7,
+"dr": 68
+},
+{
+"id": 260,
+"n": "Wilson",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2674,
+"ppg": 4.7,
+"dr": 33
+},
+{
+"id": 337,
+"n": "Aaronson",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2449,
+"ppg": 3.4,
+"dr": 121
+},
+{
+"id": 346,
+"n": "Calvert-Lewin",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2721,
+"ppg": 4.1,
+"dr": 65
+},
+{
+"id": 385,
+"n": "Trafford",
+"p": "GKP",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 360,
+"ppg": 3.2,
+"dr": 314
+},
+{
+"id": 334,
+"n": "Muharemovi\u0107",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 367
+},
+{
+"id": 326,
+"n": "Perri",
+"p": "GKP",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1440,
+"ppg": 2.7,
+"dr": 434
+},
+{
+"id": 345,
+"n": "Tanaka",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1307,
+"ppg": 2.4,
+"dr": 270
+}
+],
+"note": "OneFPL: Muharemovic in the back three, Calvert-Lewin central."
+},
+"LIV": {
+"rows": [
+{
+"id": 350,
+"n": "A.Becker",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2340,
+"ppg": 3.5,
+"dr": 140
+},
+{
+"id": 358,
+"n": "Kerkez",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2251,
+"ppg": 2.5,
+"dr": 145
+},
+{
+"id": 356,
+"n": "Virgil",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3420,
+"ppg": 4.6,
+"dr": 32
+},
+{
+"id": 357,
+"n": "Frimpong",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1032,
+"ppg": 3.0,
+"dr": 163
+},
+{
+"id": 371,
+"n": "Gravenberch",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2991,
+"ppg": 4.0,
+"dr": 64
+},
+{
+"id": 368,
+"n": "Szoboszlai",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3232,
+"ppg": 4.4,
+"dr": 23
+},
+{
+"id": 367,
+"n": "Gakpo",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2736,
+"ppg": 3.6,
+"dr": 26
+},
+{
+"id": 366,
+"n": "Wirtz",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2374,
+"ppg": 3.8,
+"dr": 18
+},
+{
+"id": 369,
+"n": "Ngumoha",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 547,
+"ppg": 2.3,
+"dr": 99
+},
+{
+"id": 379,
+"n": "Isak",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 694,
+"ppg": 2.9,
+"dr": 5
+},
+{
+"id": 362,
+"n": "Jacquet",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 369
+},
+{
+"id": 580,
+"n": "Araujo",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 220
+}
+],
+"note": "OneFPL: Gakpo/Isak/Wirtz core, centre-back pick open between Jacquet and others. ESPN: Araujo likely partners van Dijk."
+},
+"MCI": {
+"rows": [
+{
+"id": 384,
+"n": "Donnarumma",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3060,
+"ppg": 4.0,
+"dr": 117
+},
+{
+"id": 391,
+"n": "Gvardiol",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1370,
+"ppg": 4.4,
+"dr": 152
+},
+{
+"id": 393,
+"n": "Khusanov",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1427,
+"ppg": 3.2,
+"dr": 160
+},
+{
+"id": 481,
+"n": "Anderson",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3332,
+"ppg": 4.7,
+"dr": 31
+},
+{
+"id": 406,
+"n": "Kova\u010di\u0107",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 125,
+"ppg": 1.5,
+"dr": 197
+},
+{
+"id": 397,
+"n": "Semenyo",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3200,
+"ppg": 5.5,
+"dr": 6
+},
+{
+"id": 398,
+"n": "Foden",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2078,
+"ppg": 4.0,
+"dr": 27
+},
+{
+"id": 411,
+"n": "Haaland",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2953,
+"ppg": 6.8,
+"dr": 1
+},
+{
+"id": 390,
+"n": "R\u00faben",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2139,
+"ppg": 4.3,
+"dr": 128
+},
+{
+"id": 400,
+"n": "Doku",
+"p": "MID",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Calf injury - 75% chance of playing",
+"mins": 1773,
+"ppg": 4.0,
+"dr": 20
+},
+{
+"id": 387,
+"n": "O'Reilly",
+"p": "DEF",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2643,
+"ppg": 4.7,
+"dr": 34
+},
+{
+"id": 388,
+"n": "Gu\u00e9hi",
+"p": "DEF",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3150,
+"ppg": 5.1,
+"dr": 56
+},
+{
+"id": 389,
+"n": "Matheus N.",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Knock - 75% chance of playing",
+"mins": 2861,
+"ppg": 4.5,
+"dr": 62
+},
+{
+"id": 392,
+"n": "A\u00eft-Nouri",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 971,
+"ppg": 3.5,
+"dr": 165
+},
+{
+"id": 399,
+"n": "Cherki",
+"p": "MID",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1772,
+"ppg": 4.1,
+"dr": 16
+}
+],
+"note": "OneFPL: Haaland available, Gvardiol secure, midfield open. ESPN: Donnarumma, Haaland, Foden at 10, Anderson starting."
+},
+"MUN": {
+"rows": [
+{
+"id": 412,
+"n": "Lammens",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2880,
+"ppg": 3.4,
+"dr": 242
+},
+{
+"id": 423,
+"n": "Shaw",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3220,
+"ppg": 3.0,
+"dr": 404
+},
+{
+"id": 418,
+"n": "Maguire",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1649,
+"ppg": 3.9,
+"dr": 254
+},
+{
+"id": 417,
+"n": "Dalot",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2609,
+"ppg": 3.3,
+"dr": 241
+},
+{
+"id": 162,
+"n": "Andrey Santos",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1247,
+"ppg": 1.7,
+"dr": 288
+},
+{
+"id": 43,
+"n": "Tielemans",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 1857,
+"ppg": 2.7,
+"dr": 93
+},
+{
+"id": 426,
+"n": "B.Fernandes",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3065,
+"ppg": 6.7,
+"dr": 2
+},
+{
+"id": 431,
+"n": "Amad",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2339,
+"ppg": 2.8,
+"dr": 86
+},
+{
+"id": 427,
+"n": "Mbeumo",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2611,
+"ppg": 4.5,
+"dr": 11
+},
+{
+"id": 420,
+"n": "Yoro",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1730,
+"ppg": 1.8,
+"dr": 282
+},
+{
+"id": 428,
+"n": "Cunha",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2493,
+"ppg": 4.3,
+"dr": 12
+},
+{
+"id": 421,
+"n": "Heaven",
+"p": "DEF",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 920,
+"ppg": 2.5,
+"dr": 435
+},
+{
+"id": 415,
+"n": "Dorgu",
+"p": "MID",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1440,
+"ppg": 3.7,
+"dr": 82
+}
+],
+"note": "OneFPL: Shaw and Maguire strong, Sesko short of pre-season. ESPN: Fernandes captain, Santos anchor, Tielemans and Mainoo compete."
+},
+"NEW": {
+"rows": [
+{
+"id": 449,
+"n": "Hall",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2176,
+"ppg": 2.6,
+"dr": 258
+},
+{
+"id": 445,
+"n": "Thiaw",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2963,
+"ppg": 3.6,
+"dr": 232
+},
+{
+"id": 447,
+"n": "Botman",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1834,
+"ppg": 3.6,
+"dr": 255
+},
+{
+"id": 456,
+"n": "J.Ramsey",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1441,
+"ppg": 2.2,
+"dr": 273
+},
+{
+"id": 454,
+"n": "Elanga",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1302,
+"ppg": 1.5,
+"dr": 98
+},
+{
+"id": 566,
+"n": "Horn\u00ed\u010dek",
+"p": "GKP",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 378
+},
+{
+"id": 565,
+"n": "Bamba",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 379
+},
+{
+"id": 453,
+"n": "Barnes",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1951,
+"ppg": 2.9,
+"dr": 80
+},
+{
+"id": 459,
+"n": "L.Miley",
+"p": "MID",
+"v": 2,
+"src": [
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 1493,
+"ppg": 3.1,
+"dr": 159
+},
+{
+"id": 464,
+"n": "Wissa",
+"p": "FWD",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 517,
+"ppg": 1.4,
+"dr": 103
+},
+{
+"id": 465,
+"n": "Osula",
+"p": "FWD",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 805,
+"ppg": 3.2,
+"dr": 91
+},
+{
+"id": 442,
+"n": "Pope",
+"p": "GKP",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2416,
+"ppg": 3.6,
+"dr": 249
+},
+{
+"id": 595,
+"n": "Dedi\u0107",
+"p": "DEF",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 525
+},
+{
+"id": 462,
+"n": "Steur",
+"p": "MID",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 380
+},
+{
+"id": 461,
+"n": "Tour\u00e9",
+"p": "MID",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 109
+},
+{
+"id": 458,
+"n": "Joelinton",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "out",
+"ch": 0,
+"news": "Unspecified injury - Unknown return date",
+"mins": 1950,
+"ppg": 2.7,
+"dr": 158
+},
+{
+"id": 460,
+"n": "Willock",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 972,
+"ppg": 1.6,
+"dr": 296
+}
+],
+"note": "OneFPL: Thiaw and Botman, Barnes and Elanga wide, striker unsettled."
+},
+"NFO": {
+"rows": [
+{
+"id": 467,
+"n": "Sels",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2667,
+"ppg": 3.4,
+"dr": 244
+},
+{
+"id": 471,
+"n": "Milenkovi\u0107",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3375,
+"ppg": 3.1,
+"dr": 123
+},
+{
+"id": 472,
+"n": "Murillo",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 2130,
+"ppg": 3.3,
+"dr": 146
+},
+{
+"id": 581,
+"n": "Diomande",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 219
+},
+{
+"id": 469,
+"n": "N.Williams",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3203,
+"ppg": 3.5,
+"dr": 231
+},
+{
+"id": 473,
+"n": "Aina",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1587,
+"ppg": 3.7,
+"dr": 423
+},
+{
+"id": 488,
+"n": "Sangar\u00e9",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2073,
+"ppg": 3.2,
+"dr": 256
+},
+{
+"id": 480,
+"n": "Gibbs-White",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3101,
+"ppg": 5.1,
+"dr": 8
+},
+{
+"id": 491,
+"n": "Igor Jesus",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2293,
+"ppg": 3.1,
+"dr": 77
+},
+{
+"id": 567,
+"n": "Schlager",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 377
+},
+{
+"id": 483,
+"n": "Ndoye",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1167,
+"ppg": 2.1,
+"dr": 168
+},
+{
+"id": 487,
+"n": "Dominguez",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1168,
+"ppg": 1.8,
+"dr": 286
+},
+{
+"id": 490,
+"n": "Wood",
+"p": "FWD",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 896,
+"ppg": 2.7,
+"dr": 101
+}
+],
+"note": "OneFPL: 3-4-3 retained, Igor Jesus competing with Wood and Kalimuendo."
+},
+"SUN": {
+"rows": [
+{
+"id": 542,
+"n": "E.Le F\u00e9e",
+"p": "MID",
+"v": 6,
+"src": [
+"RotoWire 20 Aug",
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2930,
+"ppg": 4.1,
+"dr": 63
+},
+{
+"id": 529,
+"n": "Roefs",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3150,
+"ppg": 3.9,
+"dr": 227
+},
+{
+"id": 536,
+"n": "Reinildo",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1966,
+"ppg": 3.0,
+"dr": 420
+},
+{
+"id": 532,
+"n": "Ballard",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2144,
+"ppg": 4.0,
+"dr": 238
+},
+{
+"id": 534,
+"n": "Hume",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3032,
+"ppg": 2.9,
+"dr": 405
+},
+{
+"id": 545,
+"n": "Sadiki",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2891,
+"ppg": 2.4,
+"dr": 257
+},
+{
+"id": 544,
+"n": "Xhaka",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2901,
+"ppg": 3.6,
+"dr": 122
+},
+{
+"id": 551,
+"n": "Angulo",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 401,
+"ppg": 1.6,
+"dr": 315
+},
+{
+"id": 552,
+"n": "Brobbey",
+"p": "FWD",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1920,
+"ppg": 3.0,
+"dr": 84
+},
+{
+"id": 539,
+"n": "O'Nien",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 565,
+"ppg": 2.2,
+"dr": 532
+},
+{
+"id": 541,
+"n": "Meunier",
+"p": "DEF",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 522
+},
+{
+"id": 533,
+"n": "Mukiele",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 2784,
+"ppg": 4.7,
+"dr": 113
+},
+{
+"id": 535,
+"n": "Alderete",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": 100,
+"news": "",
+"mins": 2797,
+"ppg": 3.8,
+"dr": 233
+},
+{
+"id": 549,
+"n": "Talbi",
+"p": "MID",
+"v": 1,
+"src": [
+"RotoWire 20 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1553,
+"ppg": 3.0,
+"dr": 147
+}
+],
+"note": "OneFPL: O'Nien expected, Le Fee advanced, Hume's role open."
+},
+"TOT": {
+"rows": [
+{
+"id": 112,
+"n": "Van Hecke",
+"p": "DEF",
+"v": 7,
+"src": [
+"RotoWire 20 Aug",
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3210,
+"ppg": 4.1,
+"dr": 225
+},
+{
+"id": 525,
+"n": "Fernandes",
+"p": "MID",
+"v": 4,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3017,
+"ppg": 3.8,
+"dr": 70
+},
+{
+"id": 496,
+"n": "Kinsky",
+"p": "GKP",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 630,
+"ppg": 2.9,
+"dr": 448
+},
+{
+"id": 502,
+"n": "Robertson",
+"p": "DEF",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1165,
+"ppg": 2.3,
+"dr": 428
+},
+{
+"id": 455,
+"n": "Tonali",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2534,
+"ppg": 2.3,
+"dr": 150
+},
+{
+"id": 519,
+"n": "Gallagher",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1183,
+"ppg": 2.8,
+"dr": 175
+},
+{
+"id": 514,
+"n": "Tel",
+"p": "MID",
+"v": 3,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1334,
+"ppg": 2.5,
+"dr": 90
+},
+{
+"id": 498,
+"n": "Senesi",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3288,
+"ppg": 4.7,
+"dr": 57
+},
+{
+"id": 499,
+"n": "Pedro Porro",
+"p": "DEF",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 2793,
+"ppg": 3.4,
+"dr": 124
+},
+{
+"id": 523,
+"n": "Moore",
+"p": "MID",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 0,
+"ppg": 0.0,
+"dr": 384
+},
+{
+"id": 527,
+"n": "Richarlison",
+"p": "FWD",
+"v": 2,
+"src": [
+"RotoWire 20 Aug",
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1954,
+"ppg": 3.7,
+"dr": 74
+},
+{
+"id": 503,
+"n": "Van de Ven",
+"p": "DEF",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 3041,
+"ppg": 3.3,
+"dr": 237
+},
+{
+"id": 522,
+"n": "Gray",
+"p": "MID",
+"v": 1,
+"src": [
+"Yahoo 18 Aug"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 1471,
+"ppg": 2.5,
+"dr": 275
+},
+{
+"id": 512,
+"n": "Kudus",
+"p": "MID",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "doubt",
+"ch": 75,
+"news": "Thigh injury - 75% chance of playing",
+"mins": 1535,
+"ppg": 3.9,
+"dr": 43
+},
+{
+"id": 526,
+"n": "Solanke",
+"p": "FWD",
+"v": 1,
+"src": [
+"FPL Assistant"
+],
+"av": "ok",
+"ch": null,
+"news": "",
+"mins": 997,
+"ppg": 2.7,
+"dr": 102
+}
+],
+"note": "OneFPL: Kinsky number one, Richarlison central. ESPN: Kulusevski and Solanke unavailable, Gray covers right-back."
+}
+}
