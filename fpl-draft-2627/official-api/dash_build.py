@@ -11,6 +11,7 @@ PL, BYID, SQ = ns["PL"], ns["BYID"], ns["SQ"]
 XP, REPL, FIX3, FDR6 = ns["XP"], ns["REPL"], ns["FIX3"], ns["FDR6"]
 gw13, best_xi, score, swaps, secure, avail_mult = (
     ns["gw13"], ns["best_xi"], ns["score"], ns["swaps"], ns["secure"], ns["avail_mult"])
+starts_gw1 = ns["starts_gw1"]
 POSO = ns["POSO"]
 M = json.load(open(os.path.join(HERE, "model.json")))
 
@@ -23,6 +24,7 @@ def slim(p, extra=None):
          "mins": p["mins"], "ppg": p["ppg"], "av": p["av"], "ch": p["ch"],
          "news": p["news"], "cont": p.get("cont", 0),
          "xp": round(XP[p["id"]], 1), "g3": round(gw13(p), 1),
+         "s1": starts_gw1(p),
          "sec": round(secure(p), 2), "fdr": FDR6.get(p["c"], 3.35)}
     if extra: d.update(extra)
     return d

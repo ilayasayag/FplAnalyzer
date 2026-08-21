@@ -6,6 +6,7 @@ from collections import defaultdict
 HERE = os.path.dirname(os.path.abspath(__file__))
 M = json.load(open(os.path.join(HERE, "model.json")))
 SQ = json.load(open(os.path.join(HERE, "squads.json")))
+XI1 = json.load(open(os.path.join(HERE, "xi_gw1.json")))
 PL = M["players"]; BYID = {p["id"]: p for p in PL}
 CURVE = M["curve"]; FIX3 = M["fix3"]; FDR6 = M["fdr6"]
 POSO = ["GKP", "DEF", "MID", "FWD"]
@@ -15,6 +16,11 @@ RSLOT = {"GKP": 16, "DEF": 40, "MID": 40, "FWD": 24}
 MINP = {"GKP": 1, "DEF": 3, "MID": 2, "FWD": 1}
 MAXP = {"GKP": 1, "DEF": 5, "MID": 5, "FWD": 3}
 W = {"off": 40, "df": 25, "lof": 20, "adp": 15}
+# Plan to the halfway point, not GW38. Halving the scale is cosmetically
+# neutral on its own, but it doubles what an absence costs as a share of the
+# horizon and doubles the weight of the opening fixtures against season-long
+# quality - which is where the ranking actually moves.
+HALF = 0.5
 
 
 def blended(p):
@@ -34,16 +40,17 @@ for p in order:
     k[p["p"]] += 1
     c = CURVE.get(p["p"], [])
     r = k[p["p"]]
-    XP[p["id"]] = c[r - 1] if r <= len(c) else max(35, c[-1] - (r - len(c)) * 1.4)
-REPL = {pos: CURVE[pos][min(RSLOT[pos], len(CURVE[pos]) - 1)] for pos in POSO}
+    full = c[r - 1] if r <= len(c) else max(35, c[-1] - (r - len(c)) * 1.4)
+    XP[p["id"]] = full * HALF
+REPL = {pos: CURVE[pos][min(RSLOT[pos], len(CURVE[pos]) - 1)] * HALF for pos in POSO}
 
 
 def avail_mult(p):
     """How much of a player you actually expect to get over GW1-3."""
-    if p["av"] in ("out", "susp"): return 0.10
+    if p["av"] in ("out", "susp"): return 0.05
     if p["av"] == "doubt":
         ch = p["ch"] if p["ch"] is not None else 50
-        return 0.45 + ch / 100 * 0.5
+        return 0.25 + ch / 100 * 0.6      # steeper: half the season is 19 games
     return 1.0
 
 
@@ -67,7 +74,17 @@ def secure(p):
     dr = p["dr"]
     rank_conf = (1.0 if dr <= 30 else 0.9 if dr <= 60 else 0.8 if dr <= 100
                  else 0.65 if dr <= 160 else 0.45 if dr <= 250 else 0.25)
-    return max(0.25, min(1.0, max(mins_conf, rank_conf)))
+    longrun = max(mins_conf, rank_conf)
+    # Whether he is in his club's projected XI beats both of the above for the
+    # games that are actually coming. It is how a Mosquera - starting only because
+    # Saliba and Timber are out - gets credited, and how a benched name gets cut.
+    starts = 1 if XI1.get(str(p["id"])) else 0
+    xi_sig = 1.0 if starts else 0.32
+    return max(0.15, min(1.0, 0.55 * xi_sig + 0.45 * longrun))
+
+
+def starts_gw1(p):
+    return 1 if XI1.get(str(p["id"])) else 0
 
 
 def gw13(p):
@@ -135,6 +152,12 @@ def swaps(team, ids, top=6):
         drops = sorted([BYID[i] for i in ids if BYID[i]["p"] == pos], key=gw13)
         for d in drops[:3]:
             for a in fa:
+                # Never trade a confirmed starter for someone who is not in his
+                # club's XI. Kind fixtures cannot help a man who is not on the
+                # pitch, and over a half-season horizon that floor matters more
+                # than the ceiling.
+                if starts_gw1(d) and not starts_gw1(a) and d["av"] == "ok":
+                    continue
                 clubs = defaultdict(int)
                 for i in ids:
                     if i != d["id"]: clubs[BYID[i]["c"]] += 1
@@ -179,5 +202,7 @@ for r in rows:
         dn = f"{d['n']}({d['c']}{'/'+d['av'] if d['av']!='ok' else ''})"
         an = f"{a['n']}({a['c']})"
         fx = " ".join(f"{f['opp']}{f['ha']}" for f in FIX3.get(a["c"], []))
-        print(f"   {s['pos']}  drop {dn:26} -> add {an:22} +{s['gain']:5.1f}   "
+        xi = "XI" if starts_gw1(a) else "  "
+        dxi = "XI" if starts_gw1(d) else "--"
+        print(f"   {s['pos']}  drop {dn:24}{dxi} -> add {an:20}{xi} +{s['gain']:5.1f}  "
               f"{a['mins']:>4}min {a['ppg']:.1f}ppg  {fx}")

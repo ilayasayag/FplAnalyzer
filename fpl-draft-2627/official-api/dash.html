@@ -72,7 +72,8 @@ tr.clik:hover td{background:var(--surface2)}
 .tg{font-size:9px;font-weight:800;padding:1px 5px;border-radius:2px;white-space:nowrap;margin-left:4px}
 .tg.out{background:var(--badB);color:var(--bad)}
 .tg.doubt{background:var(--warnB);color:var(--warn)}
-.tg.xi{background:var(--goodB);color:var(--good)}
+.tg.xi{background:var(--good);color:#fff}
+.tg.pick{background:var(--goodB);color:var(--good)}
 .tg.rot{background:var(--warnB);color:var(--warn)}
 .tg.cont{background:var(--midB);color:var(--mid)}
 .sqgrp{padding:8px 14px;border-bottom:1px solid var(--rule)}
@@ -117,7 +118,7 @@ tr.clik:hover td{background:var(--surface2)}
 <header>
  <div class="hrow">
   <div><h1>Post-Draft War Room</h1>
-   <div class="sub">2026/27 &middot; 8 squads &middot; GW1&ndash;3 outlook</div></div>
+   <div class="sub">2026/27 &middot; 8 squads &middot; half-season horizon &middot; GW1 lineups applied</div></div>
   <div class="sp"></div>
   <span class="lab">Your team</span>
   <select id="team"></select>
@@ -141,7 +142,10 @@ tr.clik:hover td{background:var(--surface2)}
    <div id="squad"></div>
    <div class="note">Green <b>XI</b> = in the strongest legal line-up for GW1&ndash;3.
     <b>rot</b> = rotation risk: low minutes and no strong ranking to offset it.
-    The number is projected points above the replacement player at that position.</div>
+    <b>STARTS</b> = named in his club's projected GW1 XI &mdash; the strongest short-horizon
+   minutes signal there is. <b>bench</b> = fit but not in it.
+   Points are on a <b>half-season</b> scale (19 gameweeks), which is why an absence and the
+   opening fixtures both carry roughly double the weight they would over a full 38.</div>
   </div>
   <div class="panel">
    <div class="ph"><h3>Squad scores</h3><span class="s">vs the other 7</span></div>
@@ -178,11 +182,13 @@ const fxH=c=>`<span class="fx">`+(D.fix3[c]||[]).map(f=>
  `<span class="fxc ${f.d<2.95?"d1":f.d<3.6?"d2":"d3"}" title="GW${f.gw} v ${D.clubs[f.opp]||f.opp} ${f.ha}">${f.opp}<i>${f.ha}</i></span>`).join("")+`</span>`;
 function tags(p,showXi){
  let s="";
- if(showXi&&p.xi) s+=`<span class="tg xi">XI</span>`;
+ if(p.s1) s+=`<span class="tg xi" title="In his club's projected GW1 XI">STARTS</span>`;
+ else if(p.av==="ok") s+=`<span class="tg rot" title="Not in the projected GW1 XI">bench</span>`;
+ if(showXi&&p.xi) s+=`<span class="tg pick" title="In your strongest legal XI">pick</span>`;
  if(p.av==="out") s+=`<span class="tg out">out</span>`;
  else if(p.av==="susp") s+=`<span class="tg out">susp</span>`;
  else if(p.av==="doubt") s+=`<span class="tg doubt">${p.ch!=null?p.ch+"%":"doubt"}</span>`;
- if(p.av==="ok"&&p.sec<=0.5) s+=`<span class="tg rot">rot</span>`;
+ 
  if(p.cont) s+=`<span class="tg cont">contested</span>`;
  return s;
 }
@@ -202,7 +208,9 @@ function renderLeague(){
   2&ndash;5 MID, 1&ndash;3 FWD) scored on projected points above replacement, adjusted for the
   opening three fixtures, current injury status and minutes security.
   <b>Depth</b> counts all 15. <b>Balance</b> penalises a squad that is strong in one position and
-  hollow in another. <b>Power</b> blends them 40/20/15/15/10.`;
+  hollow in another. <b>Power</b> blends them 40/20/15/15/10.
+  Everything is scored over <b>half a season</b>, so a man who is out costs twice what he would
+  across 38 games, and whether he is in his club's GW1 XI outweighs last season's minutes.`;
 }
 function renderTeam(){
  const t=D.teams[cur];
