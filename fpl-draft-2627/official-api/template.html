@@ -1,0 +1,702 @@
+<title>Draft War Room</title>
+<style>
+:root{
+ --ground:#F3F5F1;--surface:#FFFFFF;--surface2:#EAEDE7;--surface3:#DEE2DA;
+ --ink:#111820;--ink2:#3D4750;--muted:#6B7680;--rule:#D8DCD4;--rule2:#C2C8BC;
+ --gkp:#B57A0A;--def:#2C7A57;--mid:#245F9E;--fwd:#AC4058;
+ --gkpB:#F6EBD3;--defB:#DCEDE4;--midB:#DCE7F4;--fwdB:#F4DEE3;
+ --good:#2C7A57;--goodB:#DCEDE4;--warn:#8A6B14;--warnB:#F2EDDC;
+ --bad:#AC4058;--badB:#F4DEE3;--live:#1F6F4A;
+ --sh:0 1px 2px rgba(17,24,32,.06),0 10px 28px -18px rgba(17,24,32,.22);}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ground:#0C1115;--surface:#141A20;--surface2:#1A2128;--surface3:#232B33;
+ --ink:#E7EBE7;--ink2:#BAC3C7;--muted:#8B979E;--rule:#242C33;--rule2:#333C44;
+ --gkp:#DFAA3E;--def:#57B98C;--mid:#6BA5DE;--fwd:#E0788E;
+ --gkpB:#2E2513;--defB:#12291F;--midB:#13212F;--fwdB:#2C161C;
+ --good:#57B98C;--goodB:#12291F;--warn:#DFAA3E;--warnB:#2A2313;
+ --bad:#E0788E;--badB:#2C161C;--live:#57B98C;
+ --sh:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);}}
+:root[data-theme="dark"]{
+ --ground:#0C1115;--surface:#141A20;--surface2:#1A2128;--surface3:#232B33;
+ --ink:#E7EBE7;--ink2:#BAC3C7;--muted:#8B979E;--rule:#242C33;--rule2:#333C44;
+ --gkp:#DFAA3E;--def:#57B98C;--mid:#6BA5DE;--fwd:#E0788E;
+ --gkpB:#2E2513;--defB:#12291F;--midB:#13212F;--fwdB:#2C161C;
+ --good:#57B98C;--goodB:#12291F;--warn:#DFAA3E;--warnB:#2A2313;
+ --bad:#E0788E;--badB:#2C161C;--live:#57B98C;
+ --sh:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+ font:400 15px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.tab{font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;letter-spacing:-.02em}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:focus-visible,select:focus-visible,input:focus-visible,textarea:focus-visible{
+ outline:2px solid var(--live);outline-offset:2px}
+.wrap{max-width:1420px;margin:0 auto;padding:0 18px 70px}
+header{position:sticky;top:0;z-index:40;background:var(--ground);
+ border-bottom:1px solid var(--rule2);padding:11px 0 10px;margin-bottom:14px}
+.hrow{display:flex;align-items:center;gap:13px;flex-wrap:wrap}
+.brand{font-weight:800;font-size:16px;letter-spacing:-.03em;white-space:nowrap}
+.brand span{display:block;font-size:10px;font-weight:600;letter-spacing:.13em;
+ text-transform:uppercase;color:var(--muted);margin-top:2px}
+.clock{display:flex;align-items:center;gap:9px;background:var(--surface);
+ border:1px solid var(--rule);padding:6px 12px;border-radius:3px}
+.clock.mine{border-color:var(--live);background:var(--goodB)}
+.clock .l{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.clock .v{font-weight:800;font-size:14px}.clock.mine .v{color:var(--live)}
+.sp{flex:1}
+.btn{background:var(--surface);border:1px solid var(--rule2);padding:6px 12px;border-radius:3px;
+ font-size:12.5px;font-weight:600}
+.btn:hover{background:var(--surface2)}
+.btn.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.btn.pri{background:var(--live);color:#fff;border-color:var(--live)}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+select,input,textarea{background:var(--surface);color:var(--ink);border:1px solid var(--rule2);
+ padding:6px 9px;border-radius:3px;font-size:12.5px;font-weight:600;font-family:inherit}
+select option{background:var(--surface);color:var(--ink)}
+.lab{font-size:9.5px;font-weight:700;letter-spacing:.11em;text-transform:uppercase;color:var(--muted)}
+.model{margin-top:9px;padding-top:8px;border-top:1px solid var(--rule);
+ display:flex;gap:14px;align-items:center;flex-wrap:wrap}
+.sl{display:flex;flex-direction:column;gap:2px;min-width:118px}
+.sl>span{font-size:9.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;
+ color:var(--muted);display:flex;justify-content:space-between}
+.sl b{color:var(--ink)}
+.sl input[type=range]{width:100%;accent-color:var(--live);height:15px}
+.squadbar{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--rule);
+ border:1px solid var(--rule);margin-top:9px;border-radius:3px;overflow:hidden}
+.sb{background:var(--surface);padding:5px 8px 6px;min-width:0}
+.sb.full{background:var(--goodB)}
+.sbh{display:flex;align-items:center;gap:5px;margin-bottom:3px}
+.sbc{font-size:9px;font-weight:800;letter-spacing:.05em;color:var(--muted)}
+.sb.full .sbc{color:var(--good)}
+.sbl{display:flex;flex-wrap:wrap;gap:3px}
+.chip2{display:inline-flex;align-items:center;gap:4px;background:var(--surface2);
+ border:1px solid var(--rule);border-radius:2px;padding:1px 5px}
+.chip2.e{opacity:.4;border-style:dashed;padding:1px 9px}
+.c2n{font-size:11px;font-weight:700}
+.c2r{font-size:8.5px;font-weight:700;color:var(--muted)}
+.grid{display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:14px;align-items:start}
+@media(max-width:1040px){.grid{grid-template-columns:1fr}}
+.panel{background:var(--surface);border:1px solid var(--rule);box-shadow:var(--sh);
+ border-radius:4px;overflow:hidden}
+.sect{margin-top:14px}
+.ph{display:flex;align-items:center;gap:9px;padding:9px 13px;border-bottom:1px solid var(--rule);
+ background:var(--surface2);flex-wrap:wrap}
+.ph h3{font-size:12.5px;font-weight:800}
+.ph .s{font-size:10.5px;color:var(--muted);font-weight:600}
+.plist{list-style:none;margin:0;padding:0;max-height:600px;overflow-y:auto}
+.prow{display:grid;grid-template-columns:30px 1fr auto;gap:9px;align-items:center;width:100%;
+ text-align:left;padding:7px 13px;border-bottom:1px solid var(--rule);border-left:3px solid transparent}
+.prow:last-child{border-bottom:none}
+.prow:hover{background:var(--surface2)}
+.prow:disabled{cursor:not-allowed}
+.prow.lock{opacity:.45}.prow.lock .nm{text-decoration:line-through}
+.v-elite{border-left-color:var(--good)}.v-value{border-left-color:var(--good)}
+.v-risk{border-left-color:var(--warn)}.v-avoid{border-left-color:var(--bad)}
+.lead{display:flex;align-items:center;gap:4px;justify-content:flex-end}
+.rk{font-size:12px;font-weight:800;color:var(--live);width:16px;text-align:right}
+.st{font-size:10.5px;width:12px;text-align:center}
+.s-ok{color:var(--good)}.s-doubt{color:var(--warn)}.s-out{color:var(--bad)}
+.nm{font-weight:600;font-size:13.5px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.meta{display:flex;align-items:center;gap:6px;margin-top:2px;flex-wrap:wrap;font-size:10.5px;
+ color:var(--muted)}
+.pos{font-size:9px;font-weight:800;letter-spacing:.05em;padding:1px 5px;border-radius:2px}
+.pos.GKP{background:var(--gkpB);color:var(--gkp)}.pos.DEF{background:var(--defB);color:var(--def)}
+.pos.MID{background:var(--midB);color:var(--mid)}.pos.FWD{background:var(--fwdB);color:var(--fwd)}
+.tg{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:2px;white-space:nowrap}
+.tg.out{background:var(--badB);color:var(--bad)}
+.tg.doubt{background:var(--warnB);color:var(--warn)}
+.tg.cont{background:var(--midB);color:var(--mid)}
+.drv{display:flex;flex-wrap:wrap;gap:3px;margin-top:4px}
+.dv{font-size:9.5px;font-weight:700;padding:1px 5px;border-radius:2px;white-space:nowrap}
+.d-good{background:var(--goodB);color:var(--good)}
+.d-bad{background:var(--badB);color:var(--bad)}
+.d-warn{background:var(--warnB);color:var(--warn)}
+.d-mut{background:var(--surface3);color:var(--muted)}
+.d-info{background:var(--midB);color:var(--mid)}
+.right{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:2px}
+.edge{font-weight:800;font-size:14px}
+.edge.g{color:var(--good)}.edge.b{color:var(--bad)}
+.elab{font-size:8px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.fx{display:flex;gap:2px;margin-top:2px}
+.fxc{font-size:9px;font-weight:700;padding:2px 3px;border-radius:2px;min-width:34px;text-align:center}
+.fxc i{font-style:normal;opacity:.55;font-size:8px}
+.d1{background:var(--goodB);color:var(--good)}.d2{background:var(--surface3);color:var(--ink2)}
+.d3{background:var(--badB);color:var(--bad)}
+.tools{display:flex;gap:7px;padding:9px 13px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.tools input[type=search]{flex:1;min-width:120px}
+.chips{display:flex;gap:3px}
+.chip{font-size:11px;font-weight:700;padding:5px 9px;border-radius:3px;border:1px solid var(--rule2);
+ background:var(--surface)}
+.chip.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.sync{padding:11px 13px;border-bottom:1px solid var(--rule);background:var(--surface2)}
+.sync textarea{width:100%;height:60px;font-family:ui-monospace,Menlo,monospace;font-size:11px;
+ font-weight:400;resize:vertical}
+.sync .row{display:flex;gap:7px;align-items:center;margin-top:7px;flex-wrap:wrap}
+.sync .hint{font-size:11px;color:var(--muted);line-height:1.45}
+.sync .hint code{background:var(--surface3);padding:1px 4px;border-radius:2px;font-size:10.5px}
+.meters{display:flex;flex-direction:column;gap:8px;padding:11px 13px}
+.mt{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;margin-bottom:3px}
+.track{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.fill{height:100%;border-radius:3px}
+.allsq{display:grid;grid-template-columns:repeat(auto-fit,minmax(195px,1fr));gap:1px;background:var(--rule)}
+.asc{background:var(--surface);padding:7px 10px}.asc.me{background:var(--goodB)}
+.ash{display:flex;justify-content:space-between;font-size:11px;font-weight:800;margin-bottom:4px}
+.ash span{font-size:9.5px;color:var(--muted)}
+.asr{display:flex;gap:5px;font-size:11px;padding:1px 0}
+.asn{flex:1;min-width:0;line-height:1.45}
+.note{font-size:11px;color:var(--muted);line-height:1.5;padding:9px 13px;border-top:1px solid var(--rule)}
+.empty{padding:22px;text-align:center;color:var(--muted);font-size:12.5px}
+.banner{background:var(--goodB);border:1px solid var(--live);color:var(--live);padding:8px 13px;
+ border-radius:3px;font-size:12.5px;font-weight:700;margin-bottom:12px}
+.banner.warn{background:var(--warnB);border-color:var(--warn);color:var(--warn)}
+.prio{display:flex;flex-wrap:wrap;gap:9px;align-items:baseline;padding:10px 13px;
+ background:var(--goodB);border-bottom:1px solid var(--rule)}
+.pk{font-size:9.5px;font-weight:800;letter-spacing:.13em;text-transform:uppercase;color:var(--good)}
+.pv{font-size:13px;font-weight:600}.pv b{font-weight:800}
+.cv{width:100%;height:auto;display:block}
+.chartbox{padding:10px 13px 4px}
+.legend{display:flex;gap:12px;flex-wrap:wrap;font-size:10px;font-weight:600;color:var(--muted);
+ padding:8px 13px;border-top:1px solid var(--rule)}
+.legend i{width:9px;height:9px;border-radius:2px;display:inline-block;margin-right:4px}
+.dep{display:grid;grid-template-columns:38px 1fr 70px auto;gap:9px;align-items:center;
+ padding:7px 13px;border-bottom:1px solid var(--rule);font-size:11.5px}
+.dep:last-of-type{border-bottom:none}
+.dep.thin{background:var(--badB)}
+.dep.mid{background:var(--warnB)}
+.dep.done{opacity:.5}
+.depn{color:var(--ink2)}.depn b{font-weight:800;color:var(--ink)}
+.depbar{height:6px;background:var(--surface3);border-radius:3px;overflow:hidden;display:block}
+.depbar span{display:block;height:100%;border-radius:3px}
+.deps{font-size:10.5px;color:var(--muted);white-space:nowrap}
+.deps b{color:var(--ink2);font-weight:700}
+.depnote{font-size:10.5px;color:var(--muted);line-height:1.5;padding:8px 13px;
+ border-top:1px solid var(--rule)}
+</style>
+
+<div class="wrap">
+<header>
+ <div class="hrow">
+  <div class="brand">Draft War Room<span>2026/27 &middot; official FPL data</span></div>
+  <div class="clock" id="clock"></div>
+  <div class="sp"></div>
+  <div class="hrow" style="gap:7px">
+   <span class="lab">Teams</span><select id="nteam"></select>
+   <span class="lab">You</span><select id="slot"></select>
+   <button class="btn" id="auto">Bots</button>
+   <button class="btn" id="undo">Undo</button>
+   <button class="btn" id="reset">Reset</button>
+  </div>
+ </div>
+ <div class="model" id="model"></div>
+ <div class="squadbar" id="sqbar"></div>
+</header>
+
+<div id="banner"></div>
+
+<div class="grid">
+ <div>
+  <div class="panel">
+   <div class="ph"><h3>Live sync</h3><span class="s">paste the official draft feed</span></div>
+   <div class="sync">
+    <textarea id="syncbox" placeholder="Paste the JSON from draft.premierleague.com/api/draft/YOUR_LEAGUE_ID/choices here"></textarea>
+    <div class="row">
+     <button class="btn pri" id="syncbtn">Sync draft</button>
+     <span class="hint" id="synchint">Open <code>draft.premierleague.com/api/draft/&lt;league id&gt;/choices</code>
+      in a tab, select all, paste above. Re-paste any time to catch up.</span>
+    </div>
+   </div>
+  </div>
+
+  <div class="panel sect">
+   <div class="ph"><h3>Suggestions</h3><span class="s" id="sugsub"></span></div>
+   <div id="prio"></div>
+   <ul class="plist" id="sug"></ul>
+  </div>
+
+  <div class="panel sect">
+   <div class="ph"><h3>Board</h3><span class="s" id="poolsub"></span></div>
+   <div class="tools">
+    <input type="search" id="q" placeholder="Search player or club&hellip;">
+    <div class="chips" id="posc"></div>
+   </div>
+   <ul class="plist" id="pool"></ul>
+   <div class="note">Click a player to assign him to whoever is on the clock. Full positions lock automatically.</div>
+  </div>
+ </div>
+
+ <div>
+  <div class="panel">
+   <div class="ph"><h3>Cliff map</h3><span class="s">what waiting costs</span></div>
+   <div class="chartbox"><div id="cliff"></div></div>
+   <div class="legend" id="cleg"></div>
+  </div>
+  <div class="panel sect">
+   <div class="ph"><h3>Who is left</h3><span class="s">free players vs what you are being told to take</span></div>
+   <div id="depth"></div>
+  </div>
+  <div class="panel sect">
+   <div class="ph"><h3>Your squad</h3><span class="s" id="msub"></span></div>
+   <div class="meters" id="meters"></div>
+   <div class="note" id="watch"></div>
+  </div>
+  <div class="panel sect">
+   <div class="ph"><h3>All squads</h3><span class="s" id="allsub"></span></div>
+   <div class="allsq" id="allsq"></div>
+  </div>
+ </div>
+</div>
+
+<div class="panel sect">
+ <div class="ph"><h3>Sources</h3><span class="s">four opinions, disagreement flagged not resolved</span></div>
+ <div class="note" id="srcnote"></div>
+</div>
+</div>
+
+<script>
+const M = __MODEL__;
+const PL = M.players, CLUB = M.clubs, FDR = M.fdr6, FIX = M.fix3;
+const SHAPE = M.meta.squad, POSO = ["GKP","DEF","MID","FWD"];
+const STARTERS = {GKP:1,DEF:4,MID:4,FWD:2};   // official min_play; 11 of 15
+const CLUBCAP = 3;
+const CURVE = M.curve;                       // real per-position xP, rank-ordered
+const RSLOT = {GKP:16,DEF:40,MID:40,FWD:24}; // rostered in an 8-team league
+function xpAt(pos,r){
+  const c=CURVE[pos]||[];
+  if(!c.length) return 100;
+  if(r<=c.length) return c[r-1];
+  const tail=c[c.length-1];                  // beyond the table, decay gently
+  return Math.max(35,tail-(r-c.length)*1.4);
+}
+const XPCAL={};POSO.forEach(p=>{const c=CURVE[p]||[100];
+  XPCAL[p]={repl:c[Math.min(RSLOT[p],c.length-1)]||c[c.length-1]};});
+// What the field ACTUALLY drafts each round, from the 15 transcribed leagues
+// (% of that round's picks). Remaining-need assumes every position drains at the
+// same rate; it does not - almost nobody takes a keeper before round 8.
+const FLOW={1:[0,6,53,41],2:[4,8,43,44],3:[3,21,46,30],4:[6,32,42,20],5:[3,32,42,23],
+ 6:[9,41,32,17],7:[5,40,33,23],8:[8,41,33,18],9:[5,47,31,18],10:[9,43,29,19],
+ 11:[15,46,19,17],12:[13,41,18,27],13:[17,47,16,20],14:[27,45,17,12],15:[53,17,16,14]};
+function drain(pos,fromPick,gap){
+  // expected number of `pos` taken in the next `gap` picks, using real behaviour
+  const k=POSO.indexOf(pos);let n=0;
+  for(let p=fromPick;p<fromPick+gap;p++){
+    const r=Math.min(15,Math.max(1,Math.floor((p-1)/S.n)+1));
+    n+=(FLOW[r][k]||0)/100;
+  }
+  return n;
+}
+const PCOL = {GKP:"var(--gkp)",DEF:"var(--def)",MID:"var(--mid)",FWD:"var(--fwd)"};
+
+let S={n:8,slot:0,picks:[],auto:false,pos:"ALL",q:"",base:"VOR",
+       w:{off:40,df:25,lof:20,adp:15}};
+const ROUNDS=()=>15, TOT=()=>S.n*15;
+const rnd=p=>Math.floor((p-1)/S.n)+1;
+const slotOf=p=>{const r=rnd(p),i=(p-1)%S.n;return r%2?i:S.n-1-i;};
+const cur=()=>S.picks.length+1;
+const done=()=>S.picks.length>=TOT();
+const taken=()=>new Set(S.picks.map(x=>x.i));
+const squad=s=>S.picks.filter(x=>x.s===s).map(x=>Object.assign({},PL[x.i],{r:x.r}));
+const need=s=>{const n=Object.assign({},SHAPE);squad(s).forEach(p=>n[p.p]--);return n;};
+const clubs=s=>{const c={};squad(s).forEach(p=>c[p.c]=(c[p.c]||0)+1);return c;};
+const nextFor=(s,f)=>{for(let p=f;p<=TOT();p++)if(slotOf(p)===s)return p;return null;};
+const d3=c=>(FIX[c]||[]).reduce((a,f)=>a+f.d,0)/Math.max(1,(FIX[c]||[]).length);
+
+/* ---- blended rank from the four sources ---- */
+function srcRank(p){
+  const w=S.w,out=[];
+  if(w.off&&p.dr<9999) out.push([w.off,p.dr]);
+  if(w.df&&p.df) out.push([w.df,p.df]);
+  if(w.lof&&p.lof) out.push([w.lof,p.lof*18]);        // tier -> pseudo-rank
+  if(w.adp&&p.adp) out.push([w.adp,p.adp*2.2]);       // 8-team ADP -> pseudo-rank
+  if(!out.length) return p.dr<9999?p.dr:400;
+  let num=0,den=0;out.forEach(([q,v])=>{num+=q*v;den+=q;});
+  return num/den;
+}
+let XP=[],RANKED=[];
+function refresh(){
+  RANKED=PL.map((p,i)=>({i,p,r:srcRank(p)})).sort((a,b)=>a.r-b.r);
+  XP=new Array(PL.length).fill(0);
+  POSO.forEach(pos=>{
+    let k=0;
+    RANKED.forEach(x=>{if(x.p.p!==pos)return;k++;XP[x.i]=xpAt(pos,k);});
+  });
+}
+function risk(p){
+  let r=0;
+  if(p.av==="out")r+=45; else if(p.av==="susp")r+=35;
+  else if(p.av==="doubt")r+=(100-(p.ch==null?50:p.ch))*0.35;
+  if(p.cont)r+=6;
+  return r;
+}
+function lgNeed(){const n={GKP:0,DEF:0,MID:0,FWD:0};let t=0;
+  for(let s=0;s<S.n;s++){const q=need(s);POSO.forEach(k=>{const v=Math.max(0,q[k]);n[k]+=v;t+=v;});}
+  return {n,t};}
+function bases(av,gap){
+  const {n,t}=lgNeed(),o={};
+  POSO.forEach(pos=>{const L=av[pos];
+    if(!L||!L.length){o[pos]=XPCAL[pos].repl;return;}
+    let k = S.base==="VOR"?n[pos] : S.base==="VOLS"?Math.round(n[pos]*.75)
+          : Math.max(1,Math.round(drain(pos,cur(),gap)));
+    o[pos]=L[Math.min(Math.max(k,0),L.length-1)].xp;});
+  return o;
+}
+function suggest(s,k){
+  const t=taken(),nd=need(s),cl=clubs(s);
+  const c0=cur(),nx=nextFor(s,c0+1),gap=nx?nx-c0:999;
+  const left=15-squad(s).length,R=rnd(c0);
+  const av={GKP:[],DEF:[],MID:[],FWD:[]};
+  PL.forEach((p,i)=>{if(!t.has(i)&&p.av!=="gone")av[p.p].push({p,i,xp:XP[i]});});
+  POSO.forEach(q=>av[q].sort((a,b)=>b.xp-a.xp));
+  const B=bases(av,gap);
+  const LG=lgNeed();
+  const ph=R>=13?2:(R>=7?1:0), fxW=[5,13,30][ph];
+  const out=[];
+  POSO.forEach(pos=>{
+    if(nd[pos]<=0)return;
+    const L=av[pos];
+    // how many at this position the league is expected to take before my next pick
+    const go=Math.max(0,Math.round(drain(pos,c0+1,gap)));
+    L.forEach((x,idx)=>{
+      if(idx>6)return;
+      if((cl[x.p.c]||0)>=CLUBCAP)return;
+      let e=x.xp-B[pos];
+      const bench=(SHAPE[pos]-nd[pos])>=STARTERS[pos];
+      if(bench)e*=.22;
+      const nxt=L[idx+1],cliff=nxt?x.xp-nxt.xp:0;
+      // VONA: what this pick is worth NOW versus what I could get at this
+      // position at my next turn. Raw edge alone just rewards whatever the
+      // room is neglecting, forever - urgency is what allocates positions.
+      const later=L[Math.min(idx+Math.max(1,go),L.length-1)];
+      let urg=Math.max(0,x.xp-(later?later.xp:x.xp))*Math.min(1,go);
+      if(bench)urg*=.22;
+      const ease=3.35-d3(x.p.c),rk=risk(x.p);
+      let sc=e*.55+urg*1.35+ease*fxW-rk*.9;
+      const held=cl[x.p.c]||0; if(held>=2)sc-=ph>=1?20:9;
+      const wait=nx&&x.p.adp&&x.p.adp*S.n/8>nx+1.5; if(wait)sc-=7;
+      const must=nd[pos]>=left; if(must)sc+=250;
+      out.push({x,pos,sc,e,urg,cliff,ease,rk,bench,held,wait,must,nx,ph});
+    });
+  });
+  out.forEach(o=>{if(!isFinite(o.sc))o.sc=-1e9;});
+  out.sort((a,b)=>b.sc-a.sc);
+  return {list:out.slice(0,k),gap,nx,nd,left,B,ph};
+}
+/* ---- ui ---- */
+const el=i=>document.getElementById(i);
+const sgn=v=>{const r=Math.round(v);return r>0?"+"+r:(r<0?""+r:"0");};
+const stat=p=>p.av==="out"?{k:"out",g:"✕"}:p.av==="susp"?{k:"out",g:"✕"}
+  :p.av==="doubt"?{k:"doubt",g:"▲"}:{k:"ok",g:"●"};
+const fxH=c=>`<span class="fx">`+(FIX[c]||[]).map(f=>
+  `<span class="fxc ${f.d<2.95?"d1":f.d<3.6?"d2":"d3"}" title="GW${f.gw} v ${CLUB[f.opp]||f.opp} ${f.ha}">${f.opp}<i>${f.ha}</i></span>`).join("")+`</span>`;
+function verdict(p,e){
+  if(p.av==="out"||p.av==="susp")return "avoid";
+  if(e!=null&&e>=40)return "elite"; if(e!=null&&e>=15)return "value";
+  if(p.av==="doubt"||p.cont)return "risk"; return "";
+}
+function drivers(r){
+  const d=[],p=r.x.p;
+  if(r.urg>=12)d.push(["bad","lose "+Math.round(r.urg)+" if you wait"]);
+  else if(r.urg<=3&&r.e>=15)d.push(["mut","position holds"]);
+  if(r.cliff>=18)d.push(["bad","drop "+Math.round(r.cliff)+" after him"]);
+  if(r.e>=15)d.push(["good",sgn(r.e)+" vs repl"]);
+  if(r.must)d.push(["bad","must fill "+r.pos]);
+  if(p.av==="doubt")d.push(["warn",(p.ch!=null?p.ch+"% fit":"doubt")]);
+  if(p.av==="out")d.push(["bad","ruled out"]);
+  if(p.cont)d.push(["info","sources disagree"]);
+  if(r.wait)d.push(["mut","market says he lasts"]);
+  if(r.bench)d.push(["mut","bench slot"]);
+  if(r.ease>.18)d.push(["good","easy start"]);else if(r.ease<-.18)d.push(["bad","hard start"]);
+  if(r.held>=2)d.push(["warn",r.held+"× "+p.c]);
+  return d.slice(0,3);
+}
+function row(p,i,o){
+  o=o||{};const st=stat(p),v=verdict(p,o.e);
+  return `<li><button class="prow ${v?"v-"+v:""} ${o.lock?"lock":""}" data-i="${i}" ${o.dis?"disabled":""}>
+   <span class="lead">${o.rank?`<span class="rk">${o.rank}</span>`:""}
+    <span class="st s-${st.k}">${st.g}</span></span>
+   <span>
+    <span class="nm">${p.n}
+     <span class="pos ${p.p}">${p.p}</span>
+     ${p.cont?'<span class="tg cont">contested</span>':""}
+     ${p.av==="out"?'<span class="tg out">out</span>':p.av==="doubt"?`<span class="tg doubt">${p.ch!=null?p.ch+"%":"doubt"}</span>`:""}
+    </span>
+    <span class="meta">${CLUB[p.c]||p.c}
+     <span>&middot;</span>FPL#${p.dr<9999?p.dr:"--"}
+     ${p.df?`<span>&middot;</span>DF#${p.df}`:""}
+     ${p.lof?`<span>&middot;</span>T${p.lof}`:""}
+     ${p.adp?`<span>&middot;</span>ADP ${p.adp}`:""}
+    </span>
+    ${o.why?`<span class="drv">${o.why.map(d=>`<span class="dv d-${d[0]}">${d[1]}</span>`).join("")}</span>`:""}
+    ${o.lockWhy?`<span class="drv"><span class="dv d-bad">${o.lockWhy}</span></span>`:""}
+   </span>
+   <span class="right">${o.e!=null?`<span class="edge ${o.e>=15?"g":o.e<=-8?"b":""}">${sgn(o.e)}</span>
+     <span class="elab">vs repl</span>`:""}${fxH(p.c)}</span>
+  </button></li>`;
+}
+function cliffChart(){
+  const W=520,H=270,L=46,R=50,T=30,B=40,mx=22,y0=40,y1=280;
+  const x=r=>L+(r-1)/(mx-1)*(W-L-R), y=v=>T+(1-(v-y0)/(y1-y0))*(H-T-B);
+  const t=taken(),nd=need(S.slot),r0=suggest(S.slot,1);
+  let g="",LB=[],ann=null,best=-1;
+  // where we are, stated plainly on the chart itself
+  g+=`<text x="${L}" y="14" font-size="11" font-weight="800" fill="var(--ink)">
+      Round ${rnd(cur())} &#183; pick ${cur()} of ${TOT()}</text>`;
+  g+=`<text x="${W-R}" y="14" text-anchor="end" font-size="10" fill="var(--muted)">
+      your next pick ${r0.nx||"\u2014"}${r0.nx?` (${r0.gap} away)`:""}</text>`;
+  g+=`<text x="${L}" y="26" font-size="9.5" fill="var(--muted)">projected points</text>`;
+  [80,140,200,260].forEach(v=>{g+=`<line x1="${L}" y1="${y(v)}" x2="${W-R}" y2="${y(v)}" stroke="var(--rule)"/>
+   <text x="${L-6}" y="${y(v)+3}" text-anchor="end" font-size="9" fill="var(--muted)">${v}</text>`;});
+  [1,5,10,15,20].forEach(r=>{g+=`<text x="${x(r)}" y="${H-22}" text-anchor="middle" font-size="9"
+    fill="var(--muted)">${r}</text>`;});
+  g+=`<text x="${(L+W-R)/2}" y="${H-8}" text-anchor="middle" font-size="9.5" fill="var(--muted)">
+      how many at that position are already gone &#8594;</text>`;
+  const marks=[];
+  POSO.forEach(pos=>{
+    const mine=nd[pos]>0, xp=r=>xpAt(pos,r);
+    let d="";for(let r=1;r<=mx;r++)d+=(r===1?"M":"L")+x(r).toFixed(1)+" "+y(xp(r)).toFixed(1)+" ";
+    g+=`<path d="${d}" fill="none" stroke="${PCOL[pos]}" stroke-width="${mine?2.4:1.3}" opacity="${mine?1:.3}"/>`;
+    let gone=0;PL.forEach((p,i)=>{if(t.has(i)&&p.p===pos)gone++;});
+    const nr=Math.min(gone+1,mx);
+    LB.push({pos,y:y(xp(20)),mine});
+    if(!mine)return;
+    const go=Math.max(1,Math.round(drain(pos,cur()+1,r0.gap))),fr=Math.min(nr+go,mx);
+    const drop=xp(nr)-xp(fr);
+    if(drop>best){best=drop;ann={pos,nr,fr,drop,xp};}
+    g+=`<line x1="${x(nr)}" y1="${y(xp(nr))}" x2="${x(fr)}" y2="${y(xp(fr))}" stroke="${PCOL[pos]}" stroke-width="6" opacity=".25"/>`;
+    g+=`<circle cx="${x(fr)}" cy="${y(xp(fr))}" r="3.2" fill="var(--surface)" stroke="${PCOL[pos]}" stroke-width="2"/>`;
+    g+=`<circle cx="${x(nr)}" cy="${y(xp(nr))}" r="4.5" fill="${PCOL[pos]}" stroke="var(--surface)" stroke-width="2"/>`;
+    marks.push({pos,x:x(nr),y:y(xp(nr)),drop});
+  });
+  LB.sort((a,b)=>a.y-b.y);
+  for(let i=1;i<LB.length;i++)if(LB[i].y-LB[i-1].y<11)LB[i].y=LB[i-1].y+11;
+  LB.forEach(l=>{g+=`<text x="${W-R+7}" y="${l.y+3}" font-size="9.5" font-weight="800" fill="${PCOL[l.pos]}" opacity="${l.mine?1:.4}">${l.pos}</text>`;});
+  if(ann&&ann.drop>2){
+    // place the callout above the marker, nudged clear of the other lines
+    const mxp=(x(ann.nr)+x(ann.fr))/2;
+    let myp=Math.min(y(ann.xp(ann.nr)),y(ann.xp(ann.fr)))-12;
+    marks.forEach(m=>{if(m.pos!==ann.pos&&Math.abs(m.x-mxp)<70&&Math.abs(m.y-myp)<12)myp=m.y-20;});
+    g+=`<text x="${mxp}" y="${Math.max(T+10,myp)}" text-anchor="middle" font-size="10.5"
+      font-weight="800" fill="${PCOL[ann.pos]}" stroke="var(--surface)" stroke-width="3"
+      paint-order="stroke">&minus;${ann.drop.toFixed(0)} ${ann.pos} if you wait</text>`;
+  }
+  return `<svg viewBox="0 0 ${W} ${H}" class="cv">${g}</svg>`;
+}
+function render(){
+  refresh();
+  el("clock").className="clock"+(!done()&&slotOf(cur())===S.slot?" mine":"");
+  el("clock").innerHTML=done()?`<span class="l">Draft</span><span class="v">Complete</span>`
+   :`<span class="l">R${rnd(cur())} &middot; pick ${cur()}</span>
+     <span class="v">${slotOf(cur())===S.slot?"YOUR PICK":"Manager "+(slotOf(cur())+1)}</span>`;
+  el("banner").innerHTML=done()?`<div class="banner">Draft complete.</div>`
+   :(slotOf(cur())===S.slot?`<div class="banner">You are on the clock &mdash; pick ${cur()} of ${TOT()}.</div>`:"");
+  // model bar
+  const D={off:"FPL official",df:"Draft Fantasy",lof:"LöfLife tiers",adp:"15-league ADP"};
+  el("model").innerHTML=Object.keys(D).map(k=>
+   `<label class="sl"><span>${D[k]}<b>${S.w[k]}</b></span>
+    <input type="range" min="0" max="100" step="5" value="${S.w[k]}" data-w="${k}"></label>`).join("")
+   +`<span class="lab">Baseline</span><div class="chips">`+["VOR","VOLS","VONA"].map(b=>
+     `<button class="chip${S.base===b?" on":""}" data-b="${b}">${b}</button>`).join("")+`</div>`;
+  // squad bar
+  const sq=squad(S.slot),nd=need(S.slot);
+  el("sqbar").innerHTML=POSO.map(pos=>{
+    const m=sq.filter(p=>p.p===pos).sort((a,b)=>a.r-b.r);
+    let c=m.map(p=>`<span class="chip2"><span class="c2n">${p.n}</span><span class="c2r">R${p.r}</span></span>`).join("");
+    for(let i=0;i<nd[pos];i++)c+=`<span class="chip2 e"><span class="c2n">&mdash;</span></span>`;
+    return `<div class="sb${nd[pos]===0?" full":""}"><div class="sbh"><span class="pos ${pos}">${pos}</span>
+     <span class="sbc">${m.length}/${SHAPE[pos]}${nd[pos]===0?" FULL":""}</span></div><div class="sbl">${c}</div></div>`;
+  }).join("");
+  // suggestions
+  const mine=!done()&&slotOf(cur())===S.slot,r=suggest(S.slot,6);
+  el("sugsub").innerHTML=(mine?`to fill: `+POSO.filter(p=>r.nd[p]>0).map(p=>p+" "+r.nd[p]).join(" &middot; ")
+    :`next pick ${r.nx||"&mdash;"}`)+` | ${S.base}: `+POSO.map(p=>p+" "+r.B[p].toFixed(0)).join(" ");
+  el("sug").innerHTML=r.list.length?r.list.map((x,k)=>row(x.x.p,x.x.i,{rank:k+1,dis:!mine,e:x.e,why:drivers(x)})).join("")
+    :`<li class="empty">Squad complete.</li>`;
+  // priority
+  if(!done()){
+    const q=lgNeed(),t=taken(),rows=[];
+    POSO.forEach(pos=>{if(r.nd[pos]<=0)return;
+      const L=[];PL.forEach((p,i)=>{if(!t.has(i)&&p.p===pos&&p.av!=="gone")L.push(XP[i]);});
+      L.sort((a,b)=>b-a);if(!L.length)return;
+      const go=Math.max(1,Math.round(drain(pos,cur()+1,r.gap)));
+      rows.push({pos,drop:L[0]-L[Math.min(go,L.length-1)]});});
+    rows.sort((a,b)=>b.drop-a.drop);
+    el("prio").innerHTML=rows.length?`<div class="prio"><span class="pk">Priority</span>
+      <span class="pv"><b>${rows[0].pos}</b> &mdash; <b>${rows[0].drop.toFixed(0)} pts</b> of quality gone by pick ${r.nx||"&mdash;"}</span>
+      <span class="pv" style="color:var(--muted);font-size:11.5px">then ${rows.slice(1).map(x=>x.pos+" &minus;"+x.drop.toFixed(0)).join(" &middot; ")}</span></div>`:"";
+  } else el("prio").innerHTML="";
+  // pool
+  const t=taken(),qq=S.q.toLowerCase(),oc=done()?null:slotOf(cur());
+  const ndc=oc==null?null:need(oc),clc=oc==null?null:clubs(oc);
+  let a=[];PL.forEach((p,i)=>{if(!t.has(i)&&p.av!=="gone")a.push({p,i});});
+  if(S.pos!=="ALL")a=a.filter(x=>x.p.p===S.pos);
+  if(qq)a=a.filter(x=>x.p.n.toLowerCase().includes(qq)||(CLUB[x.p.c]||"").toLowerCase().includes(qq));
+  const ab={GKP:[],DEF:[],MID:[],FWD:[]};a.forEach(x=>ab[x.p.p].push({p:x.p,i:x.i,xp:XP[x.i]}));
+  POSO.forEach(q2=>ab[q2].sort((m,n)=>n.xp-m.xp));
+  const PB=bases(ab,8);
+  // subtract availability risk so ruled-out players stop heading the board;
+  // the suggestion engine already does this, the board did not
+  a.forEach(x=>x.e=XP[x.i]-PB[x.p.p]-risk(x.p)*0.9);
+  a.sort((x,y)=>y.e-x.e);
+  el("poolsub").innerHTML=`${a.length} left &middot; edge over ${S.base}`;
+  el("pool").innerHTML=a.length?a.slice(0,90).map(x=>{
+    let lock=false,why="";
+    if(ndc){if(ndc[x.p.p]<=0){lock=true;why=`Manager ${oc+1} has ${SHAPE[x.p.p]}/${SHAPE[x.p.p]} ${x.p.p}`;}
+      else if((clc[x.p.c]||0)>=CLUBCAP){lock=true;why=`Manager ${oc+1} has ${CLUBCAP} from ${CLUB[x.p.c]}`;}}
+    return row(x.p,x.i,{lock,lockWhy:why,dis:lock||done(),e:x.e});}).join("")
+    :`<li class="empty">Nothing matches.</li>`;
+  // cliff + meters + squads
+  el("cliff").innerHTML=cliffChart();
+  // pool depth - how many genuinely startable players remain at each position
+  {
+    const tk=taken(), r1=suggest(S.slot,6), nd2=need(S.slot);
+    const sug=new Set(r1.list.map(z=>z.x.i));
+    const av={};POSO.forEach(p=>av[p]=[]);
+    PL.forEach((p,i)=>{if(!tk.has(i)&&p.av!=="gone")av[p.p].push({p,i,xp:XP[i]});});
+    POSO.forEach(p=>av[p].sort((a,b)=>b.xp-a.xp));
+    const B2=bases(av,r1.gap);
+    el("depth").innerHTML=POSO.map(pos=>{
+      const L=av[pos], repl=B2[pos];
+      const good=L.filter(z=>z.xp-repl>=25).length;      // clearly startable
+      const ok=L.filter(z=>z.xp-repl>=8).length;         // usable
+      const mySug=L.findIndex(z=>sug.has(z.i));
+      const top=L[0];
+      const w=Math.min(100,good*7);
+      const cls=nd2[pos]<=0?"done":good<=2?"thin":good<=6?"mid":"deep";
+      return `<div class="dep ${cls}">
+        <span class="pos ${pos}">${pos}</span>
+        <span class="depn">${nd2[pos]<=0?`<b>full</b>`
+          :`<b>${good}</b> clearly startable &#183; ${ok} usable`}</span>
+        <span class="depbar"><span style="width:${w}%;background:${PCOL[pos]}"></span></span>
+        <span class="deps">${nd2[pos]<=0?"&mdash;"
+          :top?`best left <b>${top.p.n}</b> ${sgn(top.xp-repl)}${mySug===0?" &#9679; suggested":""}`:"none"}</span>
+      </div>`;}).join("")
+      +`<div class="depnote">"Clearly startable" means 25+ projected points above the
+        ${S.base} replacement at that position. When a row goes thin, that is the position
+        to take next &mdash; it is the same signal driving the suggestions.</div>`;
+  }
+  el("cleg").innerHTML=POSO.map(p=>`<span><i style="background:${PCOL[p]}"></i>${p}</span>`).join("")
+    +`<span><b>&#9679;</b> best now</span><span><b>&#9675;</b> at your next pick</span>`;
+  el("msub").textContent=`${sq.length}/15`;
+  const mv=(l,v,c)=>`<div><div class="mt"><span>${l}</span><span class="tab">${v}</span></div>
+    <div class="track"><div class="fill" style="width:${Math.max(0,Math.min(100,v))}%;background:${c}"></div></div></div>`;
+  const tot=sq.reduce((x,p)=>x+XP[PL.indexOf(p)],0);
+  const xiN=sq.filter(p=>p.av==="ok").length;
+  const fdrAvg=sq.length?sq.reduce((x,p)=>x+(FDR[p.c]||3.35),0)/sq.length:3.35;
+  el("meters").innerHTML=
+    mv("Available now",sq.length?Math.round(xiN/sq.length*100):0,"var(--good)")
+   +mv("Opening fixtures",Math.round(Math.max(0,Math.min(100,(4.3-fdrAvg)/1.9*100))),"var(--mid)")
+   +mv("Squad filled",Math.round(sq.length/15*100),"var(--ink2)");
+  const bad=sq.filter(p=>p.av!=="ok");
+  el("watch").innerHTML=sq.length?(bad.length?`Watch: ${bad.map(p=>p.n+" ("+p.av+")").join(", ")}`
+    :"No availability flags in your squad."):"Make a pick to see your squad.";
+  el("allsub").textContent=`${S.picks.length}/${TOT()}`;
+  el("allsq").innerHTML=Array.from({length:S.n},(_,s)=>{
+    const q3=squad(s),n3=need(s);
+    return `<div class="asc${s===S.slot?" me":""}"><div class="ash">${s===S.slot?"You":"M"+(s+1)}
+      <span>${q3.length}/15</span></div>`+POSO.map(pos=>{
+      const m=q3.filter(p=>p.p===pos);
+      return `<div class="asr"><span class="pos ${pos}" style="font-size:8px">${pos}</span>
+        <span class="asn">${m.map(p=>p.n).join(", ")||"&mdash;"}${n3[pos]?` <i style="color:var(--muted);font-style:normal">+${n3[pos]}</i>`:""}</span></div>`;
+    }).join("")+`</div>`;}).join("");
+  el("undo").disabled=!S.picks.length;
+  el("auto").className="btn"+(S.auto?" on":"");
+  el("srcnote").innerHTML=`Spine: <b>official draft.premierleague.com API</b> &mdash; ${PL.length} draftable players,
+   live injury status and FPL's own draft rank. Opinion layers: Draft Fantasy xP,
+   L&ouml;fLife sheet tiers, and consensus ADP from 15 transcribed leagues.
+   <b>${PL.filter(p=>p.cont).length} players are flagged "contested"</b> where the official rank and
+   Draft Fantasy disagree by 40+ places &mdash; usually a player who missed last season, whom
+   projection models regress downward. Availability comes from the official feed, so re-sync
+   before you draft rather than trusting a snapshot.`;
+}
+/* ---- picking + bots ---- */
+function pick(i){if(done()||i==null)return;const n=cur();S.picks.push({n,r:rnd(n),s:slotOf(n),i});}
+function bot(s){
+  const t=taken(),nd=need(s),cl=clubs(s),R=rnd(cur()),left=15-squad(s).length;
+  const pos_of={};RANKED.forEach((x,k)=>{pos_of[x.i]=k;});
+  const avail=p=>PL.map((q,i)=>({q,i}))
+    .filter(x=>!t.has(x.i)&&x.q.av!=="gone"&&x.q.p===p&&nd[p]>0&&(cl[x.q.c]||0)<CLUBCAP)
+    .sort((a,b)=>(pos_of[a.i]??9999)-(pos_of[b.i]??9999));
+  // Pick the POSITION from what the field actually does in this round (15 real
+  // leagues), then the best player there. Ranking alone made the room ignore
+  // defenders entirely, which left them on the board and skewed every suggestion.
+  let cand=POSO.map((p,k)=>({p,w:(FLOW[Math.min(15,R)][k]||0)}))
+    .filter(x=>x.w>0&&nd[x.p]>0&&avail(x.p).length);
+  // anything that must be filled with the picks remaining overrides the flow
+  const force=POSO.filter(p=>nd[p]>=left&&avail(p).length);
+  if(force.length)cand=force.map(p=>({p,w:1}));
+  if(!cand.length){
+    for(const p of POSO){const a=avail(p);if(a.length)return a[0].i;}
+    return null;
+  }
+  const tot=cand.reduce((a,x)=>a+x.w,0);
+  let r=Math.random()*tot,chosen=cand[cand.length-1].p;
+  for(const x of cand){r-=x.w;if(r<=0){chosen=x.p;break;}}
+  const list=avail(chosen);
+  // Positional flow describes the mass of picks, but nobody passes on an elite
+  // player just because his position is unfashionable this round. If the best
+  // player on the whole board is well clear of the flow position's best, take him.
+  let bestAny=null;
+  for(const p of POSO){const A=avail(p);if(A.length&&(!bestAny||(pos_of[A[0].i]??9999)<(pos_of[bestAny.i]??9999)))bestAny=A[0];}
+  if(bestAny&&list.length&&(pos_of[list[0].i]??9999)-(pos_of[bestAny.i]??9999)>=10) return bestAny.i;
+  if(bestAny&&!list.length) return bestAny.i;
+  const j=Math.random();
+  return (list[j<.7?0:j<.9?1:2]||list[0]).i;
+}
+function runBots(){let g=0;while(!done()&&slotOf(cur())!==S.slot&&g++<400){const i=bot(slotOf(cur()));if(i==null)break;pick(i);}}
+/* ---- live sync from the official draft feed ---- */
+function syncFeed(txt){
+  let d;try{d=JSON.parse(txt);}catch(e){return {ok:false,msg:"That is not valid JSON. Copy the whole page."};}
+  const ch=d.choices||d;
+  if(!Array.isArray(ch)||!ch.length)return {ok:false,msg:"No choices found in that JSON."};
+  const byId=new Map();PL.forEach((p,i)=>byId.set(p.id,i));
+  const ent=[];ch.forEach(c=>{if(c.entry!=null&&!ent.includes(c.entry))ent.push(c.entry);});
+  const teams=Math.max(S.n,ent.length||S.n);
+  const rows=ch.slice().sort((a,b)=>(a.index||0)-(b.index||0));
+  const seats=new Map();
+  // seat order = order of first-round picks
+  rows.forEach(c=>{const rr=c.round||Math.floor(((c.index||1)-1)/teams)+1;
+    if(rr===1&&c.entry!=null&&!seats.has(c.entry))seats.set(c.entry,seats.size);});
+  ent.forEach(e=>{if(!seats.has(e))seats.set(e,seats.size);});
+  S.n=teams;S.picks=[];
+  let miss=0;
+  rows.forEach(c=>{
+    const i=byId.get(c.element);
+    if(i==null){miss++;return;}
+    const n=c.index||S.picks.length+1;
+    S.picks.push({n,r:c.round||rnd(n),s:seats.has(c.entry)?seats.get(c.entry):slotOf(n),i});
+  });
+  S.picks.sort((a,b)=>a.n-b.n);
+  S.picks.forEach((p,k)=>{p.n=k+1;});
+  return {ok:true,msg:`Synced ${S.picks.length} picks across ${teams} teams${miss?`, ${miss} unmatched`:""}.`,
+          names:[...seats.entries()]};
+}
+/* ---- wiring ---- */
+el("nteam").innerHTML=[6,8,10,12,14,16].map(n=>`<option ${n===8?"selected":""}>${n}</option>`).join("");
+function slotOpts(){el("slot").innerHTML=Array.from({length:S.n},(_,i)=>
+  `<option value="${i}" ${i===S.slot?"selected":""}>${i+1}</option>`).join("");}
+slotOpts();
+el("nteam").onchange=e=>{S.n=+e.target.value;S.slot=Math.min(S.slot,S.n-1);S.picks=[];slotOpts();render();};
+el("slot").onchange=e=>{S.slot=+e.target.value;render();};
+el("auto").onclick=()=>{S.auto=!S.auto;if(S.auto)runBots();render();};
+el("undo").onclick=()=>{S.picks.pop();render();};
+el("reset").onclick=()=>{S.picks=[];S.auto=false;render();};
+el("q").oninput=e=>{S.q=e.target.value;render();};
+el("posc").innerHTML=["ALL"].concat(POSO).map(p=>`<button class="chip${p==="ALL"?" on":""}" data-p="${p}">${p}</button>`).join("");
+el("syncbtn").onclick=()=>{
+  const r=syncFeed(el("syncbox").value);
+  el("synchint").innerHTML=r.ok?`<b style="color:var(--good)">${r.msg}</b> Set "You" to your seat.`
+    :`<b style="color:var(--bad)">${r.msg}</b>`;
+  if(r.ok){slotOpts();render();}
+};
+document.addEventListener("click",e=>{
+  const b=e.target.closest(".prow");
+  if(b&&!b.disabled){pick(+b.dataset.i);if(S.auto)runBots();render();return;}
+  const w=e.target.closest("[data-b]");if(w){S.base=w.dataset.b;render();return;}
+  const p=e.target.closest("[data-p]");
+  if(p){S.pos=p.dataset.p;[...el("posc").children].forEach(x=>x.className="chip"+(x===p?" on":""));render();}
+});
+document.addEventListener("input",e=>{
+  const s=e.target.closest("[data-w]");if(s){S.w[s.dataset.w]=+s.value;render();}
+});
+render();
+</script>

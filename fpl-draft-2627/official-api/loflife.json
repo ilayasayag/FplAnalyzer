@@ -1,0 +1,1027 @@
+{
+"Raya": {
+"tier": 7,
+"srank": 65,
+"pos": "GKP"
+},
+"Donnarumma": {
+"tier": 8,
+"srank": 88,
+"pos": "GKP"
+},
+"Roefs": {
+"tier": 9,
+"srank": 110,
+"pos": "GKP"
+},
+"Kinsky": {
+"tier": 10,
+"srank": 137,
+"pos": "GKP"
+},
+"Hornicek": {
+"tier": 11,
+"srank": 166,
+"pos": "GKP"
+},
+"Pickford": {
+"tier": 8,
+"srank": 89,
+"pos": "GKP"
+},
+"Kelleher": {
+"tier": 9,
+"srank": 111,
+"pos": "GKP"
+},
+"Sanchez": {
+"tier": 10,
+"srank": 138,
+"pos": "GKP"
+},
+"Rushworth": {
+"tier": 11,
+"srank": 167,
+"pos": "GKP"
+},
+"Sels": {
+"tier": 8,
+"srank": 90,
+"pos": "GKP"
+},
+"Trafford": {
+"tier": 9,
+"srank": 112,
+"pos": "GKP"
+},
+"Petrovic": {
+"tier": 10,
+"srank": 139,
+"pos": "GKP"
+},
+"Scherpen": {
+"tier": 11,
+"srank": 168,
+"pos": "GKP"
+},
+"Alisson": {
+"tier": 8,
+"srank": 91,
+"pos": "GKP"
+},
+"Lammens": {
+"tier": 9,
+"srank": 113,
+"pos": "GKP"
+},
+"Verbruggen": {
+"tier": 10,
+"srank": 140,
+"pos": "GKP"
+},
+"Tzolakis": {
+"tier": 11,
+"srank": 169,
+"pos": "GKP"
+},
+"Henderson": {
+"tier": 10,
+"srank": 141,
+"pos": "GKP"
+},
+"Leno": {
+"tier": 10,
+"srank": 142,
+"pos": "GKP"
+},
+"Gabriel": {
+"tier": 2,
+"srank": 8,
+"pos": "DEF"
+},
+"Gvardiol": {
+"tier": 3,
+"srank": 11,
+"pos": "DEF"
+},
+"Calafiori": {
+"tier": 4,
+"srank": 23,
+"pos": "DEF"
+},
+"Matheus N": {
+"tier": 5,
+"srank": 33,
+"pos": "DEF"
+},
+"Lacroix": {
+"tier": 6,
+"srank": 45,
+"pos": "DEF"
+},
+"Hill": {
+"tier": 7,
+"srank": 66,
+"pos": "DEF"
+},
+"Muharemovic": {
+"tier": 8,
+"srank": 92,
+"pos": "DEF"
+},
+"Cash": {
+"tier": 9,
+"srank": 114,
+"pos": "DEF"
+},
+"O'Brien": {
+"tier": 10,
+"srank": 143,
+"pos": "DEF"
+},
+"L Martinez": {
+"tier": 11,
+"srank": 170,
+"pos": "DEF"
+},
+"Virgil": {
+"tier": 3,
+"srank": 12,
+"pos": "DEF"
+},
+"Porro": {
+"tier": 4,
+"srank": 24,
+"pos": "DEF"
+},
+"Tarkowski": {
+"tier": 5,
+"srank": 34,
+"pos": "DEF"
+},
+"Hall": {
+"tier": 6,
+"srank": 46,
+"pos": "DEF"
+},
+"A Silva": {
+"tier": 7,
+"srank": 67,
+"pos": "DEF"
+},
+"Thiaw": {
+"tier": 8,
+"srank": 93,
+"pos": "DEF"
+},
+"Kadioglu": {
+"tier": 9,
+"srank": 115,
+"pos": "DEF"
+},
+"Canvot": {
+"tier": 10,
+"srank": 144,
+"pos": "DEF"
+},
+"Udogie": {
+"tier": 11,
+"srank": 171,
+"pos": "DEF"
+},
+"Costinha": {
+"tier": 13,
+"srank": 189,
+"pos": "DEF"
+},
+"Guehi": {
+"tier": 3,
+"srank": 13,
+"pos": "DEF"
+},
+"O'Reilly": {
+"tier": 5,
+"srank": 35,
+"pos": "DEF"
+},
+"Mosquera": {
+"tier": 6,
+"srank": 47,
+"pos": "DEF"
+},
+"Murillo": {
+"tier": 7,
+"srank": 68,
+"pos": "DEF"
+},
+"Jacquet": {
+"tier": 8,
+"srank": 94,
+"pos": "DEF"
+},
+"Hume": {
+"tier": 9,
+"srank": 116,
+"pos": "DEF"
+},
+"Maguire": {
+"tier": 10,
+"srank": 145,
+"pos": "DEF"
+},
+"R Dias": {
+"tier": 11,
+"srank": 172,
+"pos": "DEF"
+},
+"Andersen": {
+"tier": 13,
+"srank": 190,
+"pos": "DEF"
+},
+"N Williams": {
+"tier": 5,
+"srank": 36,
+"pos": "DEF"
+},
+"Livramento": {
+"tier": 6,
+"srank": 48,
+"pos": "DEF"
+},
+"Milenkovic": {
+"tier": 7,
+"srank": 69,
+"pos": "DEF"
+},
+"Palestra": {
+"tier": 8,
+"srank": 95,
+"pos": "DEF"
+},
+"R Araujo": {
+"tier": 9,
+"srank": 117,
+"pos": "DEF"
+},
+"Robinson": {
+"tier": 10,
+"srank": 146,
+"pos": "DEF"
+},
+"Lewis-Potter": {
+"tier": 11,
+"srank": 173,
+"pos": "DEF"
+},
+"Collins": {
+"tier": 13,
+"srank": 191,
+"pos": "DEF"
+},
+"Kerkez": {
+"tier": 5,
+"srank": 37,
+"pos": "DEF"
+},
+"Timber": {
+"tier": 6,
+"srank": 49,
+"pos": "DEF"
+},
+"Van Hecke": {
+"tier": 7,
+"srank": 70,
+"pos": "DEF"
+},
+"Van de Ven": {
+"tier": 8,
+"srank": 96,
+"pos": "DEF"
+},
+"Richards": {
+"tier": 9,
+"srank": 118,
+"pos": "DEF"
+},
+"Van Ejwik": {
+"tier": 10,
+"srank": 147,
+"pos": "DEF"
+},
+"Hato": {
+"tier": 11,
+"srank": 174,
+"pos": "DEF"
+},
+"Sessegnon": {
+"tier": 13,
+"srank": 192,
+"pos": "DEF"
+},
+"Truffert": {
+"tier": 5,
+"srank": 38,
+"pos": "DEF"
+},
+"Munoz": {
+"tier": 6,
+"srank": 50,
+"pos": "DEF"
+},
+"Diomande": {
+"tier": 7,
+"srank": 71,
+"pos": "DEF"
+},
+"De Cuyper": {
+"tier": 8,
+"srank": 97,
+"pos": "DEF"
+},
+"Torres": {
+"tier": 9,
+"srank": 119,
+"pos": "DEF"
+},
+"J Sanchez": {
+"tier": 10,
+"srank": 148,
+"pos": "DEF"
+},
+"Chavarria": {
+"tier": 11,
+"srank": 175,
+"pos": "DEF"
+},
+"Kayode": {
+"tier": 13,
+"srank": 193,
+"pos": "DEF"
+},
+"Aina": {
+"tier": 6,
+"srank": 51,
+"pos": "DEF"
+},
+"Branthwaite": {
+"tier": 7,
+"srank": 72,
+"pos": "DEF"
+},
+"Alderete": {
+"tier": 8,
+"srank": 98,
+"pos": "DEF"
+},
+"Mukiele": {
+"tier": 9,
+"srank": 120,
+"pos": "DEF"
+},
+"Shaw": {
+"tier": 10,
+"srank": 149,
+"pos": "DEF"
+},
+"Burn": {
+"tier": 11,
+"srank": 176,
+"pos": "DEF"
+},
+"Bogle": {
+"tier": 13,
+"srank": 194,
+"pos": "DEF"
+},
+"Mitchell": {
+"tier": 6,
+"srank": 52,
+"pos": "DEF"
+},
+"Konsa": {
+"tier": 7,
+"srank": 73,
+"pos": "DEF"
+},
+"Vuskovic": {
+"tier": 8,
+"srank": 99,
+"pos": "DEF"
+},
+"R James": {
+"tier": 9,
+"srank": 121,
+"pos": "DEF"
+},
+"Dalot": {
+"tier": 10,
+"srank": 150,
+"pos": "DEF"
+},
+"Hincapie": {
+"tier": 11,
+"srank": 177,
+"pos": "DEF"
+},
+"Ballard": {
+"tier": 13,
+"srank": 195,
+"pos": "DEF"
+},
+"Colwill": {
+"tier": 7,
+"srank": 74,
+"pos": "DEF"
+},
+"B White": {
+"tier": 8,
+"srank": 100,
+"pos": "DEF"
+},
+"Mykolenko": {
+"tier": 9,
+"srank": 122,
+"pos": "DEF"
+},
+"Maatsen": {
+"tier": 10,
+"srank": 151,
+"pos": "DEF"
+},
+"Fofana": {
+"tier": 11,
+"srank": 178,
+"pos": "DEF"
+},
+"Ait-Nouri": {
+"tier": 13,
+"srank": 196,
+"pos": "DEF"
+},
+"Frimpong": {
+"tier": 7,
+"srank": 75,
+"pos": "DEF"
+},
+"Botman": {
+"tier": 8,
+"srank": 101,
+"pos": "DEF"
+},
+"Reinildo": {
+"tier": 9,
+"srank": 123,
+"pos": "DEF"
+},
+"Robertson": {
+"tier": 10,
+"srank": 152,
+"pos": "DEF"
+},
+"B Fernandes": {
+"tier": 2,
+"srank": 2,
+"pos": "MID"
+},
+"Wirtz": {
+"tier": 3,
+"srank": 14,
+"pos": "MID"
+},
+"Foden": {
+"tier": 4,
+"srank": 25,
+"pos": "MID"
+},
+"H Wilson": {
+"tier": 5,
+"srank": 39,
+"pos": "MID"
+},
+"Gross": {
+"tier": 6,
+"srank": 53,
+"pos": "MID"
+},
+"Tzolis": {
+"tier": 7,
+"srank": 76,
+"pos": "MID"
+},
+"Tonali": {
+"tier": 8,
+"srank": 102,
+"pos": "MID"
+},
+"Cherki": {
+"tier": 9,
+"srank": 124,
+"pos": "MID"
+},
+"Hinshelwood": {
+"tier": 10,
+"srank": 153,
+"pos": "MID"
+},
+"Gallagher": {
+"tier": 11,
+"srank": 179,
+"pos": "MID"
+},
+"Mainoo": {
+"tier": 13,
+"srank": 197,
+"pos": "MID"
+},
+"Palmer": {
+"tier": 2,
+"srank": 6,
+"pos": "MID"
+},
+"Mbeumo": {
+"tier": 3,
+"srank": 15,
+"pos": "MID"
+},
+"Doku": {
+"tier": 4,
+"srank": 26,
+"pos": "MID"
+},
+"Tavernier": {
+"tier": 5,
+"srank": 40,
+"pos": "MID"
+},
+"Kudus": {
+"tier": 6,
+"srank": 54,
+"pos": "MID"
+},
+"Stach": {
+"tier": 7,
+"srank": 77,
+"pos": "MID"
+},
+"Ampadu": {
+"tier": 8,
+"srank": 103,
+"pos": "MID"
+},
+"P Neto": {
+"tier": 9,
+"srank": 125,
+"pos": "MID"
+},
+"Ngumoha": {
+"tier": 10,
+"srank": 154,
+"pos": "MID"
+},
+"Caicedo": {
+"tier": 11,
+"srank": 180,
+"pos": "MID"
+},
+"Iwobi": {
+"tier": 13,
+"srank": 198,
+"pos": "MID"
+},
+"Saka": {
+"tier": 2,
+"srank": 5,
+"pos": "MID"
+},
+"Szoboszlai": {
+"tier": 3,
+"srank": 16,
+"pos": "MID"
+},
+"Rayan": {
+"tier": 4,
+"srank": 27,
+"pos": "MID"
+},
+"Dewsbury-Hall": {
+"tier": 5,
+"srank": 41,
+"pos": "MID"
+},
+"Gakpo": {
+"tier": 6,
+"srank": 55,
+"pos": "MID"
+},
+"Tielemans": {
+"tier": 7,
+"srank": 78,
+"pos": "MID"
+},
+"Enzo": {
+"tier": 8,
+"srank": 104,
+"pos": "MID"
+},
+"Grealish": {
+"tier": 9,
+"srank": 126,
+"pos": "MID"
+},
+"Xhaka": {
+"tier": 10,
+"srank": 155,
+"pos": "MID"
+},
+"Pino": {
+"tier": 11,
+"srank": 181,
+"pos": "MID"
+},
+"Joelinton": {
+"tier": 13,
+"srank": 199,
+"pos": "MID"
+},
+"Semenyo": {
+"tier": 2,
+"srank": 7,
+"pos": "MID"
+},
+"Rogers": {
+"tier": 3,
+"srank": 17,
+"pos": "MID"
+},
+"E Anderson": {
+"tier": 4,
+"srank": 28,
+"pos": "MID"
+},
+"Ndiaye": {
+"tier": 5,
+"srank": 42,
+"pos": "MID"
+},
+"Bruno G": {
+"tier": 6,
+"srank": 56,
+"pos": "MID"
+},
+"M Fernanades": {
+"tier": 7,
+"srank": 79,
+"pos": "MID"
+},
+"Murphy": {
+"tier": 8,
+"srank": 105,
+"pos": "MID"
+},
+"MacAllister": {
+"tier": 9,
+"srank": 127,
+"pos": "MID"
+},
+"Eze": {
+"tier": 10,
+"srank": 156,
+"pos": "MID"
+},
+"J Ramsey": {
+"tier": 11,
+"srank": 182,
+"pos": "MID"
+},
+"Estevao": {
+"tier": 13,
+"srank": 200,
+"pos": "MID"
+},
+"Gibbs-White": {
+"tier": 2,
+"srank": 9,
+"pos": "MID"
+},
+"Cunha": {
+"tier": 3,
+"srank": 18,
+"pos": "MID"
+},
+"Sarr": {
+"tier": 4,
+"srank": 29,
+"pos": "MID"
+},
+"H Barnes": {
+"tier": 5,
+"srank": 43,
+"pos": "MID"
+},
+"Dango": {
+"tier": 6,
+"srank": 57,
+"pos": "MID"
+},
+"Scott": {
+"tier": 7,
+"srank": 80,
+"pos": "MID"
+},
+"Gravenberch": {
+"tier": 8,
+"srank": 106,
+"pos": "MID"
+},
+"D Gomez": {
+"tier": 9,
+"srank": 128,
+"pos": "MID"
+},
+"Garnacho": {
+"tier": 10,
+"srank": 157,
+"pos": "MID"
+},
+"Maddison": {
+"tier": 11,
+"srank": 183,
+"pos": "MID"
+},
+"Kulusevski": {
+"tier": 13,
+"srank": 201,
+"pos": "MID"
+},
+"Rice": {
+"tier": 2,
+"srank": 10,
+"pos": "MID"
+},
+"Schade": {
+"tier": 6,
+"srank": 58,
+"pos": "MID"
+},
+"M Sangare": {
+"tier": 7,
+"srank": 81,
+"pos": "MID"
+},
+"Tel": {
+"tier": 8,
+"srank": 107,
+"pos": "MID"
+},
+"Buendia": {
+"tier": 9,
+"srank": 129,
+"pos": "MID"
+},
+"V Munoz": {
+"tier": 10,
+"srank": 158,
+"pos": "MID"
+},
+"B Johnson": {
+"tier": 11,
+"srank": 184,
+"pos": "MID"
+},
+"Smith-Rowe": {
+"tier": 13,
+"srank": 202,
+"pos": "MID"
+},
+"Le Fee": {
+"tier": 6,
+"srank": 59,
+"pos": "MID"
+},
+"Garner": {
+"tier": 7,
+"srank": 82,
+"pos": "MID"
+},
+"Rohl": {
+"tier": 9,
+"srank": 130,
+"pos": "MID"
+},
+"Rashford": {
+"tier": 10,
+"srank": 159,
+"pos": "MID"
+},
+"Mitoma": {
+"tier": 11,
+"srank": 185,
+"pos": "MID"
+},
+"Barkley": {
+"tier": 13,
+"srank": 203,
+"pos": "MID"
+},
+"Odegaard": {
+"tier": 6,
+"srank": 60,
+"pos": "MID"
+},
+"Manzambi": {
+"tier": 7,
+"srank": 83,
+"pos": "MID"
+},
+"Kluivert": {
+"tier": 9,
+"srank": 131,
+"pos": "MID"
+},
+"Ndoye": {
+"tier": 10,
+"srank": 160,
+"pos": "MID"
+},
+"Elanga": {
+"tier": 11,
+"srank": 186,
+"pos": "MID"
+},
+"Bobb": {
+"tier": 13,
+"srank": 204,
+"pos": "MID"
+},
+"Haaland": {
+"tier": 1,
+"srank": 1,
+"pos": "FWD"
+},
+"Isak": {
+"tier": 2,
+"srank": 3,
+"pos": "FWD"
+},
+"Thiago": {
+"tier": 3,
+"srank": 19,
+"pos": "FWD"
+},
+"Gyokeres": {
+"tier": 4,
+"srank": 30,
+"pos": "FWD"
+},
+"Havertz": {
+"tier": 5,
+"srank": 44,
+"pos": "FWD"
+},
+"Garcia": {
+"tier": 6,
+"srank": 61,
+"pos": "FWD"
+},
+"Wood": {
+"tier": 7,
+"srank": 84,
+"pos": "FWD"
+},
+"Barry": {
+"tier": 8,
+"srank": 108,
+"pos": "FWD"
+},
+"Emersonn": {
+"tier": 9,
+"srank": 132,
+"pos": "FWD"
+},
+"Rodriguez": {
+"tier": 10,
+"srank": 161,
+"pos": "FWD"
+},
+"Zirkzee": {
+"tier": 12,
+"srank": 187,
+"pos": "FWD"
+},
+"Welbeck": {
+"tier": 13,
+"srank": 205,
+"pos": "FWD"
+},
+"Pedro": {
+"tier": 2,
+"srank": 4,
+"pos": "FWD"
+},
+"I Jesus": {
+"tier": 3,
+"srank": 20,
+"pos": "FWD"
+},
+"Brobbey": {
+"tier": 4,
+"srank": 31,
+"pos": "FWD"
+},
+"Rutter": {
+"tier": 6,
+"srank": 62,
+"pos": "FWD"
+},
+"Wissa": {
+"tier": 7,
+"srank": 85,
+"pos": "FWD"
+},
+"Osula": {
+"tier": 8,
+"srank": 109,
+"pos": "FWD"
+},
+"Mateta": {
+"tier": 9,
+"srank": 133,
+"pos": "FWD"
+},
+"Muniz": {
+"tier": 10,
+"srank": 162,
+"pos": "FWD"
+},
+"Woltemade": {
+"tier": 12,
+"srank": 188,
+"pos": "FWD"
+},
+"Calvert-Lewin": {
+"tier": 3,
+"srank": 21,
+"pos": "FWD"
+},
+"Sesko": {
+"tier": 4,
+"srank": 32,
+"pos": "FWD"
+},
+"Richarlison": {
+"tier": 6,
+"srank": 63,
+"pos": "FWD"
+},
+"Evanilson": {
+"tier": 7,
+"srank": 86,
+"pos": "FWD"
+},
+"Beto": {
+"tier": 9,
+"srank": 134,
+"pos": "FWD"
+},
+"Nmecha": {
+"tier": 10,
+"srank": 163,
+"pos": "FWD"
+},
+"Watkins": {
+"tier": 3,
+"srank": 22,
+"pos": "FWD"
+},
+"Strand Larsen": {
+"tier": 6,
+"srank": 64,
+"pos": "FWD"
+},
+"Solanke": {
+"tier": 7,
+"srank": 87,
+"pos": "FWD"
+},
+"Awoniyi": {
+"tier": 9,
+"srank": 135,
+"pos": "FWD"
+},
+"Wright": {
+"tier": 10,
+"srank": 164,
+"pos": "FWD"
+},
+"McBurnie": {
+"tier": 9,
+"srank": 136,
+"pos": "FWD"
+},
+"Simms": {
+"tier": 10,
+"srank": 165,
+"pos": "FWD"
+}
+}

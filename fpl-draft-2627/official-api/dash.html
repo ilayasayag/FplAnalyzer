@@ -1,0 +1,267 @@
+<title>Post-Draft War Room</title>
+<style>
+:root{
+ --ground:#F3F5F1;--surface:#FFFFFF;--surface2:#EAEDE7;--surface3:#DEE2DA;
+ --ink:#111820;--ink2:#3D4750;--muted:#6B7680;--rule:#D8DCD4;--rule2:#C2C8BC;
+ --gkp:#B57A0A;--def:#2C7A57;--mid:#245F9E;--fwd:#AC4058;
+ --gkpB:#F6EBD3;--defB:#DCEDE4;--midB:#DCE7F4;--fwdB:#F4DEE3;
+ --good:#2C7A57;--goodB:#DCEDE4;--warn:#8A6B14;--warnB:#F2EDDC;
+ --bad:#AC4058;--badB:#F4DEE3;--live:#1F6F4A;
+ --sh:0 1px 2px rgba(17,24,32,.06),0 10px 28px -18px rgba(17,24,32,.22);}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+ --ground:#0C1115;--surface:#141A20;--surface2:#1A2128;--surface3:#232B33;
+ --ink:#E7EBE7;--ink2:#BAC3C7;--muted:#8B979E;--rule:#242C33;--rule2:#333C44;
+ --gkp:#DFAA3E;--def:#57B98C;--mid:#6BA5DE;--fwd:#E0788E;
+ --gkpB:#2E2513;--defB:#12291F;--midB:#13212F;--fwdB:#2C161C;
+ --good:#57B98C;--goodB:#12291F;--warn:#DFAA3E;--warnB:#2A2313;
+ --bad:#E0788E;--badB:#2C161C;--live:#57B98C;
+ --sh:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);}}
+:root[data-theme="dark"]{
+ --ground:#0C1115;--surface:#141A20;--surface2:#1A2128;--surface3:#232B33;
+ --ink:#E7EBE7;--ink2:#BAC3C7;--muted:#8B979E;--rule:#242C33;--rule2:#333C44;
+ --gkp:#DFAA3E;--def:#57B98C;--mid:#6BA5DE;--fwd:#E0788E;
+ --gkpB:#2E2513;--defB:#12291F;--midB:#13212F;--fwdB:#2C161C;
+ --good:#57B98C;--goodB:#12291F;--warn:#DFAA3E;--warnB:#2A2313;
+ --bad:#E0788E;--badB:#2C161C;--live:#57B98C;
+ --sh:0 1px 2px rgba(0,0,0,.4),0 10px 28px -18px rgba(0,0,0,.8);}
+*{box-sizing:border-box}
+body{margin:0;background:var(--ground);color:var(--ink);
+ font:400 15px/1.5 "Helvetica Neue",Helvetica,Arial,sans-serif;-webkit-font-smoothing:antialiased}
+.tab{font-variant-numeric:tabular-nums}
+h1,h2,h3{margin:0;letter-spacing:-.02em}
+button{font:inherit;color:inherit;cursor:pointer;border:none;background:none}
+button:focus-visible,select:focus-visible{outline:2px solid var(--live);outline-offset:2px}
+.wrap{max-width:1400px;margin:0 auto;padding:0 18px 70px}
+header{padding:20px 0 14px;border-bottom:2px solid var(--ink);margin-bottom:16px}
+.hrow{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+h1{font-size:24px;font-weight:800}
+.sub{font-size:11px;font-weight:600;letter-spacing:.13em;text-transform:uppercase;
+ color:var(--muted);margin-top:3px}
+.sp{flex:1}
+select{background:var(--surface);color:var(--ink);border:1px solid var(--rule2);
+ padding:7px 10px;border-radius:3px;font-size:13.5px;font-weight:700;font-family:inherit}
+select option{background:var(--surface);color:var(--ink)}
+.lab{font-size:9.5px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:var(--muted)}
+.panel{background:var(--surface);border:1px solid var(--rule);box-shadow:var(--sh);
+ border-radius:4px;overflow:hidden;margin-bottom:16px}
+.ph{display:flex;align-items:baseline;gap:9px;padding:10px 14px;border-bottom:1px solid var(--rule);
+ background:var(--surface2);flex-wrap:wrap}
+.ph h3{font-size:13px;font-weight:800}
+.ph .s{font-size:10.5px;color:var(--muted);font-weight:600}
+.grid{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1.05fr);gap:16px;align-items:start}
+@media(max-width:1080px){.grid{grid-template-columns:1fr}}
+.scroll{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{font-size:9.5px;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);
+ text-align:right;padding:9px 10px;border-bottom:1.5px solid var(--rule2);white-space:nowrap}
+th:first-child,th:nth-child(2){text-align:left}
+td{padding:8px 10px;border-bottom:1px solid var(--rule);text-align:right;
+ font-variant-numeric:tabular-nums;white-space:nowrap}
+td:first-child,td:nth-child(2){text-align:left}
+tr:last-child td{border-bottom:none}
+tr.me td{background:var(--goodB)}
+tr.clik{cursor:pointer}
+tr.clik:hover td{background:var(--surface2)}
+.rk{color:var(--muted);font-weight:800;width:26px}
+.sc{display:inline-block;min-width:32px;padding:2px 6px;border-radius:2px;font-weight:800;font-size:11.5px}
+.hi{background:var(--goodB);color:var(--good)}.md{background:var(--surface3);color:var(--ink2)}
+.lo{background:var(--badB);color:var(--bad)}
+.pos{font-size:9px;font-weight:800;letter-spacing:.05em;padding:1px 5px;border-radius:2px}
+.pos.GKP{background:var(--gkpB);color:var(--gkp)}.pos.DEF{background:var(--defB);color:var(--def)}
+.pos.MID{background:var(--midB);color:var(--mid)}.pos.FWD{background:var(--fwdB);color:var(--fwd)}
+.tg{font-size:9px;font-weight:800;padding:1px 5px;border-radius:2px;white-space:nowrap;margin-left:4px}
+.tg.out{background:var(--badB);color:var(--bad)}
+.tg.doubt{background:var(--warnB);color:var(--warn)}
+.tg.xi{background:var(--good);color:#fff}
+.tg.pick{background:var(--goodB);color:var(--good)}
+.tg.rot{background:var(--warnB);color:var(--warn)}
+.tg.cont{background:var(--midB);color:var(--mid)}
+.sqgrp{padding:8px 14px;border-bottom:1px solid var(--rule)}
+.sqgrp:last-child{border-bottom:none}
+.sqh{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px}
+.sqh .t{font-size:9.5px;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.prow{display:grid;grid-template-columns:1fr auto auto;gap:9px;align-items:center;
+ padding:4px 0;font-size:13px}
+.pn{font-weight:600;display:flex;align-items:center;gap:5px;flex-wrap:wrap;min-width:0}
+.pm{font-size:10px;color:var(--muted);font-weight:600}
+.g3{font-weight:800;font-variant-numeric:tabular-nums;min-width:44px;text-align:right}
+.g3.p{color:var(--good)}.g3.n{color:var(--bad)}
+.fx{display:flex;gap:2px}
+.fxc{font-size:8.5px;font-weight:700;padding:2px 3px;border-radius:2px;min-width:32px;text-align:center}
+.d1{background:var(--goodB);color:var(--good)}.d2{background:var(--surface3);color:var(--ink2)}
+.d3{background:var(--badB);color:var(--bad)}
+.swap{display:grid;grid-template-columns:34px 1fr 1fr auto;gap:10px;align-items:center;
+ padding:9px 14px;border-bottom:1px solid var(--rule)}
+.swap:last-child{border-bottom:none}
+.swap:hover{background:var(--surface2)}
+.sarrow{font-size:10px;font-weight:800;color:var(--muted);text-align:center}
+.sdrop .pn{color:var(--bad)}
+.sadd .pn{color:var(--good)}
+.sgain{font-weight:800;color:var(--good);font-variant-numeric:tabular-nums;text-align:right}
+.meters{padding:10px 14px;display:flex;flex-direction:column;gap:8px}
+.mt{display:flex;justify-content:space-between;font-size:10.5px;font-weight:700;margin-bottom:3px}
+.track{height:5px;background:var(--surface3);border-radius:3px;overflow:hidden}
+.fill{height:100%;border-radius:3px}
+.note{font-size:11px;color:var(--muted);line-height:1.55;padding:9px 14px;border-top:1px solid var(--rule)}
+.chips{display:flex;gap:4px;padding:9px 14px;border-bottom:1px solid var(--rule);flex-wrap:wrap}
+.chip{font-size:11px;font-weight:700;padding:5px 9px;border-radius:3px;border:1px solid var(--rule2);
+ background:var(--surface)}
+.chip.on{background:var(--ink);color:var(--ground);border-color:var(--ink)}
+.plist{list-style:none;margin:0;padding:0;max-height:520px;overflow-y:auto}
+.plist li{padding:7px 14px;border-bottom:1px solid var(--rule)}
+.plist li:last-child{border-bottom:none}
+.warnbox{background:var(--warnB);border-left:3px solid var(--warn);padding:9px 14px;
+ font-size:12px;font-weight:600;color:var(--warn)}
+</style>
+
+<div class="wrap">
+<header>
+ <div class="hrow">
+  <div><h1>Post-Draft War Room</h1>
+   <div class="sub">2026/27 &middot; 8 squads &middot; half-season horizon &middot; GW1 lineups applied</div></div>
+  <div class="sp"></div>
+  <span class="lab">Your team</span>
+  <select id="team"></select>
+ </div>
+</header>
+
+<div class="panel">
+ <div class="ph"><h3>League table</h3><span class="s">every score normalised across the 8 squads &middot; click a row to inspect</span></div>
+ <div class="scroll"><table>
+  <thead><tr><th>#</th><th>Team</th><th>Formation</th><th>GW1&ndash;3 XI</th><th>Depth</th>
+   <th>Balance</th><th>Fixtures</th><th>Risk</th><th>Power</th></tr></thead>
+  <tbody id="league"></tbody></table></div>
+ <div class="note" id="lnote"></div>
+</div>
+
+<div class="grid">
+ <div>
+  <div class="panel">
+   <div class="ph"><h3 id="sqt">Squad</h3><span class="s" id="sqs"></span></div>
+   <div id="flagbox"></div>
+   <div id="squad"></div>
+   <div class="note">Green <b>XI</b> = in the strongest legal line-up for GW1&ndash;3.
+    <b>rot</b> = rotation risk: low minutes and no strong ranking to offset it.
+    <b>STARTS</b> = named in his club's projected GW1 XI &mdash; the strongest short-horizon
+   minutes signal there is. <b>bench</b> = fit but not in it.
+   Points are on a <b>half-season</b> scale (19 gameweeks), which is why an absence and the
+   opening fixtures both carry roughly double the weight they would over a full 38.</div>
+  </div>
+  <div class="panel">
+   <div class="ph"><h3>Squad scores</h3><span class="s">vs the other 7</span></div>
+   <div class="meters" id="meters"></div>
+  </div>
+ </div>
+
+ <div>
+  <div class="panel">
+   <div class="ph"><h3>Waiver targets</h3><span class="s" id="swt"></span></div>
+   <div id="swaps"></div>
+   <div class="note">Each row is a legal move: the squad stays at 15 and the position balance
+    holds. <b>Gain</b> is the improvement to your best GW1&ndash;3 line-up. Minutes and
+    points-per-game are last season's &mdash; check them before claiming a player whose
+    ranking is built on reputation rather than pitch time.</div>
+  </div>
+  <div class="panel">
+   <div class="ph"><h3>Free agents</h3><span class="s" id="fat"></span></div>
+   <div class="chips" id="fac"></div>
+   <ul class="plist" id="fa"></ul>
+  </div>
+ </div>
+</div>
+</div>
+
+<script>
+const D = __DATA__;
+const POSO=["GKP","DEF","MID","FWD"], PN={GKP:"Goalkeepers",DEF:"Defenders",MID:"Midfielders",FWD:"Forwards"};
+let cur=0, fapos="ALL";
+const el=i=>document.getElementById(i);
+const sgn=v=>{const r=Math.round(v);return r>0?"+"+r:""+r;};
+const band=v=>v>=66?"hi":v>=33?"md":"lo";
+const fxH=c=>`<span class="fx">`+(D.fix3[c]||[]).map(f=>
+ `<span class="fxc ${f.d<2.95?"d1":f.d<3.6?"d2":"d3"}" title="GW${f.gw} v ${D.clubs[f.opp]||f.opp} ${f.ha}">${f.opp}<i>${f.ha}</i></span>`).join("")+`</span>`;
+function tags(p,showXi){
+ let s="";
+ if(p.s1) s+=`<span class="tg xi" title="In his club's projected GW1 XI">STARTS</span>`;
+ else if(p.av==="ok") s+=`<span class="tg rot" title="Not in the projected GW1 XI">bench</span>`;
+ if(showXi&&p.xi) s+=`<span class="tg pick" title="In your strongest legal XI">pick</span>`;
+ if(p.av==="out") s+=`<span class="tg out">out</span>`;
+ else if(p.av==="susp") s+=`<span class="tg out">susp</span>`;
+ else if(p.av==="doubt") s+=`<span class="tg doubt">${p.ch!=null?p.ch+"%":"doubt"}</span>`;
+ 
+ if(p.cont) s+=`<span class="tg cont">contested</span>`;
+ return s;
+}
+const meta=p=>`${D.clubs[p.c]||p.c} &middot; ${p.mins} min &middot; ${p.ppg} ppg &middot; FPL#${p.dr<9999?p.dr:"--"}`;
+
+function renderLeague(){
+ el("league").innerHTML=D.teams.map((t,i)=>`
+  <tr class="clik ${i===cur?"me":""}" data-t="${i}">
+   <td class="rk">${i+1}</td><td><b>${t.name}</b></td><td>${t.form}</td>
+   <td><span class="sc ${band(t.s_xi)}">${t.s_xi}</span></td>
+   <td><span class="sc ${band(t.s_depth)}">${t.s_depth}</span></td>
+   <td><span class="sc ${band(t.s_bal)}">${t.s_bal}</span></td>
+   <td><span class="sc ${band(t.s_fdr)}">${t.s_fdr}</span></td>
+   <td><span class="sc ${t.s_risk>60?"lo":t.s_risk<35?"hi":"md"}">${t.s_risk}</span></td>
+   <td><span class="sc ${band(t.s_total)}">${t.s_total}</span></td></tr>`).join("");
+ el("lnote").innerHTML=`<b>GW1&ndash;3 XI</b> is the strongest legal line-up (1 GK, 3&ndash;5 DEF,
+  2&ndash;5 MID, 1&ndash;3 FWD) scored on projected points above replacement, adjusted for the
+  opening three fixtures, current injury status and minutes security.
+  <b>Depth</b> counts all 15. <b>Balance</b> penalises a squad that is strong in one position and
+  hollow in another. <b>Power</b> blends them 40/20/15/15/10.
+  Everything is scored over <b>half a season</b>, so a man who is out costs twice what he would
+  across 38 games, and whether he is in his club's GW1 XI outweighs last season's minutes.`;
+}
+function renderTeam(){
+ const t=D.teams[cur];
+ el("sqt").textContent=t.name;
+ el("sqs").innerHTML=`${t.form} &middot; ${t.clubs} clubs &middot; biggest block
+  ${t.byclub.map(([c,n])=>`${c}&times;${n}`).join(", ")}`;
+ const bad=t.squad.filter(p=>p.av!=="ok");
+ el("flagbox").innerHTML=bad.length?`<div class="warnbox">Availability:
+  ${bad.map(p=>`${p.n} &mdash; ${p.av==="doubt"?(p.ch+"% fit"):p.av}${p.news?" ("+p.news+")":""}`).join(" &middot; ")}</div>`:"";
+ el("squad").innerHTML=POSO.map(pos=>{
+  const rows=t.squad.filter(p=>p.p===pos);
+  return `<div class="sqgrp"><div class="sqh"><span class="t"><span class="pos ${pos}">${pos}</span>
+   ${PN[pos]}</span><span class="t">${rows.filter(p=>p.xi).length} starting</span></div>`
+   +rows.map(p=>`<div class="prow">
+     <span><span class="pn">${p.n}${tags(p,1)}</span><span class="pm">${meta(p)}</span></span>
+     ${fxH(p.c)}<span class="g3 ${p.g3>=0?"p":"n"}">${sgn(p.g3)}</span></div>`).join("")+`</div>`;
+ }).join("");
+ const mv=(l,v,inv)=>{const c=inv?(v>60?"var(--bad)":v<35?"var(--good)":"var(--warn)")
+   :(v>=66?"var(--good)":v>=33?"var(--warn)":"var(--bad)");
+  return `<div><div class="mt"><span>${l}</span><span class="tab">${v}</span></div>
+   <div class="track"><div class="fill" style="width:${v}%;background:${c}"></div></div></div>`;};
+ el("meters").innerHTML=mv("GW1&ndash;3 starting XI",t.s_xi)+mv("Squad depth",t.s_depth)
+  +mv("Positional balance",t.s_bal)+mv("Opening fixtures",t.s_fdr)
+  +mv("Availability risk",t.s_risk,1)+mv("Total power",t.s_total);
+ el("swt").innerHTML=`${t.name} &middot; best legal add/drop for GW1&ndash;3`;
+ el("swaps").innerHTML=t.swaps.length?t.swaps.map(s=>`
+  <div class="swap">
+   <span class="pos ${s.pos}">${s.pos}</span>
+   <span class="sdrop"><span class="pn">${s.drop.n}${tags(s.drop,0)}</span>
+    <span class="pm">out &middot; ${meta(s.drop)}</span></span>
+   <span class="sadd"><span class="pn">${s.add.n}${tags(s.add,0)}</span>
+    <span class="pm">in &middot; ${meta(s.add)}</span></span>
+   <span><span class="sgain">+${s.gain.toFixed(0)}</span>${fxH(s.add.c)}</span>
+  </div>`).join(""):`<div class="note">No move improves this line-up.</div>`;
+}
+function renderFA(){
+ const list=D.fa.filter(p=>fapos==="ALL"||p.p===fapos);
+ el("fat").innerHTML=`${D.counts.fa} undrafted &middot; ranked by GW1&ndash;3 value`;
+ el("fac").innerHTML=["ALL"].concat(POSO).map(p=>
+  `<button class="chip${fapos===p?" on":""}" data-p="${p}">${p}</button>`).join("");
+ el("fa").innerHTML=list.slice(0,60).map(p=>`<li><div class="prow">
+   <span><span class="pn"><span class="pos ${p.p}">${p.p}</span>${p.n}${tags(p,0)}</span>
+    <span class="pm">${meta(p)}</span></span>
+   ${fxH(p.c)}<span class="g3 ${p.g3>=0?"p":"n"}">${sgn(p.g3)}</span></div></li>`).join("");
+}
+function render(){renderLeague();renderTeam();renderFA();el("team").value=cur;}
+el("team").innerHTML=D.teams.map((t,i)=>`<option value="${i}">${t.name}</option>`).join("");
+el("team").onchange=e=>{cur=+e.target.value;render();};
+document.addEventListener("click",e=>{
+ const r=e.target.closest("[data-t]"); if(r){cur=+r.dataset.t;render();return;}
+ const c=e.target.closest("[data-p]"); if(c){fapos=c.dataset.p;renderFA();}
+});
+render();
+</script>
